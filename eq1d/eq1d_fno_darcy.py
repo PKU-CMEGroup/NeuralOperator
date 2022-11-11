@@ -3,6 +3,9 @@ import torch
 import sys
 import numpy as np
 import math
+torch.manual_seed(0)
+np.random.seed(0)
+
 
 sys.path.append('../')
 from models import FNN1d, FNN1d_train
@@ -26,7 +29,7 @@ d_f_array = [d_f]
 n_fno_layers_array = [n_fno_layers]
 downsample_ratio_array = [downsample_ratio]
 
-n_train_repeat = 2
+n_train_repeat = 1
 
 #optimization
 epochs = 1001

@@ -38,6 +38,7 @@ class FNN1d(nn.Module):
         if layers is None:
             layers = [width] * 4
         self.pad_ratio = pad_ratio
+        self.fc_dim = fc_dim
         
         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
 
@@ -46,9 +47,14 @@ class FNN1d(nn.Module):
 
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
                                  for in_size, out_size in zip(layers, layers[1:])])
-
-        self.fc1 = nn.Linear(layers[-1], fc_dim)
-        self.fc2 = nn.Linear(fc_dim, out_dim)
+        
+        # if fc_dim = 0, we do not have nonlinear layer
+        if fc_dim > 0:
+            self.fc1 = nn.Linear(layers[-1], fc_dim)
+            self.fc2 = nn.Linear(fc_dim, out_dim) 
+        else:
+            self.fc2 = nn.Linear(layers[-1], out_dim)
+            
         self.act = _get_act(act)
 
     def forward(self, x):
@@ -82,8 +88,12 @@ class FNN1d(nn.Module):
         x = remove_padding(x, pad_nums=pad_nums)
         
         x = x.permute(0, 2, 1)
-        x = self.fc1(x)
-        x = self.act(x)
+        
+        # if fc_dim = 0, we do not have nonlinear layer
+        if self.fc_dim > 0:
+            x = self.fc1(x)
+            x = self.act(x)
+            
         x = self.fc2(x)
         
         
@@ -113,8 +123,12 @@ def FNN1d_cost(Nx, config):
             cost += df_out*Np*cost_act
             
     # project operator
-    cost += Np*fc_dim*2*layers[-1] + fc_dim*Np*cost_act + Np*out_dim*2*fc_dim 
-    
+    # if fc_dim = 0, we do not have nonlinear layer
+    if fc_dim > 0:
+        cost += Np*fc_dim*2*layers[-1] + fc_dim*Np*cost_act + Np*out_dim*2*fc_dim 
+    else:
+        cost += Np*out_dim*2*layers[-1]
+        
     return cost
     
 
@@ -217,10 +231,7 @@ def FNN1d_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO
         if (ep %10 == 0) or (ep == epochs -1):
             print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
     
-    
-    modes=config['model']['modes']
-    fc_dim=config['model']['fc_dim']
-    layers=config['model']['layers']
+
     torch.save(model, save_model_name)
     
     

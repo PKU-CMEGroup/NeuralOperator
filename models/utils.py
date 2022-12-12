@@ -40,6 +40,8 @@ def _get_act(act):
         func = F.elu_
     elif act == 'leaky_relu':
         func = F.leaky_relu_
+    elif act == 'none':
+        func = None
     else:
         raise ValueError(f'{act} is not supported')
     return func

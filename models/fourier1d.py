@@ -90,7 +90,9 @@ class FNN1d(nn.Module):
         x = x.permute(0, 2, 1)
         
         # if fc_dim = 0, we do not have nonlinear layer
-        if self.fc_dim > 0:
+        fc_dim = self.fc_dim if hasattr(self, 'fc_dim') else 1
+        
+        if fc_dim > 0:
             x = self.fc1(x)
             if self.act is not None:
                 x = self.act(x)

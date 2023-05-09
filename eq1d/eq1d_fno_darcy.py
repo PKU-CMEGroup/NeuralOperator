@@ -32,13 +32,18 @@ downsample_ratio_array = [downsample_ratio]
 n_train_repeat = 1
 
 #optimization
+#optimization
 epochs = 1001
+scheduler = "MultiStepLR"
+weight_decay = 1e-4
 base_lr = 0.001
 milestones = [200, 300, 400, 500, 800,900]
 scheduler_gamma = 0.5
-batch_size=32
-normalization = True
-dim = []
+batch_size=64
+normalization_x = True
+normalization_y = True
+normalization_dim = []
+
 
 data_analysis = np.zeros((len(n_data_array)*len(downsample_ratio_array)*len(n_fno_layers_array)*len(k_max_array)*len(d_f_array), 5+(3*epochs+1)*n_train_repeat)) 
 
@@ -80,11 +85,16 @@ for n_data in n_data_array:
 
                         
 
-                        config = {"model" : {"modes": modes, "fc_dim": fc_dim, "layers": layers, "in_dim": in_dim, "out_dim":out_dim, "act": act, "pad_ratio":pad_ratio},
-                                  "train" : {"base_lr": base_lr, "epochs": epochs, "milestones": milestones, "scheduler_gamma": scheduler_gamma, "batch_size": batch_size, 
-                                            "normalization": normalization, "dim": dim}}
+                        config = {"model" : {"modes": modes, "fc_dim": fc_dim, "layers": layers, "in_dim": in_dim,
+                                             "out_dim":out_dim, "act": act, "pad_ratio":pad_ratio},
+                                  "train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs,
+                                             "scheduler": scheduler, "milestones": milestones, 
+                                             "scheduler_gamma":scheduler_gamma, "batch_size": batch_size,
+                                             "normalization_x": normalization_x,"normalization_y": normalization_y,
+                                             "normalization_dim": normalization_dim}}
+                        
 
-                        train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost = FNN1d_train(x_train, y_train, x_test, y_test, config, save_model_name=prefix+"models/darcy_FNO_"+str(i_train_repeat)+"_"+setup_info)
+                        train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost = FNN_train(x_train, y_train, x_test, y_test, config, save_model_name=prefix+"models/darcy_FNO_"+str(i_train_repeat)+"_"+setup_info)
                         
                         data_analysis[i_data_analysis,5+i_train_repeat*(3*epochs+1):5+(i_train_repeat+1)*(3*epochs+1)] = np.hstack((train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost))
                     

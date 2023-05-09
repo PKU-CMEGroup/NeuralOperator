@@ -16,13 +16,16 @@ def add_padding(x, pad_nums):
 
 
 def remove_padding(x, pad_nums):
+    
     if x.ndim == 3: #fourier1d
-        res = x[..., :-pad_nums[0]]
+        res = x[..., :(None if pad_nums[0] == 0 else -pad_nums[0])]
+        
     elif x.ndim == 4: #fourier2d
-        res = x[..., :-pad_nums[0], :-pad_nums[1]]
+        res = x[..., :(None if pad_nums[0] == 0 else -pad_nums[0]), :(None if pad_nums[1] == 0 else -pad_nums[1])]
 
     elif x.ndim == 5: #fourier3d
-        res = x[..., :-pad_nums[0], :-pad_nums[1]:, :-pad_nums[2]]
+        res = x[..., :(None if pad_nums[0] == 0 else -pad_nums[0]), :(None if pad_nums[1] == 0 else -pad_nums[1]), :(None if pad_nums[2] == 0 else -pad_nums[2])]
+        
     else:
         print("error : x.ndim = ", x.ndim)
     

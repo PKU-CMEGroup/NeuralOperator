@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class UnitGaussianNormalizer(object):
-    def __init__(self, x, dim = 0, eps=1.0e-5):
+    def __init__(self, x, dim = [], eps=1.0e-5):
         super(UnitGaussianNormalizer, self).__init__()
 
         # x could be in shape of ntrain*n or ntrain*T*n or ntrain*n*T

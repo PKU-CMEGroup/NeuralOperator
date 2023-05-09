@@ -6,9 +6,9 @@ for n_data in 64 128 256 512 1024 2048 4096 8192 16384; do
             for n_fno_layers in 3 4 5; do
                 for downsample_ratio in 1 2 4 8; do
                
-                    scommand="sbatch --job-name=heat_n_data_${n_data}_k_max_${k_max}_d_f_${d_f}_n_fno_layers_${n_fno_layers}_downsample_ratio_${downsample_ratio}
- --output=output/heat_n_data_${n_data}_k_max_${k_max}_d_f_${d_f}_n_fno_layers_${n_fno_layers}_downsample_ratio_${downsample_ratio}.out 
-fno_heat.sbatch $n_data $k_max $d_f $n_fno_layers $downsample_ratio"
+                    scommand="sbatch --job-name=burgers_n_data_${n_data}_k_max_${k_max}_d_f_${d_f}_n_fno_layers_${n_fno_layers}_downsample_ratio_${downsample_ratio}
+ --output=output/burgers_n_data_${n_data}_k_max_${k_max}_d_f_${d_f}_n_fno_layers_${n_fno_layers}_downsample_ratio_${downsample_ratio}.out 
+fno_burgers.sbatch $n_data $k_max $d_f $n_fno_layers $downsample_ratio"
                     
                     echo "submit command: $scommand"
                     

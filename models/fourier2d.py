@@ -1,6 +1,9 @@
+import math
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from .basics import SpectralConv2d
-from .utils import _get_act
+from .utils import _get_act, add_padding, remove_padding
 
 
 class FNN2d(nn.Module):
@@ -34,6 +37,7 @@ class FNN2d(nn.Module):
         else:
             self.layers = layers
         self.pad_ratio = pad_ratio
+        self.fc_dim = fc_dim
         
         self.fc0 = nn.Linear(in_dim, layers[0])
 
@@ -44,9 +48,13 @@ class FNN2d(nn.Module):
 
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
                                  for in_size, out_size in zip(self.layers, self.layers[1:])])
-
-        self.fc1 = nn.Linear(layers[-1], fc_dim)
-        self.fc2 = nn.Linear(fc_dim, out_dim)
+        
+        if fc_dim > 0:
+            self.fc1 = nn.Linear(layers[-1], fc_dim)
+            self.fc2 = nn.Linear(fc_dim, out_dim)
+        else:
+            self.fc2 = nn.Linear(layers[-1], out_dim)
+            
         self.act = _get_act(act)
 
     def forward(self, x):
@@ -58,12 +66,13 @@ class FNN2d(nn.Module):
         '''
         length = len(self.ws)
         batchsize = x.shape[0]
-        size_x, size_y = x.shape[1], x.shape[2]
+        
 
         x = self.fc0(x)
         x = x.permute(0, 3, 1, 2)
         pad_nums = [math.floor(self.pad_ratio * x.shape[-2]), math.floor(self.pad_ratio * x.shape[-1])]
         x = add_padding(x, pad_nums=pad_nums)
+        size_x, size_y = x.shape[-2], x.shape[-1]
         
         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x)
@@ -75,7 +84,14 @@ class FNN2d(nn.Module):
         x = remove_padding(x, pad_nums=pad_nums)
         
         x = x.permute(0, 2, 3, 1)
-        x = self.fc1(x)
-        x = self.act(x)
+        
+        if self.fc_dim > 0:
+            x = self.fc1(x)
+            x = self.act(x)
+            
         x = self.fc2(x)
         return x
+
+    
+    
+    

@@ -135,107 +135,107 @@ def FNN1d_cost(Nx, config):
     return cost
     
 
-# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def FNN1d_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_model"):
-    n_train, n_test = x_train.shape[0], x_test.shape[0]
-    train_rel_l2_losses = []
-    test_rel_l2_losses = []
-    test_l2_losses =[]
-    cost = FNN1d_cost(x_train.shape[1], config)
+# # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+# def FNN1d_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_model"):
+#     n_train, n_test = x_train.shape[0], x_test.shape[0]
+#     train_rel_l2_losses = []
+#     test_rel_l2_losses = []
+#     test_l2_losses =[]
+#     cost = FNN1d_cost(x_train.shape[1], config)
     
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    normalization, dim = config["train"]["normalization"], config["train"]["dim"]
-    if normalization:
-        x_normalizer = UnitGaussianNormalizer(x_train, dim=dim)
-        x_train = x_normalizer.encode(x_train)
-        x_test = x_normalizer.encode(x_test)
-        x_normalizer.to(device)
+#     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+#     normalization, normalization_dim = config["train"]["normalization"], config["train"]["normalization_dim"]
+#     if normalization:
+#         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
+#         x_train = x_normalizer.encode(x_train)
+#         x_test = x_normalizer.encode(x_test)
+#         x_normalizer.to(device)
 
-        y_normalizer = UnitGaussianNormalizer(y_train, dim=dim)
-        y_train = y_normalizer.encode(y_train)
-        y_test = y_normalizer.encode(y_test)
-        y_normalizer.to(device)
-
-
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
-                                               batch_size=config['train']['batch_size'], shuffle=True)
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
-                                               batch_size=config['train']['batch_size'], shuffle=False)
-
-    model = FNN1d(modes=config['model']['modes'],
-                  fc_dim=config['model']['fc_dim'],
-                  layers=config['model']['layers'],
-                  in_dim=config['model']['in_dim'], 
-                  out_dim=config['model']['out_dim'],
-                  act=config['model']['act'],
-                  pad_ratio=config['model']['pad_ratio']).to(device)
-    # Load from checkpoint
-    optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
-                     lr=config['train']['base_lr'])
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=config['train']['milestones'],
-                                                     gamma=config['train']['scheduler_gamma'])
-
-    model.train()
-    myloss = LpLoss(d=1, p=2, size_average=False)
-
-    epochs = config['train']['epochs']
+#         y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
+#         y_train = y_normalizer.encode(y_train)
+#         y_test = y_normalizer.encode(y_test)
+#         y_normalizer.to(device)
 
 
-    for ep in range(epochs):
-        train_rel_l2 = 0
+#     train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+#                                                batch_size=config['train']['batch_size'], shuffle=True)
+#     test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
+#                                                batch_size=config['train']['batch_size'], shuffle=False)
 
-        model.train()
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
+#     model = FNN1d(modes=config['model']['modes'],
+#                   fc_dim=config['model']['fc_dim'],
+#                   layers=config['model']['layers'],
+#                   in_dim=config['model']['in_dim'], 
+#                   out_dim=config['model']['out_dim'],
+#                   act=config['model']['act'],
+#                   pad_ratio=config['model']['pad_ratio']).to(device)
+#     # Load from checkpoint
+#     optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
+#                      lr=config['train']['base_lr'])
+#     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+#                                                      milestones=config['train']['milestones'],
+#                                                      gamma=config['train']['scheduler_gamma'])
 
-            batch_size_ = x.shape[0]
-            optimizer.zero_grad()
-            out = model(x) #.reshape(batch_size_,  -1)
-            if normalization:
-                out = y_normalizer.decode(out)
-                y = y_normalizer.decode(y)
+#     model.train()
+#     myloss = LpLoss(d=1, p=2, size_average=False)
 
-            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
-            loss.backward()
-
-            optimizer.step()
-            train_rel_l2 += loss.item()
-
-        test_l2 = 0
-        test_rel_l2 = 0
-        with torch.no_grad():
-            for x, y in test_loader:
-                x, y = x.to(device), y.to(device)
-                batch_size_ = x.shape[0]
-                out = model(x) #.reshape(batch_size_,  -1)
-
-                if normalization:
-                    out = y_normalizer.decode(out)
-                    y = y_normalizer.decode(y)
-
-                test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-                test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+#     epochs = config['train']['epochs']
 
 
+#     for ep in range(epochs):
+#         train_rel_l2 = 0
+
+#         model.train()
+#         for x, y in train_loader:
+#             x, y = x.to(device), y.to(device)
+
+#             batch_size_ = x.shape[0]
+#             optimizer.zero_grad()
+#             out = model(x) #.reshape(batch_size_,  -1)
+#             if normalization:
+#                 out = y_normalizer.decode(out)
+#                 y = y_normalizer.decode(y)
+
+#             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+#             loss.backward()
+
+#             optimizer.step()
+#             train_rel_l2 += loss.item()
+
+#         test_l2 = 0
+#         test_rel_l2 = 0
+#         with torch.no_grad():
+#             for x, y in test_loader:
+#                 x, y = x.to(device), y.to(device)
+#                 batch_size_ = x.shape[0]
+#                 out = model(x) #.reshape(batch_size_,  -1)
+
+#                 if normalization:
+#                     out = y_normalizer.decode(out)
+#                     y = y_normalizer.decode(y)
+
+#                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+#                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 
 
-        scheduler.step()
 
-        train_rel_l2/= n_train
-        test_l2 /= n_test
-        test_rel_l2/= n_test
+
+#         scheduler.step()
+
+#         train_rel_l2/= n_train
+#         test_l2 /= n_test
+#         test_rel_l2/= n_test
         
-        train_rel_l2_losses.append(train_rel_l2)
-        test_rel_l2_losses.append(test_rel_l2)
-        test_l2_losses.append(test_l2)
+#         train_rel_l2_losses.append(train_rel_l2)
+#         test_rel_l2_losses.append(test_rel_l2)
+#         test_l2_losses.append(test_l2)
     
 
-        if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
+#         if (ep %10 == 0) or (ep == epochs -1):
+#             print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
     
 
-    torch.save(model, save_model_name)
+#     torch.save(model, save_model_name)
     
     
-    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost
+#     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost

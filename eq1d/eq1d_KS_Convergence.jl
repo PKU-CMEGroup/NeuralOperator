@@ -39,7 +39,7 @@ end
 
 
 Nes = [2^9; 2^10; 2^11]
-T_scales = [2^9; 2^10; 2^11]
+T_scales = [2^0; 2^1; 2^2; 2^3; 2^4; 2^5; 2^6; 2^7; 2^8; 2^9; 2^10; 2^11]
 Δxs = 1.0 ./ Nes
 # compute error for space and time solution
 errors = zeros(Nθ, 3, length(Nes), length(T_scales))

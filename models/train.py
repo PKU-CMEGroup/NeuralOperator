@@ -10,6 +10,8 @@ from .losses import LpLoss
 from .normalizer import UnitGaussianNormalizer
 from .fourier1d import FNN1d
 from .fourier2d import FNN2d
+from .fourier3d import FNN3d
+from .fourier4d import FNN4d
 
 
 
@@ -84,14 +86,34 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
               pad_ratio=config['model']['pad_ratio']).to(device)
         
     elif dim == 2:
-        model = FNN2d(modes2=config['model']['modes'], modes1=config['model']['modes'],
-              fc_dim=config['model']['fc_dim'],
-              layers=config['model']['layers'],
-              in_dim=config['model']['in_dim'], 
-              out_dim=config['model']['out_dim'],
-              act=config['model']['act'],
-              pad_ratio=config['model']['pad_ratio']).to(device)
+        model = FNN2d(modes1=config['model']['modes'], modes2=config['model']['modes'],
+                      fc_dim=config['model']['fc_dim'],
+                      layers=config['model']['layers'],
+                      in_dim=config['model']['in_dim'], 
+                      out_dim=config['model']['out_dim'],
+                      act=config['model']['act'],
+                      pad_ratio=config['model']['pad_ratio']).to(device)
         
+    elif dim == 3:
+        model = FNN3d(modes1=config['model']['modes'],modes2=config['model']['modes'],
+                      modes3=config['model']['modes'],
+                      fc_dim=config['model']['fc_dim'],
+                      layers=config['model']['layers'],
+                      in_dim=config['model']['in_dim'], 
+                      out_dim=config['model']['out_dim'],
+                      act=config['model']['act'],
+                      pad_ratio=config['model']['pad_ratio']).to(device)
+        
+    elif dim == 4:
+        model = FNN4d(modes1=config['model']['modes'], modes2=config['model']['modes'],
+                      modes3=config['model']['modes'], modes4=config['model']['modes'],
+                      fc_dim=config['model']['fc_dim'],
+                      layers=config['model']['layers'],
+                      in_dim=config['model']['in_dim'], 
+                      out_dim=config['model']['out_dim'],
+                      act=config['model']['act'],
+                      pad_ratio=config['model']['pad_ratio']).to(device)
+            
     else:
         print("Dim = ", dim, ", which has not been implemented.")
     

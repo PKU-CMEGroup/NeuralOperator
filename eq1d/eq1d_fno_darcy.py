@@ -8,7 +8,7 @@ np.random.seed(0)
 
 
 sys.path.append('../')
-from models import FNN1d, FNN1d_train
+from models import FNN1d, FNN_train
 prefix = "/central/groups/esm/dzhuang/cost-accuracy-data/"
 darcy_as = np.load(prefix+"darcy_a.npy")
 darcy_us_ref = np.load(prefix+"darcy_u.npy")

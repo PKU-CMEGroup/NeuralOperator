@@ -7,11 +7,10 @@ from .utils import _get_act, add_padding, remove_padding
 
 
 class FNN2d(nn.Module):
-    def __init__(self, modes1, modes2,
-                 width=64, fc_dim=128,
-                 layers=None,
+    def __init__(self, modes1, modes2, width=64, 
+                 layers=None, fc_dim=128,
                  in_dim=3, out_dim=1,
-                 act='tanh',
+                 act='gelu',
                  pad_ratio=0):
         super(FNN2d, self).__init__()
 
@@ -72,13 +71,14 @@ class FNN2d(nn.Module):
         x = x.permute(0, 3, 1, 2)
         pad_nums = [math.floor(self.pad_ratio * x.shape[-2]), math.floor(self.pad_ratio * x.shape[-1])]
         x = add_padding(x, pad_nums=pad_nums)
+        
         size_x, size_y = x.shape[-2], x.shape[-1]
         
         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x)
             x2 = w(x.view(batchsize, self.layers[i], -1)).view(batchsize, self.layers[i+1], size_x, size_y)
             x = x1 + x2
-            if i != length - 1:
+            if self.act is not None and i != length - 1:
                 x = self.act(x)
                 
         x = remove_padding(x, pad_nums=pad_nums)
@@ -87,7 +87,9 @@ class FNN2d(nn.Module):
         
         if self.fc_dim > 0:
             x = self.fc1(x)
-            x = self.act(x)
+            if self.act is not None:
+                x = self.act(x)
+      
             
         x = self.fc2(x)
         return x

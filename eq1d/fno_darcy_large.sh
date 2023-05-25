@@ -1,8 +1,8 @@
 #!/bin/sh
 
 n_data=16384;
-for k_max in 16 32 64 128; do
-    for d_f in 16 32 64 128; do
+for k_max in 4 8; do
+    for d_f in 4 8 16 32 64 128; do
         for n_fno_layers in 3 4 5; do
             for downsample_ratio in 1 2 4 8; do
 

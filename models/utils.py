@@ -9,6 +9,8 @@ def add_padding(x, pad_nums):
         res = F.pad(x, [0, pad_nums[1], 0, pad_nums[0]], 'constant', 0)
     elif x.ndim == 5: #fourier3d
         res = F.pad(x, [0, pad_nums[2], 0, pad_nums[1], 0, pad_nums[0]], 'constant', 0)
+    elif x.ndim == 6: #fourier4d
+        res = F.pad(x, [0, pad_nums[3], 0, pad_nums[2], 0, pad_nums[1], 0, pad_nums[0]], 'constant', 0)
     else:
         print("error : x.ndim = ", x.ndim)
             
@@ -25,6 +27,9 @@ def remove_padding(x, pad_nums):
 
     elif x.ndim == 5: #fourier3d
         res = x[..., :(None if pad_nums[0] == 0 else -pad_nums[0]), :(None if pad_nums[1] == 0 else -pad_nums[1]), :(None if pad_nums[2] == 0 else -pad_nums[2])]
+    
+    elif x.ndim == 6: #fourier4d
+        res = x[..., :(None if pad_nums[0] == 0 else -pad_nums[0]), :(None if pad_nums[1] == 0 else -pad_nums[1]), :(None if pad_nums[2] == 0 else -pad_nums[2]), :(None if pad_nums[3] == 0 else -pad_nums[3])]
         
     else:
         print("error : x.ndim = ", x.ndim)

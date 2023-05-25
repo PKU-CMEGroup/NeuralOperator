@@ -61,6 +61,7 @@ normalization_dim = [0]
 
 data_analysis = np.zeros((len(n_data_array)*len(downsample_ratio_array)*len(n_fno_layers_array)*len(k_max_array)*len(d_f_array), 5+(3*epochs+1)*n_train_repeat)) 
 
+GRID_OR_NOT = False
 
 L, Ne_ref = 100.0, 2**11
 n_test = 2048
@@ -82,10 +83,20 @@ for n_data in n_data_array:
          
                         n_train = n_data
                          
-                        x_train = torch.from_numpy(np.stack((KS_input[0:n_train, 0::downsample_ratio], np.tile(grid, (n_train,1))), axis=-1).astype(np.float32))
+                        
+                        if GRID_OR_NOT:
+                            x_train = torch.from_numpy(np.stack((KS_input[0:n_train, 0::downsample_ratio], np.tile(grid, (n_train,1))), axis=-1).astype(np.float32))
+                            x_test = torch.from_numpy(np.stack((KS_input[-n_test:, 0::downsample_ratio], np.tile(grid, (n_test,1))), axis=-1).astype(np.float32))
+                            in_dim = 2
+                        else:
+                            x_train = torch.from_numpy(KS_input[0:n_train, 0::downsample_ratio, np.newaxis].astype(np.float32))
+                            x_test = torch.from_numpy(KS_input[-n_test:, 0::downsample_ratio, np.newaxis].astype(np.float32))
+                            in_dim = 1
+    
+                        #x_train = torch.from_numpy(np.stack((KS_input[0:n_train, 0::downsample_ratio], np.tile(grid, (n_train,1))), axis=-1).astype(np.float32))
                         y_train = torch.from_numpy(KS_output[0:n_train, 0::downsample_ratio, np.newaxis].astype(np.float32))
                         # x_train, y_train are [n_data, n_x, n_channel] arrays
-                        x_test = torch.from_numpy(np.stack((KS_input[-n_test:, 0::downsample_ratio], np.tile(grid, (n_test,1))), axis=-1).astype(np.float32))
+                        #x_test = torch.from_numpy(np.stack((KS_input[-n_test:, 0::downsample_ratio], np.tile(grid, (n_test,1))), axis=-1).astype(np.float32))
                         y_test = torch.from_numpy(KS_output[-n_test:, 0::downsample_ratio, np.newaxis].astype(np.float32))
                         # x_test, y_test are [n_data, n_x, n_channel] arrays
 
@@ -96,7 +107,6 @@ for n_data in n_data_array:
                         # channel d_f
                         layers = [d_f] * (n_fno_layers + 1)
                         fc_dim = d_f
-                        in_dim = 2
                         out_dim = 1
                         act = "gelu"
                         pad_ratio = 0.05

@@ -58,7 +58,8 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
     
     cost = FNN_cost(x_train.shape[1], config, dim)
     
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
@@ -77,7 +78,8 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
     test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     if dim == 1:
-        model = FNN1d(modes=config['model']['modes'],
+        modes1 = (config['model']['modes1'] if 'modes1' in config['model'].keys() else config['model']['modes'])
+        model = FNN1d(modes=modes1,
               fc_dim=config['model']['fc_dim'],
               layers=config['model']['layers'],
               in_dim=config['model']['in_dim'], 
@@ -86,7 +88,10 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
               pad_ratio=config['model']['pad_ratio']).to(device)
         
     elif dim == 2:
-        model = FNN2d(modes1=config['model']['modes'], modes2=config['model']['modes'],
+        modes1 = (config['model']['modes1'] if 'modes1' in config['model'].keys() else config['model']['modes'])
+        modes2 = (config['model']['modes2'] if 'modes2' in config['model'].keys() else config['model']['modes'])
+        
+        model = FNN2d(modes1=modes1, modes2=modes2,
                       fc_dim=config['model']['fc_dim'],
                       layers=config['model']['layers'],
                       in_dim=config['model']['in_dim'], 
@@ -95,8 +100,12 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
                       pad_ratio=config['model']['pad_ratio']).to(device)
         
     elif dim == 3:
-        model = FNN3d(modes1=config['model']['modes'],modes2=config['model']['modes'],
-                      modes3=config['model']['modes'],
+        modes1 = (config['model']['modes1'] if 'modes1' in config['model'].keys() else config['model']['modes'])
+        modes2 = (config['model']['modes2'] if 'modes2' in config['model'].keys() else config['model']['modes'])
+        modes3 = (config['model']['modes3'] if 'modes3' in config['model'].keys() else config['model']['modes'])
+        
+        model = FNN3d(modes1=modes1, modes2=modes2,
+                      modes3=modes3,
                       fc_dim=config['model']['fc_dim'],
                       layers=config['model']['layers'],
                       in_dim=config['model']['in_dim'], 
@@ -105,8 +114,13 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
                       pad_ratio=config['model']['pad_ratio']).to(device)
         
     elif dim == 4:
-        model = FNN4d(modes1=config['model']['modes'], modes2=config['model']['modes'],
-                      modes3=config['model']['modes'], modes4=config['model']['modes'],
+        modes1 = (config['model']['modes1'] if 'modes1' in config['model'].keys() else config['model']['modes'])
+        modes2 = (config['model']['modes2'] if 'modes2' in config['model'].keys() else config['model']['modes'])
+        modes3 = (config['model']['modes3'] if 'modes3' in config['model'].keys() else config['model']['modes'])
+        modes4 = (config['model']['modes4'] if 'modes4' in config['model'].keys() else config['model']['modes'])
+        
+        model = FNN4d(modes1=modes1, modes2=modes2,
+                      modes3=modes3, modes4=modes4,
                       fc_dim=config['model']['fc_dim'],
                       layers=config['model']['layers'],
                       in_dim=config['model']['in_dim'], 
@@ -191,9 +205,7 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
 
         if (ep %10 == 0) or (ep == epochs -1):
             print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
-    
-
-    torch.save(model, save_model_name)
+            torch.save(model, save_model_name)
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost

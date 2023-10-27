@@ -3,7 +3,7 @@ from .fourier1d import FNN1d
 from .fourier2d import FNN2d
 from .fourier3d import FNN3d
 from .fourier4d import FNN4d
-from .train import FNN_train, FNN_cost
+from .train import FNN_train, FNN_cost, count_params
 
 from .adam import Adam
 from .losses import LpLoss

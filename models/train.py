@@ -2,6 +2,8 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import operator
+from functools import reduce
 from .basics import SpectralConv1d
 from .utils import _get_act, add_padding, remove_padding
 
@@ -13,7 +15,12 @@ from .fourier2d import FNN2d
 from .fourier3d import FNN3d
 from .fourier4d import FNN4d
 
-
+def count_params(model):
+    c = 0
+    for p in list(model.parameters()):
+        c += reduce(operator.mul, 
+                    list(p.size()+(2,) if p.is_complex() else p.size()))
+    return c
 
 def FNN_cost(Nx, config, dim):
     pad_ratio = config['model']['pad_ratio']

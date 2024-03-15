@@ -6,13 +6,13 @@ from scipy.stats import truncnorm
 
 
 class Membrane:
-    def __init__(self, element_type):
+    def __init__(self, element_type, X_l, X_r, ur_r, Nr):
 
         '''
         ^ z
         |
         ---------------------  > r
-        domain [0, L], 1 dim, each node has 2 freedom ur, uz
+        domain [X_l, X_r], 1 dim, each node has 2 freedom ur, uz
         Fix the left node ur = 0, and fix the z displacement of the right node uz = 0 , ur = self.end_disp_r
         Uniform conservative or noconservertive pressure load is applied
         Globally, elements or nodes are numbered from bottom to top and from left to right,
@@ -44,7 +44,7 @@ class Membrane:
         '''
 
         self.element_type = element_type
-        self.set_para()
+        self.set_para(X_l, X_r, ur_r, Nr)
         self.mesh_gen()
         self.boundary_cond()
 
@@ -60,7 +60,7 @@ class Membrane:
         nNodesElement = self.nNodesElement
         Coord = self.Coord
         IEN = self.IEN
-
+        X_l = self.X_l
 
         nEquations = self.nEquations
         LM = self.LM
@@ -74,10 +74,10 @@ class Membrane:
                 # Get the R coordinate
                 r = Coord[IEN[n, e], 0]
 
-                # Set the radial dof to be R / L * g, L = 1
+                # Initialize the radial dof uniformly
                 # g = Params.endDispR
                 if (LM[2 * n, e] != -1): ## warning depends on langrage, python -1, matlab 0
-                   d[LM[2 * n, e]] = r * self.end_disp_r
+                   d[LM[2 * n, e]] = (r -  X_l) * self.end_disp_r
 
         # Total number of iteration
         TotalIteration = math.ceil(self.final_pressure / 0.1) + 1
@@ -131,19 +131,19 @@ class Membrane:
 
 
 
-    def set_para(self):
+    def set_para(self, X_l, X_r, ur_r, Nr):
 
         self.nDim = 1
         self.nDoF = 2
 
-        # Radius of the membrane i.e.(0 < r < L)
-        self.L = 1.0
-
+        # Radius of the membrane i.e.(X_l < r < L)
+        self.X_r = X_r
+        self.X_l = X_l
         # fired r-displacement of the end node i.e.(r = L)
-        self.end_disp_r = 0.1
+        self.end_disp_r = ur_r
 
         # Number of elements along r-axis
-        self.Nr = 100
+        self.Nr = Nr
 
 
 
@@ -185,14 +185,14 @@ class Membrane:
         :param N: [Nr, Ny], Nr and Ny element in each direction
         :return:
         '''
-        L = self.L
         Nr = self.Nr
+        X_l, X_r = self.X_l, self.X_r
 
         self.nNodesElement = 2
         self.nElements = Nr
         self.nNodes = Nr + 1
 
-        R = np.linspace(0,L, num = Nr + 1)
+        R = np.linspace(X_l, X_r, num = Nr + 1)
         Z = np.zeros(Nr + 1)
 
         self.Coord = np.vstack((R, Z)).T
@@ -221,7 +221,7 @@ class Membrane:
         nNodes = self.nNodes
         nDoF = self.nDoF
         Nr = self.Nr
-        L = self.L
+        X_l, X_r = self.X_l, self.X_r
 
         X, Y = Coord[:,0], Coord[:,1]
         tol = 1.0e-8
@@ -239,13 +239,13 @@ class Membrane:
 
         #clap all 4 edges
         for ir in range(Nr + 1):
-            #Case If at r = 0, set ur = 0
-            if abs(X[ir]) < tol:
+            #Case If at r = X_l, set ur = 0
+            if abs(X[ir] - X_l) < tol:
                 EBC[ir, 0] = 1
                 g[ir, 0] = 0.
 
-            # Case If at r = L, set uz = 0, ur = end_disp_r
-            if abs(X[ir]- L) < tol:
+            # Case If at r = X_r, set uz = 0, ur = end_disp_r
+            if abs(X[ir]- X_r) < tol:
                 EBC[ir, 0] = 1
                 g[ir, 0] = self.end_disp_r
                 EBC[ir, 1] = 1
@@ -323,8 +323,6 @@ class Membrane:
             PI = PI[I]
 
             # Step 3d: Insert k_e, f_e, f_g, f_h
-            #print('p_e: ', p_e[I])
-            #print('P: ', P)
             K[np.ix_(PI, PI)] += k_e[np.ix_(I, I)]
             P[PI] += p_e[I]
             F[PI] += f_e[I] + f_g[I] + f_h[I]
@@ -336,7 +334,7 @@ class Membrane:
         '''
         The constitutive law of the incompressible axisymmetric membrane
         Its energy function is defined on the undeformed domain,
-              W = int_0^L W(lambda_1, lambda_2) 2 pi R(x) T(x) dx + V
+              W = int_X_l^X_r W(lambda_1, lambda_2) 2 pi R(x) T(x) dx + V
         here T(x) is the initial thickness and R(x) is the radius
         W is the potential function, depends on the principle stretches lambda_1, lambda_2, and lambda_3,
         The incompressibility is lambda_1*lambda_2*lambda_3 = 1
@@ -364,7 +362,7 @@ class Membrane:
         for i in range(n_points):
             '''
             For P we need dW:
-            dW = int_0^L dW(lambda_1, lambda_2) 2 pi R(x) T(x) dx + V
+            dW = int_X_l^X_r dW(lambda_1, lambda_2) 2 pi R(x) T(x) dx + V
                = loop each element:   sum_e int_e dW(lambda_1, lambda_2) 2 pi R(x) T(x) dx
             On each element: the parent element Pe is -1 <= xi <= 1
             int_e dW(lambda_1, lambda_2) 2 pi R(x) T dx
@@ -376,7 +374,7 @@ class Membrane:
             Ba = dlambda_1/dur_0, dlambda_1/duz_0, dlambda_1/dur_1, dlambda_1/duz_1
                  dlambda_2/dur_0, dlambda_2/duz_0, dlambda_2/dur_1, dlambda_2/duz_1
             For K we need ddW:
-            dW = int_0^L ddW(lambda_1, lambda_2) 2 pi R(x) T(x) dx + V
+            dW = int_X_l^X_r ddW(lambda_1, lambda_2) 2 pi R(x) T(x) dx + V
                = loop each element:   sum_e int_e ddW(lambda_1, lambda_2) 2 pi R(x) T(x) dx
             On each element: the parent element Pe is -1 <= xi <= 1
             int_e dW(lambda_1, lambda_2) 2 pi R(x) T dx
@@ -572,23 +570,28 @@ if __name__ == '__main__':
 
     elif data == 'test':
         element_type = "Mooney_Rivlin_Hyperelastic_Random"
-        #element_type = "AxisymmetricMembranePressure"
-        model = Membrane(element_type)
+        X_l, X_r, ur_r, Nr = 0.2, 1.0, 0.1, 100
+        model = Membrane(element_type, X_l, X_r, ur_r, Nr)
 
-        TEST_NUM = 4
+        
+        #P_arrays = np.array([[2.2, 4.2, 6.2, 8.2]])
+        P_arrays = np.array([2.2, 4.2, 6.2, 8.2])
+        TEST_NUM = len(P_arrays)
+        
 
-        d_arrays = np.empty((model.nEquations, TEST_NUM))
-        P_arrays = np.array([[2.2, 4.2, 6.2, 8.2]])
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 
         for test_id in range(TEST_NUM):
-            model.final_pressure = P_arrays[0, test_id]
+
+            model.final_pressure = P_arrays[test_id]
 
             print('Pressure is ', model.final_pressure)
 
             u, d = model.solve()
 
-            d_arrays[:, test_id] = d
+            x = model.Coord + u
 
+            ax.plot(x[:,0], x[:,1], label="P = %2f" %(model.final_pressure))
 
-        np.savetxt('u_100.txt', d_arrays, delimiter=',')
-        np.savetxt('P_100.txt', P_arrays, delimiter=',')
+        ax.legend()
+        fig.savefig("Membrane_shape.png")

@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import math
 import matplotlib.pyplot as plt
@@ -6,7 +7,7 @@ from scipy.stats import truncnorm
 
 
 class Membrane:
-    def __init__(self, element_type, X_l, X_r, ur_r, Nr):
+    def __init__(self, element_type, Coord, ur_r, density, alpha, pressure_load):
 
         '''
         ^ z
@@ -44,14 +45,92 @@ class Membrane:
         '''
 
         self.element_type = element_type
-        self.set_para(X_l, X_r, ur_r, Nr)
-        self.mesh_gen()
+        self.set_para(Coord, ur_r, density, alpha, pressure_load)
+        self.mesh_gen(Coord)
         self.boundary_cond()
 
         self.nEquations = (self.EBC == 0).sum()
 
 
-    def solve(self):
+    # def solve(self):
+    #     '''
+    #     solve for M ddot{d} = F
+    #     :return:
+    #     '''
+    #     nElements = self.nElements
+    #     nNodesElement = self.nNodesElement
+    #     Coord = self.Coord
+    #     IEN = self.IEN
+    #     X_l = self.X_l
+
+    #     nEquations = self.nEquations
+    #     LM = self.LM
+
+    #     element_type = self.element_type
+
+    #     # d is the displacement on nodes
+    #     d = np.zeros(nEquations)
+    #     for e in range(nElements):
+    #         for n in range(nNodesElement):
+    #             # Get the R coordinate
+    #             r = Coord[IEN[n, e], 0]
+
+    #             # Initialize the radial dof uniformly
+    #             # g = Params.endDispR
+    #             if (LM[2 * n, e] != -1): ## warning depends on langrage, python -1, matlab 0
+    #                d[LM[2 * n, e]] = (r -  X_l) * self.end_disp_r
+
+    #     # Total number of iteration
+    #     TotalIteration = math.ceil(self.pressure_load / 0.01) + 1
+
+    #     # inner loop residual requirement
+    #     eps = 1e-6
+
+    #     # Inner loop maximal iteration step
+    #     MaxIterstep = 100
+
+    #     for Iterstep in range(0,TotalIteration + 1):
+
+    #         self.current_pressure = Iterstep / TotalIteration * self.pressure_load
+
+    #         # Newton's method
+    #         NewtonIterstep = 0
+
+    #         subiter_converge = False
+    #         while not subiter_converge:
+
+    #             NewtonIterstep = NewtonIterstep + 1
+
+    #             [M, K, P, F] = self.assembly(element_type, d)
+
+    #             RHS = F - P
+
+    #             delta_d = np.linalg.solve(K, RHS)
+
+    #             d = d + delta_d
+
+    #             if (np.linalg.norm(RHS) < eps or NewtonIterstep > MaxIterstep):
+    #                 if NewtonIterstep > MaxIterstep:
+    #                     print('Newton iteration cannot converge')
+    #                 subiter_converge = True
+    #                 #print('displacement vector is ', d, ' ||d|| is ', np.linalg.norm(d))
+
+    #     #convert to all freedom results
+    #     nNodes = self.nNodes
+    #     nDoF = self.nDoF
+    #     EBC = self.EBC
+    #     ID = self.ID
+    #     g = self.g
+    #     u = np.zeros((nNodes, nDoF))
+    #     I = (EBC == 0)
+    #     u[I] = d[ID[I]]
+    #     u[~I] = g[~I]
+    #     print(u)
+    #     return u, d
+
+
+    
+    def solve(self, problem_type, TotalIteration, T):
         '''
         solve for M ddot{d} = F
         :return:
@@ -78,19 +157,114 @@ class Membrane:
                 # g = Params.endDispR
                 if (LM[2 * n, e] != -1): ## warning depends on langrage, python -1, matlab 0
                    d[LM[2 * n, e]] = (r -  X_l) * self.end_disp_r
+        
+        
 
-        # Total number of iteration
-        TotalIteration = math.ceil(self.final_pressure / 0.1) + 1
+        if problem_type == "Unsteady":
+            v, a = np.zeros(nEquations), np.zeros(nEquations)
+            d_arr, v_arr, a_arr = self.generalized_alpha_solve(d, v, a, T, TotalIteration)
+        elif problem_type == "Steady":
+            d_arr = self.steady_solve(d, MinTotalIteration=TotalIteration)
+        else:
+            print("problem_type = ", problem_type, " has not been implemented")
 
+        #convert to all freedom results
+        nNodes = self.nNodes
+        nDoF = self.nDoF
+        EBC = self.EBC
+        ID = self.ID
+        g = self.g
+        u_arr = np.zeros((TotalIteration+1, nNodes, nDoF))
+        I = (EBC == 0)
+        for i in range(TotalIteration+1):
+            u_arr[i, I] = d_arr[i, ID[I]]
+            u_arr[i, ~I] = g[~I]
+        return u_arr, d_arr
+        
+    def generalized_alpha_solve(self, d, v, a, T, TotalIteration, rho=0.0, maxiterstep=10, eps=1e-8):
+        nEquations = self.nEquations
+        d_arr = np.zeros((TotalIteration+1, nEquations)) ; d_arr[0,:] = d
+        v_arr = np.zeros((TotalIteration+1, nEquations)) ; v_arr[0,:] = v
+        a_arr = np.zeros((TotalIteration+1, nEquations)) ; a_arr[0,:] = a
+        dt = T/TotalIteration
+
+        for i in range(1,TotalIteration+1):
+            d, v, a = self.generalized_alpha_solve_update(d, v, a, dt, rho=rho, maxiterstep=maxiterstep, eps=eps)
+            d_arr[i,:], v_arr[i,:], a_arr[i,:] = d , v, a
+            
+        return d_arr, v_arr, a_arr
+    
+
+    def generalized_alpha_solve_update(self, d, v, a, dt, rho=0.0, maxiterstep=10, eps=1e-8):
+        '''
+        solve for M ddot{d} + F^int(d,v,a) = F^ext(d,v,a)
+        :return:
+        '''        
+        alpha_m = (2*rho-1)/(1+rho)
+        alpha_f = rho/(1+rho)
+        
+        
+        beta2 = 0.5*(1 - alpha_m + alpha_f)**2
+        gamma = 0.5 - alpha_m + alpha_f
+        
         # inner loop residual requirement
-        eps = 1e-6
+        an = np.copy(a)
+        self.current_pressure = self.pressure_load
+        norm0 = np.inf
+        Newtoniterstep, Newtonconverge = 0, False
+        eta = 1.0
+        while not Newtonconverge:
+        
+            Newtoniterstep += 1
 
-        # Inner loop maximal iteration step
-        MaxIterstep = 100
+            dn = (1 - alpha_f)*(d + dt*v + 0.5 * dt**2 * ((1 - beta2)*a + beta2*an)) + alpha_f*d
+            vn = (1 - alpha_f)*(v + dt * ((1 - gamma)*a + gamma*an)) + alpha_f*v
+            [M, K, P, F] = self.assembly(element_type, dn)
+            res = np.dot(M , an *(1 - alpha_m) + alpha_m*a)  + P - F
+            if Newtoniterstep==1:
+                res0 = res 
+ 
+            A = M*(1 - alpha_m) + (1 - alpha_f) * 0.5 * beta2 * dt**2 * K
+            da = np.linalg.solve(A,res)
 
-        for Iterstep in range(0,TotalIteration + 1):
 
-            self.current_pressure = Iterstep / TotalIteration * self.final_pressure
+            while eta * np.linalg.norm(da) > norm0:
+                eta /= 2.0
+                print("reduce eta to ", eta)
+            
+            an -= eta*da
+
+            if maxiterstep==1:
+                break
+     
+            if (np.linalg.norm(res)< eps or np.linalg.norm(res)< eps*np.linalg.norm(res0) or Newtoniterstep > maxiterstep):
+                if Newtoniterstep > maxiterstep:
+                    print("Newton iteration cannot converge $(norm(res))")
+                    Newtonconverge = True
+                else:
+                    Newtonconverge = True
+            eta = min(1.0, 2*eta)
+            norm0 = np.linalg.norm(da)
+
+        dn = d + dt * v + dt**2/2 * ((1 - beta2) * a + beta2 * an)
+        vn = v + dt * ((1 - gamma) * a + gamma * an)
+
+        return dn, vn, an
+
+    def steady_solve(self, d, MinTotalIteration=100, p_incr=0.05, maxiterstep=100, eps=1e-8):
+        '''
+        solve for P = F
+        :return:
+        '''
+        # Total number of iteration
+        TotalIteration = max(math.ceil(self.pressure_load / p_incr) + 1, MinTotalIteration)
+
+        d_arr = np.zeros((TotalIteration+1, self.nEquations))
+        d_arr[0,:] = d
+
+        for Iterstep in range(1,TotalIteration+1):
+
+            self.current_pressure = Iterstep / TotalIteration * self.pressure_load
 
             # Newton's method
             NewtonIterstep = 0
@@ -100,7 +274,7 @@ class Membrane:
 
                 NewtonIterstep = NewtonIterstep + 1
 
-                [K, P, F] = self.assembly(element_type, d)
+                [M, K, P, F] = self.assembly(element_type, d)
 
                 RHS = F - P
 
@@ -108,67 +282,42 @@ class Membrane:
 
                 d = d + delta_d
 
-                if (np.linalg.norm(RHS) < eps or NewtonIterstep > MaxIterstep):
-                    if NewtonIterstep > MaxIterstep:
+                if (np.linalg.norm(RHS) < eps or NewtonIterstep > maxiterstep):
+                    if NewtonIterstep > maxiterstep:
                         print('Newton iteration cannot converge')
                     subiter_converge = True
-                    #print('displacement vector is ', d, ' ||d|| is ', np.linalg.norm(d))
 
-        #convert to all freedom results
-        nNodes = self.nNodes
-        nDoF = self.nDoF
-        EBC = self.EBC
-        ID = self.ID
-        g = self.g
-        u = np.zeros((nNodes, nDoF))
-        I = (EBC == 0)
-        u[I] = d[ID[I]]
-        u[~I] = g[~I]
+            d_arr[Iterstep,:] = d
 
-        return u, d
+        return d_arr
+    
 
-
-
-
-
-    def set_para(self, X_l, X_r, ur_r, Nr):
+    def set_para(self, Coord, ur_r, density, alpha, pressure_load):
 
         self.nDim = 1
         self.nDoF = 2
 
         # Radius of the membrane i.e.(X_l < r < L)
-        self.X_r = X_r
-        self.X_l = X_l
+        self.X_l = Coord[0, 0]
+        self.X_r = Coord[-1, 0]
+        
         # fired r-displacement of the end node i.e.(r = L)
         self.end_disp_r = ur_r
 
-        # Number of elements along r-axis
-        self.Nr = Nr
+        # Number of elements 
+        self.Nr = Coord.shape[0]-1
 
 
 
         # final pressure load
-        self.final_pressure = 10.0
+        self.pressure_load = pressure_load
+        self.current_pressure = pressure_load
         # pressure load type
         self.Pressure_Conservative = False
 
-
         #material property
-        self.alpha = np.zeros(self.Nr) + 0.1
-
-        if self.element_type == "Mooney_Rivlin_Hyperelastic_Random":
-
-            sd = 0.01
-
-            print('random material with sd = ', sd)
-
-            n_alpha = 3
-            m_alpha = self.Nr//n_alpha
-
-            d_alpha = np.array([-0.2, 0.8, -0.7, 0.6])*sd
-
-            for i in range(n_alpha):
-                self.alpha[i*m_alpha: (i + 1)*m_alpha] += np.linspace(d_alpha[i], d_alpha[i+1], m_alpha, endpoint=False)
+        self.density = density
+        self.alpha = alpha
 
 
 
@@ -177,8 +326,7 @@ class Membrane:
 
 
 
-
-    def mesh_gen(self):
+    def mesh_gen(self, Coord):
         '''
         :param n_dim: 2
         :param geom: [Lx, Ly] computational domain is [0,Lx] [0,Ly]
@@ -192,10 +340,7 @@ class Membrane:
         self.nElements = Nr
         self.nNodes = Nr + 1
 
-        R = np.linspace(X_l, X_r, num = Nr + 1)
-        Z = np.zeros(Nr + 1)
-
-        self.Coord = np.vstack((R, Z)).T
+        self.Coord = Coord
 
         # construct  element nodes array
         # IEN(i,e) is the global node id of element e's node i
@@ -226,8 +371,6 @@ class Membrane:
         X, Y = Coord[:,0], Coord[:,1]
         tol = 1.0e-8
 
-
-
         g = np.zeros((nNodes, nDoF))
         EBC = np.zeros((nNodes, nDoF))
 
@@ -237,26 +380,25 @@ class Membrane:
         EBC = nNodes by nDoF matrir, 1 if the DOF of the Node is on the Essential B.C.
         '''
 
-        #clap all 4 edges
+        
         for ir in range(Nr + 1):
             #Case If at r = X_l, set ur = 0
             if abs(X[ir] - X_l) < tol:
+                print("set left boundary condition: ", ir)
                 EBC[ir, 0] = 1
                 g[ir, 0] = 0.
 
             # Case If at r = X_r, set uz = 0, ur = end_disp_r
             if abs(X[ir]- X_r) < tol:
+                print("set right boundary condition: ", ir)
                 EBC[ir, 0] = 1
                 g[ir, 0] = self.end_disp_r
                 EBC[ir, 1] = 1
                 g[ir, 1] = 0.
 
 
-
         self.EBC = EBC
-
         self.g = g
-
 
 
         # construct destination array
@@ -291,6 +433,7 @@ class Membrane:
 
 
         #Allocate K and F
+        M = np.zeros((nEquations, nEquations))
         K = np.zeros((nEquations, nEquations))
         P = np.zeros(nEquations)
         F = np.zeros(nEquations)
@@ -311,7 +454,7 @@ class Membrane:
             d_e[I] = d[PI]
 
 
-            k_e, p_e, f_e = self.constitutive_law(e, d_e)
+            m_e, k_e, p_e, f_e = self.constitutive_law(e, d_e)
             f_g = np.zeros(nNodesElement * nDoF)
             f_h = np.zeros(nNodesElement * nDoF)
 
@@ -322,12 +465,13 @@ class Membrane:
             I = (PI >= 0)
             PI = PI[I]
 
-            # Step 3d: Insert k_e, f_e, f_g, f_h
+            # Step 3d: Insert m_e, k_e, f_e, f_g, f_h
+            M[np.ix_(PI, PI)] += m_e[np.ix_(I, I)]
             K[np.ix_(PI, PI)] += k_e[np.ix_(I, I)]
             P[PI] += p_e[I]
             F[PI] += f_e[I] + f_g[I] + f_h[I]
 
-        return K, P, F
+        return M, K, P, F
 
 
     def constitutive_law(self, e, d_e):
@@ -338,7 +482,7 @@ class Membrane:
         here T(x) is the initial thickness and R(x) is the radius
         W is the potential function, depends on the principle stretches lambda_1, lambda_2, and lambda_3,
         The incompressibility is lambda_1*lambda_2*lambda_3 = 1
-        here lambda_1 = ds*/ds = sqrt(dz^2 + dr^2)/sqrt(dZ^2 + dR^2) , the length stretch ;
+        here lambda_1 = ds*/ds = sqrt(dz**2 + dr**2)/sqrt(dZ**2 + dR**2) , the length stretch ;
              lambda_2 = 2 pi r/ 2 pi R, the radius stretch ;
              lambda_3 = t / T, the thickness stretch .
         V is the external force potential
@@ -348,10 +492,11 @@ class Membrane:
         '''
         nNodesElement = self.nNodesElement
         nDoF = self.nDoF
+        m_e = np.zeros([nNodesElement * nDoF, nNodesElement * nDoF])
         k_e = np.zeros([nNodesElement * nDoF, nNodesElement * nDoF])
         p_e = np.zeros(nNodesElement * nDoF)
         f_e = np.zeros(nNodesElement * nDoF)
-
+        
 
         n_points = 3
         [xi, w] = gaussian_quad(n_points)
@@ -386,12 +531,14 @@ class Membrane:
             P1 ddlambda_1 + P2 ddlambda_2 = du [P1 ddlambda_1/ddu  + P2 ddlambda_2/ddu] du
                                           = du  P1 ddlambda_1/ddu du
             [dlambda_1, dlambda_2] ddW [dlambda_1 + dP2 dlambda_2].T = du Ba.T D_mat Ba du.T
-            here D_mat = ddW = [ddW/dlambda_1^2, ddW/dlambda_1 dlambda_2],[ddW/dlambda_1dlambda_2, ddW/dlambda_2^2]
+            here D_mat = ddW = [ddW/dlambda_1**2, ddW/dlambda_1 dlambda_2],[ddW/dlambda_1dlambda_2, ddW/dlambda_2**2]
             So: learning need to predict W, P1, P2, and D_mat, and P1 in D_geom
             '''
-            Na, Na_xi, Ba, ue, ue_xi, R, M, lambda_1, lambda_2 = self.sample_shape_functions(xi[i], e, d_e)
+            Na, Na_xi, Ba, ue, ue_xi, X_xi, R, M, lambda_1, lambda_2 = self.sample_shape_functions(xi[i], e, d_e)
 
             P1, P2, D_geom, D_mat = self.geom_and_mat_matricies(lambda_1, lambda_2, alpha)
+            
+            m_e += self.density * R * M * np.dot(Na.T, Na)*w[i]
 
             p_e += R * M * np.dot(Ba.T, np.array([P1,P2]))*w[i]
 
@@ -400,7 +547,7 @@ class Membrane:
 
             # conservative pressure load contribution (load in the undeformed domain)
             if self.Pressure_Conservative:
-                f_e += self.current_pressure * R * M * Na[1,:]* w[i]
+                f_e += self.current_pressure * np.dot(Na.T , np.array([-X_xi[1], X_xi[0]])) * R * w[i]
             else:
 
                 # non - conservative (load on the undeformed domain)
@@ -420,8 +567,7 @@ class Membrane:
 
                 k_e = k_e + k_e_press * w[i]
 
-
-        return k_e, p_e, f_e
+        return m_e, k_e, p_e, f_e
 
 
     def geom_and_mat_matricies(self, lambda_1, lambda_2 , alpha):
@@ -492,6 +638,7 @@ class Membrane:
         X0 = np.reshape(X0, -1)
         R = np.dot(Na[0,:], X0)
         M = np.linalg.norm(np.dot(Na_xi , X0))
+        X_xi = np.dot(Na_xi , X0)
 
         ue = np.dot(Na , d_e + X0)
         ue_xi = np.dot(Na_xi , d_e + X0)
@@ -506,29 +653,24 @@ class Membrane:
         Ba[0,:] = r_xi / (lambda_1 * M ** 2) * Na_xi[0,:] + z_xi / (lambda_1 * M ** 2) * Na_xi[1,:]
         Ba[1,:] = Na[0,:] / R
 
-        return Na, Na_xi, Ba, ue, ue_xi, R, M, lambda_1, lambda_2
+        return Na, Na_xi, Ba, ue, ue_xi, X_xi, R, M, lambda_1, lambda_2
 
 
 
 
-    def visualize(self, u):
+    def visualize(self, u, ax, init_state=True, label=""):
         '''
         :param d: displacement at each node
         :return:
         '''
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-
-
         X, Y = self.Coord[:,0], self.Coord[:,1]
 
+        if init_state:
+            ax.plot(X, Y, "--", color="r", label="Initial"+label)
 
-
-        ax.scatter(X, Y,  c='r', label='Initial')
-        ax.scatter(X + u[:,0], Y+ u[:,1], c='b', label='Final')
+        ax.plot(X + u[:,0], Y+ u[:,1], "-o", color="black", fillstyle="none", markersize=5, label="Inflated"+label)
         ax.legend()
 
-        plt.show()
 
 
 
@@ -540,58 +682,43 @@ class Membrane:
 
 
 if __name__ == '__main__':
-    data = 'test'
+    
+    element_type = "Mooney_Rivlin_Hyperelastic"
 
-    if data == 'training':
-        element_type = "Mooney_Rivlin_Hyperelastic_Random"
-        #element_type = "AxisymmetricMembranePressure"
-        model = Membrane(element_type)
+    #Step 1. define the initial shape.
+    #        it is a curve between Coord_l to Coord_r with Coord_r[1]=0
+    X_l, X_r,  Nr = 0.2, 1.0, 50
+    R = np.linspace(X_l, X_r, num = Nr + 1)
+    # Z = np.zeros(Nr + 1)
+    Z = np.linspace(0.2, 0.0, num = Nr + 1)
+    Coord = np.vstack((R, Z)).T
 
+    #Step 2. define the initial stretch
+    #        the r-displacement of the right hand side of the curve
+    ur_r = 0.0
 
-        TEST_NUM = 17
-        d_arrays = np.empty((model.nEquations, TEST_NUM))
-        P_arrays = np.empty((1, TEST_NUM))
-        for test_id in range(TEST_NUM):
+    #Step 3. define pressure load
+    pressure_load = 1.0
 
-            model.final_pressure = 0. + test_id * 0.5
+    #Step 4. define material property
+    density = 1.0
+    alpha = np.zeros(Nr)
+    alpha[0:Nr//2] = 0.1
+    alpha[Nr//2:] = 0.2
 
-            print('Pressure is ', model.final_pressure)
+    model = Membrane(element_type, Coord, ur_r, density, alpha, pressure_load)
 
-            u, d = model.solve()
+    
 
-            d_arrays[:, test_id] = d
+    # problem_type = "Steady"
+    # TotalIteration, T = 500, np.inf
 
-            P_arrays[:, test_id] = model.final_pressure
+    problem_type = "Unsteady"
+    TotalIteration, T = 1000, 10.0
+    u_arr, d_arr = model.solve(problem_type, TotalIteration, T)
 
-        np.savetxt('u_100.txt', d_arrays, delimiter=',')
-        np.savetxt('P_100.txt', P_arrays, delimiter=',')
-
-
-
-    elif data == 'test':
-        element_type = "Mooney_Rivlin_Hyperelastic_Random"
-        X_l, X_r, ur_r, Nr = 0.2, 1.0, 0.1, 100
-        model = Membrane(element_type, X_l, X_r, ur_r, Nr)
-
-        
-        #P_arrays = np.array([[2.2, 4.2, 6.2, 8.2]])
-        P_arrays = np.array([2.2, 4.2, 6.2, 8.2])
-        TEST_NUM = len(P_arrays)
-        
+    for i in range(0, TotalIteration+1, 1):
 
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-
-        for test_id in range(TEST_NUM):
-
-            model.final_pressure = P_arrays[test_id]
-
-            print('Pressure is ', model.final_pressure)
-
-            u, d = model.solve()
-
-            x = model.Coord + u
-
-            ax.plot(x[:,0], x[:,1], label="P = %2f" %(model.final_pressure))
-
-        ax.legend()
-        fig.savefig("Membrane_shape.png")
+        model.visualize(u_arr[i,:,:], ax, init_state=True, label="")
+        fig.savefig("Figs/Membrane_shape%d.png"%(i))

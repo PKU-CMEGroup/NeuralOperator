@@ -2,19 +2,58 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .basics import SpectralConv1d
+from .basics import compl_mul1d
 from .utils import _get_act, add_padding, remove_padding
 
 
-class FNN1d(nn.Module):
+class GalerkinConv1d(nn.Module):
+    def __init__(self, in_channels, out_channels, modes1, bases, wbases):
+        super(GalerkinConv1d, self).__init__()
+
+        """
+        1D Spectral layer. It avoids FFT, but utilizes low rank approximation. 
+        
+        """
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        # Number of Fourier modes to multiply, at most floor(N/2) + 1
+        self.modes1 = modes1
+        self.bases = bases
+        self.wbases = wbases
+
+        self.scale = (1 / (in_channels*out_channels))
+        self.weights1 = nn.Parameter(
+            self.scale * torch.rand(in_channels, out_channels, self.modes1, dtype=torch.float))
+
+
+    def forward(self, x):
+        bases, wbases = self.bases, self.wbases
+        # Compute coeffcients
+
+        x_hat = torch.einsum('bcx,xk->bck', x, wbases)
+
+
+        # Multiply relevant Fourier modes
+        x_hat = compl_mul1d(x_hat, self.weights1)
+
+        # Return to physical space
+        x = torch.real(torch.einsum('bck,xk->bcx', x_hat, bases))
+        
+        return x
+    
+class GkNN1d(nn.Module):
     def __init__(self,
-                 modes, width=32,
+                 modes, 
+                 bases,
+                 wbases,
+                 width=32,
                  layers=None,
                  fc_dim=128,
                  in_dim=2, out_dim=1,
                  act='gelu',
                  pad_ratio=0):
-        super(FNN1d, self).__init__()
+        super(GkNN1d, self).__init__()
 
         """
         The overall network. It contains several layers of the Fourier layer.
@@ -35,13 +74,20 @@ class FNN1d(nn.Module):
             layers = [width] * 4
         else:
             self.layers = layers
+        if len(bases) == 1:
+            bases = bases*len(layers)
+        if len(wbases) == 1:
+            wbases = wbases*len(layers)
+
+        self.bases = bases
+        self.wbases = wbases
         self.pad_ratio = pad_ratio
         self.fc_dim = fc_dim
         
         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
 
-        self.sp_convs = nn.ModuleList([SpectralConv1d(
-            in_size, out_size, num_modes) for in_size, out_size, num_modes in zip(layers, layers[1:], self.modes1)])
+        self.sp_convs = nn.ModuleList([GalerkinConv1d(
+            in_size, out_size, num_modes, bases, wbases) for in_size, out_size, num_modes, bases, wbases in zip(layers, layers[1:], self.modes1, self.bases, self.wbases)])
 
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
                                  for in_size, out_size in zip(layers, layers[1:])])
@@ -65,6 +111,9 @@ class FNN1d(nn.Module):
         """
         
         length = len(self.ws)
+        
+        
+        
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
         pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]

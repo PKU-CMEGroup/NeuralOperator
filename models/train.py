@@ -14,13 +14,14 @@ from .fourier1d import FNN1d
 from .fourier2d import FNN2d
 from .fourier3d import FNN3d
 from .fourier4d import FNN4d
+from .Galerkin1d import GkNN1d
 
-def count_params(model):
-    c = 0
-    for p in list(model.parameters()):
-        c += reduce(operator.mul, 
-                    list(p.size()+(2,) if p.is_complex() else p.size()))
-    return c
+# def count_params(model):
+#     c = 0
+#     for p in list(model.parameters()):
+#         c += reduce(operator.mul, 
+#                     list(p.size()+(2,) if p.is_complex() else p.size()))
+#     return c
 
 def FNN_cost(Nx, config, dim):
     pad_ratio = config['model']['pad_ratio']
@@ -53,46 +54,33 @@ def FNN_cost(Nx, config, dim):
         
     return cost
     
-
-# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_model"):
-    n_train, n_test = x_train.shape[0], x_test.shape[0]
-    train_rel_l2_losses = []
-    test_rel_l2_losses = []
-    test_l2_losses = []
-    normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
-    dim = len(x_train.shape) - 2 # n_train, size, n_channel
-    
-    cost = FNN_cost(x_train.shape[1], config, dim)
-    
+def construct_model(config, bases=None, wbases=None):
+    dim = config['model']['dim']
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
-    if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
-        x_train = x_normalizer.encode(x_train)
-        x_test = x_normalizer.encode(x_test)
-        x_normalizer.to(device)
-        
-    if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
-        y_train = y_normalizer.encode(y_train)
-        y_test = y_normalizer.encode(y_test)
-        y_normalizer.to(device)
 
-
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
-                                               batch_size=config['train']['batch_size'], shuffle=True)
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
-                                               batch_size=config['train']['batch_size'], shuffle=False)
     if dim == 1:
         modes1 = (config['model']['modes1'] if 'modes1' in config['model'].keys() else config['model']['modes'])
-        model = FNN1d(modes=modes1,
-              fc_dim=config['model']['fc_dim'],
-              layers=config['model']['layers'],
-              in_dim=config['model']['in_dim'], 
-              out_dim=config['model']['out_dim'],
-              act=config['model']['act'],
-              pad_ratio=config['model']['pad_ratio']).to(device)
+        if config['model']['model'] == "FNO":
+            model = FNN1d(modes=modes1,
+                fc_dim=config['model']['fc_dim'],
+                layers=config['model']['layers'],
+                in_dim=config['model']['in_dim'], 
+                out_dim=config['model']['out_dim'],
+                act=config['model']['act'],
+                pad_ratio=config['model']['pad_ratio']).to(device)
+        elif config['model']['model'] == "GalerkinNO":
+            model = GkNN1d(modes=modes1,
+                        bases=bases,
+                        wbases=wbases,
+                fc_dim=config['model']['fc_dim'],
+                layers=config['model']['layers'],
+                in_dim=config['model']['in_dim'], 
+                out_dim=config['model']['out_dim'],
+                act=config['model']['act'],
+                pad_ratio=config['model']['pad_ratio']).to(device)
+        else:
+            print("Model type ", config['model']['model'], " has not implemented")
+        
         
     elif dim == 2:
         modes1 = (config['model']['modes1'] if 'modes1' in config['model'].keys() else config['model']['modes'])
@@ -138,6 +126,41 @@ def FNN_train(x_train, y_train, x_test, y_test, config, save_model_name="./FNO_m
     else:
         print("Dim = ", dim, ", which has not been implemented.")
     
+    
+
+    return model 
+
+
+# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+def FNN_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"):
+    n_train, n_test = x_train.shape[0], x_test.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
+    dim = len(x_train.shape) - 2 # n_train, size, n_channel
+    
+    cost = FNN_cost(x_train.shape[1], config, dim)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
+        x_train = x_normalizer.encode(x_train)
+        x_test = x_normalizer.encode(x_test)
+        x_normalizer.to(device)
+        
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
+        y_train = y_normalizer.encode(y_train)
+        y_test = y_normalizer.encode(y_test)
+        y_normalizer.to(device)
+
+
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+                                               batch_size=config['train']['batch_size'], shuffle=True)
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
+                                               batch_size=config['train']['batch_size'], shuffle=False)
     
     
     # Load from checkpoint

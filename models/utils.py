@@ -1,4 +1,11 @@
+import math
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import operator
+from functools import reduce
+import numpy as np
+
 
 
 def add_padding(x, pad_nums):
@@ -60,3 +67,17 @@ def count_params(model):
         c += reduce(operator.mul, 
                     list(p.size()+(2,) if p.is_complex() else p.size()))
     return c
+
+
+
+
+def compute_1dFourier_bases(nx, k, Lx):
+    grid = np.linspace(0, Lx, nx+1)[:-1]
+    bases = np.zeros((nx, k))
+    bases[:, 0] = 1/np.sqrt(Lx)
+    weights = np.ones(nx)*Lx/nx
+    for i in range(k//2):
+        bases[:, 2*i+1] = np.sqrt(2/Lx)*np.cos(2*np.pi*(i+1)*grid/Lx)
+        if 2*i + 2 <= k-1:
+            bases[:, 2*i+2] = np.sqrt(2/Lx)*np.sin(2*np.pi*(i+1)*grid/Lx)
+    return grid, bases, weights

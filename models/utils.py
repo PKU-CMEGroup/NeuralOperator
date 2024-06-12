@@ -81,3 +81,42 @@ def compute_1dFourier_bases(nx, k, Lx):
         if 2*i + 2 <= k-1:
             bases[:, 2*i+2] = np.sqrt(2/Lx)*np.sin(2*np.pi*(i+1)*grid/Lx)
     return grid, bases, weights
+
+
+
+
+
+def compute_2dFourier_modes(k):
+    trunc_k = np.int64(np.sqrt(k)) + 1
+    
+    k_pairs = np.zeros( ((2*trunc_k+1)**2, 2))
+    k_pair_mag = np.zeros( (2*trunc_k+1)**2)
+    
+    i = 0
+    for kx in range(-trunc_k, trunc_k+1):
+        for ky in range(-trunc_k, trunc_k+1):
+            
+            k_pairs[i, :] = kx, ky
+            k_pair_mag[i] = kx**2 + ky**2
+            i += 1
+        
+    k_pairs = k_pairs[np.argsort(k_pair_mag), :]
+    return k_pairs[0:k, :]
+
+
+def compute_2dFourier_bases(nx, ny, k, Lx, Ly):
+    gridx, gridy = np.meshgrid(np.linspace(0, Lx, nx+1)[:-1], np.linspace(0, Ly, ny+1)[:-1])
+    bases = np.zeros((nx, ny, k))
+
+    weights = np.ones((nx, ny))*Lx*Ly/(nx*ny)
+
+    k_pairs = compute_2dFourier_modes(k)
+    for i in range(k):
+        kx, ky = k_pairs[i, :]
+        if (kx == 0 and ky == 0):
+            bases[:, :, i] = np.sqrt(1/(Lx*Ly)) 
+        elif (ky > 0 or ky ==0 and kx > 0):
+            bases[:, :, i] = np.sqrt(2/(Lx*Ly))*np.sin(2*np.pi*(kx*gridx/Lx + ky*gridy/Ly))
+        else:
+            bases[:, :, i] = np.sqrt(2/(Lx*Ly))*np.cos(2*np.pi*(kx*gridx/Lx + ky*gridy/Ly))
+    return gridx, gridy, bases, weights

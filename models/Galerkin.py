@@ -6,9 +6,9 @@ from .basics import compl_mul1d
 from .utils import _get_act, add_padding, remove_padding
 
 
-class GalerkinConv1d(nn.Module):
-    def __init__(self, in_channels, out_channels, modes1, bases, wbases):
-        super(GalerkinConv1d, self).__init__()
+class GalerkinConv(nn.Module):
+    def __init__(self, in_channels, out_channels, modes, bases, wbases):
+        super(GalerkinConv, self).__init__()
 
         """
         1D Spectral layer. It avoids FFT, but utilizes low rank approximation. 
@@ -18,13 +18,13 @@ class GalerkinConv1d(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         # Number of Fourier modes to multiply, at most floor(N/2) + 1
-        self.modes1 = modes1
+        self.modes = modes
         self.bases = bases
         self.wbases = wbases
 
         self.scale = (1 / (in_channels*out_channels))
-        self.weights1 = nn.Parameter(
-            self.scale * torch.rand(in_channels, out_channels, self.modes1, dtype=torch.float))
+        self.weights = nn.Parameter(
+            self.scale * torch.rand(in_channels, out_channels, self.modes, dtype=torch.float))
 
 
     def forward(self, x):
@@ -35,14 +35,14 @@ class GalerkinConv1d(nn.Module):
 
 
         # Multiply relevant Fourier modes
-        x_hat = compl_mul1d(x_hat, self.weights1)
+        x_hat = compl_mul1d(x_hat, self.weights)
 
         # Return to physical space
         x = torch.real(torch.einsum('bck,xk->bcx', x_hat, bases))
         
         return x
     
-class GkNN1d(nn.Module):
+class GkNN(nn.Module):
     def __init__(self,
                  modes, 
                  bases,
@@ -53,7 +53,7 @@ class GkNN1d(nn.Module):
                  in_dim=2, out_dim=1,
                  act='gelu',
                  pad_ratio=0):
-        super(GkNN1d, self).__init__()
+        super(GkNN, self).__init__()
 
         """
         The overall network. It contains several layers of the Fourier layer.
@@ -68,7 +68,7 @@ class GkNN1d(nn.Module):
         output shape: (batchsize, x=s, c=1)
         """
 
-        self.modes1 = modes
+        self.modes = modes
         self.width = width
         if layers is None:
             layers = [width] * 4
@@ -86,8 +86,8 @@ class GkNN1d(nn.Module):
         
         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
 
-        self.sp_convs = nn.ModuleList([GalerkinConv1d(
-            in_size, out_size, num_modes, bases, wbases) for in_size, out_size, num_modes, bases, wbases in zip(layers, layers[1:], self.modes1, self.bases, self.wbases)])
+        self.sp_convs = nn.ModuleList([GalerkinConv(
+            in_size, out_size, num_modes, bases, wbases) for in_size, out_size, num_modes, bases, wbases in zip(layers, layers[1:], self.modes, self.bases, self.wbases)])
 
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
                                  for in_size, out_size in zip(layers, layers[1:])])
@@ -145,6 +145,13 @@ class GkNN1d(nn.Module):
         
         
         return x
+
+
+
+
+
+
+
 
 
   

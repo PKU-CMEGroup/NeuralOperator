@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .basics import compl_mul1d
-from .utils import _get_act, add_padding, remove_padding
+from .utils import _get_act
 
 
 class GalerkinConv(nn.Module):
@@ -51,8 +51,7 @@ class GkNN(nn.Module):
                  layers=None,
                  fc_dim=128,
                  in_dim=2, out_dim=1,
-                 act='gelu',
-                 pad_ratio=0):
+                 act='gelu'):
         super(GkNN, self).__init__()
 
         """
@@ -81,7 +80,6 @@ class GkNN(nn.Module):
 
         self.bases = bases
         self.wbases = wbases
-        self.pad_ratio = pad_ratio
         self.fc_dim = fc_dim
         
         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
@@ -116,11 +114,7 @@ class GkNN(nn.Module):
         
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
-        pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
         
-        # add padding
-        x = add_padding(x, pad_nums=pad_nums)
-
         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x)
             x2 = w(x)
@@ -128,9 +122,7 @@ class GkNN(nn.Module):
             if self.act is not None and i != length - 1:
                 x = self.act(x)
                 
-        # remove padding
-        x = remove_padding(x, pad_nums=pad_nums)
-        
+      
         x = x.permute(0, 2, 1)
         
         # if fc_dim = 0, we do not have nonlinear layer

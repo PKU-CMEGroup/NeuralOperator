@@ -132,8 +132,7 @@ def construct_model(config, bases=None, wbases=None):
                     layers=config['model']['layers'],
                     in_dim=config['model']['in_dim'], 
                     out_dim=config['model']['out_dim'],
-                    act=config['model']['act'],
-                    pad_ratio=config['model']['pad_ratio']).to(device)
+                    act=config['model']['act']).to(device)
     else:
         print("Model type ", config['model']['model'], " has not implemented")
             

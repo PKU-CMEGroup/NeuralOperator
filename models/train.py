@@ -25,7 +25,7 @@ from .Galerkin import GkNN
 
 def FNN_cost(Nx, config, dim):
     pad_ratio = config['model']['pad_ratio']
-    modes = config['model']['modes']
+    modes = config['model']['FNO_modes'] if config['model']['basis_type']=='Fast_Fourier_Transform'  else config['model']['GkNN_modes']
     layers = config['model']['layers']
     fc_dim = config['model']['fc_dim']
     in_dim = config['model']['in_dim']
@@ -141,7 +141,8 @@ def construct_model(config, bases=None, wbases=None):
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def FNN_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"):
+def FNN_train(x_train, y_train, x_test, y_test,config,  model, save_model_name="./FNO_model"):
+
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -151,8 +152,11 @@ def FNN_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
     
     cost = FNN_cost(x_train.shape[1], config, dim)
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+    device = torch.device(config['train']['device'])
+
+
+    print(model.wbases[1].device.type)
+
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
@@ -206,7 +210,9 @@ def FNN_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
-
+            # if config['train']['device']=='cuda':
+            #     out = out.cpu()
+            #     y = y.cpu()
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
             loss.backward()
 
@@ -218,17 +224,19 @@ def FNN_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
         with torch.no_grad():
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
+
                 batch_size_ = x.shape[0]
                 out = model(x) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
+                # if config['train']['device']=='cuda':
+                #     out = out.cpu()
+                #     y = y.cpu()
 
                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-
-
 
 
         scheduler.step()
@@ -244,7 +252,8 @@ def FNN_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
 
         if (ep %10 == 0) or (ep == epochs -1):
             print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
-            torch.save(model, save_model_name)
+            if save_model_name:
+                torch.save(model, save_model_name)
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost

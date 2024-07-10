@@ -2,8 +2,14 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .basics import compl_mul1d
-from .utils import _get_act
+from collections import defaultdict
+import sys
+
+sys.path.append('../')
+from models.basics import compl_mul1d
+from models.utils import _get_act
+
+
 
 
 class GalerkinConv(nn.Module):
@@ -31,6 +37,7 @@ class GalerkinConv(nn.Module):
         bases, wbases = self.bases, self.wbases
         # Compute coeffcients
 
+
         x_hat = torch.einsum('bcx,xk->bck', x, wbases)
 
 
@@ -44,14 +51,10 @@ class GalerkinConv(nn.Module):
     
 class GkNN(nn.Module):
     def __init__(self,
-                 modes, 
                  bases,
                  wbases,
-                 width=32,
-                 layers=None,
-                 fc_dim=128,
-                 in_dim=2, out_dim=1,
-                 act='gelu'):
+                 **config
+                ):
         super(GkNN, self).__init__()
 
         """
@@ -67,37 +70,44 @@ class GkNN(nn.Module):
         output shape: (batchsize, x=s, c=1)
         """
 
-        self.modes = modes
-        self.width = width
-        if layers is None:
-            layers = [width] * 4
-        else:
-            self.layers = layers
+        self.config = defaultdict(lambda: None, **config)
+        # print(kwargs)
+        self.config = dict(self.config)
+        # print(self.config)
+        all_attr = list(self.config.keys())
+        for key in all_attr:
+            setattr(self, key, self.config[key])
+        self.modes = self.GkNN_modes
+
         if len(bases) == 1:
-            bases = bases*len(layers)
+            bases = bases*len(self.layers)
         if len(wbases) == 1:
-            wbases = wbases*len(layers)
+
+            wbases = wbases*len(self.layers)
+
 
         self.bases = bases
         self.wbases = wbases
-        self.fc_dim = fc_dim
         
-        self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
+
+        
+        self.fc0 = nn.Linear(self.in_dim, self.layers[0])  # input channel is 2: (a(x), x)
 
         self.sp_convs = nn.ModuleList([GalerkinConv(
-            in_size, out_size, num_modes, bases, wbases) for in_size, out_size, num_modes, bases, wbases in zip(layers, layers[1:], self.modes, self.bases, self.wbases)])
+            in_size, out_size, num_modes, bases, wbases) for in_size, out_size,
+              num_modes, bases, wbases in zip(self.layers, self.layers[1:], self.modes, self.bases, self.wbases)])
 
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
-                                 for in_size, out_size in zip(layers, layers[1:])])
+                                 for in_size, out_size in zip(self.layers, self.layers[1:])])
         
         # if fc_dim = 0, we do not have nonlinear layer
-        if fc_dim > 0:
-            self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim) 
+        if self.fc_dim > 0:
+            self.fc1 = nn.Linear(self.layers[-1],self.fc_dim)
+            self.fc2 = nn.Linear(self.fc_dim, self.out_dim) 
         else:
-            self.fc2 = nn.Linear(layers[-1], out_dim)
+            self.fc2 = nn.Linear(self.layers[-1], self.out_dim)
             
-        self.act = _get_act(act)
+        self.act = _get_act(self.act)
 
     def forward(self, x):
         """
@@ -111,10 +121,9 @@ class GkNN(nn.Module):
         length = len(self.ws)
         
         
-        
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
-        
+
         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x)
             x2 = w(x)

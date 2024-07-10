@@ -2,18 +2,17 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import sys
+from collections import defaultdict
+
+sys.path.append('../')
 from .basics import SpectralConv1d
 from .utils import _get_act, add_padding, remove_padding
 
 
 class FNN1d(nn.Module):
     def __init__(self,
-                 modes, width=32,
-                 layers=None,
-                 fc_dim=128,
-                 in_dim=2, out_dim=1,
-                 act='gelu',
-                 pad_ratio=0):
+                 **config):
         super(FNN1d, self).__init__()
 
         """
@@ -28,32 +27,30 @@ class FNN1d(nn.Module):
         output: the solution of a later timestep
         output shape: (batchsize, x=s, c=1)
         """
+        self.config = defaultdict(lambda: None, **config)
+        self.config = dict(self.config)
+        all_attr = list(self.config.keys())
+        for key in all_attr:
+            setattr(self, key, self.config[key])
+        self.modes1 = self.FNO_modes
 
-        self.modes1 = modes
-        self.width = width
-        if layers is None:
-            layers = [width] * 4
-        else:
-            self.layers = layers
-        self.pad_ratio = pad_ratio
-        self.fc_dim = fc_dim
         
-        self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
+        self.fc0 = nn.Linear(self.in_dim, self.layers[0])  # input channel is 2: (a(x), x)
 
         self.sp_convs = nn.ModuleList([SpectralConv1d(
-            in_size, out_size, num_modes) for in_size, out_size, num_modes in zip(layers, layers[1:], self.modes1)])
+            in_size, out_size, num_modes) for in_size, out_size, num_modes in zip(self.layers, self.layers[1:], self.modes1)])
 
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
-                                 for in_size, out_size in zip(layers, layers[1:])])
+                                 for in_size, out_size in zip(self.layers, self.layers[1:])])
         
         # if fc_dim = 0, we do not have nonlinear layer
-        if fc_dim > 0:
-            self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim) 
+        if self.fc_dim > 0:
+            self.fc1 = nn.Linear(self.layers[-1], self.fc_dim)
+            self.fc2 = nn.Linear(self.fc_dim, self.out_dim) 
         else:
-            self.fc2 = nn.Linear(layers[-1], out_dim)
+            self.fc2 = nn.Linear(self.layers[-1], self.out_dim)
             
-        self.act = _get_act(act)
+        self.act = _get_act(self.act)
 
     def forward(self, x):
         """

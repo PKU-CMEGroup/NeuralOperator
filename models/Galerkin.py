@@ -77,13 +77,14 @@ class GkNN(nn.Module):
         all_attr = list(self.config.keys())
         for key in all_attr:
             setattr(self, key, self.config[key])
+            
         self.modes = self.GkNN_modes
 
         if len(bases) == 1:
-            bases = bases*len(self.layers)
+            bases = [bases[0][:,0:i] for i in self.modes]
         if len(wbases) == 1:
 
-            wbases = wbases*len(self.layers)
+            wbases = [wbases[0][:,0:i] for i in self.modes]
 
 
         self.bases = bases

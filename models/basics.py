@@ -4,7 +4,7 @@ import copy
 
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_, constant_, xavier_normal_
 
 
@@ -456,16 +456,16 @@ class SimpleAttention(nn.Module):
         self,
         in_channels,
         out_channels,
-        num_head,
+        num_heads,
         attention_type,
         eps=1e-5,
     ):
         super(SimpleAttention, self).__init__()
 
-        assert in_channels % num_head == 0
+        assert in_channels % num_heads == 0
         self.in_channels = in_channels
-        self.d_k = in_channels // num_head
-        self.num_head = num_head
+        self.d_k = in_channels // num_heads
+        self.num_heads = num_heads
         self.attention_type = attention_type
 
         self.linears = nn.ModuleList(
@@ -484,7 +484,7 @@ class SimpleAttention(nn.Module):
         batchsize = x.size(0)
 
         query, key, value = [
-            layer(x).view(batchsize, -1, self.num_head, self.d_k).transpose(1, 2)
+            layer(x).view(batchsize, -1, self.num_heads, self.d_k).transpose(1, 2)
             for layer, x in zip(self.linears, (x, x, x))
         ]
 
@@ -493,7 +493,7 @@ class SimpleAttention(nn.Module):
                 [
                     norm(x)
                     for norm, x in zip(
-                        self.norm_K, (key[:, i, ...] for i in range(self.num_head))
+                        self.norm_K, (key[:, i, ...] for i in range(self.num_heads))
                     )
                 ],
                 dim=1,
@@ -502,7 +502,7 @@ class SimpleAttention(nn.Module):
                 [
                     norm(x)
                     for norm, x in zip(
-                        self.norm_V, (value[:, i, ...] for i in range(self.num_head))
+                        self.norm_V, (value[:, i, ...] for i in range(self.num_heads))
                     )
                 ],
                 dim=1,
@@ -513,7 +513,7 @@ class SimpleAttention(nn.Module):
                 [
                     norm(x)
                     for norm, x in zip(
-                        self.norm_K, (key[:, i, ...] for i in range(self.num_head))
+                        self.norm_K, (key[:, i, ...] for i in range(self.num_heads))
                     )
                 ],
                 dim=1,
@@ -522,7 +522,7 @@ class SimpleAttention(nn.Module):
                 [
                     norm(x)
                     for norm, x in zip(
-                        self.norm_Q, (query[:, i, ...] for i in range(self.num_head))
+                        self.norm_Q, (query[:, i, ...] for i in range(self.num_heads))
                     )
                 ],
                 dim=1,
@@ -547,18 +547,18 @@ class SimpleAttention(nn.Module):
 
     def _get_norm(self, eps):
         if self.attention_type == "galerkin":
-            self.norm_K = self._get_layernorm(self.d_k, self.n_head, eps=eps)
-            self.norm_V = self._get_layernorm(self.d_k, self.n_head, eps=eps)
+            self.norm_K = self._get_layernorm(self.d_k, self.num_heads, eps=eps)
+            self.norm_V = self._get_layernorm(self.d_k, self.num_heads, eps=eps)
         elif self.attention_type == "fourier":
-            self.norm_K = self._get_layernorm(self.d_k, self.n_head, eps=eps)
-            self.norm_Q = self._get_layernorm(self.d_k, self.n_head, eps=eps)
+            self.norm_K = self._get_layernorm(self.d_k, self.num_heads, eps=eps)
+            self.norm_Q = self._get_layernorm(self.d_k, self.num_heads, eps=eps)
 
     @staticmethod
-    def _get_layernorm(normalized_dim, n_head, **kwargs):
+    def _get_layernorm(normalized_dim, num_heads, **kwargs):
         return nn.ModuleList(
             [
                 copy.deepcopy(nn.LayerNorm(normalized_dim, **kwargs))
-                for _ in range(n_head)
+                for _ in range(num_heads)
             ]
         )
 

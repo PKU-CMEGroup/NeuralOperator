@@ -184,20 +184,13 @@ def construct_model(config, bases=None, wbases=None):
     #######################################################################
 
     elif config["model"]["model"] == "GalerkinNO":
-        modes1 = (
-            config["model"]["modes1"]
-            if "modes1" in config["model"].keys()
-            else config["model"]["modes"]
-        )
-
         model = GkNN(
-            modes=modes1,
-            bases=bases,
-            wbases=wbases,
-            fc_dim=config["model"]["fc_dim"],
-            layers=config["model"]["layers"],
             in_dim=config["model"]["in_dim"],
             out_dim=config["model"]["out_dim"],
+            pad_ratio=config["model"]["pad_ratio"],
+            layers=config["model"]["layers"],
+            layer_configs=config["model"]["layer_configs"],
+            fc_dim=config["model"]["fc_dim"],
             act=config["model"]["act"],
         ).to(device)
     else:
@@ -221,7 +214,7 @@ def FNN_train(
     )
     dim = len(x_train.shape) - 2  # n_train, size, n_channel
 
-    cost = FNN_cost(x_train.shape[1], config, dim)
+    # cost = FNN_cost(x_train.shape[1], config, dim)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -339,4 +332,4 @@ def FNN_train(
         )
     torch.save(model, save_model_name)
 
-    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses, cost
+    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

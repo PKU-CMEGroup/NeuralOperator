@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .basics import compl_mul1d
-from .utils import _get_act
+from .utils import _get_act, add_padding, remove_padding
 from .basics import SpectralConv1d, SimpleAttention
 
 
@@ -47,8 +47,8 @@ class GalerkinConv(nn.Module):
 class GkNN(nn.Module):
     def __init__(
         self,
-        modes,
-        width=32,
+        pad_ratio=-1,
+        layer_configs=None,
         layers=None,
         fc_dim=128,
         in_dim=2,
@@ -70,33 +70,18 @@ class GkNN(nn.Module):
         output shape: (batchsize, x=s, c=1)
         """
 
-        self.modes = modes
-        self.width = width
-        if layers is None:
-            layers = [width] * 4
-        else:
-            self.layers = layers
-
-        self.fc_dim = fc_dim
-
         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
+        self.pad_ratio = pad_ratio
 
+        self.layer_configs = layer_configs
         self.sp_layers = nn.ModuleList(
             [
                 self._choose_layer(in_size, out_size, layer_config)
                 for in_size, out_size, layer_config in zip(
-                    layers, layers[1:], self.layers_config
+                    layers, layers[1:], self.layer_configs
                 )
             ]
         )
-        # self.sp_convs = nn.ModuleList(
-        #     [
-        #         GalerkinConv(in_size, out_size, num_modes, bases, wbases)
-        #         for in_size, out_size, num_modes, bases, wbases in zip(
-        #             layers, layers[1:], self.modes, self.bases, self.wbases
-        #         )
-        #     ]
-        # )
 
         self.ws = nn.ModuleList(
             [
@@ -105,7 +90,7 @@ class GkNN(nn.Module):
             ]
         )
 
-        # if fc_dim = 0, we do not have nonlinear layer
+        self.fc_dim = fc_dim
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
             self.fc2 = nn.Linear(fc_dim, out_dim)
@@ -124,9 +109,13 @@ class GkNN(nn.Module):
         """
 
         length = len(self.ws)
-
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
+
+        # add padding
+        if self.pad_ratio > 0:
+            pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
+            x = add_padding(x, pad_nums=pad_nums)
 
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):
             x1 = layer(x)
@@ -134,7 +123,10 @@ class GkNN(nn.Module):
             x = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x)
-
+                
+        if self.pad_ratio>0:
+            x = remove_padding(x, pad_nums=pad_nums)
+            
         x = x.permute(0, 2, 1)
 
         # if fc_dim = 0, we do not have nonlinear layer
@@ -146,6 +138,8 @@ class GkNN(nn.Module):
                 x = self.act(x)
 
         x = self.fc2(x)
+        
+        
 
         return x
 
@@ -162,7 +156,7 @@ class GkNN(nn.Module):
             return SpectralConv1d(in_channels, out_channels, num_modes)
         elif type == "Attention":
             num_heads = layer_config["num_heads"]
-            attention_type = layer_config[""]
+            attention_type = layer_config["attention_type"]
             return SimpleAttention(in_channels, out_channels, num_heads, attention_type)
         else:
             raise ValueError("Layer Type Undefined.")

@@ -123,10 +123,10 @@ class GkNN(nn.Module):
             x = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x)
-                
-        if self.pad_ratio>0:
+
+        if self.pad_ratio > 0:
             x = remove_padding(x, pad_nums=pad_nums)
-            
+
         x = x.permute(0, 2, 1)
 
         # if fc_dim = 0, we do not have nonlinear layer
@@ -138,8 +138,6 @@ class GkNN(nn.Module):
                 x = self.act(x)
 
         x = self.fc2(x)
-        
-        
 
         return x
 

@@ -1,2 +1,4 @@
 mytest/data/
 .DS_Store
+models/__pycache__/
+mytest/__pycache__/

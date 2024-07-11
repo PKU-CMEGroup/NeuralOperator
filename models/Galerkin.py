@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .basics import compl_mul1d
 from .utils import _get_act, add_padding, remove_padding
-from .basics import SpectralConv1d, SimpleAttention
+from .basics import SpectralConv1d, SpectralConv2d_test, SimpleAttention
 
 
 class GalerkinConv(nn.Module):
@@ -152,6 +152,12 @@ class GkNN(nn.Module):
         elif type == "FourierConv":
             num_modes = layer_config["num_modes"]
             return SpectralConv1d(in_channels, out_channels, num_modes)
+        elif type == "FourierConv2d":
+            num_modes1 = layer_config["num_modes1"]
+            num_modes2 = layer_config["num_modes2"]
+            return SpectralConv2d_test(
+                in_channels, out_channels, num_modes1, num_modes2
+            )
         elif type == "Attention":
             num_heads = layer_config["num_heads"]
             attention_type = layer_config["attention_type"]

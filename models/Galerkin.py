@@ -100,31 +100,6 @@ class GkNN(nn.Module):
             ]
         )
 
-        # galerkin_config_std1 = {
-        #     "type": "GalerkinConv",
-        #     "num_modes": self.GkNN_modes,
-        #     "bases": bases_fourier,
-        #     "wbases": wbases_fourier,
-        # }
-        # galerkin_config_std2 = {
-        #     "type": "GalerkinConv",
-        #     "num_modes": k_max,
-        #     "bases": bases_pca,
-        #     "wbases": wbases_pca,
-        # }
-
-        # fourier_config_std = {
-        #     "type": "FourierConv",
-        #     "num_modes": k_max // 2,
-        # }
-
-        # attention_config_std = {
-        #     "type": "Attention",
-        #     "num_heads": 1,
-        #     "attention_type": "galerkin",
-        # }
-
-        # layer_configs = [fourier_config_std, galerkin_config_std, attention_config_std]
 
         # if fc_dim = 0, we do not have nonlinear layer
         if self.fc_dim > 0:
@@ -148,10 +123,10 @@ class GkNN(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        # add padding
-        if self.pad_ratio > 0:
-            pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
-            x = add_padding(x, pad_nums=pad_nums)
+        # # add padding
+        # if self.pad_ratio > 0:
+        #     pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
+        #     x = add_padding(x, pad_nums=pad_nums)
 
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):
             x1 = layer(x)
@@ -160,8 +135,8 @@ class GkNN(nn.Module):
             if self.act is not None and i != length - 1:
                 x = self.act(x)
 
-        if self.pad_ratio > 0:
-            x = remove_padding(x, pad_nums=pad_nums)
+        # if self.pad_ratio > 0:
+        #     x = remove_padding(x, pad_nums=pad_nums)
 
         x = x.permute(0, 2, 1)
 

@@ -7,7 +7,7 @@ FFT_1D:
     n_test: 1024
 
   model:
-    layer_types: ['Galerkin_bases','Galerkin_bases',]  #Fast_Fourier_Transform , Fourier_bases , Galerkin_bases
+    layer_types: ['GalerkinConv_pca','GalerkinConv_fourier','GalerkinConv_fourier']  #GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv1d，Attention
     FNO_modes: [16,16,16]   # modes for FNO
     GkNN_modes: [33,33,33]  # modes for GkNN
     num_heads: [1,1,1]
@@ -20,7 +20,6 @@ FFT_1D:
     layers_dim: [128,128,128,128]     # len(layers_dim) == len(..modes)+1
     act: 'gelu'
     pad_ratio: 0.05
-    layer_configs: None
 
 
   train:

@@ -16,12 +16,12 @@ from .fourier3d import FNN3d
 from .fourier4d import FNN4d
 from .Galerkin import GkNN
 
-# def count_params(model):
-#     c = 0
-#     for p in list(model.parameters()):
-#         c += reduce(operator.mul,
-#                     list(p.size()+(2,) if p.is_complex() else p.size()))
-#     return c
+def count_params(model):
+    c = 0
+    for p in list(model.parameters()):
+        c += reduce(operator.mul,
+                    list(p.size()+(2,) if p.is_complex() else p.size()))
+    return c
 
 
 # def FNN_cost(Nx, config, dim):
@@ -68,139 +68,6 @@ from .Galerkin import GkNN
 #     return cost
 
 
-def construct_model(config, bases=None, wbases=None):
-    dim = config["model"]["dim"]
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    #######################################################################
-    # FNO
-    #######################################################################
-    if config["model"]["model"] == "FNO":
-        if dim == 1:
-            modes1 = (
-                config["model"]["modes1"]
-                if "modes1" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-
-            model = FNN1d(
-                modes=modes1,
-                fc_dim=config["model"]["fc_dim"],
-                layers=config["model"]["layers"],
-                in_dim=config["model"]["in_dim"],
-                out_dim=config["model"]["out_dim"],
-                act=config["model"]["act"],
-                pad_ratio=config["model"]["pad_ratio"],
-            ).to(device)
-
-        elif dim == 2:
-            modes1 = (
-                config["model"]["modes1"]
-                if "modes1" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-            modes2 = (
-                config["model"]["modes2"]
-                if "modes2" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-
-            model = FNN2d(
-                modes1=modes1,
-                modes2=modes2,
-                fc_dim=config["model"]["fc_dim"],
-                layers=config["model"]["layers"],
-                in_dim=config["model"]["in_dim"],
-                out_dim=config["model"]["out_dim"],
-                act=config["model"]["act"],
-                pad_ratio=config["model"]["pad_ratio"],
-            ).to(device)
-
-        elif dim == 3:
-            modes1 = (
-                config["model"]["modes1"]
-                if "modes1" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-            modes2 = (
-                config["model"]["modes2"]
-                if "modes2" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-            modes3 = (
-                config["model"]["modes3"]
-                if "modes3" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-
-            model = FNN3d(
-                modes1=modes1,
-                modes2=modes2,
-                modes3=modes3,
-                fc_dim=config["model"]["fc_dim"],
-                layers=config["model"]["layers"],
-                in_dim=config["model"]["in_dim"],
-                out_dim=config["model"]["out_dim"],
-                act=config["model"]["act"],
-                pad_ratio=config["model"]["pad_ratio"],
-            ).to(device)
-
-        elif dim == 4:
-            modes1 = (
-                config["model"]["modes1"]
-                if "modes1" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-            modes2 = (
-                config["model"]["modes2"]
-                if "modes2" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-            modes3 = (
-                config["model"]["modes3"]
-                if "modes3" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-            modes4 = (
-                config["model"]["modes4"]
-                if "modes4" in config["model"].keys()
-                else config["model"]["modes"]
-            )
-
-            model = FNN4d(
-                modes1=modes1,
-                modes2=modes2,
-                modes3=modes3,
-                modes4=modes4,
-                fc_dim=config["model"]["fc_dim"],
-                layers=config["model"]["layers"],
-                in_dim=config["model"]["in_dim"],
-                out_dim=config["model"]["out_dim"],
-                act=config["model"]["act"],
-                pad_ratio=config["model"]["pad_ratio"],
-            ).to(device)
-
-        else:
-            print("FNO with Dim = ", dim, ", which has not been implemented.")
-
-    #######################################################################
-    # GalerkinNO
-    #######################################################################
-
-    elif config["model"]["model"] == "GalerkinNO":
-        model = GkNN(
-            in_dim=config["model"]["in_dim"],
-            out_dim=config["model"]["out_dim"],
-            pad_ratio=config["model"]["pad_ratio"],
-            layers=config["model"]["layers"],
-            layer_configs=config["model"]["layer_configs"],
-            fc_dim=config["model"]["fc_dim"],
-            act=config["model"]["act"],
-        ).to(device)
-    else:
-        print("Model type ", config["model"]["model"], " has not implemented")
-
-    return model
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
@@ -222,8 +89,6 @@ def FNN_train(
     # cost = FNN_cost(x_train.shape[1], config, dim)
 
     device = torch.device(config["train"]["device"])
-
-    print(model.wbases[1].device.type)
 
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)

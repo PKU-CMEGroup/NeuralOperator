@@ -167,3 +167,13 @@ def compute_2dFourier_bases(nx, ny, k, Lx, Ly):
                 2 * np.pi * (kx * gridx / Lx + ky * gridy / Ly)
             )
     return gridx, gridy, bases, weights
+
+
+def compute_pca_bases (Ne , k_max , L,  pca_data):
+    U, S, VT = np.linalg.svd(pca_data.T)
+    # the integration of the basis is 1.
+    fbases = U[:, 0:k_max] / np.sqrt(L / Ne)
+    wfbases = L / Ne * fbases
+    bases_pca = torch.from_numpy(fbases.astype(np.float32))
+    wbases_pca = torch.from_numpy(wfbases.astype(np.float32))
+    return bases_pca,wbases_pca

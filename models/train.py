@@ -16,56 +16,12 @@ from .fourier3d import FNN3d
 from .fourier4d import FNN4d
 from .Galerkin import GkNN
 
-# def count_params(model):
-#     c = 0
-#     for p in list(model.parameters()):
-#         c += reduce(operator.mul,
-#                     list(p.size()+(2,) if p.is_complex() else p.size()))
-#     return c
 
-
-# def FNN_cost(Nx, config, dim):
-#     pad_ratio = config["model"]["pad_ratio"]
-#     modes = (
-#         config["model"]["FNO_modes"]
-#         if config["model"]["basis_type"] == "Fast_Fourier_Transform"
-#         else config["model"]["GkNN_modes"]
-#     )
-#     layers = config["model"]["layers"]
-#     fc_dim = config["model"]["fc_dim"]
-#     in_dim = config["model"]["in_dim"]
-#     out_dim = config["model"]["out_dim"]
-#     Np = (Nx + math.floor(pad_ratio * Nx)) ** dim
-
-#     cost_act = 1
-#     # lifting operator
-#     cost = 2 * Np * in_dim * layers[0]
-#     for i, mode in enumerate(modes):
-#         # number of modes in each direction
-#         mode = mode**dim
-#         df_in, df_out = layers[i], layers[i + 1]
-#         # fourier series transform, inverse fourier series transform, linear
-#         cost += (
-#             df_in * 5 * Np * math.log(Np)
-#             + df_out * 5 * Np * math.log(Np)
-#             + mode * df_out * (2 * df_in - 1)
-#         )
-#         # activation function
-#         if i != len(modes) - 1:
-#             cost += df_out * Np * cost_act
-
-#     # project operator
-#     # if fc_dim = 0, we do not have nonlinear layer
-#     if fc_dim > 0:
-#         cost += (
-#             Np * fc_dim * 2 * layers[-1]
-#             + fc_dim * Np * cost_act
-#             + Np * out_dim * 2 * fc_dim
-#         )
-#     else:
-#         cost += Np * out_dim * 2 * layers[-1]
-
-#     return cost
+def count_params(model):
+    c = 0
+    for p in list(model.parameters()):
+        c += reduce(operator.mul, list(p.size() + (2,) if p.is_complex() else p.size()))
+    return c
 
 
 def construct_model(config, bases=None, wbases=None):
@@ -223,7 +179,7 @@ def FNN_train(
 
     device = torch.device(config["train"]["device"])
 
-    print(model.wbases[1].device.type)
+    # print(model.wbases[1].device.type)
 
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)

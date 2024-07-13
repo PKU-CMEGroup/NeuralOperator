@@ -3,7 +3,7 @@ from .fourier1d import FNN1d
 from .fourier2d import FNN2d
 from .fourier3d import FNN3d
 from .fourier4d import FNN4d
-from .train import FNN_train, FNN_cost, construct_model
+from .train import FNN_train, construct_model  # FNN_cost,
 from .utils import (
     count_params,
     compute_1dFourier_bases,

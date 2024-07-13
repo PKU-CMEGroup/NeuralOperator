@@ -41,33 +41,31 @@ def compl_mul4d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 class SpectralConv1d(nn.Module):
-    def __init__(self, in_channels, out_channels, modes1):
+    def __init__(self, in_dim, out_dim, modes1):
         super(SpectralConv1d, self).__init__()
 
         """
         1D Fourier layer. It does FFT, linear transform, and Inverse FFT.    
         """
 
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        # Number of Fourier modes to multiply, at most floor(N/2) + 1
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+
         self.modes1 = modes1
 
-        self.scale = 1 / (in_channels * out_channels)
+        self.scale = 1 / (in_dim * out_dim)
         self.weights1 = nn.Parameter(
-            self.scale
-            * torch.rand(in_channels, out_channels, self.modes1, dtype=torch.cfloat)
+            self.scale * torch.rand(in_dim, out_dim, self.modes1, dtype=torch.cfloat)
         )
 
     def forward(self, x):
         batchsize = x.shape[0]
-        # Compute Fourier coeffcients up to factor of e^(- something constant)
+
         x_ft = torch.fft.rfftn(x, dim=[2])
 
-        # Multiply relevant Fourier modes
         out_ft = torch.zeros(
             batchsize,
-            self.in_channels,
+            self.in_dim,
             x.size(-1) // 2 + 1,
             device=x.device,
             dtype=torch.cfloat,
@@ -77,7 +75,6 @@ class SpectralConv1d(nn.Module):
             x_ft[:, :, : self.modes1], self.weights1
         )
 
-        # Return to physical space
         x = torch.fft.irfftn(out_ft, s=[x.size(-1)], dim=[2])
         return x
 
@@ -92,7 +89,6 @@ class SpectralConv2d(nn.Module):
         super(SpectralConv2d, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        # Number of Fourier modes to multiply, at most floor(N/2) + 1
         self.modes1 = modes1
         self.modes2 = modes2
 
@@ -139,34 +135,29 @@ class SpectralConv2d(nn.Module):
 
 
 class SpectralConv2d_test(nn.Module):
-    def __init__(self, in_channels, out_channels, modes1, modes2):
+    def __init__(self, in_dim, out_dim, modes1, modes2):
         super(SpectralConv2d_test, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+        self.in_dim = in_dim
+        self.out_dim = out_dim
         # Number of Fourier modes to multiply, at most floor(N/2) + 1
         self.modes1 = modes1
         self.modes2 = modes2
 
-        self.scale = 1 / (in_channels * out_channels)
+        self.scale = 1 / (in_dim * out_dim)
         self.weights1 = nn.Parameter(
             self.scale
-            * torch.rand(
-                in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat
-            )
+            * torch.rand(in_dim, out_dim, self.modes1, self.modes2, dtype=torch.cfloat)
         )
         self.weights2 = nn.Parameter(
             self.scale
-            * torch.rand(
-                in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat
-            )
+            * torch.rand(in_dim, out_dim, self.modes1, self.modes2, dtype=torch.cfloat)
         )
 
     def forward(self, x):
         batchsize = x.shape[0]
         num1 = math.floor(np.sqrt(x.shape[-1]))
-        x = x.reshape((batchsize, self.in_channels, num1, num1))
-        size1 = x.shape[-2]
-        size2 = x.shape[-1]
+        x = x.reshape((batchsize, self.in_dim, num1, num1))
+
         # Compute Fourier coeffcients up to factor of e^(- something constant)
 
         x_ft = torch.fft.rfftn(x, dim=[2, 3])
@@ -174,7 +165,7 @@ class SpectralConv2d_test(nn.Module):
         # Multiply relevant Fourier modes
         out_ft = torch.zeros(
             batchsize,
-            self.out_channels,
+            self.out_dim,
             x.size(-2),
             x.size(-1) // 2 + 1,
             device=x.device,
@@ -189,7 +180,7 @@ class SpectralConv2d_test(nn.Module):
 
         # Return to physical space
         x = torch.fft.irfftn(out_ft, s=(x.size(-2), x.size(-1)), dim=[2, 3])
-        return x.reshape((batchsize, self.out_channels, -1))
+        return x.reshape((batchsize, self.out_dim, -1))
 
 
 class SpectralConv3d(nn.Module):
@@ -508,28 +499,28 @@ class FourierBlock(nn.Module):
 class SimpleAttention(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
+        in_dim,
+        out_dim,
         num_heads,
         attention_type,
         eps=1e-5,
     ):
         super(SimpleAttention, self).__init__()
 
-        assert in_channels % num_heads == 0
-        self.in_channels = in_channels
-        self.d_k = in_channels // num_heads
+        assert in_dim % num_heads == 0
+        self.in_dim = in_dim
+        self.d_k = in_dim // num_heads
         self.num_heads = num_heads
         self.attention_type = attention_type
 
         self.linears = nn.ModuleList(
-            [copy.deepcopy(nn.Linear(in_channels, in_channels)) for _ in range(3)]
+            [copy.deepcopy(nn.Linear(in_dim, in_dim)) for _ in range(3)]
         )
         self.xavier_init = 1e-2
         self.diagonal_weight = 1e-2
         self._reset_parameters()
 
-        self.fc = nn.Linear(in_channels, out_channels)
+        self.fc = nn.Linear(in_dim, out_dim)
 
         self._get_norm(eps=eps)
 
@@ -583,7 +574,7 @@ class SimpleAttention(nn.Module):
             )
 
         x = self._attention(query, key, value)
-        x = x.transpose(1, 2).contiguous().view(batchsize, -1, self.in_channels)
+        x = x.transpose(1, 2).contiguous().view(batchsize, -1, self.in_dim)
 
         x = self.fc(x)
         x = x.permute(0, 2, 1)

@@ -1,0 +1,14 @@
+复制：ctrl + insert
+粘贴：shift + insert
+git init							当前目录初始化一个新的 Git 仓库	
+git clone							获取远程仓库的一个拷贝到本地
+git add '<file_name>'				将文件添加到暂存区
+git commit -m "Commit message"		提交暂存区的文件到本地仓库
+git pull origin <branch_name>			拉取远程仓库的更新到本地
+git push origin <branch_name>			推送本地的更新到远程仓库
+git branch <branch_name>			创建新分支
+git checkout <branch_name>			切换分支
+git status							查看当前工作区和暂存区文件的状态
+git log							查看项目的提交历史记录（按Q退出）
+
+git rm '<file_name>'					删除文件

@@ -2,6 +2,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import sys
+from collections import defaultdict
+
+sys.path.append("../")
 from .basics import SpectralConv1d
 from .utils import _get_act, add_padding, remove_padding
 
@@ -32,6 +36,12 @@ class FNN1d(nn.Module):
         output: the solution of a later timestep
         output shape: (batchsize, x=s, c=1)
         """
+        self.config = defaultdict(lambda: None, **config)
+        self.config = dict(self.config)
+        all_attr = list(self.config.keys())
+        for key in all_attr:
+            setattr(self, key, self.config[key])
+        self.modes1 = self.FNO_modes
 
         self.modes1 = modes
         self.width = width

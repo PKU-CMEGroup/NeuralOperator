@@ -24,44 +24,48 @@ from .Galerkin import GkNN
 #     return c
 
 
-def FNN_cost(Nx, config, dim):
-    pad_ratio = config["model"]["pad_ratio"]
-    modes = config["model"]["modes"]
-    layers = config["model"]["layers"]
-    fc_dim = config["model"]["fc_dim"]
-    in_dim = config["model"]["in_dim"]
-    out_dim = config["model"]["out_dim"]
-    Np = (Nx + math.floor(pad_ratio * Nx)) ** dim
+# def FNN_cost(Nx, config, dim):
+#     pad_ratio = config["model"]["pad_ratio"]
+#     modes = (
+#         config["model"]["FNO_modes"]
+#         if config["model"]["basis_type"] == "Fast_Fourier_Transform"
+#         else config["model"]["GkNN_modes"]
+#     )
+#     layers = config["model"]["layers"]
+#     fc_dim = config["model"]["fc_dim"]
+#     in_dim = config["model"]["in_dim"]
+#     out_dim = config["model"]["out_dim"]
+#     Np = (Nx + math.floor(pad_ratio * Nx)) ** dim
 
-    cost_act = 1
-    # lifting operator
-    cost = 2 * Np * in_dim * layers[0]
-    for i, mode in enumerate(modes):
-        # number of modes in each direction
-        mode = mode**dim
-        df_in, df_out = layers[i], layers[i + 1]
-        # fourier series transform, inverse fourier series transform, linear
-        cost += (
-            df_in * 5 * Np * math.log(Np)
-            + df_out * 5 * Np * math.log(Np)
-            + mode * df_out * (2 * df_in - 1)
-        )
-        # activation function
-        if i != len(modes) - 1:
-            cost += df_out * Np * cost_act
+#     cost_act = 1
+#     # lifting operator
+#     cost = 2 * Np * in_dim * layers[0]
+#     for i, mode in enumerate(modes):
+#         # number of modes in each direction
+#         mode = mode**dim
+#         df_in, df_out = layers[i], layers[i + 1]
+#         # fourier series transform, inverse fourier series transform, linear
+#         cost += (
+#             df_in * 5 * Np * math.log(Np)
+#             + df_out * 5 * Np * math.log(Np)
+#             + mode * df_out * (2 * df_in - 1)
+#         )
+#         # activation function
+#         if i != len(modes) - 1:
+#             cost += df_out * Np * cost_act
 
-    # project operator
-    # if fc_dim = 0, we do not have nonlinear layer
-    if fc_dim > 0:
-        cost += (
-            Np * fc_dim * 2 * layers[-1]
-            + fc_dim * Np * cost_act
-            + Np * out_dim * 2 * fc_dim
-        )
-    else:
-        cost += Np * out_dim * 2 * layers[-1]
+#     # project operator
+#     # if fc_dim = 0, we do not have nonlinear layer
+#     if fc_dim > 0:
+#         cost += (
+#             Np * fc_dim * 2 * layers[-1]
+#             + fc_dim * Np * cost_act
+#             + Np * out_dim * 2 * fc_dim
+#         )
+#     else:
+#         cost += Np * out_dim * 2 * layers[-1]
 
-    return cost
+#     return cost
 
 
 def construct_model(config, bases=None, wbases=None):
@@ -203,6 +207,7 @@ def construct_model(config, bases=None, wbases=None):
 def FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
 ):
+
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -216,7 +221,9 @@ def FNN_train(
 
     # cost = FNN_cost(x_train.shape[1], config, dim)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(config["train"]["device"])
+
+    print(model.wbases[1].device.type)
 
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
@@ -284,7 +291,6 @@ def FNN_train(
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
-
             loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
             loss.backward()
 
@@ -296,12 +302,16 @@ def FNN_train(
         with torch.no_grad():
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
+
                 batch_size_ = x.shape[0]
                 out = model(x)  # .reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
+                # if config['train']['device']=='cuda':
+                #     out = out.cpu()
+                #     y = y.cpu()
 
                 test_rel_l2 += myloss(
                     out.view(batch_size_, -1), y.view(batch_size_, -1)
@@ -320,16 +330,21 @@ def FNN_train(
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
 
-        print(
-            "Epoch : ",
-            ep,
-            " Rel. Train L2 Loss : ",
-            train_rel_l2,
-            " Rel. Test L2 Loss : ",
-            test_rel_l2,
-            " Test L2 Loss : ",
-            test_l2,
-        )
-    torch.save(model, save_model_name)
+        if (ep % 10 == 0) or (ep == epochs - 1):
+            print(
+                "Epoch : ",
+                ep,
+                " Rel. Train L2 Loss : ",
+                train_rel_l2,
+                " Rel. Test L2 Loss : ",
+                test_rel_l2,
+                " Test L2 Loss : ",
+                test_l2,
+            )
+            if save_model_name:
+                torch.save(model, save_model_name)
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+# , cost

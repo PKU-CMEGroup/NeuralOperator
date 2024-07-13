@@ -2,9 +2,18 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .basics import compl_mul1d
+
+from collections import defaultdict
+import sys
+
+sys.path.append("../")
+from .basics import (
+    compl_mul1d,
+    SpectralConv1d,
+    SpectralConv2d_test,
+    SimpleAttention,
+)
 from .utils import _get_act, add_padding, remove_padding
-from .basics import SpectralConv1d, SpectralConv2d_test, SimpleAttention
 
 
 class GalerkinConv(nn.Module):
@@ -45,16 +54,7 @@ class GalerkinConv(nn.Module):
 
 
 class GkNN(nn.Module):
-    def __init__(
-        self,
-        pad_ratio=-1,
-        layer_configs=None,
-        layers=None,
-        fc_dim=128,
-        in_dim=2,
-        out_dim=1,
-        act="gelu",
-    ):
+    def __init__(self, bases_list,**config):
         super(GkNN, self).__init__()
 
         """
@@ -69,35 +69,71 @@ class GkNN(nn.Module):
         output: the solution of a later timestep
         output shape: (batchsize, x=s, c=1)
         """
+        self.bases_fourier=bases_list[0]
+        self.wbases_fourier=bases_list[1]
+        self.bases_pca=bases_list[2]
+        self.wbases_pca=bases_list[3]
+        
+        self.config = defaultdict(lambda: None, **config)
+        self.config = dict(self.config)
+        all_attr = list(self.config.keys())
+        for key in all_attr:
+            setattr(self, key, self.config[key])
 
-        self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
-        self.pad_ratio = pad_ratio
+        self.fc0 = nn.Linear(
+            self.in_dim, self.layers_dim[0]
+        )  # input channel is 2: (a(x), x)
 
-        self.layer_configs = layer_configs
         self.sp_layers = nn.ModuleList(
             [
-                self._choose_layer(in_size, out_size, layer_config)
-                for in_size, out_size, layer_config in zip(
-                    layers, layers[1:], self.layer_configs
+                self._choose_layer(index, in_size, out_size, layer_type)
+                for index, (in_size, out_size, layer_type) in enumerate(
+                    zip(self.layers_dim, self.layers_dim[1:], self.layer_types)
                 )
             ]
         )
-
+        #######
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
-                for in_size, out_size in zip(layers, layers[1:])
+                for in_size, out_size in zip(self.layers_dim, self.layers_dim[1:])
             ]
         )
 
-        self.fc_dim = fc_dim
-        if fc_dim > 0:
-            self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim)
-        else:
-            self.fc2 = nn.Linear(layers[-1], out_dim)
+        # galerkin_config_std1 = {
+        #     "type": "GalerkinConv",
+        #     "num_modes": self.GkNN_modes,
+        #     "bases": bases_fourier,
+        #     "wbases": wbases_fourier,
+        # }
+        # galerkin_config_std2 = {
+        #     "type": "GalerkinConv",
+        #     "num_modes": k_max,
+        #     "bases": bases_pca,
+        #     "wbases": wbases_pca,
+        # }
 
-        self.act = _get_act(act)
+        # fourier_config_std = {
+        #     "type": "FourierConv",
+        #     "num_modes": k_max // 2,
+        # }
+
+        # attention_config_std = {
+        #     "type": "Attention",
+        #     "num_heads": 1,
+        #     "attention_type": "galerkin",
+        # }
+
+        # layer_configs = [fourier_config_std, galerkin_config_std, attention_config_std]
+
+        # if fc_dim = 0, we do not have nonlinear layer
+        if self.fc_dim > 0:
+            self.fc1 = nn.Linear(self.layers_dim[-1], self.fc_dim)
+            self.fc2 = nn.Linear(self.fc_dim, self.out_dim)
+        else:
+            self.fc2 = nn.Linear(self.layers_dim[-1], self.out_dim)
+
+        self.act = _get_act(self.act)
 
     def forward(self, x):
         """
@@ -141,26 +177,29 @@ class GkNN(nn.Module):
 
         return x
 
-    @staticmethod
-    def _choose_layer(in_channels, out_channels, layer_config):
-        type = layer_config["type"]
-        if type == "GalerkinConv":
-            num_modes = layer_config["num_modes"]
-            bases = layer_config["bases"]
-            wbases = layer_config["wbases"]
+    def _choose_layer(self, index, in_channels, out_channels, layer_type):
+        if layer_type == "GalerkinConv_fourier":
+            num_modes = self.GkNN_modes[index]
+            bases = self.bases_fourier
+            wbases = self.wbases_fourier
             return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
-        elif type == "FourierConv":
-            num_modes = layer_config["num_modes"]
+        elif layer_type == "GalerkinConv_pca":
+            num_modes = self.GkNN_modes[index]
+            bases = self.bases_pca
+            wbases = self.wbases_pca
+            return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
+        elif layer_type == "FourierConv1d":
+            num_modes = self.FNO_modes[index]
             return SpectralConv1d(in_channels, out_channels, num_modes)
-        elif type == "FourierConv2d":
-            num_modes1 = layer_config["num_modes1"]
-            num_modes2 = layer_config["num_modes2"]
-            return SpectralConv2d_test(
-                in_channels, out_channels, num_modes1, num_modes2
-            )
-        elif type == "Attention":
-            num_heads = layer_config["num_heads"]
-            attention_type = layer_config["attention_type"]
+        # elif type == "FourierConv2d":
+        #     num_modes1 = layer_config["num_modes1"]
+        #     num_modes2 = layer_config["num_modes2"]
+        #     return SpectralConv2d_test(
+        #         in_channels, out_channels, num_modes1, num_modes2
+        #     )
+        elif layer_type == "Attention":
+            num_heads = self.num_heads[index]
+            attention_type = self.attention_types[index]
             return SimpleAttention(in_channels, out_channels, num_heads, attention_type)
         else:
             raise ValueError("Layer Type Undefined.")

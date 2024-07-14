@@ -138,9 +138,9 @@ class SpectralConv2d(nn.Module):
         return x
 
 
-class SpectralConv2d_test(nn.Module):
+class SpectralConv2d_shape(nn.Module):
     def __init__(self, in_channels, out_channels, modes1, modes2):
-        super(SpectralConv2d_test, self).__init__()
+        super(SpectralConv2d_shape, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         # Number of Fourier modes to multiply, at most floor(N/2) + 1

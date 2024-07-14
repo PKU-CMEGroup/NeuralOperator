@@ -84,7 +84,7 @@ def FNN_train(
         config["train"]["normalization_y"],
         config["train"]["normalization_dim"],
     )
-    dim = len(x_train.shape) - 2  # n_train, size, n_channel
+    # dim = len(x_train.shape) - 2  # n_train, size, n_channel
 
     # cost = FNN_cost(x_train.shape[1], config, dim)
 

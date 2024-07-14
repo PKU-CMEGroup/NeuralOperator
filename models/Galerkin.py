@@ -10,7 +10,7 @@ sys.path.append("../")
 from .basics import (
     compl_mul1d,
     SpectralConv1d,
-    SpectralConv2d_test,
+    SpectralConv2d_shape,
     SimpleAttention,
 )
 from .utils import _get_act, add_padding, remove_padding
@@ -166,12 +166,11 @@ class GkNN(nn.Module):
         elif layer_type == "FourierConv1d":
             num_modes = self.FNO_modes[index]
             return SpectralConv1d(in_channels, out_channels, num_modes)
-        # elif type == "FourierConv2d":
-        #     num_modes1 = layer_config["num_modes1"]
-        #     num_modes2 = layer_config["num_modes2"]
-        #     return SpectralConv2d_test(
-        #         in_channels, out_channels, num_modes1, num_modes2
-        #     )
+        elif layer_type == "FourierConv2d":
+            num_modes1 = self.FNO_modes[index]
+            num_modes2 = self.FNO_modes[index]
+            return SpectralConv2d_shape(
+                in_channels, out_channels, num_modes1, num_modes2)
         elif layer_type == "Attention":
             num_heads = self.num_heads[index]
             attention_type = self.attention_types[index]

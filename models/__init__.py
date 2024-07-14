@@ -10,7 +10,8 @@ from .utils import (
     compute_2dFourier_bases,
     compute_1dWeights,
     compute_1dFourier_bases_arbitrary,
-    compute_pca_bases,
+    compute_1dpca_bases,
+    compute_2dpca_bases,
 )
 from .adam import Adam
 from .losses import LpLoss

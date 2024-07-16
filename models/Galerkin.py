@@ -10,26 +10,27 @@ sys.path.append("../")
 from .basics import (
     compl_mul1d,
     SpectralConv1d,
-    SpectralConv2d_test,
+    SpectralConv2d_shape,
     SimpleAttention,
 )
 from .utils import _get_act, add_padding, remove_padding
 
 
 class GalerkinConv(nn.Module):
-    def __init__(self, in_dim, out_dim, modes, bases, wbases):
+    def __init__(self, in_channels, out_channels, modes, bases, wbases):
         super(GalerkinConv, self).__init__()
 
-        self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
         self.modes = modes
         self.bases = bases
         self.wbases = wbases
 
-        self.scale = 1 / (in_dim * out_dim)
+        self.scale = 1 / (in_channels * out_channels)
         self.weights = nn.Parameter(
-            self.scale * torch.rand(in_dim, out_dim, self.modes, dtype=torch.float)
+            self.scale
+            * torch.rand(in_channels, out_channels, self.modes, dtype=torch.float)
         )
 
     def forward(self, x):
@@ -57,7 +58,7 @@ class GkNN(nn.Module):
         for key in all_attr:
             setattr(self, key, self.config[key])
 
-        self.fc0 = nn.Linear(self.in_dim, self.layers_dim[0])
+        self.fc0 = nn.Linear(self.in_channels, self.layers_dim[0])
 
         self.sp_layers = nn.ModuleList(
             [
@@ -74,11 +75,12 @@ class GkNN(nn.Module):
             ]
         )
 
+        # if fc_dim = 0, we do not have nonlinear layer
         if self.fc_dim > 0:
             self.fc1 = nn.Linear(self.layers_dim[-1], self.fc_dim)
-            self.fc2 = nn.Linear(self.fc_dim, self.out_dim)
+            self.fc2 = nn.Linear(self.fc_dim, self.out_channels)
         else:
-            self.fc2 = nn.Linear(self.layers_dim[-1], self.out_dim)
+            self.fc2 = nn.Linear(self.layers_dim[-1], self.out_channels)
 
         self.act = _get_act(self.act)
 
@@ -87,9 +89,10 @@ class GkNN(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        if self.pad_ratio > 0:
-            pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
-            x = add_padding(x, pad_nums=pad_nums)
+        # # add padding
+        # if self.pad_ratio > 0:
+        #     pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
+        #     x = add_padding(x, pad_nums=pad_nums)
 
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):
             x1 = layer(x)
@@ -98,8 +101,8 @@ class GkNN(nn.Module):
             if self.act is not None and i != length - 1:
                 x = self.act(x)
 
-        if self.pad_ratio > 0:
-            x = remove_padding(x, pad_nums=pad_nums)
+        # if self.pad_ratio > 0:
+        #     x = remove_padding(x, pad_nums=pad_nums)
 
         x = x.permute(0, 2, 1)
 
@@ -114,27 +117,29 @@ class GkNN(nn.Module):
 
         return x
 
-    def _choose_layer(self, index, in_dim, out_dim, layer_type):
+    def _choose_layer(self, index, in_channels, out_channels, layer_type):
         if layer_type == "GalerkinConv_fourier":
             num_modes = self.GkNN_modes[index]
             bases = self.bases_fourier
             wbases = self.wbases_fourier
-            return GalerkinConv(in_dim, out_dim, num_modes, bases, wbases)
+            return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
         elif layer_type == "GalerkinConv_pca":
             num_modes = self.GkNN_modes[index]
             bases = self.bases_pca
             wbases = self.wbases_pca
-            return GalerkinConv(in_dim, out_dim, num_modes, bases, wbases)
+            return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
         elif layer_type == "FourierConv1d":
             num_modes = self.FNO_modes[index]
-            return SpectralConv1d(in_dim, out_dim, num_modes)
+            return SpectralConv1d(in_channels, out_channels, num_modes)
         elif layer_type == "FourierConv2d":
-            num_modes1 = self.FNO_modes1[index]
-            num_modes2 = self.FNO_modes2[index]
-            return SpectralConv2d_test(in_dim, out_dim, num_modes1, num_modes2)
+            num_modes1 = self.FNO_modes[index]
+            num_modes2 = self.FNO_modes[index]
+            return SpectralConv2d_shape(
+                in_channels, out_channels, num_modes1, num_modes2
+            )
         elif layer_type == "Attention":
             num_heads = self.num_heads[index]
             attention_type = self.attention_types[index]
-            return SimpleAttention(in_dim, out_dim, num_heads, attention_type)
+            return SimpleAttention(in_channels, out_channels, num_heads, attention_type)
         else:
             raise ValueError("Layer Type Undefined.")

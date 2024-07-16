@@ -16,11 +16,11 @@ from .fourier3d import FNN3d
 from .fourier4d import FNN4d
 from .Galerkin import GkNN
 
+
 def count_params(model):
     c = 0
     for p in list(model.parameters()):
-        c += reduce(operator.mul,
-                    list(p.size()+(2,) if p.is_complex() else p.size()))
+        c += reduce(operator.mul, list(p.size() + (2,) if p.is_complex() else p.size()))
     return c
 
 
@@ -68,9 +68,9 @@ def count_params(model):
 #     return cost
 
 
-
-
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+
+
 def FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
 ):
@@ -210,6 +210,3 @@ def FNN_train(
                 torch.save(model, save_model_name)
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
-
-
-# , cost

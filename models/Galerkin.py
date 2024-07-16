@@ -58,7 +58,7 @@ class GkNN(nn.Module):
         for key in all_attr:
             setattr(self, key, self.config[key])
 
-        self.fc0 = nn.Linear(self.in_channels, self.layers_dim[0])
+        self.fc0 = nn.Linear(self.in_dim, self.layers_dim[0])
 
         self.sp_layers = nn.ModuleList(
             [

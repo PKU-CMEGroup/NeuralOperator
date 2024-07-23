@@ -131,9 +131,13 @@ class GkNN(nn.Module):
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):
             x1 = layer(x)
             x2 = w(x)
-            x = x1 + x2
+            res = x1 + x2
             if self.act is not None and i != length - 1:
-                x = self.act(x)
+                res = self.act(res)
+            if self.residual[i] == True:
+                x = x + res
+            else:
+                x = res
 
         # if self.pad_ratio > 0:
         #     x = remove_padding(x, pad_nums=pad_nums)

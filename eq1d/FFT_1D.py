@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 from timeit import default_timer
 from scipy.io import loadmat
 import yaml
+import os
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(script_dir)
 sys.path.append("../")
-
 
 from models import FNN_train, compute_1dFourier_bases, compute_1dpca_bases
 from models.Galerkin import GkNN

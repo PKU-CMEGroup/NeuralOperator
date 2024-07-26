@@ -24,53 +24,6 @@ def count_params(model):
     return c
 
 
-# def FNN_cost(Nx, config, dim):
-#     pad_ratio = config["model"]["pad_ratio"]
-#     modes = (
-#         config["model"]["FNO_modes"]
-#         if config["model"]["basis_type"] == "Fast_Fourier_Transform"
-#         else config["model"]["GkNN_modes"]
-#     )
-#     layers = config["model"]["layers"]
-#     fc_dim = config["model"]["fc_dim"]
-#     in_dim = config["model"]["in_dim"]
-#     out_dim = config["model"]["out_dim"]
-#     Np = (Nx + math.floor(pad_ratio * Nx)) ** dim
-
-#     cost_act = 1
-#     # lifting operator
-#     cost = 2 * Np * in_dim * layers[0]
-#     for i, mode in enumerate(modes):
-#         # number of modes in each direction
-#         mode = mode**dim
-#         df_in, df_out = layers[i], layers[i + 1]
-#         # fourier series transform, inverse fourier series transform, linear
-#         cost += (
-#             df_in * 5 * Np * math.log(Np)
-#             + df_out * 5 * Np * math.log(Np)
-#             + mode * df_out * (2 * df_in - 1)
-#         )
-#         # activation function
-#         if i != len(modes) - 1:
-#             cost += df_out * Np * cost_act
-
-#     # project operator
-#     # if fc_dim = 0, we do not have nonlinear layer
-#     if fc_dim > 0:
-#         cost += (
-#             Np * fc_dim * 2 * layers[-1]
-#             + fc_dim * Np * cost_act
-#             + Np * out_dim * 2 * fc_dim
-#         )
-#     else:
-#         cost += Np * out_dim * 2 * layers[-1]
-
-#     return cost
-
-
-# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-
-
 def FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
 ):
@@ -84,9 +37,6 @@ def FNN_train(
         config["train"]["normalization_y"],
         config["train"]["normalization_dim"],
     )
-    # dim = len(x_train.shape) - 2  # n_train, size, n_channel
-
-    # cost = FNN_cost(x_train.shape[1], config, dim)
 
     device = torch.device(config["train"]["device"])
 
@@ -152,7 +102,7 @@ def FNN_train(
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x)  # .reshape(batch_size_,  -1)
+            out = model(x) 
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -169,14 +119,11 @@ def FNN_train(
                 x, y = x.to(device), y.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x)  # .reshape(batch_size_,  -1)
+                out = model(x)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
-                # if config['train']['device']=='cuda':
-                #     out = out.cpu()
-                #     y = y.cpu()
 
                 test_rel_l2 += myloss(
                     out.view(batch_size_, -1), y.view(batch_size_, -1)

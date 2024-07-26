@@ -75,12 +75,11 @@ class GkNN(nn.Module):
             ]
         )
 
-        # if fc_dim = 0, we do not have nonlinear layer
         if self.fc_dim > 0:
             self.fc1 = nn.Linear(self.layers_dim[-1], self.fc_dim)
-            self.fc2 = nn.Linear(self.fc_dim, self.out_channels)
+            self.fc2 = nn.Linear(self.fc_dim, self.out_dim)
         else:
-            self.fc2 = nn.Linear(self.layers_dim[-1], self.out_channels)
+            self.fc2 = nn.Linear(self.layers_dim[-1], self.out_dim)
 
         self.act = _get_act(self.act)
 
@@ -89,20 +88,12 @@ class GkNN(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        # # add padding
-        # if self.pad_ratio > 0:
-        #     pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
-        #     x = add_padding(x, pad_nums=pad_nums)
-
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):
             x1 = layer(x)
             x2 = w(x)
             x = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x)
-
-        # if self.pad_ratio > 0:
-        #     x = remove_padding(x, pad_nums=pad_nums)
 
         x = x.permute(0, 2, 1)
 

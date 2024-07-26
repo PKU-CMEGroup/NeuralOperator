@@ -88,6 +88,14 @@ def count_params(model):
     return c
 
 
+def generate_1dGrid_arbitrary(gridsize, s, seed):
+    index_selected = np.random.choice(range(gridsize), s, replace=False, seed=seed)
+    index_selected.sort()
+    index_selected[0], index_selected[s - 1] = 0, gridsize - 1
+    grid_selected = torch.tensor(index_selected) / gridsize
+    return index_selected, grid_selected
+
+
 def compute_1dFourier_bases(nx, k, Lx):
     grid = np.linspace(0, Lx, nx + 1)[:-1]
     bases = np.zeros((nx, k))
@@ -150,9 +158,7 @@ def compute_2dFourier_bases(nx, ny, k, Lx, Ly):
         np.linspace(0, Lx, nx + 1)[:-1], np.linspace(0, Ly, ny + 1)[:-1]
     )
     bases = np.zeros((nx, ny, k))
-
     weights = np.ones((nx, ny)) * Lx * Ly / (nx * ny)
-
     k_pairs = compute_2dFourier_modes(k)
     for i in range(k):
         kx, ky = k_pairs[i, :]
@@ -169,19 +175,19 @@ def compute_2dFourier_bases(nx, ny, k, Lx, Ly):
     return gridx, gridy, bases, weights
 
 
-def compute_1dpca_bases (Ne , k_max , L,  pca_data):
-    U, S, VT = np.linalg.svd(pca_data.T)
-    # the integration of the basis is 1.
+def compute_1dpca_bases(Ne, k_max, L, pca_data):
+    U, _, _ = np.linalg.svd(pca_data.T)
     fbases = U[:, 0:k_max] / np.sqrt(L / Ne)
     wfbases = L / Ne * fbases
     bases_pca = torch.from_numpy(fbases.astype(np.float32))
     wbases_pca = torch.from_numpy(wfbases.astype(np.float32))
-    return bases_pca,wbases_pca
+    return bases_pca, wbases_pca
 
-def compute_2dpca_bases (Np , k_max , L,  pca_data):
-    U, S, VT = np.linalg.svd(pca_data.T, full_matrices=False)
+
+def compute_2dpca_bases(Np, k_max, L, pca_data):
+    U, _, _ = np.linalg.svd(pca_data.T, full_matrices=False)
     fbases = U[:, 0:k_max] / np.sqrt(L * L / Np**2)
     wfbases = L * L / Np**2 * fbases
     bases_pca = torch.from_numpy(fbases.astype(np.float32))
     wbases_pca = torch.from_numpy(wfbases.astype(np.float32))
-    return bases_pca,wbases_pca
+    return bases_pca, wbases_pca

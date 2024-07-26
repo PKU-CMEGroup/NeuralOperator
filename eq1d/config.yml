@@ -23,7 +23,7 @@ FFT_1D:
 
 
   train:
-    device: 'cuda'   #cpu or cuda
+    device: 'cpu'   #cpu or cuda
     base_lr: 0.001
     weight_decay: 0.0001
     epochs: 1000

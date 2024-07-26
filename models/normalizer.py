@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class UnitGaussianNormalizer(object):
-    def __init__(self, x, dim = [], eps=1.0e-5):
+    def __init__(self, x, dim=[], eps=1.0e-5):
         super(UnitGaussianNormalizer, self).__init__()
 
         # x could be in shape of ntrain*n or ntrain*T*n or ntrain*n*T
@@ -15,38 +15,31 @@ class UnitGaussianNormalizer(object):
 
     def encode(self, x):
         return (x - self.mean) / (self.std + self.eps)
-    
+
     # inplace function
     def encode_(self, x):
         x -= self.mean
-        x /= (self.std + self.eps)
-        
+        x /= self.std + self.eps
 
     def decode(self, x):
-        std = self.std + self.eps # n
+        std = self.std + self.eps  # n
         mean = self.mean
         return (x * std) + mean
-    
+
     # inplace function
     def decode_(self, x):
-        std = self.std + self.eps # n
+        std = self.std + self.eps  # n
         mean = self.mean
-        x *= std 
+        x *= std
         x += mean
-        
-    
+
     def to(self, device):
-        if device == torch.device('cuda:0'):
+        if device == torch.device("cuda:0"):
             self.mean = self.mean.cuda()
             self.std = self.std.cuda()
+        elif device == torch.device("mps"):
+            self.mean = self.mean.to("mps")
+            self.std = self.std.to("mps")
         else:
             self.mean = self.mean.cpu()
             self.std = self.std.cpu()
-        
-#     def cuda(self):
-#         self.mean = self.mean.cuda()
-#         self.std = self.std.cuda()
-
-#     def cpu(self):
-#         self.mean = self.mean.cpu()
-#         self.std = self.std.cpu()

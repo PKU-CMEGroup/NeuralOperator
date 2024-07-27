@@ -4,6 +4,13 @@ This repository explores the neural operator approach for creating surrogates fo
 
 
 
+## Three steps to test GalerkinNO:
+
+1. Create a folder 'data',which has two subfolders 'burgers_1d' and 'darcy_2d' containing the data files.
+
+2. Modify configs in the file 'config_1D.yml' or 'config_2D.yml'.
+
+3. Run 'FFT_1D.py' or 'FFT_2D.py'.
 
 ## References
 

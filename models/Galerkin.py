@@ -145,8 +145,8 @@ class GkNN(nn.Module):
         x = x.permute(0, 2, 1)
 
         # if fc_dim = 0, we do not have nonlinear layer
-        fc_dim = self.fc_dim if hasattr(self, "fc_dim") else 1
-
+        fc_dim = self.fc_dim 
+        
         if fc_dim > 0:
             x = self.fc1(x)
             if self.act is not None:

@@ -85,6 +85,12 @@ def FNN_train(
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=T_max, eta_min=eta_min
         )
+    elif config["train"]["scheduler"] == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=config['train']['base_lr'], 
+            div_factor=2, final_div_factor=100,pct_start=0.2,
+            steps_per_epoch=1, epochs=config['train']['epochs'])
+        
     else:
         print("Scheduler ", config["train"]["scheduler"], " has not implemented.")
 

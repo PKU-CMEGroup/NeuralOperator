@@ -91,14 +91,18 @@ class GkNN(nn.Module):
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):
             x1 = layer(x)
             x2 = w(x)
-            x = x1 + x2
+            res = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x)
 
+        # if self.pad_ratio > 0:
+        #     x = remove_padding(x, pad_nums=pad_nums)
+
         x = x.permute(0, 2, 1)
 
-        fc_dim = self.fc_dim if hasattr(self, "fc_dim") else 1
-
+        # if fc_dim = 0, we do not have nonlinear layer
+        fc_dim = self.fc_dim 
+        
         if fc_dim > 0:
             x = self.fc1(x)
             if self.act is not None:

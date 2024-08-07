@@ -20,6 +20,7 @@ FFT_1D:
     layers_dim: [128,128,128,128]     # len(layers_dim) == len(..modes)+1
     act: 'gelu'
     pad_ratio: 0.05
+    residual : [False,False,False]
 
 
   train:

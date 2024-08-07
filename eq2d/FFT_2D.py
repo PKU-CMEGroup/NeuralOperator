@@ -24,7 +24,7 @@ np.random.seed(0)
 ###################################
 # load configs
 ###################################
-with open('config.yml', 'r', encoding='utf-8') as f:
+with open('config_2D.yml', 'r', encoding='utf-8') as f:
     config = yaml.full_load(f)
 
 config = config["FFT_2D"]
@@ -45,10 +45,11 @@ device = torch.device(config["train"]["device"])
 # load data
 ###################################
 data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
-data = loadmat(data_path)
-
-data_in = data["coeff"]  # shape: 1024,421,421
-data_out = data["sol"]  # shape: 1024,421,421
+data1 = loadmat(data_path)
+data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
+data2 = loadmat(data_path)
+data_in = np.vstack((data1["coeff"], data2["coeff"]))  # shape: 2048,421,421
+data_out = np.vstack((data1["sol"], data2["sol"]))     # shape: 2048,421,421
 print("data_in.shape:" , data_in.shape)
 print("data_out.shape", data_out.shape)
 

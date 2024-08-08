@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import operator
+from timeit import default_timer
 from functools import reduce
 from .basics import SpectralConv1d
 from .utils import _get_act, add_padding, remove_padding
@@ -27,7 +28,7 @@ def count_params(model):
 def FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
 ):
-
+    print(count_params(model))
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -87,10 +88,15 @@ def FNN_train(
         )
     elif config["train"]["scheduler"] == "OneCycleLR":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=config['train']['base_lr'], 
-            div_factor=2, final_div_factor=100,pct_start=0.2,
-            steps_per_epoch=1, epochs=config['train']['epochs'])
-        
+            optimizer,
+            max_lr=config["train"]["base_lr"],
+            div_factor=2,
+            final_div_factor=100,
+            pct_start=0.2,
+            steps_per_epoch=1,
+            epochs=config["train"]["epochs"],
+        )
+
     else:
         print("Scheduler ", config["train"]["scheduler"], " has not implemented.")
 
@@ -99,7 +105,11 @@ def FNN_train(
 
     epochs = config["train"]["epochs"]
 
+    start_time = default_timer()
     for ep in range(epochs):
+        if ep % 10 == 1:
+            start_time = default_timer()
+
         train_rel_l2 = 0
 
         model.train()
@@ -108,7 +118,7 @@ def FNN_train(
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x) 
+            out = model(x)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -149,6 +159,7 @@ def FNN_train(
         test_l2_losses.append(test_l2)
 
         if (ep % 10 == 0) or (ep == epochs - 1):
+            end_time = default_timer()
             print(
                 "Epoch : ",
                 ep,
@@ -156,8 +167,8 @@ def FNN_train(
                 train_rel_l2,
                 " Rel. Test L2 Loss : ",
                 test_rel_l2,
-                " Test L2 Loss : ",
-                test_l2,
+                " Time : ",
+                end_time - start_time,
             )
             if save_model_name:
                 torch.save(model, save_model_name)

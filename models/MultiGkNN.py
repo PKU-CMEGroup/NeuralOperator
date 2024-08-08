@@ -5,19 +5,54 @@ from .basics import compl_mul1d
 
 
 class Restriction1d(nn.Module):
-    def __init__(self, a_channels, u_channels, f_channels):
+    def __init__(
+        self,
+        a_channels_in,
+        a_channels_out,
+        u_channels_in,
+        u_channels_out,
+        f_channels_in,
+        f_channels_out,
+        stride,
+        padding,
+        kernel_size,
+    ):
         super(Restriction1d, self).__init__()
+
+        self.stride = stride
+        self.padding = padding
+        self.kernel_size = kernel_size
+
         self.R_a = nn.Conv1d(
-            a_channels, a_channels, kernel_size=3, padding=1, stride=2, bias=False
+            a_channels_in,
+            a_channels_out,
+            kernel_size=kernel_size,
+            padding=padding,
+            stride=stride,
+            bias=False,
         )
         self.R_u = nn.Conv1d(
-            u_channels, u_channels, kernel_size=3, padding=1, stride=2, bias=False
+            u_channels_in,
+            u_channels_out,
+            kernel_size=kernel_size,
+            padding=padding,
+            stride=stride,
+            bias=False,
         )
         self.R_f = nn.Conv1d(
-            f_channels, f_channels, kernel_size=3, padding=1, stride=2, bias=False
+            f_channels_in,
+            f_channels_out,
+            kernel_size=kernel_size,
+            padding=padding,
+            stride=stride,
+            bias=False,
         )
-        self.R_bases = nn.Conv1d(1, 1, kernel_size=3, padding=1, stride=2, bias=False)
-        self.R_wbases = nn.Conv1d(1, 1, kernel_size=3, padding=1, stride=2, bias=False)
+        self.R_bases = nn.Conv1d(
+            1, 1, kernel_size=kernel_size, padding=padding, stride=stride, bias=False
+        )
+        self.R_wbases = nn.Conv1d(
+            1, 1, kernel_size=kernel_size, padding=padding, stride=stride, bias=False
+        )
 
     def forward(self, a, u, f, bases, wbases):
         a = self.R_a(a)
@@ -26,28 +61,40 @@ class Restriction1d(nn.Module):
 
         modes = bases.size(1)
         gridsize = bases.size(0)
+        gridsize_rough = (
+            gridsize + 2 * self.padding - self.kernel_size
+        ) // self.stride + 1
 
         bases = bases.permute(1, 0)
         wbases = wbases.permute(1, 0)
 
-        bases1 = torch.zeros(((gridsize + 1) // 2, modes))
-        wbases1 = torch.zeros(((gridsize + 1) // 2, modes))
+        bases_rough = torch.zeros((gridsize_rough, modes)).to("cuda")
+        wbases_rough = torch.zeros((gridsize_rough, modes)).to("cuda")
         for mode in range(modes):
-            bases1[:, mode] = self.R_bases(bases[mode, :].unsqueeze(0)).squeeze(0)
-            wbases1[:, mode] = self.R_wbases(wbases[mode, :].unsqueeze(0)).squeeze(0)
+            bases_rough[:, mode] = self.R_bases(bases[mode, :].unsqueeze(0)).squeeze(0)
+            wbases_rough[:, mode] = self.R_wbases(wbases[mode, :].unsqueeze(0)).squeeze(
+                0
+            )
 
-        return a, u, f, bases1, wbases1
+        return a, u, f, bases_rough, wbases_rough
 
 
 class Prolongation1d(nn.Module):
-    def __init__(self, u_channels):
+    def __init__(self, u_channels_in, u_channels_out, stride, kernel_size, padding):
         super(Prolongation1d, self).__init__()
         self.P_u = nn.ConvTranspose1d(
-            u_channels, u_channels, kernel_size=3, stride=2, padding=1, bias=False
+            u_channels_in,
+            u_channels_out,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bias=False,
         )
 
-    def forward(self, u):
-        return self.P_u(u)
+    def forward(self, u, gridsize_fine):
+        u = self.P_u(u)
+        u = u[..., :gridsize_fine]
+        return u
 
 
 class GalerkinConv_test(nn.Module):
@@ -72,87 +119,37 @@ class GalerkinConv_test(nn.Module):
         return x
 
 
-class GalerkinPositive(nn.Module):
+class GalerkinSolver(nn.Module):
     def __init__(self, a_channels, u_channels, f_channels, modes):
-        super(GalerkinPositive, self).__init__()
-        self.in_channels = a_channels + u_channels
-        self.out_channels = f_channels
+        super(GalerkinSolver, self).__init__()
+        self.in_channels = a_channels + u_channels + f_channels
+        self.out_channels = u_channels
         self.modes_list = modes
         self.sp_layer = GalerkinConv_test(self.in_channels, self.in_channels, modes)
         self.w = nn.Conv1d(self.in_channels, self.in_channels, 1, bias=True)
         self.fc = nn.Conv1d(self.in_channels, self.out_channels, 1)
 
-    def forward(self, a, u, bases, wbases):
-        x = torch.cat((a, u), dim=-2)
+    def forward(self, a, u, f, bases, wbases):
+        x = torch.cat((a, u, f), dim=-2)
         x1 = self.sp_layer(x, bases, wbases)
         x2 = self.w(x)
         res = x1 + x2
         x = x + F.gelu(res)
-        u = self.fc(x)
-
+        u = u + self.fc(x)  #
         return u
 
 
-class MultiGalerkinLayer(nn.Module):
-    def __init__(
-        self,
-        bases,
-        wbases,
-        modes,
-        a_channels,
-        u_channels,
-        f_channels,
-        num_levels,
-    ):
-        super(MultiGalerkinLayer, self).__init__()
-
-        self.modes = modes
-        self.bases = bases
-        self.wbases = wbases
-        self.num_levels = num_levels
-        self.positive = GalerkinPositive(a_channels, u_channels, f_channels, modes)
-        self.restrictions = nn.ModuleList(
-            [
-                Restriction1d(a_channels, u_channels, f_channels)
-                for _ in range(num_levels - 1)
-            ]
+class Conv1dPositive(nn.Module):
+    def __init__(self, a_channels, u_channels, f_channels) -> None:
+        super(Conv1dPositive, self).__init__()
+        self.conv = nn.Conv1d(
+            a_channels + u_channels, f_channels, kernel_size=3, padding=1, bias=False
         )
 
-        self.smoothers = nn.ModuleList(
-            [
-                nn.ModuleList(
-                    [
-                        nn.Conv1d(f_channels, u_channels, kernel_size=3, padding=1)
-                        for _ in range(2)
-                    ]
-                )
-                for _ in range(self.num_levels)
-            ]
-        )
-
-        self.prolongations = nn.ModuleList(
-            [Prolongation1d(u_channels) for _ in range(num_levels - 1)]
-        )
-
-    def forward(self, a, u, f):
-        u_list = []
-        bases = self.bases
-        wbases = self.wbases
-
-        for level, restriction in enumerate(self.restrictions):
-            for _, smoother in enumerate(self.smoothers[level]):
-                u = u + smoother(f - self.positive(a, u, bases, wbases))
-            u_list.append(u)
-            a, u, f, bases, wbases = restriction(a, u, f, bases, wbases)
-
-        for _, smoother in enumerate(self.smoothers[self.num_levels - 1]):
-            u = u + smoother(f - self.positive(a, u, bases, wbases))
-
-        for rlevel, prolongation in enumerate(self.prolongations):
-            level = self.num_levels - 2 - rlevel
-            u = prolongation(u)
-            u = u_list[level] + u
-        return u
+    def forward(self, a, u):
+        x = torch.cat((a, u), dim=-2)
+        out = self.conv(x)
+        return out
 
 
 class MultiGalerkinNN(nn.Module):
@@ -162,40 +159,108 @@ class MultiGalerkinNN(nn.Module):
         wbases,
         modes_list,
         dim_physic,
-        a_channels,
-        u_channels,
-        f_channels,
-        num_levels,
+        a_channels_list,
+        u_channels_list,
+        f_channels_list,
+        stride,
+        kernel_size_R,
+        kernel_size_P,
+        padding_R,
+        padding_P,
     ):
         super(MultiGalerkinNN, self).__init__()
 
-        self.fc0_a = nn.Linear(dim_physic + 1, a_channels)
-        self.fc0_f = nn.Linear(dim_physic + 1, f_channels)
-        self.fc0_u = nn.Linear(a_channels + f_channels, u_channels)
+        self.dim_physic = dim_physic
+        self.bases = bases
+        self.wbases = wbases
+        self.num_levels = len(modes_list)
 
-        self.layers = nn.ModuleList(
+        self.fc0_a = nn.Linear(dim_physic + 1, a_channels_list[0])
+        self.fc0_f = nn.Linear(dim_physic + 1, f_channels_list[0])
+        self.fc0_u = nn.Linear(
+            a_channels_list[0] + f_channels_list[0], u_channels_list[0]
+        )
+
+        self.positives = nn.ModuleList(
             [
-                MultiGalerkinLayer(
-                    bases,
-                    wbases,
-                    modes,
-                    a_channels,
-                    u_channels,
-                    f_channels,
-                    num_levels,
+                Conv1dPositive(
+                    a_channels_list[l], u_channels_list[l], f_channels_list[l]
                 )
-                for _, modes in enumerate(modes_list)
+                for l in range(self.num_levels - 1)
+            ]
+        )
+        self.solvers = nn.ModuleList(
+            [
+                GalerkinSolver(
+                    a_channels_list[l],
+                    u_channels_list[l],
+                    f_channels_list[l],
+                    modes_list[l],
+                )
+                for l in range(self.num_levels)
+            ]
+        )
+        self.restrictions = nn.ModuleList(
+            [
+                Restriction1d(
+                    a_channels_list[l],
+                    a_channels_list[l + 1],
+                    u_channels_list[l],
+                    u_channels_list[l + 1],
+                    f_channels_list[l],
+                    f_channels_list[l + 1],
+                    stride=stride,
+                    kernel_size=kernel_size_R,
+                    padding=padding_R,
+                )
+                for l in range(self.num_levels - 1)
+            ]
+        )
+
+        self.prolongations = nn.ModuleList(
+            [
+                Prolongation1d(
+                    u_channels_list[l + 1],
+                    u_channels_list[l],
+                    stride=stride,
+                    kernel_size=kernel_size_P,
+                    padding=padding_P,
+                )
+                for l in range(self.num_levels - 1)
             ]
         )
 
         self.fc1_u = nn.Sequential(
-            nn.Linear(u_channels, 2 * u_channels),
+            nn.Linear(u_channels_list[0], 2 * u_channels_list[0]),
             nn.GELU(),
-            nn.Linear(2 * u_channels, 1),
+            nn.Linear(2 * u_channels_list[0], 1),
+        )
+        print(
+            "modes_list:",
+            modes_list,
+            "a_channels_list:",
+            a_channels_list,
+            "u_channels_list:",
+            u_channels_list,
+            "f_channels:",
+            f_channels_list,
+            "stride:",
+            stride,
+            "kernel_size_R:",
+            kernel_size_R,
+            "kernel_size_P:",
+            kernel_size_P,
+            "padding_R:",
+            padding_R,
+            "padding_P:",
+            padding_P,
         )
 
     def forward(self, a):
+
         f = torch.ones_like(a)
+        f[..., 1 : self.dim_physic] = a[..., 1 : self.dim_physic]
+
         f = self.fc0_f(f)
         a = self.fc0_a(a)
         u = self.fc0_u(torch.cat((a, f), dim=-1))
@@ -203,8 +268,28 @@ class MultiGalerkinNN(nn.Module):
         a = a.permute(0, 2, 1)
         u = u.permute(0, 2, 1)
         f = f.permute(0, 2, 1)
-        for _, layer in enumerate(self.layers):
-            u = layer(a, u, f)
+
+        u_list = []
+        gridsize_list = []
+        bases = self.bases
+        wbases = self.wbases
+
+        for positive, solver, restriction in zip(
+            self.positives, self.solvers, self.restrictions
+        ):
+            gridsize_list.append(u.size(-1))
+            df = f - positive(a, u)
+            u = solver(a, u, df, bases, wbases)
+            u_list.append(u)
+            f = f - positive(a, u)
+            a, u, f, bases, wbases = restriction(a, u, f, bases, wbases)
+
+        df = f - positive(a, u)
+        u = self.solvers[self.num_levels - 1](a, u, f, bases, wbases)
+
+        for level in range(self.num_levels - 2, -1, -1):
+            u = self.prolongations[level](u, gridsize_list[level])
+            u = u_list[level] + u
 
         u = u.permute(0, 2, 1)
         u = self.fc1_u(u)

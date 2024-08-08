@@ -7,10 +7,10 @@ FFT_2D:
     n_test: 200
 
   model:
-    layer_types: ['GalerkinConv_pca','GalerkinConv_pca','GalerkinConv_pca','GalerkinConv_pca']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
-    # layer_types: ['FourierConv2d','FourierConv2d','FourierConv2d','FourierConv2d']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
+    # layer_types: ['GalerkinConv_fourier','GalerkinConv_fourier','GalerkinConv_fourier','GalerkinConv_fourier']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
+    layer_types: ['FourierConv2d','FourierConv2d','FourierConv2d','FourierConv2d']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
     FNO_modes: [16,16,16,16]   # modes for FourierConv2d
-    GkNN_modes: [512,512,512,512]  # modes for GkNN
+    GkNN_modes: [32,32,32,32]  # modes for GkNN
     num_heads: [1,1,1,1]
     attention_types: ["galerkin","galerkin","galerkin","galerkin"]
     fc_dim: 128

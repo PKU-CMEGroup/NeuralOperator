@@ -58,6 +58,15 @@ grid_x_ds = grid_x[0::downsample_ratio, 0::downsample_ratio]
 grid_y_ds = grid_y[0::downsample_ratio, 0::downsample_ratio]
 data_out_ds = data_out[0:n_train, 0::downsample_ratio, 0::downsample_ratio]
 
+nx = grid_x_ds.shape[1]
+ny = grid_x_ds.shape[0]
+n = nx * ny
+bundary_indices = (
+    list(range(nx))
+    + list(range(n - nx, n - 1))
+    + list(range(nx, n - nx, nx))
+    + list(range(2 * nx - 1, n, nx))
+)
 # x_train, y_train are [n_data, n_x, n_channel] arrays
 x_train = torch.from_numpy(
     np.stack(
@@ -140,5 +149,12 @@ model = MultiGalerkinNN(
 
 print("Start training ")
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name=False
+    x_train,
+    y_train,
+    x_test,
+    y_test,
+    config,
+    model,
+    bundary_indices,
+    save_model_name=False,
 )

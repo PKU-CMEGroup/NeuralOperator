@@ -26,7 +26,14 @@ def count_params(model):
 
 
 def FNN_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
+    x_train,
+    y_train,
+    x_test,
+    y_test,
+    config,
+    model,
+    bundary_indices,
+    save_model_name="./FNO_model",
 ):
     print(count_params(model))
     n_train, n_test = x_train.shape[0], x_test.shape[0]
@@ -130,6 +137,7 @@ def FNN_train(
 
         test_l2 = 0
         test_rel_l2 = 0
+        test_l2_bundary = 0
         with torch.no_grad():
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
@@ -141,6 +149,10 @@ def FNN_train(
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
 
+                test_l2_bundary += myloss.abs(
+                    out.view(batch_size_, -1)[:, bundary_indices],
+                    y.view(batch_size_, -1)[:, bundary_indices],
+                ).item()
                 test_rel_l2 += myloss(
                     out.view(batch_size_, -1), y.view(batch_size_, -1)
                 ).item()
@@ -153,6 +165,7 @@ def FNN_train(
         train_rel_l2 /= n_train
         test_l2 /= n_test
         test_rel_l2 /= n_test
+        test_l2_bundary /= n_test
 
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
@@ -161,13 +174,17 @@ def FNN_train(
         if (ep % 10 == 0) or (ep == epochs - 1):
             end_time = default_timer()
             print(
-                "Epoch : ",
+                "Epoch:",
                 ep,
-                " Rel. Train L2 Loss : ",
+                " Train rel:",
                 train_rel_l2,
-                " Rel. Test L2 Loss : ",
+                " Test rel:",
                 test_rel_l2,
-                " Time : ",
+                " Test abs:",
+                test_l2,
+                " Test abs bundary:",
+                test_l2_bundary,
+                " Time:",
                 end_time - start_time,
             )
             if save_model_name:

@@ -1,5 +1,6 @@
 data/
 notes/
+eq2d/model/
 .DS_Store
 models/__pycache__/
 mytest/__pycache__/

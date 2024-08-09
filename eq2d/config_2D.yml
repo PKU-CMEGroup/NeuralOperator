@@ -22,6 +22,7 @@ FFT_2D:
     act: 'gelu'
     pad_ratio: 0.05
     residual : [False,False,False,False]
+    if_hidden_channels_list: [False,False,False,False]
 
 
   train:

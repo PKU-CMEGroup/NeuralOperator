@@ -16,16 +16,61 @@ from .basics import (
 from .utils import _get_act, add_padding, remove_padding
 
 
+class HiddenBases(nn.Module):
+    def __init__(
+        self, modes, bases, wbases, bases_channels, wbases_channels, if_orthognalize
+    ):
+        super(HiddenBases, self).__init__()
+
+        self.modes = modes
+        self.bases = bases.unsqueeze(-1)
+        self.wbases = wbases.unsqueeze(-1)
+        self.bases_channels = bases_channels
+        self.wbases_channels = wbases_channels
+
+        self.fc_bases = nn.Sequential(
+            nn.Linear(1, 2 * bases_channels),
+            nn.GELU(),
+            nn.Linear(2 * bases_channels, bases_channels),
+        )
+
+        self.fc_wbases = nn.Sequential(
+            nn.Linear(1, 2 * wbases_channels),
+            nn.GELU(),
+            nn.Linear(2 * wbases_channels, wbases_channels),
+        )
+
+        self.if_orthognalize = if_orthognalize
+
+    def forward(self):
+        bases = self.fc_bases(self.bases)
+        wbases = self.fc_bases(self.bases)
+        if self.if_orthognalize == True:
+            for c in range(self.bases_channels):
+                Q, _ = torch.linalg.qr(bases[..., c])
+            bases[..., c] = Q
+            for c in range(self.wbases_channels):
+                Q, _ = torch.linalg.qr(wbases[..., c])
+            wbases[..., c] = Q
+        return bases, wbases
+
+
 class GalerkinConv(nn.Module):
-    def __init__(self, in_channels, out_channels, modes, bases, wbases):
+    def __init__(
+        self, in_channels, out_channels, modes, bases, wbases, if_hidden_channels
+    ):
         super(GalerkinConv, self).__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
-
         self.modes = modes
         self.bases = bases
         self.wbases = wbases
+        self.if_hidden_channels = if_hidden_channels
+        if if_hidden_channels == True:
+            self.hiddenbases = HiddenBases(
+                modes, bases, wbases, in_channels, out_channels, if_orthognalize=False
+            )
 
         self.scale = 1 / (in_channels * out_channels)
         self.weights = nn.Parameter(
@@ -34,11 +79,17 @@ class GalerkinConv(nn.Module):
         )
 
     def forward(self, x):
-        bases, wbases = self.bases, self.wbases
+        if self.if_hidden_channels == False:
+            bases, wbases = self.bases, self.wbases
 
-        x_hat = torch.einsum("bcx,xk->bck", x, wbases)
-        x_hat = compl_mul1d(x_hat, self.weights)
-        x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+            x_hat = torch.einsum("bcx,xk->bck", x, wbases)
+            x_hat = compl_mul1d(x_hat, self.weights)
+            x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+        else:
+            bases, wbases = self.hiddenbases()
+            x_hat = torch.einsum("bcx,xkc->bck", x, wbases)
+            x_hat = compl_mul1d(x_hat, self.weights)
+            x = torch.real(torch.einsum("bck,xkc->bcx", x_hat, bases))
 
         return x
 
@@ -62,9 +113,21 @@ class GkNN(nn.Module):
 
         self.sp_layers = nn.ModuleList(
             [
-                self._choose_layer(index, in_size, out_size, layer_type)
-                for index, (in_size, out_size, layer_type) in enumerate(
-                    zip(self.layers_dim, self.layers_dim[1:], self.layer_types)
+                self._choose_layer(
+                    index, in_size, out_size, layer_type, if_hidden_channels
+                )
+                for index, (
+                    in_size,
+                    out_size,
+                    layer_type,
+                    if_hidden_channels,
+                ) in enumerate(
+                    zip(
+                        self.layers_dim,
+                        self.layers_dim[1:],
+                        self.layer_types,
+                        self.if_hidden_channels_list,
+                    )
                 )
             ]
         )
@@ -116,17 +179,23 @@ class GkNN(nn.Module):
 
         return x
 
-    def _choose_layer(self, index, in_channels, out_channels, layer_type):
+    def _choose_layer(
+        self, index, in_channels, out_channels, layer_type, if_hidden_channels
+    ):
         if layer_type == "GalerkinConv_fourier":
             num_modes = self.GkNN_modes[index]
             bases = self.bases_fourier
             wbases = self.wbases_fourier
-            return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
+            return GalerkinConv(
+                in_channels, out_channels, num_modes, bases, wbases, if_hidden_channels
+            )
         elif layer_type == "GalerkinConv_pca":
             num_modes = self.GkNN_modes[index]
             bases = self.bases_pca
             wbases = self.wbases_pca
-            return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
+            return GalerkinConv(
+                in_channels, out_channels, num_modes, bases, wbases, if_hidden_channels
+            )
         elif layer_type == "FourierConv1d":
             num_modes = self.FNO_modes[index]
             return SpectralConv1d(in_channels, out_channels, num_modes)

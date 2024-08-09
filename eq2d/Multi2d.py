@@ -61,7 +61,7 @@ data_out_ds = data_out[0:n_train, 0::downsample_ratio, 0::downsample_ratio]
 nx = grid_x_ds.shape[1]
 ny = grid_x_ds.shape[0]
 n = nx * ny
-bundary_indices = (
+boundary_indices = (
     list(range(nx))
     + list(range(n - nx, n - 1))
     + list(range(nx, n - nx, nx))
@@ -155,6 +155,6 @@ train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
     y_test,
     config,
     model,
-    bundary_indices,
+    boundary_indices,
     save_model_name=False,
 )

@@ -117,7 +117,31 @@ class GalerkinConv_test(nn.Module):
         x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases[:, : self.modes]))
 
         return x
+    
+class SimpleGalerkinConv_test(nn.Module):
+    def __init__(self, in_channels, out_channels, modes, bases, wbases):
+        super(SimpleGalerkinConv_test, self).__init__()
 
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes = modes
+
+        self.scale = 1 / (in_channels * out_channels)
+        self.weights = nn.Parameter(
+            self.scale
+            * torch.rand(in_channels, out_channels, self.modes, dtype=torch.float)
+        )
+        self.bases = bases[:, : self.modes]
+        self.wbases = wbases[:, : self.modes]
+
+    def forward(self, x):
+        bases = self.bases
+        wbases = self.wbases
+        x_hat = torch.einsum("bcx,xk->bck", x, wbases)
+        x_hat = compl_mul1d(x_hat, self.weights)
+        x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+
+        return x
 
 class GalerkinSolver(nn.Module):
     def __init__(self, a_channels, u_channels, f_channels, modes):
@@ -138,6 +162,26 @@ class GalerkinSolver(nn.Module):
         u = u + self.fc(x)  #
         return u
 
+class SimpleGalerkinSolver(nn.Module):
+    def __init__(self, a_channels, u_channels, f_channels, modes, bases, wbases):
+        super(SimpleGalerkinSolver, self).__init__()
+        self.in_channels = a_channels + u_channels + f_channels
+        self.out_channels = u_channels
+        self.modes_list = modes
+        self.sp_layer = SimpleGalerkinConv_test(
+            self.in_channels, self.in_channels, modes, bases, wbases
+        )
+        self.w = nn.Conv1d(self.in_channels, self.in_channels, 1, bias=True)
+        self.fc = nn.Conv1d(self.in_channels, self.out_channels, 1)
+
+    def forward(self, a, u, f):
+        x = torch.cat((a, u, f), dim=-2)
+        x1 = self.sp_layer(x)
+        x2 = self.w(x)
+        res = x1 + x2
+        x = x + F.gelu(res)
+        u = u + self.fc(x)  #
+        return u
 
 class Conv1dPositive(nn.Module):
     def __init__(self, a_channels, u_channels, f_channels) -> None:
@@ -295,3 +339,130 @@ class MultiGalerkinNN(nn.Module):
         u = self.fc1_u(u)
 
         return u
+    
+class SimpleMultiGalerkinNN(nn.Module):
+    def __init__(
+        self,
+        bases,
+        wbases,
+        modes_list,
+        dim_physic,
+        a_channels_list,
+        u_channels_list,
+        f_channels_list,
+        stride,
+    ):
+        super(SimpleMultiGalerkinNN, self).__init__()
+
+        self.dim_physic = dim_physic
+        self.num_levels = len(modes_list)
+        self.stride = stride
+
+        self.fc0_a = nn.Linear(dim_physic + 1, a_channels_list[0])
+        self.fc0_f = nn.Linear(dim_physic + 1, f_channels_list[0])
+        self.fc0_u = nn.Linear(
+            a_channels_list[0] + f_channels_list[0], u_channels_list[0]
+        )
+
+        self.positives = nn.ModuleList(
+            [
+                Conv1dPositive(
+                    a_channels_list[l], u_channels_list[l], f_channels_list[l]
+                )
+                for l in range(self.num_levels - 1)
+            ]
+        )
+        self.solvers = nn.ModuleList()
+        for l in range(self.num_levels):
+            self.solvers.append(
+                SimpleGalerkinSolver(
+                    a_channels_list[l],
+                    u_channels_list[l],
+                    f_channels_list[l],
+                    modes_list[l],
+                    bases,
+                    wbases,
+                )
+            )
+            bases, wbases = (
+                bases[stride - 1 :: stride, :],
+                wbases[stride - 1 :: stride, :],
+            )
+
+        self.fc1_u = nn.Sequential(
+            nn.Linear(u_channels_list[0], 128),
+            nn.Linear(128, 1),
+        )
+        print(
+            "modes_list:",
+            modes_list,
+            "a_channels_list:",
+            a_channels_list,
+            "u_channels_list:",
+            u_channels_list,
+            "f_channels:",
+            f_channels_list,
+        )
+
+    def forward(self, a):
+
+        f = torch.ones_like(a)
+        f[..., 1 : self.dim_physic] = a[..., 1 : self.dim_physic]
+
+        f = self.fc0_f(f)
+        a = self.fc0_a(a)
+        u = self.fc0_u(torch.cat((a, f), dim=-1))
+
+        a = a.permute(0, 2, 1)
+        u = u.permute(0, 2, 1)
+        f = f.permute(0, 2, 1)
+
+        u_list = []
+        gridsize_list = []
+
+        for positive, solver in zip(self.positives, self.solvers):
+
+            gridsize_list.append(u.size(-1))
+            df = f - positive(a, u)
+            u = solver(a, u, df)
+            u_list.append(u)
+            f = f - positive(a, u)
+            a, u, f = (
+                self._meanRestriction(a),
+                self._meanRestriction(u),
+                self._meanRestriction(f),
+            )
+
+        df = f - positive(a, u)
+        u = self.solvers[self.num_levels - 1](a, u, f)
+
+        for level in range(self.num_levels - 2, -1, -1):
+            u = self._repeatProlongation(u, gridsize_list[level])
+            u = u_list[level] + u
+
+        u = u.permute(0, 2, 1)
+        u = self.fc1_u(u)
+
+        return u
+
+    def _meanRestriction(self, x):
+        stride = self.stride
+        batchsize, channels, num_points = x.shape
+        r = num_points % stride
+        if r != 0:
+            indicex_remove = [(i + 1) * (num_points // stride) - 1 for i in range(r)]
+            mask = torch.ones(num_points, dtype=bool)
+            mask[indicex_remove] = False
+            x = x[..., mask]
+        x_reshape = x.view(batchsize, channels, num_points // stride, stride)
+        x_mean = x_reshape.mean(dim=-1)
+        return x_mean
+
+    def _repeatProlongation(self, x, target_num_points):
+        stride = self.stride
+        batchsize, channels, num_points = x.shape
+        x_repeat = torch.zeros(batchsize, channels, target_num_points, device=x.device)
+        x_repeat[..., : num_points * stride] = torch.repeat_interleave(
+            x, stride, dim=-1
+        )
+        return x_repeat

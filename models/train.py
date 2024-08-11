@@ -6,14 +6,11 @@ import operator
 from functools import reduce
 from .basics import SpectralConv1d
 from .utils import _get_act, add_padding, remove_padding
+from timeit import default_timer
 
 from .adam import Adam
 from .losses import LpLoss
 from .normalizer import UnitGaussianNormalizer
-from .fourier1d import FNN1d
-from .fourier2d import FNN2d
-from .fourier3d import FNN3d
-from .fourier4d import FNN4d
 from .Galerkin import GkNN
 
 def count_params(model):
@@ -78,7 +75,7 @@ def FNN_train(
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
-    test_l2_losses = []
+
     normalization_x, normalization_y, normalization_dim = (
         config["train"]["normalization_x"],
         config["train"]["normalization_y"],
@@ -149,6 +146,7 @@ def FNN_train(
 
     epochs = config["train"]["epochs"]
 
+    t1 = default_timer()
     for ep in range(epochs):
         train_rel_l2 = 0
 
@@ -168,7 +166,7 @@ def FNN_train(
             optimizer.step()
             train_rel_l2 += loss.item()
 
-        test_l2 = 0
+        # test_l2 = 0
         test_rel_l2 = 0
         with torch.no_grad():
             for x, y in test_loader:
@@ -187,35 +185,38 @@ def FNN_train(
                 test_rel_l2 += myloss(
                     out.view(batch_size_, -1), y.view(batch_size_, -1)
                 ).item()
-                test_l2 += myloss.abs(
-                    out.view(batch_size_, -1), y.view(batch_size_, -1)
-                ).item()
+                # test_l2 += myloss.abs(
+                #     out.view(batch_size_, -1), y.view(batch_size_, -1)
+                # ).item()
 
         scheduler.step()
 
         train_rel_l2 /= n_train
-        test_l2 /= n_test
+        # test_l2 /= n_test
         test_rel_l2 /= n_test
 
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
-        test_l2_losses.append(test_l2)
+        # test_l2_losses.append(test_l2)
 
         if (ep % 10 == 0) or (ep == epochs - 1):
+            t2 = default_timer()
             print(
                 "Epoch : ",
                 ep,
+                " Time : ",
+                t2-t1,
                 " Rel. Train L2 Loss : ",
                 train_rel_l2,
                 " Rel. Test L2 Loss : ",
                 test_rel_l2,
-                " Test L2 Loss : ",
-                test_l2,
+                
             )
+            t1 = default_timer()
             if save_model_name:
                 torch.save(model, save_model_name)
 
-    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+    return train_rel_l2_losses, test_rel_l2_losses
 
 
 # , cost

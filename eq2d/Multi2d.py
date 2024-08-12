@@ -12,7 +12,7 @@ sys.path.append("../")
 
 from models import FNN_train, compute_2dFourier_bases, compute_2dpca_bases
 
-# from models.MultiGkNN import MultiGalerkinNN,SimpleMultiGalerkinNN
+from models.MultiGkNN import MultiGalerkinNN, SimpleMultiGalerkinNN
 from models.MultiGkNN1 import MultiGalerkinNN1
 
 torch.set_printoptions(precision=16)
@@ -133,20 +133,20 @@ bases_pca, wbases_pca = bases_pca.to(device), wbases_pca.to(device)
 ###################################
 # construct model and train
 ###################################
-# model = MultiGalerkinNN(
-#     bases_fourier,
-#     wbases_fourier,
-#     modes_list,
-#     dim_physic=2,
-#     a_channels_list=[16, 16, 16, 16],
-#     u_channels_list=[16, 16, 16, 16],
-#     f_channels_list=[8, 8, 8, 8],
-#     stride=2,
-#     kernel_size_R=5,
-#     kernel_size_P=5,
-#     padding_R=2,
-#     padding_P=0,
-# ).to(device)
+model = MultiGalerkinNN(
+    bases_pca,
+    wbases_pca,
+    modes_list,
+    dim_physic=2,
+    a_channels_list=[16, 16, 16, 16],
+    u_channels_list=[16, 16, 16, 16],
+    f_channels_list=[8, 8, 8, 8],
+    stride=2,
+    kernel_size_R=5,
+    kernel_size_P=5,
+    padding_R=2,
+    padding_P=0,
+).to(device)
 
 # model = SimpleMultiGalerkinNN(
 #     bases_fourier,
@@ -159,17 +159,17 @@ bases_pca, wbases_pca = bases_pca.to(device), wbases_pca.to(device)
 #     stride=2,
 # ).to(device)
 
-model = MultiGalerkinNN1(
-    bases_fourier,
-    wbases_fourier,
-    modes_list,
-    dim_physic=2,
-    a_channels_list=[16, 16, 16, 16],
-    u_channels_list=[16, 16, 16, 16],
-    f_channels_list=[8, 8, 8, 8],
-    stride=2,
-    kernel_size_R=3,
-).to(device)
+# model = MultiGalerkinNN1(
+#     bases_fourier,
+#     wbases_fourier,
+#     modes_list,
+#     dim_physic=2,
+#     a_channels_list=[16, 16, 16, 16],
+#     u_channels_list=[16, 16, 16, 16],
+#     f_channels_list=[8, 8, 8, 8],
+#     stride=2,
+#     kernel_size_R=3,
+# ).to(device)
 
 
 print("Start training ")

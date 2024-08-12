@@ -57,7 +57,14 @@ class HiddenBases(nn.Module):
 
 class GalerkinConv(nn.Module):
     def __init__(
-        self, in_channels, out_channels, modes, bases, wbases, if_hidden_channels
+        self,
+        in_channels,
+        out_channels,
+        modes,
+        bases,
+        wbases,
+        if_hidden_channels,
+        diag_width=1,
     ):
         super(GalerkinConv, self).__init__()
 
@@ -67,28 +74,62 @@ class GalerkinConv(nn.Module):
         self.bases = bases
         self.wbases = wbases
         self.if_hidden_channels = if_hidden_channels
+        self.diag_width = diag_width
+
         if if_hidden_channels == True:
             self.hiddenbases = HiddenBases(
                 modes, bases, wbases, in_channels, out_channels, if_orthognalize=False
             )
 
         self.scale = 1 / (in_channels * out_channels)
-        self.weights = nn.Parameter(
-            self.scale
-            * torch.rand(in_channels, out_channels, self.modes, dtype=torch.float)
+        self.weights_list = nn.ParameterList(
+            [
+                nn.Parameter(
+                    self.scale
+                    * torch.rand(
+                        in_channels, out_channels, self.modes, dtype=torch.float
+                    )
+                )
+            ]
         )
+        for i in range(self.diag_width - 1):
+            self.weights_list.append(
+                nn.Parameter(
+                    self.scale
+                    * torch.rand(
+                        in_channels, out_channels, self.modes - i - 1, dtype=torch.float
+                    )
+                )
+            )
+            self.weights_list.append(
+                nn.Parameter(
+                    self.scale
+                    * torch.rand(
+                        in_channels, out_channels, self.modes - i - 1, dtype=torch.float
+                    )
+                )
+            )
 
     def forward(self, x):
         if self.if_hidden_channels == False:
             bases, wbases = self.bases, self.wbases
-
-            x_hat = torch.einsum("bcx,xk->bck", x, wbases)
-            x_hat = compl_mul1d(x_hat, self.weights)
-            x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+            x_co = torch.einsum("bcx,xk->bck", x, wbases)
         else:
             bases, wbases = self.hiddenbases()
-            x_hat = torch.einsum("bcx,xkc->bck", x, wbases)
-            x_hat = compl_mul1d(x_hat, self.weights)
+            x_co = torch.einsum("bcx,xkc->bck", x, wbases)
+
+        x_hat = compl_mul1d(x_co, self.weights_list[0])
+        for i in range(self.diag_width - 1):
+            x1 = compl_mul1d(x_hat[..., 1:], self.weights_list[2 * i + 1])
+            x2 = compl_mul1d(x_hat[..., :-1], self.weights_list[2 * i + 2])
+            x_hat_copy = x_hat.clone()  # 防止梯度被破坏
+            x_hat_copy[..., :-1] += x1
+            x_hat_copy[..., 1:] += x2
+            x_hat = x_hat_copy
+
+        if self.if_hidden_channels == False:
+            x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+        else:
             x = torch.real(torch.einsum("bck,xkc->bcx", x_hat, bases))
 
         return x

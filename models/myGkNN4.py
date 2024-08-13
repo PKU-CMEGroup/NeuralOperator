@@ -80,7 +80,7 @@ class myGalerkinConv(nn.Module):
             * torch.rand(in_channels, out_channels, self.modes, dtype=torch.float)
         )
         self.kernel_size = kernel_size
-        if self.kernel_size:
+        if kernel_size:
             self.feature_in_conv = nn.Conv1d(in_channels,in_channels,kernel_size)
             self.feature_out_conv = nn.Conv1d(in_channels,in_channels,kernel_size)
 
@@ -123,9 +123,9 @@ class myGalerkinConv(nn.Module):
 
         return x
 
-class myGkNN2(nn.Module):
+class myGkNN4(nn.Module):
     def __init__(self, bases_list,**config):
-        super(myGkNN2, self).__init__()
+        super(myGkNN4, self).__init__()
 
         """
         The overall network. It contains several layers of the Fourier layer.
@@ -152,9 +152,9 @@ class myGkNN2(nn.Module):
         for key in all_attr:
             setattr(self, key, self.config[key])
 
-        self.fc0 = nn.Linear(
-            self.in_dim, self.layers_dim[0]
-        )  # input channel is 2: (a(x), x)
+        # self.fc0 = nn.Linear(
+        #     self.in_dim, self.layers_dim[0]
+        # )  # input channel is 2: (a(x), x)
 
         self.sp_layers = nn.ModuleList(
             [
@@ -181,6 +181,10 @@ class myGkNN2(nn.Module):
             self.fc2 = nn.Linear(self.layers_dim[-1], self.out_dim)
 
         self.act = _get_act(self.act)
+        self.input_convs = nn.ModuleList(
+            [nn.Conv1d(self.in_dim, out_dim, kernel_size , padding = (kernel_size-1)//2) 
+             for (out_dim, kernel_size) in zip(self.input_conv_dim,self.input_kernel_size)]
+        )
         self.dropout_layers = nn.ModuleList(
             [nn.Dropout(p=dropout)
              for dropout in self.dropout]
@@ -196,14 +200,20 @@ class myGkNN2(nn.Module):
         """
 
         length = len(self.ws)
-        x = self.fc0(x)
         x = x.permute(0, 2, 1)
+        for i, conv in enumerate(self.input_convs):
+            if i==0:
+                x_conv = conv(x)
+            else:
+                x_conv = x_conv + conv(x)
+        x = x_conv
+
+
 
         # # add padding
         # if self.pad_ratio > 0:
         #     pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
         #     x = add_padding(x, pad_nums=pad_nums)
-
 
         for i, (layer, w, dplayer) in enumerate(zip(self.sp_layers, self.ws, self.dropout_layers)):
             x1 = layer(x)

@@ -13,7 +13,7 @@ sys.path.append("../")
 
 from models import  FNN_train, compute_2dFourier_bases, compute_2dpca_bases
 from models.Galerkin import GkNN
-from models.myGkNN2 import myGkNN2
+from models.myGkNN4 import myGkNN4
 
 torch.set_printoptions(precision=16)
 
@@ -25,7 +25,7 @@ np.random.seed(0)
 ###################################
 # load configs
 ###################################
-with open('my_config_2D_2.yml', 'r', encoding='utf-8') as f:
+with open('my_config_2D_4.yml', 'r', encoding='utf-8') as f:
     config = yaml.full_load(f)
 
 config = config["FFT_2D"]
@@ -45,7 +45,6 @@ device = torch.device(config["train"]["device"])
 ###################################
 # load data
 ###################################
-
 data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
 data1 = loadmat(data_path)
 data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
@@ -150,12 +149,12 @@ bases_list = [bases_fourier, wbases_fourier, bases_pca_in, wbases_pca_in, bases_
 ###################################
 #construct model and train
 ###################################
-model = myGkNN2(bases_list,**config_model).to(device)
+model = myGkNN4(bases_list,**config_model).to(device)
 
 
 print("Start training ", "layer_type: ",config_model["layer_types"])
 train_rel_l2_losses, test_rel_l2_losses = FNN_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name='model/darcy_421_r14_dim64_ep500_test2_dp1e-1'
+    x_train, y_train, x_test, y_test, config, model, save_model_name=False
 )
 
 

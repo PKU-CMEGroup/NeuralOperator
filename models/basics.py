@@ -16,6 +16,13 @@ def compl_mul1d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 @torch.jit.script
+def compl_mul1d_matrix(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    # (batch, in_channel, x ), (in_channel, out_channel, x,y) -> (batch, out_channel, x)
+    res = torch.einsum("bix,ioxy->boy", a, b)
+    return res
+
+
+@torch.jit.script
 def compl_mul2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     # (batch, in_channel, x,y,t ), (in_channel, out_channel, x,y,t) -> (batch, out_channel, x,y,t)
     res = torch.einsum("bixy,ioxy->boxy", a, b)

@@ -7,10 +7,9 @@ FFT_2D:
     n_test: 200
 
   model:
-    # layer_types: ['GalerkinConv_fourier','GalerkinConv_fourier','GalerkinConv_fourier','GalerkinConv_fourier']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
-    layer_types: ['GalerkinConv_pca','GalerkinConv_pca','GalerkinConv_pca','GalerkinConv_pca']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
+    layer_types: ['GalerkinConv_fourier','GalerkinConv_fourier','GalerkinConv_fourier','GalerkinConv_pca']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
     FNO_modes: [16,16,16,16]   # modes for FourierConv2d
-    GkNN_modes: [32,32,32,32]  # modes for GkNN
+    GkNN_modes: [128,128,128,128]  # modes for GkNN
     num_heads: [1,1,1,1]
     attention_types: ["galerkin","galerkin","galerkin","galerkin"]
     fc_dim: 128
@@ -18,11 +17,12 @@ FFT_2D:
     out_dim: 1  #default
     pca_include_input: False
     pca_include_grid: False
-    layers_dim: [32,32,32,32,32]     # len(layers_dim) == len(..modes)+1 
+    layers_dim: [128,128,128,128,128]     # len(layers_dim) == len(..modes)+1 
     act: 'gelu'
     pad_ratio: 0.05
     residual : [False,False,False,False]
     if_hidden_channels_list: [False,False,False,True]
+
 
 
   train:

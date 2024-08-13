@@ -9,6 +9,7 @@ import sys
 sys.path.append("../")
 from .basics import (
     compl_mul1d,
+    compl_mul1d_matrix,
     SpectralConv1d,
     SpectralConv2d_shape,
     SimpleAttention,
@@ -17,42 +18,27 @@ from .utils import _get_act, add_padding, remove_padding
 
 
 class HiddenBases(nn.Module):
-    def __init__(
-        self, modes, bases, wbases, bases_channels, wbases_channels, if_orthognalize
-    ):
+    def __init__(self, modes, bases, bases_channels, if_orthognalize):
         super(HiddenBases, self).__init__()
 
         self.modes = modes
-        self.bases = bases.unsqueeze(-1)
-        self.wbases = wbases.unsqueeze(-1)
+        self.bases = bases  # .unsqueeze(-1)
         self.bases_channels = bases_channels
-        self.wbases_channels = wbases_channels
 
-        self.fc_bases = nn.Sequential(
-            nn.Linear(1, 2 * bases_channels),
-            nn.GELU(),
-            nn.Linear(2 * bases_channels, bases_channels),
-        )
-
-        self.fc_wbases = nn.Sequential(
-            nn.Linear(1, 2 * wbases_channels),
-            nn.GELU(),
-            nn.Linear(2 * wbases_channels, wbases_channels),
-        )
+        self.fc_bases = nn.Linear(modes, modes)
 
         self.if_orthognalize = if_orthognalize
 
     def forward(self):
         bases = self.fc_bases(self.bases)
-        wbases = self.fc_bases(self.bases)
-        if self.if_orthognalize == True:
-            for c in range(self.bases_channels):
-                Q, _ = torch.linalg.qr(bases[..., c])
-            bases[..., c] = Q
-            for c in range(self.wbases_channels):
-                Q, _ = torch.linalg.qr(wbases[..., c])
-            wbases[..., c] = Q
-        return bases, wbases
+        # if self.if_orthognalize == True:
+        #     for c in range(self.bases_channels):
+        #         Q, _ = torch.linalg.qr(bases[..., c])
+        #     bases[..., c] = Q
+        #     for c in range(self.wbases_channels):
+        #         Q, _ = torch.linalg.qr(wbases[..., c])
+        #     wbases[..., c] = Q
+        return bases
 
 
 class GalerkinConv(nn.Module):
@@ -71,66 +57,80 @@ class GalerkinConv(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.modes = modes
-        self.bases = bases
-        self.wbases = wbases
+        self.bases = bases[:, : self.modes]
+        self.wbases = wbases[:, : self.modes]
         self.if_hidden_channels = if_hidden_channels
         self.diag_width = diag_width
 
         if if_hidden_channels == True:
             self.hiddenbases = HiddenBases(
-                modes, bases, wbases, in_channels, out_channels, if_orthognalize=False
+                modes, bases, out_channels, if_orthognalize=False
             )
 
         self.scale = 1 / (in_channels * out_channels)
-        self.weights_list = nn.ParameterList(
-            [
-                nn.Parameter(
-                    self.scale
-                    * torch.rand(
-                        in_channels, out_channels, self.modes, dtype=torch.float
+        if self.diag_width > 0:
+            self.weights_list = nn.ParameterList(
+                [
+                    nn.Parameter(
+                        self.scale
+                        * torch.rand(
+                            in_channels, out_channels, self.modes, dtype=torch.float
+                        )
+                    )
+                ]
+            )
+            for i in range(self.diag_width - 1):
+                self.weights_list.append(
+                    nn.Parameter(
+                        self.scale
+                        * torch.rand(
+                            in_channels,
+                            out_channels,
+                            self.modes - i - 1,
+                            dtype=torch.float,
+                        )
                     )
                 )
-            ]
-        )
-        for i in range(self.diag_width - 1):
-            self.weights_list.append(
-                nn.Parameter(
-                    self.scale
-                    * torch.rand(
-                        in_channels, out_channels, self.modes - i - 1, dtype=torch.float
+                self.weights_list.append(
+                    nn.Parameter(
+                        self.scale
+                        * torch.rand(
+                            in_channels,
+                            out_channels,
+                            self.modes - i - 1,
+                            dtype=torch.float,
+                        )
                     )
+                )
+        elif self.diag_width == -1:
+            self.weights_matrix = nn.Parameter(
+                self.scale
+                * torch.rand(
+                    in_channels, out_channels, self.modes, self.modes, dtype=torch.float
                 )
             )
-            self.weights_list.append(
-                nn.Parameter(
-                    self.scale
-                    * torch.rand(
-                        in_channels, out_channels, self.modes - i - 1, dtype=torch.float
-                    )
-                )
-            )
+        else:
+            raise ValueError("diag width error!")
 
     def forward(self, x):
-        if self.if_hidden_channels == False:
-            bases, wbases = self.bases, self.wbases
-            x_co = torch.einsum("bcx,xk->bck", x, wbases)
-        else:
-            bases, wbases = self.hiddenbases()
-            x_co = torch.einsum("bcx,xkc->bck", x, wbases)
+        x_co = torch.einsum("bcx,xk->bck", x, self.wbases)
 
-        x_hat = compl_mul1d(x_co, self.weights_list[0])
-        for i in range(self.diag_width - 1):
-            x1 = compl_mul1d(x_hat[..., 1:], self.weights_list[2 * i + 1])
-            x2 = compl_mul1d(x_hat[..., :-1], self.weights_list[2 * i + 2])
-            x_hat_copy = x_hat.clone()  # 防止梯度被破坏
-            x_hat_copy[..., :-1] += x1
-            x_hat_copy[..., 1:] += x2
-            x_hat = x_hat_copy
+        if self.diag_width > 0:
+            x_hat = compl_mul1d(x_co, self.weights_list[0])
+            # for i in range(self.diag_width - 1):
+            #     x1 = compl_mul1d(x_hat[..., 1:], self.weights_list[2 * i + 1])
+            #     x2 = compl_mul1d(x_hat[..., :-1], self.weights_list[2 * i + 2])
+            #     x_hat_copy = x_hat.clone()  # 防止梯度被破坏
+            #     x_hat_copy[..., :-1] += x1
+            #     x_hat_copy[..., 1:] += x2
+            #     x_hat = x_hat_copy
+        else:
+            x_hat = compl_mul1d_matrix(x_co, self.weights_matrix)
 
         if self.if_hidden_channels == False:
-            x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+            x = torch.real(torch.einsum("bck,xk->bcx", x_hat, self.bases))
         else:
-            x = torch.real(torch.einsum("bck,xkc->bcx", x_hat, bases))
+            x = torch.real(torch.einsum("bck,xk->bcx", x_hat, self.hiddenbases()))
 
         return x
 
@@ -235,7 +235,12 @@ class GkNN(nn.Module):
             bases = self.bases_pca
             wbases = self.wbases_pca
             return GalerkinConv(
-                in_channels, out_channels, num_modes, bases, wbases, if_hidden_channels
+                in_channels,
+                out_channels,
+                num_modes,
+                bases,
+                wbases,
+                if_hidden_channels,
             )
         elif layer_type == "FourierConv1d":
             num_modes = self.FNO_modes[index]

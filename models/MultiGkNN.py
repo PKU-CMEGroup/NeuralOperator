@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .basics import compl_mul1d
+from torch_geometric.nn import NNConv
 
 
 class Restriction1d(nn.Module):
@@ -117,7 +118,8 @@ class GalerkinConv_test(nn.Module):
         x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases[:, : self.modes]))
 
         return x
-    
+
+
 class SimpleGalerkinConv_test(nn.Module):
     def __init__(self, in_channels, out_channels, modes, bases, wbases):
         super(SimpleGalerkinConv_test, self).__init__()
@@ -143,6 +145,7 @@ class SimpleGalerkinConv_test(nn.Module):
 
         return x
 
+
 class GalerkinSolver(nn.Module):
     def __init__(self, a_channels, u_channels, f_channels, modes):
         super(GalerkinSolver, self).__init__()
@@ -161,6 +164,7 @@ class GalerkinSolver(nn.Module):
         x = x + F.gelu(res)
         u = u + self.fc(x)  #
         return u
+
 
 class SimpleGalerkinSolver(nn.Module):
     def __init__(self, a_channels, u_channels, f_channels, modes, bases, wbases):
@@ -183,8 +187,9 @@ class SimpleGalerkinSolver(nn.Module):
         u = u + self.fc(x)  #
         return u
 
+
 class Conv1dPositive(nn.Module):
-    def __init__(self, a_channels, u_channels, f_channels) -> None:
+    def __init__(self, a_channels, u_channels, f_channels):
         super(Conv1dPositive, self).__init__()
         self.conv = nn.Conv1d(
             a_channels + u_channels, f_channels, kernel_size=3, padding=1, bias=False
@@ -194,6 +199,19 @@ class Conv1dPositive(nn.Module):
         x = torch.cat((a, u), dim=-2)
         out = self.conv(x)
         return out
+
+
+# class SimpleNN(nn.Module):
+#     def __init__(self, in_channels, hidden_channels, out_channels):
+#         super(SimpleNN, self).__init__()
+#         self.fc = nn.Sequential(
+#             nn.Linear(in_channels, hidden_channels),
+#             nn.GELU(),
+#             nn.Linear(hidden_channels, out_channels),
+#         )
+
+#     def forward(self, x):
+#         return self.fc(x)
 
 
 class MultiGalerkinNN(nn.Module):
@@ -339,7 +357,8 @@ class MultiGalerkinNN(nn.Module):
         u = self.fc1_u(u)
 
         return u
-    
+
+
 class SimpleMultiGalerkinNN(nn.Module):
     def __init__(
         self,

@@ -3,7 +3,7 @@ FFT_2D:
   data:
     L: 1.0
     downsample_ratio: 2
-    n_train: 1000
+    n_train: 800
     n_test: 200
 
   model:
@@ -33,7 +33,7 @@ FFT_2D:
     scheduler: 'OneCycleLR'
     milestones: [200,300,400,500,800,900]
     scheduler_gamma: 0.5
-    batch_size: 8
+    batch_size: 1
     normalization_x: True
     normalization_y: True
     normalization_dim: []

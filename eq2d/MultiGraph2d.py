@@ -49,12 +49,13 @@ device = torch.device(config["train"]["device"])
 # load data
 ###################################
 data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
-data = loadmat(data_path)
-
-data_in = data["coeff"]  # shape: 1024,421,421
-data_out = data["sol"]  # shape: 1024,421,421
+data1 = loadmat(data_path)
+data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
+data2 = loadmat(data_path)
+data_in = np.vstack((data1["coeff"], data2["coeff"]))  # shape: 2048,421,421
+data_out = np.vstack((data1["sol"], data2["sol"]))  # shape: 2048,421,421
 print("data_in.shape:", data_in.shape)
-print("data_out.shape:", data_out.shape)
+print("data_out.shape", data_out.shape)
 
 Np_ref = data_in.shape[1]
 grid_1d = np.linspace(0, L, Np_ref)
@@ -112,29 +113,28 @@ y_test = y_test.reshape(y_test.shape[0], -1, y_test.shape[-1])
 print("x_train.shape:", tuple(x_train.shape))
 print("y_train.shape:", tuple(y_train.shape))
 
-grid = x_train[0, :, 1:2]
+grid = x_train[0, :, 1:].to(device)
 meshgenerator = RandomMultiMeshGenerator2d(
     grid,
     level=4,
     stride=2,
 )
 
-index_list, perm = meshgenerator._get_point_index()
-edge_index_down_list, edge_index_up_list = meshgenerator._get_edge_index(
-    [1e-05, 1e-05, 1e-05]
+index_list, n_list, perm = meshgenerator._get_point_index()
+edge_index_positive_list, edge_index_re_list, edge_index_pro_list = (
+    meshgenerator._get_edge_index([0.04, 0.06, 0.08, 0.1], [0.04, 0.06, 0.08])
 )
 
+for l in range(4):
+    print("edges in level %d: %d" % (l, edge_index_positive_list[l].size(1)))
 for l in range(3):
-    print("edges from level %d to %d: %d" % (l, l + 1, edge_index_down_list[l].size(1)))
-
+    print("edges from level %d to %d: %d" % (l, l + 1, edge_index_re_list[l].size(1)))
 
 x_train = x_train[:, perm, :]
 x_test = x_test[:, perm, :]
 y_train = y_train[:, perm, :]
 y_test = y_test[:, perm, :]
-print("test perm:")
-print(x_train[1, 1:5, 1:])
-print(x_test[1, 1:5, 1:])
+
 
 ###################################
 # compute bases
@@ -169,30 +169,30 @@ bases, wbases = bases[perm, :], wbases[perm, :]
 ###################################
 # construct model and train
 ###################################
-# model = MultiGraphGalerkinNN(
-#     bases_pca,
-#     wbases_pca,
-#     modes_list,
-#     dim_physic=2,
-#     a_channels_list=[16, 16, 16, 16],
-#     u_channels_list=[16, 16, 16, 16],
-#     f_channels_list=[8, 8, 8, 8],
-#     stride=2,
-#     kernel_size_R=5,
-#     kernel_size_P=5,
-#     padding_R=2,
-#     padding_P=0,
-# ).to(device)
+model = MultiGraphGalerkinNN(
+    bases_pca,
+    wbases_pca,
+    modes_list,
+    n_list,
+    edge_index_positive_list,
+    edge_index_re_list,
+    edge_index_pro_list,
+    dim_physic=2,
+    a_channels_list=[16, 16, 16, 16],
+    u_channels_list=[16, 16, 16, 16],
+    f_channels_list=[8, 8, 8, 8],
+    stride=2,
+).to(device)
 
 
-# print("Start training ")
-# train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
-#     x_train,
-#     y_train,
-#     x_test,
-#     y_test,
-#     config,
-#     model,
-#     boundary_indices,
-#     save_model_name=False,
-# )
+print("Start training")
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
+    x_train,
+    y_train,
+    x_test,
+    y_test,
+    config,
+    model,
+    boundary_indices,
+    save_model_name=False,
+)

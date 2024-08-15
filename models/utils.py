@@ -210,80 +210,63 @@ class RandomMultiMeshGenerator2d(object):
         self.grid_list = []
         self.index_partial_list = []
         self.grid_partial_list = []
+        self.device = "cuda"
 
     def _get_point_index(self):
         index_list = []
         grid_list = []
-        index_partial_list = []
-        grid_partial_list = []
-        perm = torch.randperm(self.N)
+        # index_partial_list = []
+        # grid_partial_list = []
+        perm = torch.randperm(self.N, device=self.device)
 
         for l in range(self.level):
             index_list.append(perm[0 : self.n_list[l]])
-            grid_list.append(self.grid[index_list[l]])
-        for l in range(self.level - 1):
-            index_partial_list.append(perm[self.n_list[l + 1] + 1 : self.n_list[l]])
-            grid_partial_list.append(self.grid[index_partial_list[l]])
+            grid_list.append(self.grid[index_list[l], :])
+        # for l in range(self.level - 1):
+        #     index_partial_list.append(perm[self.n_list[l + 1] + 1 : self.n_list[l]])
+        #     grid_partial_list.append(self.grid[index_partial_list[l], :])
 
         self.index_list = index_list
         self.grid_list = grid_list
-        self.index_partial_list = index_partial_list
-        self.grid_partial_list = grid_partial_list
+        # self.index_partial_list = index_partial_list
+        # self.grid_partial_list = grid_partial_list
 
-        return self.index_list, perm
+        return self.index_list, self.n_list, perm.cpu()
 
-    def _get_edge_index(self, radius_list):
-        edge_index_down_list = []
-        edge_index_up_list = []
+    def _get_edge_index(self, r1_list, r2_list):
+        edge_index_positive_list = []
+        edge_index_re_list = []
+        edge_index_pro_list = []
+
+        for l in range(self.level):
+            d = sklearn.metrics.pairwise_distances(self.grid_list[l].cpu())
+            edge_index = np.vstack(
+                np.where(
+                    (d < r1_list[l]) & (np.tril(np.ones(d.shape), k=-1)).astype(bool)
+                )
+            )
+            edge_index_positive_list.append(
+                torch.tensor(edge_index, dtype=torch.long, device=self.device)
+            )
 
         for l in range(self.level - 1):
             d = sklearn.metrics.pairwise_distances(
-                self.grid_partial_list[l], self.grid_list[l + 1]
+                self.grid_list[l].cpu(), self.grid_list[l + 1].cpu()
             )
-            print(d.shape)
-            print(d)
-            edge_index = np.vstack(np.where(d <= radius_list[l]))
+
+            edge_index = np.vstack(
+                np.where(
+                    (d < r2_list[l]) & (np.tril(np.ones(d.shape), k=-1)).astype(bool)
+                )
+            )
             edge_index[0, :] = edge_index[0, :] + self.n_list[l + 1]
-            edge_index_down_list.append(torch.tensor(edge_index, dtype=torch.long))
-            edge_index_up_list.append(
-                torch.tensor(edge_index[[1, 0], :], dtype=torch.long)
+            edge_index_re_list.append(
+                torch.tensor(edge_index, dtype=torch.long, device=self.device)
+            )
+            edge_index_pro_list.append(
+                torch.tensor(
+                    edge_index[[1, 0], :], dtype=torch.long, device=self.device
+                )
             )
 
-        return edge_index_down_list, edge_index_up_list
-
-    # def _get_edge_index_range(self):
-    #     edge_index_range_list = torch.zeros((self.level, 2), dtype=torch.long)
-    #     edge_index_down_range_list = torch.zeros((self.level - 1, 2), dtype=torch.long)
-    #     edge_index_up_range_list = torch.zeros((self.level - 1, 2), dtype=torch.long)
-
-    #     n = 0
-    #     for l in range(self.level):
-    #         edge_index_range_list[l, 0] = n
-    #         n = n + self.edge_index_list[l].size(1)
-    #         edge_index_range_list[l, 1] = n
-
-    #     n = 0
-    #     for l in range(self.level - 1):
-    #         edge_index_down_range_list[l, 0] = n
-    #         edge_index_up_range_list[l, 0] = n
-    #         n = n + self.edge_index_list[l].size(1)
-    #         edge_index_down_range_list[l, 1] = n
-    #         edge_index_up_range_list[l, 1] = n
-
-    #     return (
-    #         edge_index_range_list,
-    #         edge_index_down_range_list,
-    #         edge_index_up_range_list,
-    #     )
-
-    # i = 0
-    # for l in range(self.level):
-    #     d = sklearn.metrics.pairwise_distances(self.grid_list[l])
-    #     edge_index = np.vstack(np.where(d <= radius_inner_list[l])) + i
-    #     edge_index_list.append(torch.tensor(edge_index, dtype=torch.long))
-    #     i = i + self.grid_list[l].size(0)
-    # edge_index_list = []
-
-    # radius_inner_list = [
-    #     r * np.sqrt(self.stride**l) for l in range(1, self.level + 1)
-    # ]
+        return edge_index_positive_list, edge_index_re_list, edge_index_pro_list

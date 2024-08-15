@@ -8,8 +8,6 @@ from torch_geometric.nn import NNConv
 class Restriction1d(nn.Module):
     def __init__(
         self,
-        a_channels_in,
-        a_channels_out,
         u_channels_in,
         u_channels_out,
         f_channels_in,
@@ -24,14 +22,6 @@ class Restriction1d(nn.Module):
         self.padding = padding
         self.kernel_size = kernel_size
 
-        self.R_a = nn.Conv1d(
-            a_channels_in,
-            a_channels_out,
-            kernel_size=kernel_size,
-            padding=padding,
-            stride=stride,
-            bias=False,
-        )
         self.R_u = nn.Conv1d(
             u_channels_in,
             u_channels_out,
@@ -55,8 +45,7 @@ class Restriction1d(nn.Module):
             1, 1, kernel_size=kernel_size, padding=padding, stride=stride, bias=False
         )
 
-    def forward(self, a, u, f, bases, wbases):
-        a = self.R_a(a)
+    def forward(self, u, f, bases, wbases):
         u = self.R_u(u)
         f = self.R_f(f)
 
@@ -77,7 +66,7 @@ class Restriction1d(nn.Module):
                 0
             )
 
-        return a, u, f, bases_rough, wbases_rough
+        return u, f, bases_rough, wbases_rough
 
 
 class Prolongation1d(nn.Module):
@@ -147,17 +136,17 @@ class SimpleGalerkinConv_test(nn.Module):
 
 
 class GalerkinSolver(nn.Module):
-    def __init__(self, a_channels, u_channels, f_channels, modes):
+    def __init__(self, u_channels, f_channels, modes):
         super(GalerkinSolver, self).__init__()
-        self.in_channels = a_channels + u_channels + f_channels
+        self.in_channels = u_channels + f_channels
         self.out_channels = u_channels
         self.modes_list = modes
         self.sp_layer = GalerkinConv_test(self.in_channels, self.in_channels, modes)
         self.w = nn.Conv1d(self.in_channels, self.in_channels, 1, bias=True)
         self.fc = nn.Conv1d(self.in_channels, self.out_channels, 1)
 
-    def forward(self, a, u, f, bases, wbases):
-        x = torch.cat((a, u, f), dim=-2)
+    def forward(self, u, f, bases, wbases):
+        x = torch.cat((u, f), dim=-2)
         x1 = self.sp_layer(x, bases, wbases)
         x2 = self.w(x)
         res = x1 + x2
@@ -189,15 +178,14 @@ class SimpleGalerkinSolver(nn.Module):
 
 
 class Conv1dPositive(nn.Module):
-    def __init__(self, a_channels, u_channels, f_channels):
+    def __init__(self, u_channels, f_channels):
         super(Conv1dPositive, self).__init__()
         self.conv = nn.Conv1d(
-            a_channels + u_channels, f_channels, kernel_size=3, padding=1, bias=False
+            u_channels, f_channels, kernel_size=3, padding=1, bias=False
         )
 
-    def forward(self, a, u):
-        x = torch.cat((a, u), dim=-2)
-        out = self.conv(x)
+    def forward(self, u):
+        out = self.conv(u)
         return out
 
 
@@ -221,7 +209,6 @@ class MultiGalerkinNN(nn.Module):
         wbases,
         modes_list,
         dim_physic,
-        a_channels_list,
         u_channels_list,
         f_channels_list,
         stride,
@@ -237,24 +224,19 @@ class MultiGalerkinNN(nn.Module):
         self.wbases = wbases
         self.num_levels = len(modes_list)
 
-        self.fc0_a = nn.Linear(dim_physic + 1, a_channels_list[0])
+        self.fc0_a = nn.Linear(dim_physic + 1, 16)
         self.fc0_f = nn.Linear(dim_physic + 1, f_channels_list[0])
-        self.fc0_u = nn.Linear(
-            a_channels_list[0] + f_channels_list[0], u_channels_list[0]
-        )
+        self.fc0_u = nn.Linear(16 + f_channels_list[0], u_channels_list[0])
 
         self.positives = nn.ModuleList(
             [
-                Conv1dPositive(
-                    a_channels_list[l], u_channels_list[l], f_channels_list[l]
-                )
+                Conv1dPositive(u_channels_list[l], f_channels_list[l])
                 for l in range(self.num_levels - 1)
             ]
         )
         self.solvers = nn.ModuleList(
             [
                 GalerkinSolver(
-                    a_channels_list[l],
                     u_channels_list[l],
                     f_channels_list[l],
                     modes_list[l],
@@ -265,8 +247,6 @@ class MultiGalerkinNN(nn.Module):
         self.restrictions = nn.ModuleList(
             [
                 Restriction1d(
-                    a_channels_list[l],
-                    a_channels_list[l + 1],
                     u_channels_list[l],
                     u_channels_list[l + 1],
                     f_channels_list[l],
@@ -300,8 +280,6 @@ class MultiGalerkinNN(nn.Module):
         print(
             "modes_list:",
             modes_list,
-            "a_channels_list:",
-            a_channels_list,
             "u_channels_list:",
             u_channels_list,
             "f_channels:",
@@ -321,13 +299,12 @@ class MultiGalerkinNN(nn.Module):
     def forward(self, a):
 
         f = torch.ones_like(a)
-        f[..., 1 : self.dim_physic] = a[..., 1 : self.dim_physic]
+        f[..., 1:] = a[..., 1:]
 
         f = self.fc0_f(f)
         a = self.fc0_a(a)
         u = self.fc0_u(torch.cat((a, f), dim=-1))
 
-        a = a.permute(0, 2, 1)
         u = u.permute(0, 2, 1)
         f = f.permute(0, 2, 1)
 
@@ -340,14 +317,14 @@ class MultiGalerkinNN(nn.Module):
             self.positives, self.solvers, self.restrictions
         ):
             gridsize_list.append(u.size(-1))
-            df = f - positive(a, u)
-            u = solver(a, u, df, bases, wbases)
+            df = f - positive(u)
+            u = solver(u, df, bases, wbases)
             u_list.append(u)
-            f = f - positive(a, u)
-            a, u, f, bases, wbases = restriction(a, u, f, bases, wbases)
+            f = f - positive(u)
+            u, f, bases, wbases = restriction(u, f, bases, wbases)
 
-        df = f - positive(a, u)
-        u = self.solvers[self.num_levels - 1](a, u, f, bases, wbases)
+        df = f - positive(u)
+        u = self.solvers[self.num_levels - 1](u, f, bases, wbases)
 
         for level in range(self.num_levels - 2, -1, -1):
             u = self.prolongations[level](u, gridsize_list[level])

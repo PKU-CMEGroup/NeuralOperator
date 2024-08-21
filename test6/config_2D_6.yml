@@ -9,8 +9,6 @@ FFT_2D:
   model:
     layer_types: ['HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
     # layer_types: ['FourierConv2d','FourierConv2d','FourierConv2d','FourierConv2d']  # GalerkinConv_fourier ， GalerkinConv_pca ， FourierConv2d ，Attention
-    # layer_types_plus: ['GalerkinConv_pca','GalerkinConv_pca','GalerkinConv_pca','GalerkinConv_pca']
-    layer_types_plus: False
     FNO_modes: [16,16,16,16]   # modes for FourierConv2d
     GkNN_modes: [96,96,96,96]  # modes for GkNN
     kernel_modes: [64,64,64,64]
@@ -25,7 +23,7 @@ FFT_2D:
     act: 'gelu'
     pad_ratio: 0.05
     residual : [False,False,False,False]
-    learning_H : False  #False or 'complex' or 'real' or 'trained'
+    get_H : 'compute'     #'compute' or 'learn_complex' or 'learn_real' or 'trained'
     # dropout: [0.1,0.1,0.1,0.1]
     dropout: [False,False,False,False]
 

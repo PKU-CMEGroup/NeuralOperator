@@ -140,7 +140,7 @@ bases_pca, wbases_pca = bases_pca.to(device), wbases_pca.to(device)
 ###################################
 #compute kernel bases
 ###################################
-if config_model['learning_H']==False:
+if config_model['get_H']=='compute':
     k_max_kernel = max(config_model["kernel_modes"])
     Np = (Np_ref + downsample_ratio - 1) // downsample_ratio
     gridx, gridy, cfbases, weights = compute_2dFourier_cbases(Np, Np, k_max_kernel, L, L)
@@ -152,7 +152,7 @@ if config_model['learning_H']==False:
     cwbases_fourier_inv = torch.conj(cwbases_fourier)
 
     H = compute_H(bases_pca, cwbases_fourier, cwbases_fourier_inv)
-elif config_model['learning_H']=='trained':
+elif config_model['get_H']=='trained':
     model0 = torch.load('model/96_64_real')
     H = model0.H.to(device)
 else:

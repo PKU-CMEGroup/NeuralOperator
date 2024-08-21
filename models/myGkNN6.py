@@ -124,13 +124,13 @@ class myGkNN6(nn.Module):
         all_attr = list(self.config.keys())
         for key in all_attr:
             setattr(self, key, self.config[key])
-        if self.learning_H == 'complex':
+        if self.get_H == 'learn_complex':
             self.scale = 1/(self.GkNN_modes[0]*self.GkNN_modes[0])
             self.H = nn.Parameter(
                 self.scale
                 * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.complex64)
             )
-        elif self.learning_H == 'real':
+        elif self.get_H == 'learn_real':
             self.scale = 1/(self.GkNN_modes[0]*self.GkNN_modes[0])
             self.H = nn.Parameter(
                 self.scale
@@ -151,17 +151,6 @@ class myGkNN6(nn.Module):
                 )
             ]
         )
-        if self.layer_types_plus:
-            self.sp_layers_plus = nn.ModuleList(
-                [
-                    self._choose_layer(index, in_size, out_size, layer_type)
-                    for index, (in_size, out_size, layer_type) in enumerate(
-                        zip(self.layers_dim, self.layers_dim[1:], self.layer_types_plus)
-                    )
-                ]
-            )
-        else:
-            self.sp_layers_plus = self.sp_layers
         #######
         self.ws = nn.ModuleList(
             [
@@ -203,14 +192,10 @@ class myGkNN6(nn.Module):
         #     pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
         #     x = add_padding(x, pad_nums=pad_nums)
 
-        for i, (layer, layer_plus , w, dplayer) in enumerate(zip(self.sp_layers,self.sp_layers_plus, self.ws, self.dropout_layers)):
+        for i, (layer , w, dplayer) in enumerate(zip(self.sp_layers, self.ws, self.dropout_layers)):
             x1 = layer(x)
-            if self.layer_types_plus:
-                x_plus = layer_plus(x)
-            else:
-                x_plus = 0
             x2 = w(x)
-            res = x1 + x_plus + x2
+            res = x1 + x2
             res = dplayer(res)
             if self.act is not None and i != length - 1:
                 res = self.act(res)

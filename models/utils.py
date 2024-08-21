@@ -185,3 +185,38 @@ def compute_2dpca_bases (Np , k_max , L,  pca_data):
     bases_pca = torch.from_numpy(fbases.astype(np.float32))
     wbases_pca = torch.from_numpy(wfbases.astype(np.float32))
     return bases_pca,wbases_pca
+
+
+def compute_2dFourier_cbases(nx, ny, k, Lx, Ly):
+    gridx, gridy = np.meshgrid(
+        np.linspace(0, Lx, nx + 1)[:-1], np.linspace(0, Ly, ny + 1)[:-1]
+    )
+    cbases = np.zeros((nx, ny, k), dtype=np.complex64)  
+
+    weights = np.ones((nx, ny)) * Lx * Ly / (nx * ny)
+
+    k_pairs = compute_2dFourier_modes(k)
+    for i in range(k):
+        kx, ky = k_pairs[i, :]
+        if kx == 0 and ky == 0:
+            cbases[:, :, i] = np.sqrt(1 / (Lx * Ly))
+        else:
+            exp_term = 2 * np.pi * (kx * gridx / Lx + ky * gridy / Ly)
+            complex_exp = np.exp(1j * exp_term)
+            cbases[:, :, i] = np.sqrt(1 / (Lx * Ly)) * complex_exp
+
+
+    return gridx, gridy, cbases, weights
+
+
+def compute_H(bases, wkernel_bases, wkernel_bases_inv):
+    bases = bases.to(dtype=torch.complex64)
+    bases_hat = torch.einsum("xk,xj->kj", bases , wkernel_bases)
+    bases_hat_inv = torch.einsum("xl,xj->lj", bases , wkernel_bases_inv)
+    B1 = bases_hat.transpose(0,1).unsqueeze(2)    # shape : kernel_mode, mode, 1
+    B2 = bases_hat_inv.transpose(0,1).unsqueeze(1)    #shape: kernel_mode, 1, mode
+    H = torch.matmul(B1, B2)   #shape: kernel_mode, mode, mode
+    #H[j, k, l] =  bases_hat[k, j] * bases_hat_inv[l, j] 
+    return H
+
+

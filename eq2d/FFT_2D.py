@@ -141,7 +141,7 @@ model = GkNN(bases_list,**config_model).to(device)
 
 print("Start training ", "layer_type: ",config_model["layer_types"])
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name=False
+    x_train, y_train, x_test, y_test, config, model, save_model_name='model/darcy_421_r14_ep300_2'
 )
 
 

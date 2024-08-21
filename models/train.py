@@ -199,7 +199,7 @@ def FNN_train(
         test_rel_l2_losses.append(test_rel_l2)
         # test_l2_losses.append(test_l2)
 
-        if (ep % 10 == 0) or (ep == epochs - 1):
+        if (ep % 1 == 0) or (ep == epochs - 1):
             t2 = default_timer()
             print(
                 "Epoch : ",

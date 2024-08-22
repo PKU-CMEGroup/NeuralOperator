@@ -150,6 +150,7 @@ class GkNN(nn.Module):
         for key in all_attr:
             setattr(self, key, self.config[key])
 
+        self.norm0 = nn.LayerNorm(2)
         self.fc0 = nn.Linear(self.in_dim + 1, self.layers_dim[0])
 
         self.sp_layers = nn.ModuleList(
@@ -202,10 +203,17 @@ class GkNN(nn.Module):
         self.act = _get_act(self.act)
 
     def forward(self, x):
-        f = torch.ones_like(x[..., 0]).unsqueeze(-1)
-        x = torch.cat((x, f), dim=-1)
 
-        x = self.fc0(x)
+        x_inv = (1 / x[..., 0]).unsqueeze(-1)
+        x = torch.cat((x_inv, x), dim=-1)
+
+        x_value = x[..., :2]
+        x_value = self.norm0(x_value)  
+        x_clone = x.clone()
+        x_clone[..., :2] = x_value
+        
+        x = self.fc0(x_clone)
+
         x = x.permute(0, 2, 1)
 
         for i, (layer, w) in enumerate(zip(self.sp_layers, self.ws)):

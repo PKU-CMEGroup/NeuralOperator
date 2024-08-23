@@ -11,7 +11,7 @@ import yaml
 sys.path.append("../")
 
 
-from models import  FNN_train, compute_2dFourier_bases, compute_2dpca_bases, compute_2dFourier_cbases,compute_H
+from models import  FNN_train, compute_2dFourier_bases, compute_2dpca_bases, compute_2dFourier_cbases,compute_H, count_params
 from models.Galerkin import GkNN
 from models.myGkNN6 import myGkNN6
 
@@ -121,18 +121,26 @@ wbases_fourier = torch.from_numpy(wfbases.astype(np.float32)).to(device)
 ####################################
 k_max = max(config_model["GkNN_modes"])
 Np = (Np_ref + downsample_ratio - 1) // downsample_ratio
-pca_data = data_out_ds.reshape((data_out_ds.shape[0], -1))
-if config_model["pca_include_input"]:
-    pca_data = np.vstack(
-        (pca_data, data_in_ds.reshape((data_in_ds.shape[0], -1)))
-    )
-if config_model["pca_include_grid"]:
-    n_grid = 1
-    pca_data = np.vstack((pca_data, np.tile(grid_x_ds, (n_grid, 1))))
-    pca_data = np.vstack((pca_data, np.tile(grid_y_ds, (n_grid, 1))))
-print("Start SVD with data shape: ", pca_data.shape)
-bases_pca, wbases_pca = compute_2dpca_bases(Np , k_max , L,  pca_data)
-bases_pca, wbases_pca = bases_pca.to(device), wbases_pca.to(device)
+pca_data_in = data_in_ds.reshape((data_in_ds.shape[0], -1))
+pca_data_out = data_out_ds.reshape((data_out_ds.shape[0], -1))
+# if config_model["pca_include_input"]:
+#     pca_data = np.vstack(
+#         (pca_data, data_in_ds.reshape((data_in_ds.shape[0], -1)))
+#     )
+# if config_model["pca_include_grid"]:
+#     n_grid = 1
+#     pca_data = np.vstack((pca_data, np.tile(grid_x_ds, (n_grid, 1))))
+#     pca_data = np.vstack((pca_data, np.tile(grid_y_ds, (n_grid, 1))))
+print("Start SVD with data shape: ", pca_data_out.shape)
+
+bases_pca_in, wbases_pca_in = compute_2dpca_bases(Np , k_max , L,  pca_data_in)
+bases_pca_in, wbases_pca_in = bases_pca_in.to(device), wbases_pca_in.to(device)
+
+bases_pca_out, wbases_pca_out = compute_2dpca_bases(Np , k_max , L,  pca_data_out)
+bases_pca_out, wbases_pca_out = bases_pca_out.to(device), wbases_pca_out.to(device)
+
+
+
 
 
 
@@ -151,23 +159,26 @@ if config_model['get_H']=='compute':
 
     cwbases_fourier_inv = torch.conj(cwbases_fourier)
 
-    H = compute_H(bases_pca, cwbases_fourier, cwbases_fourier_inv)
+    H_in = compute_H(bases_pca_in, cwbases_fourier, cwbases_fourier_inv)
+    H_out = compute_H(bases_pca_out, cwbases_fourier, cwbases_fourier_inv)
 elif config_model['get_H']=='trained':
     model0 = torch.load('model/96_64_real')
-    H = model0.H.to(device)
+    H_in = model0.H_in.to(device)
+    H_out = model0.H_out.to(device)
 else:
-    H = 0
+    H_in = 0
+    H_out = 0
 
 
-bases_list = [bases_fourier, wbases_fourier, bases_pca, wbases_pca]
+bases_list = [bases_fourier, wbases_fourier, bases_pca_in, wbases_pca_in, bases_pca_out, wbases_pca_out]
 ###################################
 #construct model and train
 ###################################
-model = myGkNN6(bases_list, H, **config_model).to(device)
-
+model = myGkNN6(bases_list, H_in, H_out, **config_model).to(device)
+print(count_params(model))
 
 print("Start training ", "layer_type: ",config_model)
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
+train_rel_l2_losses, test_rel_l2_losses = FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name=False
 )
 

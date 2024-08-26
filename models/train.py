@@ -161,7 +161,20 @@ def FNN_train(
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
             loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
-            loss.backward()
+            try:
+                l1_lambda = config['train']['L1regularization_lambda']
+            except:
+                l1_lambda = 0
+            if l1_lambda > 0:
+                l1_norm = model.H_out.abs().sum() + model.H_in.abs().sum()
+                loss1 = l1_lambda * l1_norm + loss
+                loss1.backward()
+                # 应用梯度裁剪
+                torch.nn.utils.clip_grad_value_(model.parameters(), clip_value=1.0)  # clip_value 是裁剪的阈值
+            else:
+                loss.backward()
+
+            
 
             optimizer.step()
             train_rel_l2 += loss.item()

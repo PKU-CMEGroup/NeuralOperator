@@ -9,6 +9,7 @@ import sys
 sys.path.append("../")
 from .basics import (
     compl_mul1d,
+    compl_mul1d_tri,
     SpectralConv1d,
     SpectralConv2d_shape,
     SimpleAttention,
@@ -37,6 +38,14 @@ class GalerkinConv(nn.Module):
             self.scale
             * torch.rand(in_channels, out_channels, self.modes, dtype=torch.float)
         )
+        self.weights_l = nn.Parameter(
+            self.scale
+            * torch.rand(in_channels, out_channels, self.modes-1, dtype=torch.float)
+        )
+        self.weights_u = nn.Parameter(
+            self.scale
+            * torch.rand(in_channels, out_channels, self.modes-1, dtype=torch.float)
+        )
 
     def forward(self, x):
         bases, wbases = self.bases, self.wbases
@@ -45,7 +54,8 @@ class GalerkinConv(nn.Module):
         x_hat = torch.einsum("bcx,xk->bck", x, wbases)
 
         # Multiply relevant Fourier modes
-        x_hat = compl_mul1d(x_hat, self.weights)
+        #x_hat = compl_mul1d(x_hat, self.weights) 
+        x_hat = compl_mul1d_tri(x_hat, self.weights, self.weights_l, self.weights_u)
 
         # Return to physical space
         x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))

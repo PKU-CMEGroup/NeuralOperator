@@ -14,6 +14,16 @@ def compl_mul1d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     res = torch.einsum("bix,iox->box", a, b)
     return res
 
+@torch.jit.script
+def compl_mul1d_tri(a: torch.Tensor, b: torch.Tensor, b_l: torch.Tensor, b_u: torch.Tensor) -> torch.Tensor:
+    # compute off_diagonal (the first off diagonal)
+    res = torch.einsum("bix,iox->box", a, b)
+    # lower part, b[i]a[i] -> o[i+1]
+    res[:,:,1:] += torch.einsum("bix,iox->box", a[:,:,0:-1], b_l)
+    # upper part, b[i]a[i] -> o[i-1]
+    res[:,:,0:-1] += torch.einsum("bix,iox->box", a[:,:,1:], b_u)
+    return res
+
 
 @torch.jit.script
 def compl_mul2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:

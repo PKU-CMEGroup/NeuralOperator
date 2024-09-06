@@ -185,3 +185,17 @@ def compute_2dpca_bases (Np , k_max , L,  pca_data):
     bases_pca = torch.from_numpy(fbases.astype(np.float32))
     wbases_pca = torch.from_numpy(wfbases.astype(np.float32))
     return bases_pca,wbases_pca
+
+
+
+
+
+def compute_2ddmd_bases (Np , k_max , L,  input_data, output_data):
+    # input_data : array[n_data, N]
+    # output_data : array[n_data, N]
+    U, S, VT = np.linalg.svd(input_data.T, full_matrices=False)
+    fbases = U[:, 0:k_max] / np.sqrt(L * L / Np**2)
+    wfbases = L * L / Np**2 * fbases
+    bases_pca = torch.from_numpy(fbases.astype(np.float32))
+    wbases_pca = torch.from_numpy(wfbases.astype(np.float32))
+    return bases_pca,wbases_pca

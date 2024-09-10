@@ -3,7 +3,7 @@ FFT_2D:
   data:
     L: 1.0
     downsample_ratio: 2
-    n_train: 1000
+    n_train: 800
     n_test: 200
 
   train:

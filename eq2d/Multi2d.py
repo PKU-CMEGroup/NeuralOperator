@@ -4,6 +4,7 @@ import numpy as np
 from scipy.io import loadmat
 import yaml
 import os
+from torch_geometric.nn import NNConv
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(script_dir)
@@ -44,10 +45,12 @@ device = torch.device(config["train"]["device"])
 # load data
 ###################################
 data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
-data = loadmat(data_path)
+data1 = loadmat(data_path)
+data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
+data2 = loadmat(data_path)
+data_in = np.vstack((data1["coeff"], data2["coeff"]))  # shape: 2048,421,421
+data_out = np.vstack((data1["sol"], data2["sol"]))
 
-data_in = data["coeff"]  # shape: 1024,421,421
-data_out = data["sol"]  # shape: 1024,421,421
 print("data_in.shape:", data_in.shape)
 print("data_out.shape", data_out.shape)
 
@@ -112,7 +115,9 @@ print("y_train.shape: ", y_train.shape)
 # compute bases
 ###################################
 
-modes_list = [32, 32, 32, 32]
+modes_list = [129, 129, 129, 129]
+base_type = "fourier"
+
 k_max = max(modes_list)
 Np = (Np_ref + downsample_ratio - 1) // downsample_ratio
 gridx, gridy, fbases, weights = compute_2dFourier_bases(Np, Np, k_max, L, L)
@@ -128,18 +133,20 @@ pca_data = data_out_ds.reshape((data_out_ds.shape[0], -1))
 print("Start SVD with data shape: ", pca_data.shape)
 bases_pca, wbases_pca = compute_2dpca_bases(Np, k_max, L, pca_data)
 bases_pca, wbases_pca = bases_pca.to(device), wbases_pca.to(device)
-
+if base_type == "fourier":
+    bases, wbases = bases_fourier, wbases_fourier
+elif base_type == "pca":
+    bases, wbases = bases_pca, wbases_pca
 
 ###################################
 # construct model and train
 ###################################
 model = MultiGalerkinNN(
-    bases_pca,
-    wbases_pca,
+    bases_fourier,
+    wbases_fourier,
     modes_list,
     dim_physic=2,
-    a_channels_list=[16, 16, 16, 16],
-    u_channels_list=[16, 16, 16, 16],
+    u_channels_list=[32, 32, 32, 32],
     f_channels_list=[8, 8, 8, 8],
     stride=2,
     kernel_size_R=5,

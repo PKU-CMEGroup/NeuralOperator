@@ -5,14 +5,20 @@ from scipy.io import loadmat
 import yaml
 import os
 
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(script_dir)
-
 sys.path.append("../")
 
 
-from models import FNN_train, compute_2dFourier_bases, compute_2dpca_bases
-from models.Galerkin import GkNN
+from models import (
+    FNN_train,
+    compute_2dFourier_bases,
+    compute_2dpca_bases,
+    RandomMultiMeshGenerator2d,
+)
+from models.MultiGraph import MultiGraphGalerkinNN
+
 
 torch.set_printoptions(precision=16)
 
@@ -20,18 +26,16 @@ torch.set_printoptions(precision=16)
 torch.manual_seed(0)
 np.random.seed(0)
 
-
 ###################################
 # load configs
 ###################################
-with open("config_2D.yml", "r", encoding="utf-8") as f:
+with open("Multi2D.yml", "r", encoding="utf-8") as f:
     config = yaml.full_load(f)
 
 config = config["FFT_2D"]
 config = dict(config)
-config_data, config_model, config_train = (
+config_data, config_train = (
     config["data"],
-    config["model"],
     config["train"],
 )
 downsample_ratio = config_data["downsample_ratio"]
@@ -65,7 +69,7 @@ data_out_ds = data_out[0:n_train, 0::downsample_ratio, 0::downsample_ratio]
 nx = grid_x_ds.shape[1]
 ny = grid_x_ds.shape[0]
 n = nx * ny
-bundary_indices = (
+boundary_indices = (
     list(range(nx))
     + list(range(n - nx, n - 1))
     + list(range(nx, n - nx, nx))
@@ -106,14 +110,40 @@ x_train = x_train.reshape(
 x_test = x_test.reshape(x_test.shape[0], -1, x_test.shape[-1])
 y_train = y_train.reshape(y_train.shape[0], -1, y_train.shape[-1])  # shape: 800,11236,1
 y_test = y_test.reshape(y_test.shape[0], -1, y_test.shape[-1])
-print("x_train.shape: ", x_train.shape)
-print("y_train.shape: ", y_train.shape)
+print("x_train.shape:", tuple(x_train.shape))
+print("y_train.shape:", tuple(y_train.shape))
+
+grid = x_train[0, :, 1:].to(device)
+meshgenerator = RandomMultiMeshGenerator2d(
+    grid,
+    level=4,
+    stride=2,
+)
+
+index_list, n_list, perm = meshgenerator._get_point_index()
+edge_index_positive_list, edge_index_re_list, edge_index_pro_list = (
+    meshgenerator._get_edge_index([0.04, 0.06, 0.08, 0.1], [0.04, 0.06, 0.08])
+)
+
+for l in range(4):
+    print("edges in level %d: %d" % (l, edge_index_positive_list[l].size(1)))
+for l in range(3):
+    print("edges from level %d to %d: %d" % (l, l + 1, edge_index_re_list[l].size(1)))
+
+x_train = x_train[:, perm, :]
+x_test = x_test[:, perm, :]
+y_train = y_train[:, perm, :]
+y_test = y_test[:, perm, :]
 
 
 ###################################
-# compute fourier bases
+# compute bases
 ###################################
-k_max = max(config_model["GkNN_modes"])
+
+modes_list = [33, 33, 33, 33]
+base_type = "pca"
+
+k_max = max(modes_list)
 Np = (Np_ref + downsample_ratio - 1) // downsample_ratio
 gridx, gridy, fbases, weights = compute_2dFourier_bases(Np, Np, k_max, L, L)
 fbases = fbases.reshape(-1, k_max)
@@ -122,32 +152,40 @@ wfbases = fbases * np.tile(weights, (k_max, 1)).T
 bases_fourier = torch.from_numpy(fbases.astype(np.float32)).to(device)
 wbases_fourier = torch.from_numpy(wfbases.astype(np.float32)).to(device)
 
-
-####################################
-# compute pca bases
-####################################
-k_max = max(config_model["GkNN_modes"])
+k_max = max(modes_list)
 Np = (Np_ref + downsample_ratio - 1) // downsample_ratio
 pca_data = data_out_ds.reshape((data_out_ds.shape[0], -1))
-if config_model["pca_include_input"]:
-    pca_data = np.vstack((pca_data, data_in_ds.reshape((data_in_ds.shape[0], -1))))
-if config_model["pca_include_grid"]:
-    n_grid = 1
-    pca_data = np.vstack((pca_data, np.tile(grid_x_ds, (n_grid, 1))))
-    pca_data = np.vstack((pca_data, np.tile(grid_y_ds, (n_grid, 1))))
 print("Start SVD with data shape: ", pca_data.shape)
 bases_pca, wbases_pca = compute_2dpca_bases(Np, k_max, L, pca_data)
 bases_pca, wbases_pca = bases_pca.to(device), wbases_pca.to(device)
+if base_type == "fourier":
+    bases, wbases = bases_fourier, wbases_fourier
+elif base_type == "pca":
+    bases, wbases = bases_pca, wbases_pca
 
-bases_list = [bases_fourier, wbases_fourier, bases_pca, wbases_pca]
+bases, wbases = bases[perm, :], wbases[perm, :]
+
 
 ###################################
 # construct model and train
 ###################################
-model = GkNN(bases_list, **config_model).to(device)
+model = MultiGraphGalerkinNN(
+    bases_pca,
+    wbases_pca,
+    modes_list,
+    n_list,
+    edge_index_positive_list,
+    edge_index_re_list,
+    edge_index_pro_list,
+    dim_physic=2,
+    a_channels_list=[16, 16, 16, 16],
+    u_channels_list=[16, 16, 16, 16],
+    f_channels_list=[8, 8, 8, 8],
+    stride=2,
+).to(device)
 
 
-print("Start training ", "layer_type: ", config_model["layer_types"])
+print("Start training")
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
     x_train,
     y_train,
@@ -155,6 +193,6 @@ train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
     y_test,
     config,
     model,
-    bundary_indices,
+    boundary_indices,
     save_model_name=False,
 )

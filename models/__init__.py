@@ -12,6 +12,7 @@ from .utils import (
     compute_1dFourier_bases_arbitrary,
     compute_1dpca_bases,
     compute_2dpca_bases,
+    RandomMultiMeshGenerator2d,
 )
 from .adam import Adam
 from .losses import LpLoss

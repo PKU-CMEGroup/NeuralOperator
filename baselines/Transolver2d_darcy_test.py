@@ -87,19 +87,6 @@ print("x_train.shape: ",x_train.shape)
 print("y_train.shape: ",y_train.shape)
 
 
-n_epochs     = 500
-lr           = 0.001
-batch_size   = 8
-hid_channels   = 128
-in_channels    = 3
-out_channels   = 1
-n_head       = 2
-qry_res      = int((421-1)/downsample_ratio+1)
-ltt_res      = 32
-localities = [2, 200,200,200,200, 5]
-
-### define a model
-
 
 
 
@@ -111,7 +98,7 @@ model = Transolver(space_dim=2,
                  fun_dim=1,
                  out_dim=1,
                  slice_num=64,
-                 ref=8)
+                 ref=8).to(device)
 
 
 epochs = 500

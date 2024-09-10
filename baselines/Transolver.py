@@ -350,7 +350,7 @@ def Transolver_train(x_train, y_train, x_test, y_test, config, model, save_model
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
                 batch_size_ = x.shape[0]
-                out = model(x) #.reshape(batch_size_,  -1)
+                out = model(x,None) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)

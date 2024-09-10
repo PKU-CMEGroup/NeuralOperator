@@ -97,7 +97,7 @@ n_head       = 2
 qry_res      = int((421-1)/downsample_ratio+1)
 ltt_res      = 32
 localities = [2, 200,200,200,200, 5]
-
+# localities = [200, 200,200,200,200, 200]
 ### define a model
 
 def pairwise_dist(res1x, res1y, res2x, res2y):
@@ -116,10 +116,10 @@ def pairwise_dist(res1x, res1y, res2x, res2y):
     return (dist**2 / 2.0).float()
 
 
-m_cross   = pairwise_dist(qry_res, qry_res, ltt_res, ltt_res) # pairwise distance matrix for encoder and decoder
-m_latent  = pairwise_dist(ltt_res, ltt_res, ltt_res, ltt_res) # pairwise distance matrix for processor
+m_cross   = pairwise_dist(qry_res, qry_res, ltt_res, ltt_res).to(device) # pairwise distance matrix for encoder and decoder
+m_latent  = pairwise_dist(ltt_res, ltt_res, ltt_res, ltt_res).to(device) # pairwise distance matrix for processor
 m_dists = [m_cross.T, m_latent, m_latent, m_latent, m_latent, m_cross]
-model = PiT(in_channels, out_channels, hid_channels, n_head, localities, m_dists)
+model = PiT(in_channels, out_channels, hid_channels, n_head, localities, m_dists).to(device)
 
 
 epochs = 500

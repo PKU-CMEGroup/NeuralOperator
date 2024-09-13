@@ -147,7 +147,7 @@ print(count_params(model))
 
 print("Start training ", "layer_type: ",config_model)
 train_rel_l2_losses, test_rel_l2_losses = FNN_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name='model/diag_96_64'
+    x_train, y_train, x_test, y_test, config, model, save_model_name='model/rank1_96_64'
 )
 
 

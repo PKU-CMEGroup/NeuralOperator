@@ -177,7 +177,7 @@ bases_list = [bases_fourier, wbases_fourier, bases_pca_in, wbases_pca_in, bases_
 model = myGkNN6(bases_list, H_in, H_out, **config_model).to(device)
 print(count_params(model))
 
-print("Start training ", "layer_type: ",config_model)
+print("Start training ", "layer_type: ",config_model,config_train)
 train_rel_l2_losses, test_rel_l2_losses = FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name=False
 )

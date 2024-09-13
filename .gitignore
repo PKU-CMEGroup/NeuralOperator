@@ -7,6 +7,9 @@ test3/model/
 test4/model/
 test5/model/
 test6/model/
+test7/model/
+airfoil/model/
 .DS_Store
 models/__pycache__/
 mytest/__pycache__/
+baselines/__pycache__/

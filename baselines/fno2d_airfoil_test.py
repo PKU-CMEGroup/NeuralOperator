@@ -10,7 +10,7 @@ from scipy.io import loadmat
 sys.path.append("../")
 
 
-from baselines.fno import  FNO2d, FNO_train
+from baselines.fno import  FNO2d, FNO_train, FNN_train
 
 
 
@@ -37,7 +37,7 @@ coordy = np.load(data_path+"NACA_Cylinder_Y.npy")
 data_in = np.stack((coordx, coordy), axis=3)
 data_out = np.load(data_path+"NACA_Cylinder_Q.npy")[:,4,:,:] #density, velocity 2d, pressure, mach number
 
-_, nx, ny, _ = data_in.shape
+_, nx, ny, _ = data_in.shape   #221,51
 
 data_in_ds = data_in[:, 0::downsample_ratio, 0::downsample_ratio, :]
 data_out_ds = data_out[:, 0::downsample_ratio, 0::downsample_ratio, np.newaxis]
@@ -100,7 +100,7 @@ epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size=20
+batch_size=5
 
 normalization_x = True
 normalization_y = True
@@ -109,7 +109,7 @@ normalization_dim = []
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNO_train(
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_naca_model"
 )
 

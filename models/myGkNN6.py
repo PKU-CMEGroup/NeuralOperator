@@ -91,6 +91,7 @@ class HGalerkinConv(nn.Module):
 
     def forward(self, x):
         bases, wbases = self.bases, self.wbases
+        H = self.H
 
         # Compute coeffcients
 
@@ -99,7 +100,7 @@ class HGalerkinConv(nn.Module):
 
         # Multiply relevant Fourier modes
         x_hat = x_hat.to(dtype=self.dtype)
-        x_hat = mycompl_mul1d(self.weights, self.H , x_hat)
+        x_hat = mycompl_mul1d(self.weights, H , x_hat)
         x_hat = x_hat.real
 
         # Return to physical space
@@ -122,7 +123,24 @@ class HGalerkinConv_double(nn.Module):
         x = x_in + x_out
 
         return x
+    
+class HGalerkinConv_triple(nn.Module):
+    def __init__(self, in_channels, out_channels, modes, kernel_modes,bases_in1, wbases_in1,  bases_in2, wbases_in2, bases_out, wbases_out, H_in , H_out):
+        super(HGalerkinConv_triple, self).__init__()
 
+        self.layer_in1 = HGalerkinConv(in_channels, out_channels, modes, kernel_modes,  bases_in1, wbases_in1, H_in)
+        self.layer_in2 = HGalerkinConv(in_channels, out_channels, modes, kernel_modes,  bases_in2, wbases_in2, H_in)
+        self.layer_out = HGalerkinConv(in_channels, out_channels, modes, kernel_modes,  bases_out, wbases_out, H_out)
+        
+        
+    def forward(self, x):
+
+        x_in1 = self.layer_in1(x)
+        x_in2 = self.layer_in2(x)
+        x_out = self.layer_out(x)
+        x = x_in1 + x_in2 + x_out
+
+        return x
         
 
 class myGkNN6(nn.Module):
@@ -143,30 +161,46 @@ class myGkNN6(nn.Module):
         all_attr = list(self.config.keys())
         for key in all_attr:
             setattr(self, key, self.config[key])
+        
         if self.get_H == 'learn_complex':
             self.scale = 1/(self.GkNN_modes[0]*self.GkNN_modes[0])
-            self.H_in = nn.Parameter(
-                self.scale
-                * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.complex64)
-            )
+            if self.double_bases:
+                self.H_in = nn.Parameter(
+                    self.scale
+                    * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.complex64)
+                )
             self.H_out = nn.Parameter(
                 self.scale
                 * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.complex64)
             )
         elif self.get_H == 'learn_real':
-            self.scale = 1/(self.GkNN_modes[0]*self.GkNN_modes[0])
-            self.H_in = nn.Parameter(
-                self.scale
-                * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.float)
-            )
-            self.H_out = nn.Parameter(
-                self.scale
-                * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.float)
-            )
+            if self.H_init == 'random':
+                self.scale = 1/(self.GkNN_modes[0]*self.GkNN_modes[0])
+                if self.double_bases:
+                    self.H_in = nn.Parameter(
+                        self.scale
+                        * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.float)
+                    )
+                self.H_out = nn.Parameter(
+                    self.scale
+                    * torch.rand(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0], dtype=torch.float)
+                )
+            elif self.H_init == 'Galerkin':
+                if self.double_bases:
+                    H_in = torch.zeros(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0]) 
+                    for i in range(min(self.kernel_modes[0], self.GkNN_modes[0])):
+                        H_in[i,i,i] = 1
+                    self.H_in = nn.Parameter(H_in)
+
+                H_out = torch.zeros(self.kernel_modes[0], self.GkNN_modes[0], self.GkNN_modes[0]) 
+                for i in range(min(self.kernel_modes[0], self.GkNN_modes[0])):
+                    H_out[i,i,i] = 1
+                self.H_out = nn.Parameter(H_out)
             
 
         else:
-            self.H_in = H_in
+            if self.double_bases:
+                self.H_in = H_in
             self.H_out = H_out
 
         self.fc0 = nn.Linear(
@@ -260,22 +294,35 @@ class myGkNN6(nn.Module):
             H = self.H_out
             return HGalerkinConv(in_channels, out_channels, num_modes, kernel_modes,  bases, wbases, H)
         elif layer_type == "HGalerkinConv_pca":
-            num_modes = self.GkNN_modes[index]
-            kernel_modes = self.kernel_modes[index]
-            bases = self.bases_pca_out
-            wbases = self.wbases_pca_out
-            H = self.H_out
-            return HGalerkinConv(in_channels, out_channels, num_modes, kernel_modes, bases, wbases, H)
-        elif layer_type == "HGalerkinConv_doublepca":
-            num_modes = self.GkNN_modes[index]
-            kernel_modes = self.kernel_modes[index]
-            bases_in = self.bases_pca_in
-            wbases_in = self.wbases_pca_in
-            bases_out = self.bases_pca_out
-            wbases_out = self.wbases_pca_out
-            H_in = self.H_in
-            H_out = self.H_out
-            return HGalerkinConv_double(in_channels, out_channels, num_modes, kernel_modes, bases_in, wbases_in, bases_out, wbases_out, H_out , H_in)
+            if not self.double_bases:
+                num_modes = self.GkNN_modes[index]
+                kernel_modes = self.kernel_modes[index]
+                bases = self.bases_pca_out
+                wbases = self.wbases_pca_out
+                H = self.H_out
+                return HGalerkinConv(in_channels, out_channels, num_modes, kernel_modes, bases, wbases, H)
+            else:
+                num_modes = self.GkNN_modes[index]
+                kernel_modes = self.kernel_modes[index]
+                bases_in = self.bases_pca_in
+                wbases_in = self.wbases_pca_in
+                bases_out = self.bases_pca_out
+                wbases_out = self.wbases_pca_out
+                H_in = self.H_in
+                H_out = self.H_out
+                return HGalerkinConv_double(in_channels, out_channels, num_modes, kernel_modes, bases_in, wbases_in, bases_out, wbases_out, H_out , H_in)
+        # elif layer_type == "HGalerkinConv_triplepca":
+        #     num_modes = self.GkNN_modes[index]
+        #     kernel_modes = self.kernel_modes[index]
+        #     bases_in1 = self.bases_fourier
+        #     wbases_in1 = self.wbases_fourier
+        #     bases_in2 = self.bases_pca_in
+        #     wbases_in2 = self.wbases_pca_in
+        #     bases_out = self.bases_pca_out
+        #     wbases_out = self.wbases_pca_out
+        #     H_in = self.H_in
+        #     H_out = self.H_out
+        #     return HGalerkinConv_triple(in_channels, out_channels, num_modes, kernel_modes, bases_in1, wbases_in1, bases_in2, wbases_in2, bases_out, wbases_out, H_out , H_in)
         elif layer_type == "FourierConv1d":
             num_modes = self.FNO_modes[index]
             return SpectralConv1d(in_channels, out_channels, num_modes)

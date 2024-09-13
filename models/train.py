@@ -7,6 +7,7 @@ from functools import reduce
 from .basics import SpectralConv1d
 from .utils import _get_act, add_padding, remove_padding
 from timeit import default_timer
+from torch.nn.utils import clip_grad_norm_
 
 from .adam import Adam
 from .losses import LpLoss
@@ -161,23 +162,22 @@ def FNN_train(
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
             loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
+            train_rel_l2 += loss.item()
+
             try:
                 l1_lambda = config['train']['L1regularization_lambda']
             except:
                 l1_lambda = 0
             if l1_lambda > 0:
-                l1_norm = model.H_out.abs().sum() + model.H_in.abs().sum()
-                loss1 = l1_lambda * l1_norm + loss
-                loss1.backward()
-                # 应用梯度裁剪
-                torch.nn.utils.clip_grad_value_(model.parameters(), clip_value=1.0)  # clip_value 是裁剪的阈值
-            else:
-                loss.backward()
-
+                if config['model']['double_bases']:
+                    l1_norm = model.H_out.abs().sum() + model.H_in.abs().sum()
+                else:
+                    l1_norm = model.H_out.abs().sum()
+                loss += l1_lambda * l1_norm
             
-
-            optimizer.step()
-            train_rel_l2 += loss.item()
+            loss.backward()
+            optimizer.step() 
+            
 
         # test_l2 = 0
         test_rel_l2 = 0
@@ -212,18 +212,22 @@ def FNN_train(
         test_rel_l2_losses.append(test_rel_l2)
         # test_l2_losses.append(test_l2)
 
+
         if (ep % 1 == 0) or (ep == epochs - 1):
             t2 = default_timer()
             print(
                 "Epoch : ",
                 ep,
                 " Time : ",
-                t2-t1,
+                round(t2-t1,3),
                 " Rel. Train L2 Loss : ",
                 train_rel_l2,
                 " Rel. Test L2 Loss : ",
                 test_rel_l2,
-                
+                # 'lr :',
+                # current_lr,
+                flush=True
+
             )
             t1 = default_timer()
             if save_model_name:
@@ -231,5 +235,225 @@ def FNN_train(
 
     return train_rel_l2_losses, test_rel_l2_losses
 
+def myFNN_train(
+    x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
+):
 
+    n_train, n_test = x_train.shape[0], x_test.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+
+    normalization_x, normalization_y, normalization_dim = (
+        config["train"]["normalization_x"],
+        config["train"]["normalization_y"],
+        config["train"]["normalization_dim"],
+    )
+    # dim = len(x_train.shape) - 2  # n_train, size, n_channel
+
+    # cost = FNN_cost(x_train.shape[1], config, dim)
+
+    device = torch.device(config["train"]["device"])
+
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
+        x_train = x_normalizer.encode(x_train)
+        x_test = x_normalizer.encode(x_test)
+        x_normalizer.to(device)
+
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
+        y_train = y_normalizer.encode(y_train)
+        y_test = y_normalizer.encode(y_test)
+        y_normalizer.to(device)
+
+    train_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(x_train, y_train),
+        batch_size=config["train"]["batch_size"],
+        shuffle=True,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(x_test, y_test),
+        batch_size=config["train"]["batch_size"],
+        shuffle=False,
+    )
+
+    # Load from checkpoint
+    optimizer = Adam(
+        model.parameters(),
+        betas=(0.9, 0.999),
+        lr=config["train"]["base_lr"],
+        weight_decay=config["train"]["weight_decay"],
+    )
+
+    if config["train"]["scheduler"] == "MultiStepLR":
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=config["train"]["milestones"],
+            gamma=config["train"]["scheduler_gamma"],
+        )
+    elif config["train"]["scheduler"] == "CosineAnnealingLR":
+        T_max = (config["train"]["epochs"] // 10) * (
+            n_train // config["train"]["batch_size"]
+        )
+        eta_min = 0.0
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=T_max, eta_min=eta_min
+        )
+    elif config["train"]["scheduler"] == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=config['train']['base_lr'], 
+            div_factor=2, final_div_factor=100,pct_start=0.2,
+            steps_per_epoch=1, epochs=config['train']['epochs'])
+        
+    else:
+        print("Scheduler ", config["train"]["scheduler"], " has not implemented.")
+
+    model.train()
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
+    epochs = config["train"]["epochs"]
+
+    t1 = default_timer()
+    for ep in range(epochs):
+        train_rel_l2 = 0
+
+        model.train()
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
+
+            batch_size_ = x.shape[0]
+            optimizer.zero_grad()
+            out = model(x)  # .reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+            loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
+            train_rel_l2 += loss.item()
+            loss_regularization = regularization(model,config)
+            loss += loss_regularization
+            loss.backward()
+
+            try:
+                grad_clip = config['train']['grad_clip']
+            except:
+                grad_clip = 0
+            if grad_clip > 0:
+                if config['model']['double_bases']:
+                    clip_grad_norm_(model.H_in, config['train']['grad_clip'])
+                clip_grad_norm_(model.H_out, config['train']['grad_clip'])
+
+            optimizer.step()
+
+            try:
+                threshold = config['train']['hard_pruning']
+            except:
+                threshold = 0
+            if threshold > 0:
+                with torch.no_grad(): 
+                    if config['model']['double_bases']:
+                        mask = model.H_in.abs() < threshold
+                        model.H_in[mask] = 0
+                    mask = model.H_out.abs() < threshold
+                    model.H_out[mask] = 0
+                    
+            
+
+        # test_l2 = 0
+        test_rel_l2 = 0
+        with torch.no_grad():
+            for x, y in test_loader:
+                x, y = x.to(device), y.to(device)
+
+                batch_size_ = x.shape[0]
+                out = model(x)  # .reshape(batch_size_,  -1)
+
+                if normalization_y:
+                    out = y_normalizer.decode(out)
+                    y = y_normalizer.decode(y)
+                # if config['train']['device']=='cuda':
+                #     out = out.cpu()
+                #     y = y.cpu()
+
+                test_rel_l2 += myloss(
+                    out.view(batch_size_, -1), y.view(batch_size_, -1)
+                ).item()
+                # test_l2 += myloss.abs(
+                #     out.view(batch_size_, -1), y.view(batch_size_, -1)
+                # ).item()
+
+        scheduler.step()
+
+        train_rel_l2 /= n_train
+        # test_l2 /= n_test
+        test_rel_l2 /= n_test
+
+        train_rel_l2_losses.append(train_rel_l2)
+        test_rel_l2_losses.append(test_rel_l2)
+        # test_l2_losses.append(test_l2)
+        current_lr = optimizer.param_groups[0]['lr']
+
+        non_zero_ratio_out = torch.count_nonzero(model.H_out).item() / model.H_out.numel()
+
+        if (ep % 1 == 0) or (ep == epochs - 1):
+            t2 = default_timer()
+            print(
+                "Epoch : ",
+                ep,
+                " Time : ",
+                round(t2-t1,3),
+                " Rel. Train L2 Loss : ",
+                train_rel_l2,
+                " Rel. Test L2 Loss : ",
+                test_rel_l2,
+                # 'lr :',
+                # current_lr,
+                # 'H non_zero_percent: ',
+                # round(non_zero_ratio_out,3),
+                'H norm: ',
+                round(torch.norm(model.H_out).item(),3),
+                flush=True
+
+            )
+            t1 = default_timer()
+            if save_model_name:
+                torch.save(model, save_model_name)
+
+    return train_rel_l2_losses, test_rel_l2_losses
+
+def regularization(model,config):
+    loss_regularization = 0
+    try:
+        l1_lambda = config['train']['L1regularization_lambda']
+    except:
+        l1_lambda = 0
+    if l1_lambda > 0:
+        if config['model']['double_bases']:
+            l1_norm = model.H_out.abs().sum() + model.H_in.abs().sum()
+        else:
+            l1_norm = model.H_out.abs().sum()
+        loss_regularization += l1_lambda * l1_norm
+
+    try:
+        l2_alpha = config['train']['L2regularization_alpha']
+    except:
+        l2_alpha = 0
+    if l2_alpha > 0:
+        for sp_layer in model.sp_layers:
+            if config['model']['double_bases']:
+                l2_norm = torch.norm(sp_layer.layer_in.weights)**2 + torch.norm(sp_layer.layer_out.weights)**2
+            else:
+                l2_norm = torch.norm(sp_layer.weights)**2
+            loss_regularization += l2_alpha * l2_norm
+
+    try:
+        l2_beta = config['train']['L2regularization_beta']
+    except:
+        l2_beta = 0
+    if l2_beta > 0:
+        if config['model']['double_bases']:
+            l2_norm = torch.norm(model.H_out)**2 + torch.norm(model.H_in)**2
+        else:
+            l2_norm = torch.norm(model.H_out)**2
+        loss_regularization += l2_beta * l2_norm
+    return loss_regularization
 # , cost

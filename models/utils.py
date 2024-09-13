@@ -149,6 +149,7 @@ def compute_2dFourier_bases(nx, ny, k, Lx, Ly):
     gridx, gridy = np.meshgrid(
         np.linspace(0, Lx, nx + 1)[:-1], np.linspace(0, Ly, ny + 1)[:-1]
     )
+    gridx, gridy = gridx.T, gridy.T
     bases = np.zeros((nx, ny, k))
 
     weights = np.ones((nx, ny)) * Lx * Ly / (nx * ny)

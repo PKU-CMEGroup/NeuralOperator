@@ -7,8 +7,8 @@ FFT_2D:
     n_test: 200
 
   model:
-    # layer_types: ['HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca']  # HGalerkinConv_fourier ， HGalerkinConv_pca ， FourierConv2d ，Attention
-    layer_types: ['HGalerkinConv_doublepca','HGalerkinConv_doublepca','HGalerkinConv_doublepca','HGalerkinConv_doublepca']
+    layer_types: ['HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca']  # HGalerkinConv_fourier ， HGalerkinConv_pca ， FourierConv2d ，Attention
+    double_bases: False
     FNO_modes: [16,16,16,16]   # modes for FourierConv2d
     GkNN_modes: [96,96,96,96]  # modes for GkNN
     kernel_modes: [64,64,64,64]
@@ -23,6 +23,8 @@ FFT_2D:
     act: 'gelu'
     get_H : 'learn_real'     #'compute' or 'learn_complex' or 'learn_real' or 'trained' 
     dropout: [False,False,False,False]
+    H_init: 'random'  # 'Galerkin' or 'random'
+
 
 
 
@@ -39,4 +41,9 @@ FFT_2D:
     normalization_y: True
     normalization_dim: []
     L1regularization_lambda: 0.0001
+    hard_pruning: 0.0001
+    grad_clip: 1
+    L2regularization_alpha: 0.0005
+    L2regularization_beta: 0.001
+    
 

@@ -8,7 +8,8 @@ FFT_2D:
 
   model:
     layer_types: ['HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca','HGalerkinConv_pca']  # HGalerkinConv_fourier ， HGalerkinConv_pca ， HGalerkinConv_doublepca
-    # layer_types: ['HGalerkinConv_doublepca','HGalerkinConv_doublepca','HGalerkinConv_doublepca','HGalerkinConv_doublepca']
+    double_bases: False
+    T_modes: 16
     FNO_modes: [16,16,16,16]   # modes for FourierConv2d
     GkNN_modes: [96,96,96,96]  # modes for GkNN
     kernel_modes: [64,64,64,64]
@@ -17,7 +18,7 @@ FFT_2D:
     out_dim: 1  #default
     layers_dim: [128,128,128,128,128]     # len(layers_dim) == len(..modes)+1 
     act: 'gelu'
-    H_type : 'diagonal'     #'full_complex' or 'full_real' or 'rank1_real' or 'diagonal'
+    H_type : 'rank1_real'     #'full_complex' or 'full_real' or 'rank1_real' or 'diagonal'
     # dropout: [0.1,0.1,0.1,0.1]
     dropout: [False,False,False,False]
 

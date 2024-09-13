@@ -1,1 +1,0 @@
-test2的主要更改： 同时使用input和output的pca基底，同时也有关于dropout和特征层卷积的尝试

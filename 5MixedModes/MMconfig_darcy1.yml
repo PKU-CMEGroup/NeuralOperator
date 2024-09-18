@@ -1,0 +1,53 @@
+data:
+  L: 1.0
+  downsample_ratio: 10
+  n_train: 1000
+  n_test: 200
+  pca_include_input: False
+  pca_include_grid: False
+
+model:
+  # Network Construction
+  fc_dim: 128
+  in_dim: 3
+  out_dim: 1
+  is_includeF: True
+  layers_dim: [64, 64, 64, 64, 64]
+  act: "gelu"
+  pad_ratio: 0.05
+  residual: [False, False, False, False]
+
+  # Type of layers
+  # Select from ["GalerkinConv_fourier", "GalerkinConv_pca", "FourierConv2d", "SimpleAttention"]
+  layer_types:
+    [
+      "GalerkinConv_fourier",
+      "GalerkinConv_fourier",
+      "GalerkinConv_fourier",
+      "GalerkinConv_fourier",
+    ]
+
+  # GalerkinConv
+  GkNN_modes: [64, 64, 64, 64]
+  diag_width_list: [2, 2, 2, 2]
+  is_adjust_list: [False, False, False, False]
+
+  # FourierConv
+  FNO_modes: [16, 16, 16, 16]
+
+  # Attention
+  num_heads: [1, 1, 1, 1]
+  attention_types: ["galerkin", "galerkin", "galerkin", "galerkin"]
+
+train:
+  device: "cuda"
+  base_lr: 0.001
+  weight_decay: 0.0001
+  epochs: 500
+  scheduler: "OneCycleLR"
+  milestones: [200, 300, 400, 500, 800, 900]
+  scheduler_gamma: 0.5
+  batch_size: 8
+  normalization_x: True
+  normalization_y: True
+  normalization_dim: []

@@ -1,6 +1,6 @@
 data/
 notes/
 .DS_Store
-models/__pycache__/
-mytest/__pycache__/
+**/__pycache__/
+torch_test.py
 github_key.text

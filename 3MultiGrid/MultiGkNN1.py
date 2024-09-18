@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .basics import compl_mul1d
+from models.basics import compl_mul1d
 
 
 class Restriction1d(nn.Module):

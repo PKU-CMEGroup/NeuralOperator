@@ -1,21 +1,10 @@
-import math
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import operator
-from timeit import default_timer
 from functools import reduce
-from .basics import SpectralConv1d
-from .utils import _get_act, add_padding, remove_padding
 
 from .adam import Adam
 from .losses import LpLoss
 from .normalizer import UnitGaussianNormalizer
-from .fourier1d import FNN1d
-from .fourier2d import FNN2d
-from .fourier3d import FNN3d
-from .fourier4d import FNN4d
-from .Galerkin import GkNN
 
 
 def count_params(model):
@@ -26,16 +15,9 @@ def count_params(model):
 
 
 def FNN_train(
-    x_train,
-    y_train,
-    x_test,
-    y_test,
-    config,
-    model,
-    boundary_indices,
-    save_model_name="./FNO_model",
+    x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
 ):
-    print(f"number of parameters is {count_params(model)}")
+
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -112,11 +94,7 @@ def FNN_train(
 
     epochs = config["train"]["epochs"]
 
-    start_time = default_timer()
     for ep in range(epochs):
-        if ep % 10 == 1:
-            start_time = default_timer()
-
         train_rel_l2 = 0
 
         model.train()
@@ -125,7 +103,7 @@ def FNN_train(
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x)
+            out = model(x)  # .reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -137,22 +115,20 @@ def FNN_train(
 
         test_l2 = 0
         test_rel_l2 = 0
-        test_l2_boundary = 0
         with torch.no_grad():
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x)
+                out = model(x)  # .reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
+                # if config['train']['device']=='cuda':
+                #     out = out.cpu()
+                #     y = y.cpu()
 
-                test_l2_boundary += myloss.abs(
-                    out.view(batch_size_, -1)[:, boundary_indices],
-                    y.view(batch_size_, -1)[:, boundary_indices],
-                ).item()
                 test_rel_l2 += myloss(
                     out.view(batch_size_, -1), y.view(batch_size_, -1)
                 ).item()
@@ -165,29 +141,26 @@ def FNN_train(
         train_rel_l2 /= n_train
         test_l2 /= n_test
         test_rel_l2 /= n_test
-        test_l2_boundary /= n_test
 
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
 
         if (ep % 10 == 0) or (ep == epochs - 1):
-            end_time = default_timer()
             print(
-                "Epoch:",
+                "Epoch : ",
                 ep,
-                " Train rel:",
+                " Rel. Train L2 Loss : ",
                 train_rel_l2,
-                " Test rel:",
+                " Rel. Test L2 Loss : ",
                 test_rel_l2,
-                " Test abs:",
+                " Test L2 Loss : ",
                 test_l2,
-                " Test abs boundary:",
-                test_l2_boundary,
-                " Time:",
-                end_time - start_time,
             )
             if save_model_name:
                 torch.save(model, save_model_name)
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+# , cost

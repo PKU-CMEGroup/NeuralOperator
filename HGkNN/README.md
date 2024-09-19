@@ -22,3 +22,8 @@ plot_hidden_layers： 在训练过程中是否画出中间层的图像
 save_figure_H： 保存画出的H的地址  （如果plot_H_num>0，那么这一项的地址对应的文件夹必须事先存在）  
 save_figure_hidden： 保存画出的中间层图像的地址  （如果plot_hidden_layers为True，那么这一项的地址对应的文件夹必须事先存在）  
 plot_shape： 每个问题对应的图像shape
+
+# 运行HGkNN:
+确定使用的bases组合，在相应的主程序(Darcy_HGkNN.py,airfoil_HGkNN.py)中修改bases_list  
+修改config中的参数  
+运行主程序即可

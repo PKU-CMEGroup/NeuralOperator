@@ -1,5 +1,5 @@
 from .FCN import FCNet
-from .train import FNN_train,count_params,myFNN_train
+from .train import FNN_train,count_params,HGkNN_train
 from .utils import (
     count_params,
     compute_1dFourier_bases,

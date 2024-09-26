@@ -12,9 +12,9 @@ import gc
 sys.path.append("../")
 
 
-from models import  HGkNN_train, compute_2dFourier_bases, compute_2dpca_bases, compute_2dFourier_cbases,compute_H, count_params
+from models import  newHGkNN_train, compute_2dFourier_bases, compute_2dpca_bases, compute_2dFourier_cbases, count_params
 
-from models.HGalerkin import HGkNN
+from models.Lowrank_HGkNN import lowrankHGkNN
 
 torch.set_printoptions(precision=16)
 
@@ -46,21 +46,26 @@ device = torch.device(config["train"]["device"])
 ###################################
 # load data
 ###################################
+# data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
+# data1 = loadmat(data_path)
+# coeff1 = data1["coeff"]
+# sol1 = data1["sol"]
+# del data1
+# data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
+# data2 = loadmat(data_path)
+# coeff2 = data2["coeff"][:300,:,:]
+# sol2 = data2["sol"][:300,:,:]
+# del data2
+# gc.collect()
+
+# data_in = np.vstack((coeff1, coeff2))  # shape: 2048,421,421
+# data_out = np.vstack((sol1, sol2))     # shape: 2048,421,421
+
 data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
 data1 = loadmat(data_path)
-coeff1 = data1["coeff"]
-sol1 = data1["sol"]
-del data1
-data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
-data2 = loadmat(data_path)
-coeff2 = data2["coeff"][:300,:,:]
-sol2 = data2["sol"][:300,:,:]
-del data2
-gc.collect()
 
-data_in = np.vstack((coeff1, coeff2))  # shape: 2048,421,421
-data_out = np.vstack((sol1, sol2))     # shape: 2048,421,421
-
+data_in = data1["coeff"]
+data_out = data1["sol"]
 print("data_in.shape:" , data_in.shape)
 print("data_out.shape", data_out.shape)
 
@@ -115,18 +120,11 @@ print("y_train.shape: ",y_train.shape)
 ####################################
 #compute pca bases
 ####################################
-k_max = max(config_model["GkNN_mode_in"],config_model["GkNN_mode_out"])
+k_max = max(config_model['layer']["GkNN_mode_in"],config_model['layer']["GkNN_mode_out"])
 Np = (Np_ref + downsample_ratio - 1) // downsample_ratio
 pca_data_in = data_in_ds.reshape((data_in_ds.shape[0], -1))
 pca_data_out = data_out_ds.reshape((data_out_ds.shape[0], -1))
-# if config_model["pca_include_input"]:
-#     pca_data = np.vstack(
-#         (pca_data, data_in_ds.reshape((data_in_ds.shape[0], -1)))
-#     )
-# if config_model["pca_include_grid"]:
-#     n_grid = 1
-#     pca_data = np.vstack((pca_data, np.tile(grid_x_ds, (n_grid, 1))))
-#     pca_data = np.vstack((pca_data, np.tile(grid_y_ds, (n_grid, 1))))
+
 
 # percentage = 0.1
 # mask1 = torch.rand(pca_data_in.shape) > percentage
@@ -150,19 +148,21 @@ bases_pca_out, wbases_pca_out = bases_pca_out.to(device), wbases_pca_out.to(devi
 #compute kernel bases
 ###################################
 
-H_in = 0
-H_out = 0
+if config["model"]['double_bases'] == 'sym':
 
-
-bases_list = [ bases_pca_out, wbases_pca_out, 0,0]
+    bases_list = [ bases_pca_out, wbases_pca_in,bases_pca_in, wbases_pca_out]
+    print('bases_list = [ bases_pca_out, wbases_pca_in,bases_pca_in, wbases_pca_out]')
+else:
+    bases_list = [ bases_pca_out, wbases_pca_in,0,0]
+    print('bases_list = [ bases_pca_out, wbases_pca_in,0,0]')
 ###################################
 #construct model and train
 ###################################
-model = HGkNN(bases_list, H_in, H_out, **config_model).to(device)
+model = lowrankHGkNN(bases_list, **config_model).to(device)
 print('params:',count_params(model))
 
 print("Start training ", "layer_type: ",config_model,config_train, flush = True)
-train_rel_l2_losses, test_rel_l2_losses = HGkNN_train(
+train_rel_l2_losses, test_rel_l2_losses = newHGkNN_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name=False
 )
 

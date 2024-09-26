@@ -9,6 +9,9 @@ test5/model/
 test6/model/
 test7/model/
 airfoil/model/
+test_rot90degree/figure/
+test11/figure/
+test12/figure/
 .DS_Store
 models/__pycache__/
 mytest/__pycache__/

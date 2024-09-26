@@ -9,7 +9,8 @@ airfoil_HGkNN:
   model:
     layer_types: ['HGalerkinConv','HGalerkinConv','HGalerkinConv','HGalerkinConv']
     double_bases: False
-    GkNN_mode: 96  # modes for GkNN
+    GkNN_mode_in: 20
+    GkNN_mode_out: 96  # modes for GkNN
     kernel_mode: 64
     fc_dim: 128
     in_dim: 4  #default
@@ -53,14 +54,15 @@ Darcy_HGkNN:
 
   data:
     L: 1.0
-    downsample_ratio: 2
-    n_train: 1000
+    downsample_ratio: 14
+    n_train: 800
     n_test: 200   #n_train + n_test < 1300
 
   model:
     layer_types: ['HGalerkinConv','HGalerkinConv','HGalerkinConv','HGalerkinConv']
     double_bases: False
-    GkNN_mode: 96  # modes for GkNN
+    GkNN_mode_in: 96  # modes for GkNN
+    GkNN_mode_out: 96  # modes for GkNN
     kernel_mode: 64
     fc_dim: 128
     in_dim: 3  #default
@@ -80,7 +82,7 @@ Darcy_HGkNN:
     scheduler: 'OneCycleLR'
     milestones: [200,300,400,500,800,900]
     scheduler_gamma: 0.5
-    batch_size: 30
+    batch_size: 8
     normalization_x: True
     normalization_y: True
     normalization_dim: []

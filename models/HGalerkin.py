@@ -58,14 +58,15 @@ class GalerkinConv(nn.Module):
         return x
 
 class HGalerkinConv(nn.Module):
-    def __init__(self, in_channels, out_channels, modes, kernel_modes,  bases, wbases, H):
+    def __init__(self, in_channels, out_channels, modes_in, modes_out, kernel_modes,  bases, wbases, H):
         super(HGalerkinConv, self).__init__()
 
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         # Number of Fourier modes to multiply, at most floor(N/2) + 1
-        self.modes = modes
+        self.modes_in = modes_in
+        self.modes_out = modes_out
         self.bases = bases
         self.wbases = wbases
         self.H = H
@@ -89,23 +90,23 @@ class HGalerkinConv(nn.Module):
 
         # Compute coeffcients
 
-        x_hat = torch.einsum("bcx,xk->bck", x, wbases)
+        x_hat = torch.einsum("bcx,xk->bck", x, wbases[:,:self.modes_in])
         
 
         # Multiply relevant Fourier modes
         x_hat = mycompl_mul1d(self.weights, H , x_hat)
 
         # Return to physical space
-        x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+        x = torch.einsum("bck,xk->bcx", x_hat, bases[:,:self.modes_out])
 
         return x
  
 class HGalerkinConv_double(nn.Module):
-    def __init__(self, in_channels, out_channels, modes, kernel_modes,  bases1, wbases1, bases2, wbases2, H1 , H2):
+    def __init__(self, in_channels, out_channels, modes_in, modes_out, kernel_modes,  bases1, wbases1, bases2, wbases2, H1 , H2):
         super(HGalerkinConv_double, self).__init__()
 
-        self.layer1 = HGalerkinConv(in_channels, out_channels, modes, kernel_modes,  bases1, wbases1, H1)
-        self.layer2 = HGalerkinConv(in_channels, out_channels, modes, kernel_modes,  bases2, wbases2, H2)
+        self.layer1 = HGalerkinConv(in_channels, out_channels, modes_in, modes_out, kernel_modes,  bases1, wbases1, H1)
+        self.layer2 = HGalerkinConv(in_channels, out_channels, modes_in, modes_out, kernel_modes,  bases2, wbases2, H2)
         
         
     def forward(self, x):
@@ -133,7 +134,7 @@ class HGkNN(nn.Module):
             setattr(self, key, self.config[key])
         
     
-        self.scale = 1/(self.GkNN_mode**2)
+        self.scale = 1/(self.GkNN_mode_in*self.GkNN_mode_out)
         # indices = torch.arange(1, self.kernel_mode+ 1)  
         # self.scale = (1/self.GkNN_mode) / (indices ** 2).reshape(self.kernel_mode,1,1)
     
@@ -142,11 +143,11 @@ class HGkNN(nn.Module):
                 if self.double_bases:
                     self.H2 = nn.Parameter(
                         self.scale
-                        * torch.rand(self.kernel_mode, self.GkNN_mode, self.GkNN_mode, dtype=torch.float)
+                        * torch.rand(self.kernel_mode, self.GkNN_mode_out, self.GkNN_mode_in, dtype=torch.float)
                     )
                 self.H1 = nn.Parameter(
                     self.scale
-                    * torch.rand(self.kernel_mode, self.GkNN_mode, self.GkNN_mode, dtype=torch.float)
+                    * torch.rand(self.kernel_mode, self.GkNN_mode_out, self.GkNN_mode_in, dtype=torch.float)
                 )
             else:
                 if self.double_bases:
@@ -227,20 +228,22 @@ class HGkNN(nn.Module):
 
     def _choose_layer(self, index, in_channels, out_channels, layer_type):
         if layer_type == "GalerkinConv":
-            num_modes = self.GkNN_mode
+            num_modes = self.GkNN_mode_out
             bases = self.bases1
             wbases = self.wbases1
             return GalerkinConv(in_channels, out_channels, num_modes, bases, wbases)
         elif layer_type == "HGalerkinConv":
             if not self.double_bases:
-                num_modes = self.GkNN_mode
+                num_modes_in = self.GkNN_mode_in
+                num_modes_out = self.GkNN_mode_out
                 kernel_modes = self.kernel_mode
                 bases = self.bases1
                 wbases = self.wbases1
                 H1 = self.H1
-                return HGalerkinConv(in_channels, out_channels, num_modes, kernel_modes, bases, wbases, H1)
+                return HGalerkinConv(in_channels, out_channels, num_modes_in, num_modes_out, kernel_modes, bases, wbases, H1)
             else:
-                num_modes = self.GkNN_mode
+                num_modes_in = self.GkNN_mode_in
+                num_modes_out = self.GkNN_mode_out
                 kernel_modes = self.kernel_mode
                 bases1 = self.bases1
                 wbases1 = self.wbases1
@@ -248,6 +251,6 @@ class HGkNN(nn.Module):
                 wbases2 = self.wbases2
                 H1 = self.H1
                 H2 = self.H2
-                return HGalerkinConv_double(in_channels, out_channels, num_modes, kernel_modes, bases1, wbases1, bases2, wbases2, H1 , H2)
+                return HGalerkinConv_double(in_channels, out_channels, num_modes_in,num_modes_out, kernel_modes, bases1, wbases1, bases2, wbases2, H1 , H2)
         else:
             raise ValueError("Layer Type Undefined.")

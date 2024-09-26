@@ -102,7 +102,7 @@ print("y_train.shape: ",y_train.shape)   #torch.Size([1000, 11271, 1])
 ####################################
 #compute pca bases
 ####################################
-k_max = config_model["GkNN_mode"]
+k_max = max(config_model["GkNN_mode_in"],config_model["GkNN_mode_out"])
 Nx = (nx + downsample_ratio - 1) // downsample_ratio
 Ny = (ny + downsample_ratio - 1) // downsample_ratio
 

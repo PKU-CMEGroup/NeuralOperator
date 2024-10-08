@@ -95,10 +95,11 @@ k_max = 16
 model = MgNO(input_shape = [x_train.shape[2], x_train.shape[3]],
              num_layer=5, num_channel_u=24, 
              num_channel_f=1, num_classes=1, 
-             num_iteration=[[2,0], [2,0], [2,0], [2,0], [2,0]]).to(device)
+             num_iteration=[[1,1], [1,1], [1,1], [1,1], [1,1]]).to(device)
+             # num_iteration=[[2,0], [2,0], [2,0], [2,0], [2,0]]).to(device)
 
 epochs = 500
-base_lr = 5e-4 #0.001
+base_lr = 5e-4 #0.001 #
 scheduler_gamma = 0.5
 pad_ratio = 0.05
 scheduler = "OneCycleLR"

@@ -1,341 +1,227 @@
-"""
-@author: Zongyi Li and Daniel Zhengyu Huang
-"""
+import math
 import numpy as np
 import torch
+import sys
+import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-from timeit import default_timer
+sys.path.append("../")
 from models.adam import Adam
-
-torch.manual_seed(0)
-np.random.seed(0)
-torch.cuda.manual_seed(0)
-torch.backends.cudnn.deterministic = True
+from models.losses import LpLoss
+## FNO 1D and 2D
 
 
 
-# normalization, pointwise gaussian
 class UnitGaussianNormalizer(object):
-    def __init__(self, x, eps=0.00001):
+    def __init__(self, x, aux_dim = 0, eps=1.0e-5):
         super(UnitGaussianNormalizer, self).__init__()
-
-        # x could be in shape of ntrain*n or ntrain*T*n or ntrain*n*T
-        self.mean = torch.mean(x, 0)
-        self.std = torch.std(x, 0)
+        # x: ndata, nx, nchannels
+        # when dim = [], mean and std are both scalars
+        self.aux_dim = aux_dim
+        self.mean = torch.mean(x[...,0:x.shape[-1]-aux_dim])
+        self.std = torch.std(x[...,0:x.shape[-1]-aux_dim])
         self.eps = eps
 
     def encode(self, x):
-        x = (x - self.mean) / (self.std + self.eps)
+        x[...,0:x.shape[-1]-self.aux_dim] = (x[...,0:x.shape[-1]-self.aux_dim] - self.mean) / (self.std + self.eps)
         return x
-
-    def decode(self, x, sample_idx=None):
-        if sample_idx is None:
-            std = self.std + self.eps # n
-            mean = self.mean
-        else:
-            if len(self.mean.shape) == len(sample_idx[0].shape):
-                std = self.std[sample_idx] + self.eps  # batch*n
-                mean = self.mean[sample_idx]
-            if len(self.mean.shape) > len(sample_idx[0].shape):
-                std = self.std[:,sample_idx]+ self.eps # T*batch*n
-                mean = self.mean[:,sample_idx]
-
-        # x is in shape of batch*n or T*batch*n
-        x = (x * std) + mean
-        return x
-
-    def cuda(self):
-        self.mean = self.mean.cuda()
-        self.std = self.std.cuda()
-
-    def cpu(self):
-        self.mean = self.mean.cpu()
-        self.std = self.std.cpu()
-
-# normalization, Gaussian
-class GaussianNormalizer(object):
-    def __init__(self, x, eps=0.00001):
-        super(GaussianNormalizer, self).__init__()
-
-        self.mean = torch.mean(x)
-        self.std = torch.std(x)
-        self.eps = eps
-
-    def encode(self, x):
-        x = (x - self.mean) / (self.std + self.eps)
-        return x
-
-    def decode(self, x, sample_idx=None):
-        x = (x * (self.std + self.eps)) + self.mean
-        return x
-
-    def cuda(self):
-        self.mean = self.mean.cuda()
-        self.std = self.std.cuda()
-
-    def cpu(self):
-        self.mean = self.mean.cpu()
-        self.std = self.std.cpu()
-
-
-# normalization, scaling by range
-class RangeNormalizer(object):
-    def __init__(self, x, low=0.0, high=1.0):
-        super(RangeNormalizer, self).__init__()
-        mymin = torch.min(x, 0)[0].view(-1)
-        mymax = torch.max(x, 0)[0].view(-1)
-
-        self.a = (high - low)/(mymax - mymin)
-        self.b = -self.a*mymax + high
-
-    def encode(self, x):
-        s = x.size()
-        x = x.view(s[0], -1)
-        x = self.a*x + self.b
-        x = x.view(s)
-        return x
+    
 
     def decode(self, x):
-        s = x.size()
-        x = x.view(s[0], -1)
-        x = (x - self.b)/self.a
-        x = x.view(s)
+        std = self.std + self.eps # n
+        mean = self.mean
+        x[...,0:x.shape[-1]-self.aux_dim] = (x[...,0:x.shape[-1]-self.aux_dim] * std) + mean
         return x
-
-#loss function with rel/abs Lp loss
-class LpLoss(object):
-    def __init__(self, d=2, p=2, size_average=True, reduction=True):
-        super(LpLoss, self).__init__()
-
-        #Dimension and Lp-norm type are postive
-        assert d > 0 and p > 0
-
-        self.d = d
-        self.p = p
-        self.reduction = reduction
-        self.size_average = size_average
-
-    def abs(self, x, y):
-        num_examples = x.size()[0]
-
-        #Assume uniform mesh
-        h = 1.0 / (x.size()[1] - 1.0)
-
-        all_norms = (h**(self.d/self.p))*torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
-
-        if self.reduction:
-            if self.size_average:
-                return torch.mean(all_norms)
-            else:
-                return torch.sum(all_norms)
-
-        return all_norms
-
-    def rel(self, x, y):
-        num_examples = x.size()[0]
-
-        diff_norms = torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
-        y_norms = torch.norm(y.reshape(num_examples,-1), self.p, 1)
-
-        if self.reduction:
-            if self.size_average:
-                return torch.mean(diff_norms/y_norms)
-            else:
-                return torch.sum(diff_norms/y_norms)
-
-        return diff_norms/y_norms
-
-    def __call__(self, x, y):
-        return self.rel(x, y)
-
-# A simple feedforward neural network
-class DenseNet(torch.nn.Module):
-    def __init__(self, layers, nonlinearity, out_nonlinearity=None, normalize=False):
-        super(DenseNet, self).__init__()
-
-        self.n_layers = len(layers) - 1
-
-        assert self.n_layers >= 1
-
-        self.layers = nn.ModuleList()
-
-        for j in range(self.n_layers):
-            self.layers.append(nn.Linear(layers[j], layers[j+1]))
-
-            if j != self.n_layers - 1:
-                if normalize:
-                    self.layers.append(nn.BatchNorm1d(layers[j+1]))
-
-                self.layers.append(nonlinearity())
-
-        if out_nonlinearity is not None:
-            self.layers.append(out_nonlinearity())
-
-    def forward(self, x):
-        for _, l in enumerate(self.layers):
-            x = l(x)
-
-        return x
-
-def pdist(sample_1, sample_2, norm=2, eps=1e-5):
-    r"""Compute the matrix of all squared pairwise distances.
-    Arguments
-    ---------
-    sample_1 : torch.Tensor or Variable
-        The first sample, should be of shape ``(n_1, d)``.
-    sample_2 : torch.Tensor or Variable
-        The second sample, should be of shape ``(n_2, d)``.
-    norm : float
-        The l_p norm to be used.
-    Returns
-    -------
-    torch.Tensor or Variable
-        Matrix of shape (n_1, n_2). The [i, j]-th entry is equal to
-        ``|| sample_1[i, :] - sample_2[j, :] ||_p``."""
-    n_1, n_2 = sample_1.size(0), sample_2.size(0)
-    norm = float(norm)
-    if norm == 2.:
-        norms_1 = torch.sum(sample_1**2, dim=1, keepdim=True)
-        norms_2 = torch.sum(sample_2**2, dim=1, keepdim=True)
-        norms = (norms_1.expand(n_1, n_2) +
-                 norms_2.transpose(0, 1).expand(n_1, n_2))
-        distances_squared = norms - 2 * sample_1.mm(sample_2.t())
-        return torch.sqrt(eps + torch.abs(distances_squared))
-    else:
-        dim = sample_1.size(1)
-        expanded_1 = sample_1.unsqueeze(1).expand(n_1, n_2, dim)
-        expanded_2 = sample_2.unsqueeze(0).expand(n_1, n_2, dim)
-        differences = torch.abs(expanded_1 - expanded_2) ** norm
-        inner = torch.sum(differences, dim=2, keepdim=False)
-        return (eps + inner) ** (1. / norm)
-
-class MMDStatistic:
-    r"""The *unbiased* MMD test of :cite:`gretton2012kernel`.
-    The kernel used is equal to:
-    .. math ::
-        k(x, x') = \sum_{j=1}^k e^{-\alpha_j\|x - x'\|^2},
-    for the :math:`\alpha_j` proved in :py:meth:`~.MMDStatistic.__call__`.
-    Arguments
-    ---------
-    n_1: int
-        The number of points in the first sample.
-    n_2: int
-        The number of points in the second sample."""
-
-    def __init__(self, n_1, n_2):
-        self.n_1 = n_1
-        self.n_2 = n_2
-
-        # The three constants used in the test.
-        self.a00 = 1. / (n_1 * (n_1 - 1))
-        self.a11 = 1. / (n_2 * (n_2 - 1))
-        self.a01 = - 1. / (n_1 * n_2)
-
-    def __call__(self, sample_1, sample_2, alphas, ret_matrix=False):
-        r"""Evaluate the statistic.
-        The kernel used is
-        .. math::
-            k(x, x') = \sum_{j=1}^k e^{-\alpha_j \|x - x'\|^2},
-        for the provided ``alphas``.
-        Arguments
-        ---------
-        sample_1: :class:`torch:torch.autograd.Variable`
-            The first sample, of size ``(n_1, d)``.
-        sample_2: variable of shape (n_2, d)
-            The second sample, of size ``(n_2, d)``.
-        alphas : list of :class:`float`
-            The kernel parameters.
-        ret_matrix: bool
-            If set, the call with also return a second variable.
-            This variable can be then used to compute a p-value using
-            :py:meth:`~.MMDStatistic.pval`.
-        Returns
-        -------
-        :class:`float`
-            The test statistic.
-        :class:`torch:torch.autograd.Variable`
-            Returned only if ``ret_matrix`` was set to true."""
-        sample_12 = torch.cat((sample_1, sample_2), 0)
-        distances = pdist(sample_12, sample_12, norm=2)
-
-        kernels = None
-        for alpha in alphas:
-            kernels_a = torch.exp(- alpha * distances ** 2)
-            if kernels is None:
-                kernels = kernels_a
-            else:
-                kernels = kernels + kernels_a
-
-        k_1 = kernels[:self.n_1, :self.n_1]
-        k_2 = kernels[self.n_1:, self.n_1:]
-        k_12 = kernels[:self.n_1, self.n_1:]
-
-        mmd = (2 * self.a01 * k_12.sum() +
-               self.a00 * (k_1.sum() - torch.trace(k_1)) +
-               self.a11 * (k_2.sum() - torch.trace(k_2)))
-        if ret_matrix:
-            return mmd, kernels
+    
+    
+    def to(self, device):
+        if device == torch.device('cuda:0'):
+            self.mean = self.mean.cuda()
+            self.std = self.std.cuda()
         else:
-            return mmd
-
-# print the number of parameters
-def count_params(model):
-    c = 0
-    for p in list(model.parameters()):
-        c += reduce(operator.mul, list(p.size()))
-    return c
+            self.mean = self.mean.cpu()
+            self.std = self.std.cpu()
+        
 
 
+
+
+
+def _get_act(act):
+    if act == "tanh":
+        func = F.tanh
+    elif act == "gelu":
+        func = F.gelu
+    elif act == "relu":
+        func = F.relu_
+    elif act == "elu":
+        func = F.elu_
+    elif act == "leaky_relu":
+        func = F.leaky_relu_
+    elif act == "none":
+        func = None
+    else:
+        raise ValueError(f"{act} is not supported")
+    return func
+
+
+
+@torch.jit.script
+def compl_mul1d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    # (batch, in_channel, x ), (in_channel, out_channel, x) -> (batch, out_channel, x)
+    res = torch.einsum("bix,iox->box", a, b)
+    return res
+
+
+@torch.jit.script
+def compl_mul2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    # (batch, in_channel, x,y,t ), (in_channel, out_channel, x,y,t) -> (batch, out_channel, x,y,t)
+    res = torch.einsum("bixy,ioxy->boxy", a, b)
+    return res
+
+
+
+# def compute_Fourier_modes(ndim, nks, Ls):
+#     # 2d 
+#     if ndim == 2:
+#         modes1, modes2 = nks
+#         Lx, Ly = Ls
+#         k_pairs = np.zeros((2*modes1, modes2, ndim))
+#         for kx in list(range(0, modes1)) + list(range(-modes1, 0)): #range(-modes1, modes1):
+#             for ky in range(modes2):
+#                 k_pairs[kx, ky, :] = 2*np.pi/Lx*kx, 2*np.pi/Ly*ky
+#     return k_pairs
+
+def compute_Fourier_modes(ndim, nks, Ls):
+    # 2d 
+    if ndim == 2:
+        nx, ny = nks
+        Lx, Ly = Ls
+        nk = 2*nx*ny + nx + ny
+        k_pairs    = np.zeros((nk, ndim))
+        k_pair_mag = np.zeros(nk)
+        i = 0
+        for kx in range(-nx, nx + 1):
+            for ky in range(0, ny + 1):
+                if (ky==0 and kx<=0): 
+                    continue
+
+                k_pairs[i, :] = 2*np.pi/Lx*kx, 2*np.pi/Ly*ky
+                k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
+                i += 1
+        
+
+    k_pairs = k_pairs[np.argsort(k_pair_mag), :]
+    return k_pairs
+
+def compute_Fourier_bases(grid, modes, mask):
+    #grid : batchsize, ndim, nx
+    #modes: nk, ndim
+    #mask : batchsize, 1, nx
+    temp  = torch.einsum("bdx,kd->bkx", grid, modes) 
+    #temp: batchsize, nx, nk
+    bases_c = torch.cos(temp) * mask
+    bases_s = torch.sin(temp) * mask
+    bases_0 = mask
+    return bases_c, bases_s, bases_0
 
 ################################################################
-# fourier layer
+# 2d fourier layer
 ################################################################
+
+
 class SpectralConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, modes1, modes2):
+    def __init__(self, in_channels, out_channels, modes):
         super(SpectralConv2d, self).__init__()
-
-        """
-        2D Fourier layer. It does FFT, linear transform, and Inverse FFT.    
-        """
-
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.modes1 = modes1  # Number of Fourier modes to multiply, at most floor(N/2) + 1
-        self.modes2 = modes2
+        # Number of Fourier modes to multiply, at most floor(N/2) + 1
+        nmode, ndim = modes.shape
+        self.modes = modes
 
-        self.scale = (1 / (in_channels * out_channels))
-        self.weights1 = nn.Parameter(
-            self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-        self.weights2 = nn.Parameter(
-            self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
+        self.scale = 1 / (in_channels * out_channels)
 
-    # Complex multiplication
-    def compl_mul2d(self, input, weights):
-        # (batch, in_channel, x,y ), (in_channel, out_channel, x,y) -> (batch, out_channel, x,y)
-        return torch.einsum("bixy,ioxy->boxy", input, weights)
+        self.weights_c = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, nmode, dtype=torch.float
+            )
+        )
+        self.weights_s = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, nmode, dtype=torch.float
+            )
+        )
+        self.weights_0 = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, 1, dtype=torch.float
+            )
+        )
 
-    def forward(self, x):
-        batchsize = x.shape[0]
-        # Compute Fourier coeffcients up to factor of e^(- something constant)
-        x_ft = torch.fft.rfft2(x)
 
-        # Multiply relevant Fourier modes
-        out_ft = torch.zeros(batchsize, self.out_channels, x.size(-2), x.size(-1) // 2 + 1, dtype=torch.cfloat,
-                             device=x.device)
-        out_ft[:, :, :self.modes1, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
-        out_ft[:, :, -self.modes1:, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
+    def forward(self, x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0):
+        #batchsize = x.shape[0]
+        size = x.shape[-1]
+        # # Compute Fourier coeffcients up to factor of e^(- something constant)
+        # x_ft = torch.fft.rfftn(x, dim=[2, 3])
+        # # Multiply relevant Fourier modes
+        # out_ft0 = torch.zeros(
+        #     batchsize,
+        #     self.out_channels,
+        #     x.size(-2),
+        #     x.size(-1) // 2 + 1,
+        #     device=x.device,
+        #     dtype=torch.cfloat,
+        # )
+        # out_ft0[:, :, : self.modes1, : self.modes2] = compl_mul2d(
+        #     x_ft[:, :, : self.modes1, : self.modes2], self.weights1
+        # )
+        # out_ft0[:, :, -self.modes1 :, : self.modes2] = compl_mul2d(
+        #     x_ft[:, :, -self.modes1 :, : self.modes2], self.weights2
+        # )
+        # x0 = torch.fft.irfftn(out_ft0, s=(x.size(-2), x.size(-1)), dim=[2, 3])
 
-        # Return to physical space
-        x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
+
+        x_c_hat =  torch.einsum("bix,bkx->bik", x, wbases_c)
+        x_s_hat = -torch.einsum("bix,bkx->bik", x, wbases_s)
+        x_0_hat =  torch.einsum("bix,bkx->bik", x, wbases_0)
+
+        # print("fft+: ", torch.norm(x_ft[:, :,  : self.modes1, : self.modes2] - torch.complex(x_c_hat[:, :, : self.modes1  , :], x_s_hat[:, :, : self.modes1  , :]))/torch.norm(x_ft[:, :,  : self.modes1, : self.modes2]))
+        # print("fft-: ", torch.norm(x_ft[:, :,  -self.modes1:, : self.modes2] - torch.complex(x_c_hat[:, :, -self.modes1:  , :], x_s_hat[:, :, -self.modes1:  , :]))/torch.norm(x_ft[:, :,  -self.modes1:, : self.modes2]))
+        
+        # weights12 = torch.cat((self.weights1, self.weights2), axis=2)/(size1*size2)
+        weights_c, weights_s, weights_0 = self.weights_c/(size), self.weights_s/(size), self.weights_0/(size)
+        f_c_hat = torch.einsum("bik,iok->bok", x_c_hat, weights_c) - torch.einsum("bik,iok->bok", x_s_hat, weights_s)
+        f_s_hat = torch.einsum("bik,iok->bok", x_s_hat, weights_c) + torch.einsum("bik,iok->bok", x_c_hat, weights_s)
+        f_0_hat = torch.einsum("bik,iok->bok", x_0_hat, weights_0) 
+
+        # print(torch.norm(torch.einsum("bok,bkx->box", f_0_hat, bases_0)), torch.norm(torch.einsum("bok,bkx->box", f_c_hat, bases_c)), torch.norm(torch.einsum("bok,bkx->box", f_s_hat, bases_s)))
+        x = torch.einsum("bok,bkx->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bkx->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bkx->box", f_s_hat, bases_s) 
+        
         return x
+    
+
+# Epoch :  490  Rel. Train L2 Loss :  0.002117458561435342  Rel. Test L2 Loss :  0.0061201491020619865  Test L2 Loss :  4.155228569288738e-05
+# Epoch :  499  Rel. Train L2 Loss :  0.002108049723319709  Rel. Test L2 Loss :  0.006121462248265743  Test L2 Loss :  4.155958908086177e-05
+# Epoch :  490  Rel. Train L2 Loss :  0.0022899034479632973  Rel. Test L2 Loss :  0.006440818700939417  Test L2 Loss :  4.3853282695636155e-05
+# Epoch :  499  Rel. Train L2 Loss :  0.002278903964906931  Rel. Test L2 Loss :  0.006441509649157524  Test L2 Loss :  4.385238949907943e-05
 
 
-class FNO2d(nn.Module):
-    def __init__(self, modes1, modes2, width):
-        super(FNO2d, self).__init__()
+
+
+class GeoFNO(nn.Module):
+    def __init__(
+        self,
+        ndim,
+        modes,
+        layers,
+        fc_dim=128,
+        in_dim=3,
+        out_dim=1,
+        act="gelu",
+    ):
+        super(GeoFNO, self).__init__()
 
         """
         The overall network. It contains 4 layers of the Fourier layer.
@@ -343,195 +229,602 @@ class FNO2d(nn.Module):
         2. 4 layers of the integral operators u' = (W + K)(u).
             W defined by self.w; K defined by self.conv .
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
-
+        
         input: the solution of the coefficient function and locations (a(x, y), x, y)
         input shape: (batchsize, x=s, y=s, c=3)
         output: the solution 
         output shape: (batchsize, x=s, y=s, c=1)
         """
+        self.modes = modes
+        
+        self.layers = layers
+        self.fc_dim = fc_dim
 
-        self.modes1 = modes1
-        self.modes2 = modes2
-        self.width = width
-        self.padding = 8  # pad the domain if input is non-periodic
-        self.fc0 = nn.Linear(4, self.width)  # input channel is 3: (a(x, y), x, y)
+        self.ndim = ndim
+        self.in_dim = in_dim
 
-        self.conv0 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv1 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv2 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv3 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.w0 = nn.Conv2d(self.width, self.width, 1)
-        self.w1 = nn.Conv2d(self.width, self.width, 1)
-        self.w2 = nn.Conv2d(self.width, self.width, 1)
-        self.w3 = nn.Conv2d(self.width, self.width, 1)
+        self.fc0 = nn.Linear(in_dim, layers[0])
 
-        self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, 1)
+        self.sp_convs = nn.ModuleList(
+            [
+                SpectralConv2d(in_size, out_size, modes)
+                for in_size, out_size in zip(
+                    self.layers, self.layers[1:]
+                )
+            ]
+        )
+
+        self.ws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size, out_size, 1)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
+
+        if fc_dim > 0:
+            self.fc1 = nn.Linear(layers[-1], fc_dim)
+            self.fc2 = nn.Linear(fc_dim, out_dim)
+        else:
+            self.fc2 = nn.Linear(layers[-1], out_dim)
+
+        self.act = _get_act(act)
 
     def forward(self, x):
-        grid = self.get_grid(x.shape, x.device)
-        x = torch.cat((x, grid), dim=-1)
-        x = self.fc0(x)
-        x = x.permute(0, 3, 1, 2)
+        """
+        Args:
+            - x : (batch size, x_grid, y_grid, 2)
+        Returns:
+            - x: (batch size, x_grid, y_grid, 1)
+        """
+        length = len(self.ws)
 
-        x = F.pad(x, [0, self.padding, 0, self.padding])
+        aux = x[...,-2-self.ndim:].permute(0, 2, 1)    # coord, weights, mask
 
-        x1 = self.conv0(x)
-        x2 = self.w0(x)
-        x = x1 + x2
-        x = F.gelu(x)
+        grid, weights, mask = aux[:, 0:self.ndim, :], aux[:, -2:-1, :], aux[:, -1:, :]
 
-        x1 = self.conv1(x)
-        x2 = self.w1(x)
-        x = x1 + x2
-        x = F.gelu(x)
+        size = grid.shape[-1]
+        bases_c, bases_s, bases_0 = compute_Fourier_bases(grid, self.modes, mask)
+        wbases_c, wbases_s, wbases_0 = bases_c*(weights*size), bases_s*(weights*size), bases_0*(weights*size)
+        
+        
+        
+        x = self.fc0(x[...,0:self.in_dim])
+        x = x.permute(0, 2, 1)
 
-        x1 = self.conv2(x)
-        x2 = self.w2(x)
-        x = x1 + x2
-        x = F.gelu(x)
+        # size_x, size_y = x.shape[-2], x.shape[-1]
 
-        x1 = self.conv3(x)
-        x2 = self.w3(x)
-        x = x1 + x2
+        for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
+            x1 = speconv(x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0)
+            # x2 = w(x.view(batchsize, self.layers[i], -1)).view(
+            #     batchsize, self.layers[i + 1], size_x, size_y
+            # )
+            x2 = w(x)
+            x = x1 + x2
+            if self.act is not None and i != length - 1:
+                x = self.act(x)
 
-        x = x[..., :-self.padding, :-self.padding]
-        x = x.permute(0, 2, 3, 1)
-        x = self.fc1(x)
-        x = F.gelu(x)
+        x = x.permute(0, 2, 1)
+
+        if self.fc_dim > 0:
+            x = self.fc1(x)
+            if self.act is not None:
+                x = self.act(x)
+
         x = self.fc2(x)
         return x
 
-    def get_grid(self, shape, device):
-        batchsize, size_x, size_y = shape[0], shape[1], shape[2]
-        gridx = torch.tensor(np.linspace(0, 1, size_x), dtype=torch.float)
-        gridx = gridx.reshape(1, size_x, 1, 1).repeat([batchsize, 1, size_y, 1])
-        gridy = torch.tensor(np.linspace(0, 1, size_y), dtype=torch.float)
-        gridy = gridy.reshape(1, 1, size_y, 1).repeat([batchsize, size_x, 1, 1])
-        return torch.cat((gridx, gridy), dim=-1).to(device)
 
 
-################################################################
-# configs
-################################################################
-PATH = ".."
-INPUT_X = PATH+'/data/airfoil/NACA_Cylinder_X.npy'
-INPUT_Y = PATH+'/data/airfoil/NACA_Cylinder_Y.npy'
-OUTPUT_Sigma = PATH+'/airfoil/naca/NACA_Cylinder_Q.npy'
-
-ntrain = 1000
-ntest = 200
-
-batch_size = 20
-learning_rate = 0.001
-
-epochs = 501
-step_size = 100
-gamma = 0.5
-
-modes = 12
-width = 32
-
-r1 = 1
-r2 = 1
-s1 = int(((221 - 1) / r1) + 1)
-s2 = int(((51 - 1) / r2) + 1)
-
-################################################################
-# load data and data normalization
-################################################################
-inputX = np.load(INPUT_X)
-inputX = torch.tensor(inputX, dtype=torch.float)
-inputY = np.load(INPUT_Y)
-inputY = torch.tensor(inputY, dtype=torch.float)
-input = torch.stack([inputX, inputY], dim=-1)
-
-output = np.load(OUTPUT_Sigma)[:, 4]
-output = torch.tensor(output, dtype=torch.float)
-print(input.shape, output.shape)
-
-x_train = input[:ntrain, ::r1, ::r2][:, :s1, :s2]
-y_train = output[:ntrain, ::r1, ::r2][:, :s1, :s2]
-x_test = input[ntrain:ntrain+ntest, ::r1, ::r2][:, :s1, :s2]
-y_test = output[ntrain:ntrain+ntest, ::r1, ::r2][:, :s1, :s2]
-x_train = x_train.reshape(ntrain, s1, s2, 2)
-x_test = x_test.reshape(ntest, s1, s2, 2)
-
-train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), batch_size=batch_size,
-                                           shuffle=True)
-test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), batch_size=batch_size,
-                                          shuffle=False)
-test_loader2 = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), batch_size=1,
-                                          shuffle=False)
 
 
-################################################################
-# training and evaluation
-################################################################
-model = FNO2d(modes*2, modes, width).cuda()
-print(count_params(model))
 
-optimizer = Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+def GeoFNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./GeoFNO_model"):
+    n_train, n_test = x_train.shape[0], x_test.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
+    ndim = model.ndim # n_train, size, n_channel
+    print("In GeoFNO_train, ndim = ", ndim)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = ndim+2)
+        x_train = x_normalizer.encode(x_train)
+        x_test = x_normalizer.encode(x_test)
+        x_normalizer.to(device)
+        
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = 0)
+        y_train = y_normalizer.encode(y_train)
+        y_test = y_normalizer.encode(y_test)
+        y_normalizer.to(device)
 
-myloss = LpLoss(size_average=False)
 
-for ep in range(epochs):
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+                                               batch_size=config['train']['batch_size'], shuffle=True)
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
+                                               batch_size=config['train']['batch_size'], shuffle=False)
+    
+    
+    # Load from checkpoint
+    optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
+                     lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
+    
+    if config['train']['scheduler'] == "MultiStepLR":
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                     milestones=config['train']['milestones'],
+                                                     gamma=config['train']['scheduler_gamma'])
+    elif config['train']['scheduler'] == "CosineAnnealingLR":
+        T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
+        eta_min  = 0.0
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
+    elif config["train"]["scheduler"] == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=config['train']['base_lr'], 
+            div_factor=2, final_div_factor=100,pct_start=0.2,
+            steps_per_epoch=1, epochs=config['train']['epochs'])
+    else:
+        print("Scheduler ", config['train']['scheduler'], " has not implemented.")
+
     model.train()
-    t1 = default_timer()
-    train_l2 = 0
-    for x, y in train_loader:
-        x, y = x.cuda(), y.cuda()
+    myloss = LpLoss(d=1, p=2, size_average=False)
 
-        optimizer.zero_grad()
-        out = model(x)
-
-        loss = myloss(out.view(batch_size, -1), y.view(batch_size, -1))
-        loss.backward()
-
-        optimizer.step()
-        train_l2 += loss.item()
-
-    scheduler.step()
-
-    model.eval()
-    test_l2 = 0.0
-    with torch.no_grad():
-        for x, y in test_loader:
-            x, y = x.cuda(), y.cuda()
-
-            out = model(x)
-            test_l2 += myloss(out.view(batch_size, -1), y.view(batch_size, -1)).item()
-
-    train_l2 /= ntrain
-    test_l2 /= ntest
-
-    t2 = default_timer()
-    print(ep, t2 - t1, train_l2, test_l2)
-
-    # plot
-    if ep%step_size==0:
-        # torch.save(model, '../model/naca_plain_model_'+str(ep))
-
-        ind = -1
-        X = x[ind, :, :, 0].squeeze().detach().cpu().numpy()
-        Y = x[ind, :, :, 1].squeeze().detach().cpu().numpy()
-        truth = y[ind].squeeze().detach().cpu().numpy()
-        pred = out[ind].squeeze().detach().cpu().numpy()
-        nx = 40//r1
-        ny = 20//r2
-        X_small = X[nx:-nx, :ny]
-        Y_small = Y[nx:-nx, :ny]
-        truth_small = truth[nx:-nx, :ny]
-        pred_small = pred[nx:-nx, :ny]
-
-        fig, ax = plt.subplots(nrows=3, ncols=2,  figsize=(16, 16))
-        ax[0,0].pcolormesh(X, Y, truth, shading='gouraud')
-        ax[1,0].pcolormesh(X, Y, pred, shading='gouraud')
-        ax[2,0].pcolormesh(X, Y, pred-truth, shading='gouraud')
-        ax[0,1].pcolormesh(X_small, Y_small, truth_small, shading='gouraud')
-        ax[1,1].pcolormesh(X_small, Y_small, pred_small, shading='gouraud')
-        ax[2,1].pcolormesh(X_small, Y_small, np.abs(pred_small-truth_small), shading='gouraud')
-        fig.show()
+    epochs = config['train']['epochs']
 
 
+    for ep in range(epochs):
+        train_rel_l2 = 0
+
+        model.train()
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
+
+            batch_size_ = x.shape[0]
+            optimizer.zero_grad()
+            out = model(x) #.reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+
+            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+            loss.backward()
+
+            optimizer.step()
+            train_rel_l2 += loss.item()
+
+        test_l2 = 0
+        test_rel_l2 = 0
+        with torch.no_grad():
+            for x, y in test_loader:
+                x, y = x.to(device), y.to(device)
+                batch_size_ = x.shape[0]
+                out = model(x) #.reshape(batch_size_,  -1)
+
+                if normalization_y:
+                    out = y_normalizer.decode(out)
+                    y = y_normalizer.decode(y)
+
+                test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+
+
+
+
+        scheduler.step()
+
+        train_rel_l2/= n_train
+        test_l2 /= n_test
+        test_rel_l2/= n_test
+        
+        train_rel_l2_losses.append(train_rel_l2)
+        test_rel_l2_losses.append(test_rel_l2)
+        test_l2_losses.append(test_l2)
+    
+
+        if (ep %10 == 0) or (ep == epochs -1):
+            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+            torch.save(model, save_model_name)
+    
+    
+    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+# class UnitGaussianNormalizer(object):
+#     def __init__(self, x, aux_dim = 0, eps=1.0e-5):
+#         super(UnitGaussianNormalizer, self).__init__()
+#         # x: ndata, nx, nchannels
+#         # when dim = [], mean and std are both scalars
+#         self.aux_dim = aux_dim
+#         self.mean = torch.mean(x[:,:,0:x.shape[-1]-aux_dim])
+#         self.std = torch.std(x[:,:,0:x.shape[-1]-aux_dim])
+#         self.eps = eps
+
+#     def encode(self, x):
+#         x[:,:,0:x.shape[-1]-self.aux_dim] = (x[:,:,0:x.shape[-1]-self.aux_dim] - self.mean) / (self.std + self.eps)
+#         return x
+    
+
+#     def decode(self, x):
+#         std = self.std + self.eps # n
+#         mean = self.mean
+#         x[:,:,0:x.shape[-1]-self.aux_dim] = (x[:,:,0:x.shape[-1]-self.aux_dim] * std) + mean
+#         return x
+    
+        
+    
+#     def to(self, device):
+#         if device == torch.device('cuda:0'):
+#             self.mean = self.mean.cuda()
+#             self.std = self.std.cuda()
+#         else:
+#             self.mean = self.mean.cpu()
+#             self.std = self.std.cpu()
+        
+
+# def _get_act(act):
+#     if act == "tanh":
+#         func = F.tanh
+#     elif act == "gelu":
+#         func = F.gelu
+#     elif act == "relu":
+#         func = F.relu_
+#     elif act == "elu":
+#         func = F.elu_
+#     elif act == "leaky_relu":
+#         func = F.leaky_relu_
+#     elif act == "none":
+#         func = None
+#     else:
+#         raise ValueError(f"{act} is not supported")
+#     return func
+
+
+
+
+
+# ################################################################
+# # fourier modes and basis
+# ################################################################
+
+# def compute_Fourier_modes(ndim, nks, Ls):
+#     # 2d 
+#     if ndim == 2:
+#         nx, ny = nks
+#         Lx, Ly = Ls
+#         nk = 2*nx*ny + nx + ny
+#         k_pairs    = np.zeros((nk, ndim))
+#         k_pair_mag = np.zeros(nk)
+#         i = 0
+#         for kx in range(-nx, nx + 1):
+#             for ky in range(-ny, ny + 1):
+#                 if kx < 0 or (kx==0 and ky<=0): 
+#                     continue
+
+#                 k_pairs[i, :] = 2*np.pi/Lx*kx, 2*np.pi/Ly*ky
+#                 k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
+#                 i += 1
+        
+#     elif ndim == 3:
+#         nx, ny, nz = nks
+#         Lx, Ly, Lz = Ls
+#         nk = 2*nx*ny*nz + 2*nx*ny + 2*ny*nz+ 2*nx*nz + nx + ny + nz
+#         k_pairs    = np.zeros((nk, ndim))
+#         k_pair_mag = np.zeros(nk)
+
+#         i = 0
+#         for kx in range(-nx, nx + 1):
+#             for ky in range(-ny, ny + 1):
+#                 for kz in range(-nz, nz + 1):
+#                     if kx < 0 or (kx==0 and ky<0) or (kx==0 and ky==0 and kz<=0): 
+#                         continue
+                
+#                     k_pairs[i, :] = 2*np.pi/Lx * kx, 2*np.pi/Ly * ky, 2*np.pi/Lz * kz
+#                     k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
+#                     i += 1
+#     else:
+#         exit("In compute_Fourier_modes, dim = ", ndim)
+
+#     k_pairs = k_pairs[np.argsort(k_pair_mag), :]
+#     return k_pairs
+
+
+# def compute_Fourier_bases(grid, modes, mask):
+#     #grid : batchsize, ndim, nx
+#     #modes: nk, ndim
+#     #mask : batchsize, 1, nx
+    
+#     temp  = torch.einsum("bdx,kd->bkx", grid, modes) 
+    
+#     #temp: batchsize, nx, nk
+#     bases_c = torch.cos(temp) * mask
+#     bases_s = torch.sin(temp) * mask
+#     bases_0 = mask
+#     return bases_c, bases_s, bases_0
+
+
+# class GeoSpectralConv(nn.Module):
+#     def __init__(self, in_channels, out_channels, modes):
+#         super(GeoSpectralConv, self).__init__()
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+#         # Array[nm,dim], modes[i, :] = kx, ky, kz, 
+#         # kx> 0 or (kx=0, ky>0) or (kx=0, ky=0, kz >= 0)
+#         nk, dim = modes.shape  
+#         self.modes = modes
+
+#         self.scale = 1 / (in_channels * out_channels)
+#         self.weights_c = nn.Parameter(
+#             self.scale
+#             * torch.rand(
+#                 in_channels, out_channels, nk, dtype=torch.float
+#             )
+#         )
+#         self.weights_s = nn.Parameter(
+#             self.scale
+#             * torch.rand(
+#                 in_channels, out_channels, nk, dtype=torch.float
+#             )
+#         )
+#         self.weights_0 = nn.Parameter(
+#             self.scale
+#             * torch.rand(
+#                 in_channels, out_channels, 1, dtype=torch.float
+#             )
+#         )
+
+#     def forward(self, x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0):
+#         # x: batchsize, in_channels, nx 
+#         nx = x.shape[2]
+
+#         # Compute Fourier coeffcients up to factor of e^(- something constant)
+#         x_c_hat =  torch.einsum("bix,bkx->bik", x, wbases_c)
+#         x_s_hat = -torch.einsum("bix,bkx->bik", x, wbases_s)
+#         x_0_hat =  torch.einsum("bix,bkx->bik", x, wbases_0)
+        
+
+#         # Multiply relevant Fourier modes
+#         # W_k a_k e^ikx = (W_k + W_k'i) (a_k + a_k'i) [cos(kx) + sin(kx)i]
+#         f_c_hat =  torch.einsum("bik,iok->bok", x_c_hat, self.weights_c) - torch.einsum("bik,iok->bok", x_s_hat, self.weights_s)
+#         f_s_hat =  torch.einsum("bik,iok->bok", x_s_hat, self.weights_c) + torch.einsum("bik,iok->bok", x_c_hat, self.weights_s)
+#         f_0_hat =  torch.einsum("bik,iok->bok", x_0_hat, self.weights_0) 
+
+
+#         # Return to physical space
+#         x = torch.einsum("bok,bkx->box", f_0_hat, bases_0) + 2*torch.einsum("bok,bkx->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bkx->box", f_s_hat, bases_s)
+#         # print(x.shape, torch.norm(x))
+#         # x += 2*torch.einsum("bok,bkx->box", f_c_hat, bases_c) 
+#         # print("fc", torch.norm(x))
+#         # x -= 2*torch.einsum("bok,bkx->box", f_s_hat, bases_s)
+#         # print("fs", torch.norm(x))       
+#         # print(torch.norm(x/nx))
+#         return x/nx
+    
+
+
+
+
+# class GeoFNO(nn.Module):
+#     def __init__(self, ndim,
+#                  modes, layers=[128,128,128,128,128],
+#                  fc_dim=128,
+#                  in_dim=2, out_dim=1,
+#                  act='gelu'):
+#         super(GeoFNO, self).__init__()
+
+#         """
+#         The overall network. It contains several layers of the Fourier layer.
+#         1. Lift the input to the desire channel dimension by self.fc0 .
+#         2. 4 layers of the integral operators u' = (W + K)(u).
+#             W defined by self.w; K defined by self.conv .
+#         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
+
+#         input: the solution of the initial condition and location (a(x), x)
+#         input shape: (batchsize, x=s, c=2)
+#         output: the solution of a later timestep
+#         output shape: (batchsize, x=s, c=1)
+#         """
+#         self.ndim = ndim
+#         self.modes = modes
+#         self.layers = layers
+
+#         self.fc_dim = fc_dim
+        
+#         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
+
+#         self.sp_convs = nn.ModuleList([GeoSpectralConv(
+#             in_size, out_size, self.modes) for in_size, out_size in zip(layers, layers[1:])])
+
+#         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
+#                                  for in_size, out_size in zip(layers, layers[1:])])
+        
+#         self.fc1 = nn.Linear(layers[-1], fc_dim)
+#         self.fc2 = nn.Linear(fc_dim, out_dim) 
+        
+#         self.act = _get_act(act)
+
+#     def forward(self, x):
+#         """
+#         Input shape (of x):     (batch, nx_in,  channels_in)
+#         Output shape:           (batch, nx_out, channels_out)
+        
+#         The input resolution is determined by x.shape[-1], the last dim represent locations
+#         The output resolution is determined by self.s_outputspace
+#         """
+        
+#         length = len(self.ws)
+#         nx = x.shape[2]
+
+#         aux = x[:,:,-2-self.ndim:].permute(0, 2, 1)    # coord, weights, mask
+#         grid, weights, mask = aux[:, 0:self.ndim, :], aux[:, -2, :].unsqueeze(1), aux[:, -1, :].unsqueeze(1)
+#         bases_c, bases_s, bases_0 = compute_Fourier_bases(grid, self.modes, mask)
+#         wbases_c, wbases_s, wbases_0 = bases_c*(weights*nx), bases_c*(weights*nx), bases_c*(weights*nx)
+        
+#         x = self.fc0(x[:,:,0:-2])
+#         x = x.permute(0, 2, 1)
+
+
+#         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
+            
+#             x1 = speconv(x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0)
+  
+#             x2 = w(x)
+
+#             x = x1 + x2
+#             if self.act is not None and i != length - 1:
+#                 x = self.act(x)
+    
+#         x = x.permute(0, 2, 1)
+        
+#         x = self.fc1(x)
+#         x = self.act(x)
+#         x = self.fc2(x)
+        
+#         return x
+
+
+
+
+
+
+
+# # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+# def GeoFNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./GeoFNO_model"):
+#     n_train, n_test = x_train.shape[0], x_test.shape[0]
+#     train_rel_l2_losses = []
+#     test_rel_l2_losses = []
+#     test_l2_losses = []
+#     normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
+    
+    
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+#     if normalization_x:
+#         x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = 4) #ndim+2
+#         x_train = x_normalizer.encode(x_train)
+#         x_test = x_normalizer.encode(x_test)
+#         x_normalizer.to(device)
+        
+#     if normalization_y:
+#         y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = 0)
+#         y_train = y_normalizer.encode(y_train)
+#         y_test = y_normalizer.encode(y_test)
+#         y_normalizer.to(device)
+
+
+#     train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+#                                                batch_size=config['train']['batch_size'], shuffle=True)
+#     test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
+#                                                batch_size=config['train']['batch_size'], shuffle=False)
+    
+    
+#     # Load from checkpoint
+#     optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
+#                      lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
+    
+#     if config['train']['scheduler'] == "MultiStepLR":
+#         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+#                                                      milestones=config['train']['milestones'],
+#                                                      gamma=config['train']['scheduler_gamma'])
+#     elif config['train']['scheduler'] == "CosineAnnealingLR":
+#         T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
+#         eta_min  = 0.0
+#         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
+#     elif config["train"]["scheduler"] == "OneCycleLR":
+#         scheduler = torch.optim.lr_scheduler.OneCycleLR(
+#             optimizer, max_lr=config['train']['base_lr'], 
+#             div_factor=2, final_div_factor=100,pct_start=0.2,
+#             steps_per_epoch=1, epochs=config['train']['epochs'])
+#     else:
+#         print("Scheduler ", config['train']['scheduler'], " has not implemented.")
+
+#     model.train()
+#     myloss = LpLoss(d=1, p=2, size_average=False)
+
+#     epochs = config['train']['epochs']
+
+
+#     for ep in range(epochs):
+#         train_rel_l2 = 0
+
+#         model.train()
+#         for x, y in train_loader:
+#             x, y = x.to(device), y.to(device)
+
+#             batch_size_ = x.shape[0]
+#             optimizer.zero_grad()
+#             out = model(x) #.reshape(batch_size_,  -1)
+#             if normalization_y:
+#                 out = y_normalizer.decode(out)
+#                 y = y_normalizer.decode(y)
+
+#             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+#             loss.backward()
+
+#             optimizer.step()
+#             train_rel_l2 += loss.item()
+
+#         test_l2 = 0
+#         test_rel_l2 = 0
+#         with torch.no_grad():
+#             for x, y in test_loader:
+#                 x, y = x.to(device), y.to(device)
+#                 batch_size_ = x.shape[0]
+#                 out = model(x) #.reshape(batch_size_,  -1)
+
+#                 if normalization_y:
+#                     out = y_normalizer.decode(out)
+#                     y = y_normalizer.decode(y)
+
+#                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+#                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+
+
+
+
+#         scheduler.step()
+
+#         train_rel_l2/= n_train
+#         test_l2 /= n_test
+#         test_rel_l2/= n_test
+        
+#         train_rel_l2_losses.append(train_rel_l2)
+#         test_rel_l2_losses.append(test_rel_l2)
+#         test_l2_losses.append(test_l2)
+    
+
+#         if (ep %10 == 0) or (ep == epochs -1):
+#             print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+#             torch.save(model, save_model_name)
+    
+    
+#     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+
+# if __name__ == "__main__":
+    
+#     torch.autograd.set_detect_anomaly(True)
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     ndim = 2
+#     nks = [2,3]
+#     Ls = [1.0,1.0]
+#     modes = compute_Fourier_modes(ndim, nks, Ls)
+#     modes = torch.tensor(modes, dtype=torch.float).to(device)
+
+#     model = GeoFNO(ndim,
+#                  modes, layers=[128,128,128,128,128],
+#                  fc_dim=128,
+#                  in_dim=4-2, out_dim=1,
+#                  act='gelu').to(device)
+    
+#     # print(model)
+#     inp = torch.randn(10, 221*51, 4).to(device)
+#     out = model(inp)
+#     # print(out.shape)
+#     # backward check
+#     out.sum().backward()
+#     print('success!')
+    

@@ -10,7 +10,7 @@ from scipy.io import loadmat
 sys.path.append("../")
 
 
-from baselines.pit import  PiT, PiT_train
+from baselines.Transformer import  Transformer, Transformer_train
 
 
 
@@ -22,7 +22,7 @@ np.random.seed(0)
 
 
 
-downsample_ratio = 2
+downsample_ratio = 5
 n_train = 1000
 n_test = 200
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -87,39 +87,9 @@ print("x_train.shape: ",x_train.shape)
 print("y_train.shape: ",y_train.shape)
 
 
-n_epochs     = 500
-lr           = 0.001
-batch_size   = 8
-hid_channels   = 128
-in_channels    = 3
-out_channels   = 1
-n_head       = 2
-qry_res      = int((421-1)/downsample_ratio+1)
-ltt_res      = 32
-localities = [2, 200,200,200,200, 5]
-# localities = [200, 200,200,200,200, 200]
-### define a model
-
-def pairwise_dist(res1x, res1y, res2x, res2y):
-    gridx1 = torch.linspace(0, 1, res1x+1)[:-1].view(1, -1, 1).repeat(res1y, 1, 1)
-    gridy1 = torch.linspace(0, 1, res1y+1)[:-1].view(-1, 1, 1).repeat(1, res1x, 1)
-    grid1 = torch.cat([gridx1, gridy1], dim=-1).view(res1x*res1y, 2)
-    
-    gridx2 = torch.linspace(0, 1, res2x+1)[:-1].view(1, -1, 1).repeat(res2y, 1, 1)
-    gridy2 = torch.linspace(0, 1, res2y+1)[:-1].view(-1, 1, 1).repeat(1, res2x, 1)
-    grid2 = torch.cat([gridx2, gridy2], dim=-1).view(res2x*res2y, 2)
-    
-    grid1 = grid1.unsqueeze(1).repeat(1, grid2.shape[0], 1)
-    grid2 = grid2.unsqueeze(0).repeat(grid1.shape[0], 1, 1)
-    
-    dist = torch.norm(grid1 - grid2, dim=-1)
-    return (dist**2 / 2.0).float()
-
-
-m_cross   = pairwise_dist(qry_res, qry_res, ltt_res, ltt_res).to(device) # pairwise distance matrix for encoder and decoder
-m_latent  = pairwise_dist(ltt_res, ltt_res, ltt_res, ltt_res).to(device) # pairwise distance matrix for processor
-m_dists = [m_cross.T, m_latent, m_latent, m_latent, m_latent, m_cross]
-model = PiT(in_channels, out_channels, hid_channels, n_head, localities, m_dists).to(device)
+in_channels, out_channels, hid_channels, blocksize, heads, depth = 3, 1, 64, 128, 4, 4
+print("device = ", device)
+model = Transformer(in_channels, out_channels, hid_channels, blocksize, heads, depth).to(device)
 
 
 epochs = 500
@@ -135,8 +105,8 @@ normalization_dim = []
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PiT_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name="./Pit_darcy_model"
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = Transformer_train(
+    x_train, y_train, x_test, y_test, config, model, save_model_name="./Transformer_darcy_model"
 )
 
 

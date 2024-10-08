@@ -11,74 +11,23 @@ from models.normalizer import UnitGaussianNormalizer
 
 
 
-class MgIte(nn.Module):
-    def __init__(self, A, S):
-        super().__init__()
- 
-        self.A = A
-        self.S = S
-
-    def forward(self, out):
-        
-        if isinstance(out, tuple):
-            u, f = out
-            u = u + (self.S(f-self.A(u)))
-            # u = u + (self.S(-self.A(u)))
-        else:
-            exit("stop")
-            f = out
-            u = self.S(f)
-
-        out = (u, f)
-        return out
-
-class MgIte_init(nn.Module):
-    def __init__(self, S):
-        super().__init__()
-        
-        self.S = S
-
-    def forward(self, f):
-        u = self.S(f)
-        return (u, f)
-
-class Restrict(nn.Module):
-    # Compress
-    def __init__(self, Pi=None, R=None, A=None):
-        super().__init__()
-        self.Pi = Pi
-        self.R = R
-        self.A = A
-    def forward(self, out):
-        u, f = out
-        if self.A is not None:
-            exit("stop")
-            f = self.R(f-self.A(u))
-        else:
-            f = self.R(f)
-        u = self.Pi(u)                              
-        out = (u,f)
-        return out
-
-
-
 class MgNO(nn.Module):
-    def __init__(self, input_shape, num_layer, num_channel_u, num_channel_f, num_classes, num_iteration, 
+    def __init__(self, input_shape, num_layer, num_channel_u, num_channel_f, num_classes, depth, 
     in_chans=1,  normalizer=None, output_dim=1, activation='gelu', padding_mode='zeros', ):
         super().__init__()
         self.num_layer = num_layer
         self.num_channel_u = num_channel_u
         self.num_channel_f = num_channel_f
         self.num_classes = num_classes
-        self.num_iteration = num_iteration
+        self.depth = depth
 
         self.conv_list = nn.ModuleList([])
         self.linear_list = nn.ModuleList([])
         self.linear_list.append(nn.Conv2d(num_channel_f, num_channel_u, kernel_size=1, stride=1, padding=0, bias=True))   
-        self.conv_list.append(MgConv(input_shape, num_iteration, num_channel_u, num_channel_f, padding_mode=padding_mode))   
+        self.conv_list.append(SimpleConv(input_shape, depth, num_channel_f, num_channel_u, padding_mode=padding_mode))   
         for _ in range(num_layer-1):
-            self.conv_list.append(MgConv(input_shape, num_iteration, num_channel_u, num_channel_u, padding_mode=padding_mode)) 
-            self.linear_list.append(nn.Conv2d(num_channel_u, num_channel_u, kernel_size=1, stride=1, padding=0, bias=True))
+            self.conv_list.append(SimpleConv(input_shape, depth, num_channel_u, num_channel_u, padding_mode=padding_mode)) 
+            self.linear_list.append(nn.Conv2d(num_channel_u,  num_channel_u, kernel_size=1, stride=1, padding=0, bias=True))
    
         self.linear = nn.Conv2d(num_channel_u, 1, kernel_size=1, bias=False)
         self.normalizer = normalizer
@@ -101,63 +50,53 @@ class MgNO(nn.Module):
         return u 
 
 
-class MgConv(nn.Module):
-    def __init__(self, input_shape, num_iteration, num_channel_u, num_channel_f, padding_mode='zeros', bias=False, use_res=False):
+class SimpleConv(nn.Module):
+    def __init__(self, input_shape, depth, num_channel_f, num_channel_u, padding_mode='zeros', bias=False, use_res=False):
         super().__init__()
-        self.num_iteration = num_iteration
         self.num_channel_u = num_channel_u
         self.padding_mode = padding_mode
         self.RTlayers = nn.ModuleList()   
-        for j in range(len(num_iteration)-1):
+        self.depth = depth
+        for j in range(depth):
             kernel_size = [4-input_shape[0]%2, 4-input_shape[1]%2]  # odd=>3 even=>4
             self.RTlayers.append(nn.ConvTranspose2d(num_channel_u, num_channel_u, kernel_size=kernel_size, stride=2, padding=1, bias=False))
             input_shape = [(input_shape[0] + 2 - 1)//2, (input_shape[1] + 2  - 1) //2]
-        layers = []
-        for l, num_iteration_l in enumerate(num_iteration): #l: l-th layer.   num_iteration_l: the number of iterations of l-th layer
-            post_smooth_layers = []
-            for i in range(num_iteration_l[0]):
-                S = nn.Conv2d(num_channel_f, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                if l==0 and i==0:
-                    layers.append(MgIte_init(S))
-                else:
-                    A = nn.Conv2d(num_channel_u, num_channel_f, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                    layers.append(MgIte(A, S))
-            if not num_iteration_l[1] == 0:
-                for i in range(num_iteration_l[1]):
-                    S = nn.Conv2d(num_channel_f, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                    A = nn.Conv2d(num_channel_u, num_channel_f, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                    post_smooth_layers.append(MgIte(A, S))
-            else:
-                post_smooth_layers.append(nn.Identity())
-
-            setattr(self, 'layer'+str(l), nn.Sequential(*layers))
-            setattr(self, 'post_smooth_layer'+str(l), nn.Sequential(*post_smooth_layers))
-            if l < len(num_iteration)-1:
-                A = nn.Conv2d(num_channel_u, num_channel_f, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                Pi= nn.Conv2d(num_channel_u, num_channel_u, kernel_size=3, stride=2, padding=1, bias=False, padding_mode=padding_mode)
-                R = nn.Conv2d(num_channel_f, num_channel_f, kernel_size=3, stride=2, padding=1, bias=False, padding_mode=padding_mode)
-                if use_res:
-                    layers= [Restrict(Pi, R, A)]
-                else:
-                    layers= [Restrict(Pi=Pi, R=R)]
-     
-    def forward(self, f):
-        out_list = [0] * len(self.num_iteration)
-        out = f 
-        print("input.shape = ", f.shape)
-        for l in range(len(self.num_iteration)):
-            out = getattr(self, 'layer'+str(l))(out) 
-            print(l, " out_shape = ", out[0].shape, out[1].shape)
-            out_list[l] = out
-        # upblock                                 
-        for j in range(len(self.num_iteration)-2,-1,-1):
-            u, f = out_list[j][0], out_list[j][1]
-            u_post = u + self.RTlayers[j](out_list[j+1][0])
-            out = (u_post, f)
-            print(j, " upblack out_shape = ", out[0].shape, out[1].shape)
-            out_list[j] = getattr(self, 'post_smooth_layer'+str(j))(out) 
             
-        return out_list[0][0]
+        self.Prelayer = nn.Conv2d(num_channel_f, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
+        self.Slayers = nn.ModuleList()   
+        for j in range(depth):
+            self.Slayers.append(nn.Conv2d(num_channel_u, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode))
+
+        self.Alayers = nn.ModuleList()   
+        for j in range(depth):
+            self.Alayers.append(nn.Conv2d(num_channel_u, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode))
+
+
+        self.Pilayers = nn.ModuleList()  
+        for j in range(depth):
+            self.Pilayers.append(nn.Conv2d(num_channel_u, num_channel_u, kernel_size=3, stride=2, padding=1, bias=bias, padding_mode=padding_mode))
+
+        self.Postlayers = nn.ModuleList()  
+        for j in range(depth):
+            self.Postlayers.append(nn.Conv2d(num_channel_u, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode))
+         
+     
+    def forward(self, x):
+        depth = self.depth
+        out_list = [0] * (depth + 1)
+        x = self.Prelayer(x)
+        out_list[0] = x
+        for l in range(self.depth):
+            x = x+self.Slayers[l](x)
+            x = self.Pilayers[l](x)
+            out_list[l+1] = x
+            # x = x + self.Alayers[l](x)  
+        # upblock                                 
+        for j in range(self.depth-1,-1,-1):
+            x = out_list[j] + self.RTlayers[j](x)
+            x = x + self.Postlayers[j](x)  
+        
+        return x
 
 
 
@@ -282,14 +221,15 @@ def MgNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name=
 if __name__ == "__main__":
     
     torch.autograd.set_detect_anomaly(True)
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    model = MgNO(input_shape=[221, 221], num_layer=5, num_channel_u=24, 
-             num_channel_f=3, num_classes=1, 
-             num_iteration=[[1,1], [1,1], [1,1], [1,1], [1,1]]).to(device)
+    model = MgNO(input_shape=[221,51],num_layer=5, num_channel_u=24, 
+             num_channel_f=4, num_classes=1, 
+             depth=5).to(device)
     
     print(model)
-    inp = torch.randn(10, 3, 221, 221).to(device)
+    inp = torch.randn(10, 4, 221, 51).to(device)
     out = model(inp)
     # print(out.shape)
     # backward check

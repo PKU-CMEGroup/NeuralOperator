@@ -2,136 +2,245 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import scipy.linalg.interpolative as sli
+import math, sys
 
+sys.path.append("../")
 from models.adam import Adam
 from models.losses import LpLoss
 from models.normalizer import UnitGaussianNormalizer
 
-def colume_selection(x_train, y_train, k, ):
-    # x_train : Array[ndata, N]
-    # y_train  : Array[ndata, N]
-    # pick at most k locations
-    ndata = x_train.shape[0]
-    x_idx, x_proj = sli.interp_decomp(x_train, k)
-    x_train_rec = np.dot(x_train[:,x_idx[:k]], np.hstack([np.eye(k), x_proj]))[:,np.argsort(x_idx)]
-    print(np.linalg.norm()) 
-    y_idx, y_proj = sli.interp_decomp(y_train, k_max) 
-    x_proj, y_proj = proj[0:ndata, :], proj[ndata:, :]
-
-def pairwise_dist(res1x, res1y, res2x, res2y):
-    gridx1 = torch.linspace(0, 1, res1x+1)[:-1].view(1, -1, 1).repeat(res1y, 1, 1)
-    gridy1 = torch.linspace(0, 1, res1y+1)[:-1].view(-1, 1, 1).repeat(1, res1x, 1)
-    grid1 = torch.cat([gridx1, gridy1], dim=-1).view(res1x*res1y, 2)
-    
-    gridx2 = torch.linspace(0, 1, res2x+1)[:-1].view(1, -1, 1).repeat(res2y, 1, 1)
-    gridy2 = torch.linspace(0, 1, res2y+1)[:-1].view(-1, 1, 1).repeat(1, res2x, 1)
-    grid2 = torch.cat([gridx2, gridy2], dim=-1).view(res2x*res2y, 2)
-    
-    grid1 = grid1.unsqueeze(1).repeat(1, grid2.shape[0], 1)
-    grid2 = grid2.unsqueeze(0).repeat(grid1.shape[0], 1, 1)
-    
-    dist = torch.norm(grid1 - grid2, dim=-1)
-    return (dist**2 / 2.0).float()
 
 
 
-class MLP(nn.Module):
-    '''
-    A two-layer MLP with GELU activation.
-    '''
-    def __init__(self, in_channels, hid_channels, out_channels):
-        super(MLP, self).__init__()
-        self.fc1 = nn.Linear(in_channels, hid_channels)
-        self.fc2 = nn.Linear(hid_channels, out_channels)
+
+def mask_(matrices, maskval=0.0, mask_diagonal=True, offset = 0):
+    """
+    Masks out all values in the given batch of matrices where i <= j holds,
+    i < j if mask_diagonal is false
+
+    In place operation
+
+    :param tns:
+    :return:
+    """
+    # mask_diagonal = True
+    # t = 7
+    # matrices = torch.ones(2,t,t)
+    # offset = 0
+    h, w = matrices.size(-2), matrices.size(-1)
+
+    indices = torch.triu_indices(h, w, offset=offset if mask_diagonal else offset+1)
+    matrices[..., indices[0], indices[1]] = maskval
+
+    # bigmatrices = torch.ones(2,t,t)
+    # blocksize = 3
+    # for i in range(t//blocksize + 1):
+    #     matrices = bigmatrices[:,i*blocksize:min((i+1)*blocksize,t),:]
+    #     offset = i*blocksize
+    #     h, w = matrices.size(-2), matrices.size(-1)
+
+    #     indices = torch.triu_indices(h, w, offset=offset if mask_diagonal else offset+1)
+    #     print(indices)
+    #     matrices[..., indices[0], indices[1]] = maskval
+
+
+class SelfAttention(nn.Module):
+    """
+    Canonical implementation of multi-head self attention.
+    """
+
+    def __init__(self, emb, blocksize=128, heads=8, mask=False, kqnorm=False, scalefactor=None):
+        """
+
+        :param emb: The dimension of the input and output vectors.
+        :param heads: The number of heads (parallel executions of the self-attention)
+        :param mask: Whether to apply an autoregressive mask.
+        :param kqnorm: Whether to apply layer normalization to the keys and queries.
+        :param scalefactor: Multiplier for the attention weights. If none, the default `1/sqrt(emb/heads)` is used,
+        """
+
+        super().__init__()
+
+        assert emb % heads == 0, f'Embedding dimension ({emb}) should be divisible by nr. of heads ({heads})'
+
+        self.emb = emb
+        self.blocksize = blocksize
+        self.heads = heads
+        self.mask = mask
+
+        s = emb // heads
+        # - We will break the embedding into `heads` chunks and feed each to a different attention head
+
+        self.tokeys    = nn.Linear(emb, emb, bias=False)
+        self.toqueries = nn.Linear(emb, emb, bias=False)
+        self.tovalues  = nn.Linear(emb, emb, bias=False)
+
+        self.unifyheads = nn.Linear(emb, emb)
+
+        self.kqnorm = kqnorm
+        if kqnorm:
+            self.kln = nn.LayerNorm([s])
+            self.qln = nn.LayerNorm([s])
+
+        self.scalefactor = 1/math.sqrt(emb // heads) if scalefactor is None else scalefactor
 
     def forward(self, x):
-        x = F.gelu(self.fc1(x))
-        return self.fc2(x)
 
-class MultiHeadPosAtt(nn.Module):
-    '''
-    Global, local and cross variants of the multi-head position-attention mechanism.
-    '''
-    def __init__(self, n_head, hid_channels, locality):
-        super(MultiHeadPosAtt, self).__init__()
-        self.locality = locality
-        self.hid_channels = hid_channels
-        self.n_head = n_head
-        self.v_dim = hid_channels // n_head
-        self.r = nn.Parameter(torch.randn(n_head, 1, 1))
-        self.weight = nn.Parameter(torch.randn(n_head, hid_channels, self.v_dim))
+        b, t, e = x.size()
+        h = self.heads
+        assert e == self.emb, f'Input embedding dim ({e}) should match layer embedding dim ({self.emb})'
 
-    def forward(self, m_dist, x):
-        scaled_dist = m_dist * torch.tan(0.25 * np.pi * (1 - 1e-7) * (1 + torch.sin(self.r)))
-        if self.locality <= 100:
-            mask = torch.quantile(scaled_dist, self.locality / 100.0, dim=-1, keepdim=True)
-            scaled_dist = torch.where(scaled_dist <= mask, scaled_dist, torch.tensor(np.inf))
+        s = e // h
 
-        att = F.softmax(-scaled_dist, dim=-1)
+        keys    = self.tokeys(x)
+        queries = self.toqueries(x)
+        values  = self.tovalues(x)
 
-        value = torch.einsum('bnj,hjk->bhnk', x, self.weight)
-        # h : head; 
-        # j : number of points
-        # k : number of hidden channels 
-        # combine k and h
-        concat = torch.einsum('hjn,bhnk->bhjk', att, value).permute(0, 2, 1, 3)
-        concat = concat.reshape(concat.shape[0], concat.shape[1], -1)
-        return F.gelu(concat)
+        keys    = keys.view(b, t, h, s)
+        queries = queries.view(b, t, h, s)
+        values  = values.view(b, t, h, s)
 
+        if self.kqnorm:
+            keys = self.kln(keys)
+            queries = self.qln(queries)
+
+        # -- We first compute the k/q/v's on the whole embedding vectors, and then split into the different heads.
+        #    See the following video for an explanation: https://youtu.be/KmAISyVvE1Y
+
+        # Compute scaled dot-product self-attention
+
+        # - fold heads into the batch dimension
+        keys = keys.transpose(1, 2).contiguous().view(b * h, t, s)
+        queries = queries.transpose(1, 2).contiguous().view(b * h, t, s)
+        values = values.transpose(1, 2).contiguous().view(b * h, t, s)
+
+        queries = queries
+        keys    = keys
 
 
 
-class PiT(nn.Module):
-    '''
-    Position-induced Transformer, built upon the multi-head position-attention mechanism.
-    '''
-    def __init__(self, in_channels, out_channels, hid_channels, n_head, localities, m_dists):
-        super(PiT, self).__init__()
-        self.out_channels = out_channels
-        self.hid_channels = hid_channels
-        self.n_head = n_head
-        self.localities = localities[1:-1]
-        en_locality, de_locality = localities[0], localities[-1]
-        self.n_blocks = len(localities) - 2
-        self.m_dists = m_dists
-
-        # Encoder
-        self.en_fc1 = nn.Linear(in_channels, hid_channels)
-        self.down     = MultiHeadPosAtt(n_head, hid_channels, locality=en_locality)
+        out = torch.zeros(b,h,t,s).to(x.get_device())
+        # - get dot product of queries and keys, and scale
+        for i in range(t//self.blocksize + 1):
+            dot = torch.bmm(queries[:,i*self.blocksize:min((i+1)*self.blocksize,t), :], keys.transpose(1, 2))
+            dot = dot * self.scalefactor
         
-        # Processor
-        self.PA = nn.ModuleList([MultiHeadPosAtt(n_head, hid_channels, locality) for locality in localities])
-        self.MLP = nn.ModuleList([MLP(hid_channels, hid_channels, hid_channels) for _ in range(self.n_blocks)])
-        self.W = nn.ModuleList([nn.Linear(hid_channels, hid_channels) for _ in range(self.n_blocks)])
+            if self.mask: # mask out the upper half of the dot matrix, excluding the diagonal
+                mask_(dot, maskval=float('-inf'), mask_diagonal=False, offset=i*self.blocksize)
+            dot = F.softmax(dot, dim=2)
+            # -- dot now has row-wise self-attention probabilities
 
-        # Decoder
-        self.up     = MultiHeadPosAtt(n_head, hid_channels, locality=de_locality)
+            # apply the self attention to the values
+            out[:,:,i*self.blocksize:min((i+1)*self.blocksize,t),:] = torch.bmm(dot, values).view(b, h, -1, s)
+
+
+        # # - get dot product of queries and keys, and scale
+        # dot = torch.bmm(queries, keys.transpose(1, 2))
+        # dot = dot * self.scalefactor
+
+        # assert dot.size() == (b*h, t, t)
+
+        # if self.mask: # mask out the upper half of the dot matrix, excluding the diagonal
+        #     mask_(dot, maskval=float('-inf'), mask_diagonal=False)
+
+        # dot = F.softmax(dot, dim=2)
+        # # -- dot now has row-wise self-attention probabilities
+
+        # # apply the self attention to the values
+        # out = torch.bmm(dot, values).view(b, h, t, s)
+
+        # swap h, t back, unify heads
+        out = out.transpose(1, 2).contiguous().view(b, t, s * h)
+
+        return self.unifyheads(out)
+
+
+
+class TransformerBlock(nn.Module):
+    """
+    A straightforward transformer block.
+    """
+
+    def __init__(self, emb, blocksize, heads, mask, ff_hidden_mult=4, dropout=0.0,
+                 pos_embedding=None, sa_kwargs={}):
+        super().__init__()
+
+        
+        self.attention = SelfAttention(emb, blocksize=blocksize, heads=heads, mask=mask, **sa_kwargs)
+
+        self.mask = mask
+        self.norm1 = nn.LayerNorm(emb)
+        self.norm2 = nn.LayerNorm(emb)
+
+        self.ff = nn.Sequential(
+
+            nn.Linear(emb, ff_hidden_mult * emb),
+            #nn.ReLU(),
+            nn.GELU(),
+            nn.Linear(ff_hidden_mult * emb, emb)
+        )
+
+        self.do = nn.Dropout(dropout)
+
+    def forward(self, x):
+        attended = self.attention(x)
+
+        x = self.norm1(attended + x)
+
+        x = self.do(x)
+
+        fedforward = self.ff(x)
+
+        x = self.norm2(fedforward + x)
+
+        x = self.do(x)
+
+        return x
+    
+
+class Transformer(nn.Module):
+    """
+    Transformer for generating text (character by character).
+    """
+
+    def __init__(self, in_channels, out_channels, hid_channels, blocksize, heads, depth):
+
+        super().__init__()
+        self.en_fc1 = nn.Linear(in_channels, hid_channels)
+        
+
+        tblocks = []
+        for i in range(depth):
+            tblocks.append(
+                TransformerBlock(emb=hid_channels, blocksize=blocksize, heads=heads, mask=True))
+
+        self.tblocks = nn.Sequential(*tblocks)
+        # self.tblocks = tblocks
         self.de_fc1 = nn.Linear(hid_channels, hid_channels)
         self.de_fc2 = nn.Linear(hid_channels, out_channels)
 
+
     def forward(self, x):
-        x    = self.en_fc1(x)  # (batch_size, n_x, n_channels)
+        """
+        :param x: A (batch, sequence length) integer tensor of token indices.
+        :return: predicted log-probability vectors for each token based on the preceding tokens.
+        """
+        x = self.en_fc1(x)  # (batch_size, n_x, n_channels)
         x = F.gelu(x)
-        x = self.down(self.m_dists[0], x)
 
-        # Processor
-        for i in range(self.n_blocks):
-            x = self.MLP[i](self.PA[i](self.m_dists[i+1], x)) + self.W[i](x)
-            x = F.gelu(x)
+        x = self.tblocks(x)
+        # for i in range(len(self.tblocks)):
+        #     x = self.tblocks[i](x)
 
-        x = self.up(self.m_dists[-1], x)
         x = self.de_fc1(x)
         x = F.gelu(x)
         x = self.de_fc2(x)
+
         return x
 
 
-
-
-
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def PiT_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./Pit_model"):
+def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./Transformer_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -237,8 +346,22 @@ def PiT_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
     
 
         if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
+            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
             torch.save(model, save_model_name)
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+
+if __name__=="__main__":
+    in_channels, out_channels, hid_channels, blocksize, heads, depth = 3, 1, 64, 128, 8, 4
+    
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    x = torch.randn(8, 1023, 3).to(device) # (batch_size, n_x, n_channels)
+    
+    model = Transformer(in_channels, out_channels, hid_channels, blocksize, heads, depth).to(device)
+    
+    y0 = model(x) 
+

@@ -96,10 +96,11 @@ kx_max, ky_max = 32,16
 model = MgNO(input_shape = [x_train.shape[2], x_train.shape[3]],
              num_layer=5, num_channel_u=24, 
              num_channel_f=2, num_classes=1, 
-             num_iteration=[[2,0], [2,0], [2,0], [2,0], [2,0]]).to(device)
+             num_iteration=[[1,1], [1,1], [1,1], [1,1], [1,1]]).to(device)
+             # num_iteration=[[2,0], [2,0], [2,0], [2,0], [2,0]]).to(device)
 
 epochs = 500
-base_lr = 5e-4
+base_lr = 5e-4 #0.001 #
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size=20

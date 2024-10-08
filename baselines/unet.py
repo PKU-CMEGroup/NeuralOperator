@@ -11,6 +11,89 @@ from models.normalizer import UnitGaussianNormalizer
 
 
 
+import torch
+import torch.nn as nn
+
+def conv(in_planes, output_channels, kernel_size, stride, dropout_rate):
+    return nn.Sequential(
+        nn.Conv2d(in_planes, output_channels, kernel_size=kernel_size,
+                  stride=stride, padding=(kernel_size - 1) // 2, bias = False),
+    )
+
+def deconv(input_channels, output_channels):
+    return nn.Sequential(
+        nn.ConvTranspose2d(input_channels, output_channels, kernel_size=4,
+                           stride=2, padding=1),
+    )
+
+def output_layer(input_channels, output_channels, kernel_size, stride, dropout_rate):
+    return nn.Conv2d(input_channels, output_channels, kernel_size=kernel_size,
+                     stride=stride, padding=(kernel_size - 1) // 2)
+
+class UNet(nn.Module):
+    def __init__(self, input_channels, output_channels, kernel_size, dropout_rate):
+        super(UNet, self).__init__()
+        self.input_channels = input_channels
+        self.conv1 = conv(input_channels, 64, kernel_size=kernel_size, stride=2, dropout_rate = dropout_rate)
+        self.conv2 = conv(64, 128, kernel_size=kernel_size, stride=2, dropout_rate = dropout_rate)
+        self.conv3 = conv(128, 256, kernel_size=kernel_size, stride=2, dropout_rate = dropout_rate)
+        self.conv3_1 = conv(256, 256, kernel_size=kernel_size, stride=1, dropout_rate = dropout_rate)
+        self.conv4 = conv(256, 512, kernel_size=kernel_size, stride=2, dropout_rate = dropout_rate)
+        self.conv4_1 = conv(512, 512, kernel_size=kernel_size, stride=1, dropout_rate = dropout_rate)
+        self.conv5 = conv(512, 1024, kernel_size=kernel_size, stride=2, dropout_rate = dropout_rate)
+        self.conv5_1 = conv(1024, 1024, kernel_size=kernel_size, stride=1, dropout_rate = dropout_rate)
+
+        self.deconv4 = deconv(1024, 256)
+        self.deconv3 = deconv(768, 128)
+        self.deconv2 = deconv(384, 64)
+        self.deconv1 = deconv(192, 32)
+        self.deconv0 = deconv(96, 16)
+    
+        self.output_layer = output_layer(16 + input_channels, output_channels, 
+                                         kernel_size=kernel_size, stride=1, dropout_rate = dropout_rate)
+
+
+    def forward(self, x):
+
+        out_conv1 = self.conv1(x)
+        out_conv2 = self.conv2(out_conv1)
+        out_conv3 = self.conv3_1(self.conv3(out_conv2))
+        out_conv4 = self.conv4_1(self.conv4(out_conv3))
+        out_conv5 = self.conv5_1(self.conv5(out_conv4))
+
+        out_deconv4 = self.deconv4(out_conv5)
+        concat4 = torch.cat((out_conv4, out_deconv4), 1)
+        out_deconv3 = self.deconv3(concat4)
+        concat3 = torch.cat((out_conv3, out_deconv3), 1)
+        out_deconv2 = self.deconv2(concat3)
+        concat2 = torch.cat((out_conv2, out_deconv2), 1)
+        out_deconv1 = self.deconv1(concat2)
+        concat1 = torch.cat((out_conv1, out_deconv1), 1)
+        out_deconv0 = self.deconv0(concat1)
+        concat0 = torch.cat((x, out_deconv0), 1)
+        out = self.output_layer(concat0)
+
+        return out
+
+  
+
+if __name__ == "__main__":
+    torch.autograd.set_detect_anomaly(True)
+    model = UNet(input_channels=1, output_channels=1, kernel_size=3, dropout_rate=0.5).cuda()
+    inp = torch.randn(10, 1, 63, 63).cuda()
+    out = model(inp)
+    print(out.shape)
+    summary(model, input_size=(10, 1, 63, 63))
+    # backward check
+    out.sum().backward()
+    print('success!')
+    
+    # print(model)
+    
+
+
+
+
 class MgIte(nn.Module):
     def __init__(self, A, S):
         super().__init__()
@@ -22,10 +105,8 @@ class MgIte(nn.Module):
         
         if isinstance(out, tuple):
             u, f = out
-            u = u + (self.S(f-self.A(u)))
-            # u = u + (self.S(-self.A(u)))
+            u = u + (self.S(f-self.A(u)))  
         else:
-            exit("stop")
             f = out
             u = self.S(f)
 
@@ -43,7 +124,6 @@ class MgIte_init(nn.Module):
         return (u, f)
 
 class Restrict(nn.Module):
-    # Compress
     def __init__(self, Pi=None, R=None, A=None):
         super().__init__()
         self.Pi = Pi
@@ -52,7 +132,6 @@ class Restrict(nn.Module):
     def forward(self, out):
         u, f = out
         if self.A is not None:
-            exit("stop")
             f = self.R(f-self.A(u))
         else:
             f = self.R(f)
@@ -101,6 +180,8 @@ class MgNO(nn.Module):
         return u 
 
 
+
+
 class MgConv(nn.Module):
     def __init__(self, input_shape, num_iteration, num_channel_u, num_channel_f, padding_mode='zeros', bias=False, use_res=False):
         super().__init__()
@@ -112,9 +193,9 @@ class MgConv(nn.Module):
             kernel_size = [4-input_shape[0]%2, 4-input_shape[1]%2]  # odd=>3 even=>4
             self.RTlayers.append(nn.ConvTranspose2d(num_channel_u, num_channel_u, kernel_size=kernel_size, stride=2, padding=1, bias=False))
             input_shape = [(input_shape[0] + 2 - 1)//2, (input_shape[1] + 2  - 1) //2]
+
         layers = []
         for l, num_iteration_l in enumerate(num_iteration): #l: l-th layer.   num_iteration_l: the number of iterations of l-th layer
-            post_smooth_layers = []
             for i in range(num_iteration_l[0]):
                 S = nn.Conv2d(num_channel_f, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
                 if l==0 and i==0:
@@ -122,16 +203,8 @@ class MgConv(nn.Module):
                 else:
                     A = nn.Conv2d(num_channel_u, num_channel_f, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
                     layers.append(MgIte(A, S))
-            if not num_iteration_l[1] == 0:
-                for i in range(num_iteration_l[1]):
-                    S = nn.Conv2d(num_channel_f, num_channel_u, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                    A = nn.Conv2d(num_channel_u, num_channel_f, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
-                    post_smooth_layers.append(MgIte(A, S))
-            else:
-                post_smooth_layers.append(nn.Identity())
-
             setattr(self, 'layer'+str(l), nn.Sequential(*layers))
-            setattr(self, 'post_smooth_layer'+str(l), nn.Sequential(*post_smooth_layers))
+
             if l < len(num_iteration)-1:
                 A = nn.Conv2d(num_channel_u, num_channel_f, kernel_size=3, stride=1, padding=1, bias=bias, padding_mode=padding_mode)
                 Pi= nn.Conv2d(num_channel_u, num_channel_u, kernel_size=3, stride=2, padding=1, bias=False, padding_mode=padding_mode)
@@ -144,18 +217,19 @@ class MgConv(nn.Module):
     def forward(self, f):
         out_list = [0] * len(self.num_iteration)
         out = f 
-        print("input.shape = ", f.shape)
+
         for l in range(len(self.num_iteration)):
+            
             out = getattr(self, 'layer'+str(l))(out) 
-            print(l, " out_shape = ", out[0].shape, out[1].shape)
+
             out_list[l] = out
         # upblock                                 
         for j in range(len(self.num_iteration)-2,-1,-1):
+            # f is not used
             u, f = out_list[j][0], out_list[j][1]
             u_post = u + self.RTlayers[j](out_list[j+1][0])
             out = (u_post, f)
-            print(j, " upblack out_shape = ", out[0].shape, out[1].shape)
-            out_list[j] = getattr(self, 'post_smooth_layer'+str(j))(out) 
+            out_list[j] = out
             
         return out_list[0][0]
 
@@ -282,14 +356,12 @@ def MgNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name=
 if __name__ == "__main__":
     
     torch.autograd.set_detect_anomaly(True)
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-    model = MgNO(input_shape=[221, 221], num_layer=5, num_channel_u=24, 
-             num_channel_f=3, num_classes=1, 
-             num_iteration=[[1,1], [1,1], [1,1], [1,1], [1,1]]).to(device)
+    model = MgNO(num_layer=5, num_channel_u=24, 
+             num_channel_f=4, num_classes=1, 
+             num_iteration=[[10,0], [10,0], [10,0], [10,0], [20,0]]).cuda()
     
     print(model)
-    inp = torch.randn(10, 3, 221, 221).to(device)
+    inp = torch.randn(10, 4, 221, 51).cuda()
     out = model(inp)
     # print(out.shape)
     # backward check

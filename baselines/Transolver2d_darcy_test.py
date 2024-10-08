@@ -10,7 +10,7 @@ from scipy.io import loadmat
 sys.path.append("../")
 
 
-from baselines.fno import  FNO2d, FNO_train
+from baselines.Transolver import  Transolver, Transolver_train
 
 
 
@@ -40,15 +40,14 @@ data_out = np.vstack((data1["sol"], data2["sol"]))     # shape: 2048,421,421
 print("data_in.shape:" , data_in.shape)
 print("data_out.shape", data_out.shape)
 
-
 Np_ref = data_in.shape[1]
-Np = 1 + (Np_ref -  1)//downsample_ratio
-L = 1.0
-grid_1d = np.linspace(0, L, Np+1)[0:Np]
-grid_y_ds, grid_x_ds = np.meshgrid(grid_1d, grid_1d)
+L=1.0
+grid_1d = np.linspace(0, L, Np_ref)
+grid_x, grid_y = np.meshgrid(grid_1d, grid_1d)
 
-
-data_in_ds  = data_in[:, 0::downsample_ratio, 0::downsample_ratio]
+data_in_ds = data_in[:, 0::downsample_ratio, 0::downsample_ratio]
+grid_x_ds = grid_x[0::downsample_ratio, 0::downsample_ratio]
+grid_y_ds = grid_y[0::downsample_ratio, 0::downsample_ratio]
 data_out_ds = data_out[:, 0::downsample_ratio, 0::downsample_ratio]
 
 # x_train, y_train are [n_data, n_x, n_channel] arrays
@@ -68,8 +67,8 @@ x_test = torch.from_numpy(
     np.stack(
         (
             data_in_ds[-n_test:, :, :],
-            np.tile(grid_x_ds, (n_test, 1, 1)),
-            np.tile(grid_y_ds, (n_test, 1, 1)),
+            np.tile(grid_x[0::downsample_ratio, 0::downsample_ratio], (n_test, 1, 1)),
+            np.tile(grid_y[0::downsample_ratio, 0::downsample_ratio], (n_test, 1, 1)),
         ),
         axis=-1,
     ).astype(np.float32)
@@ -80,27 +79,30 @@ y_test = torch.from_numpy(
     )
 )
 
+x_train = x_train.reshape(x_train.shape[0], -1, x_train.shape[-1])   # shape: 800,11236,3  (11236 = 106*106 , 106-1 = (421-1) /4)
+x_test = x_test.reshape(x_test.shape[0], -1, x_test.shape[-1])
+y_train = y_train.reshape(y_train.shape[0], -1, y_train.shape[-1])   # shape: 800,11236,1
+y_test = y_test.reshape(y_test.shape[0], -1, y_test.shape[-1])
 print("x_train.shape: ",x_train.shape)
 print("y_train.shape: ",y_train.shape)
 
 
-k_max = 16
-###################################
-#construct model and train
-###################################
-model = FNO2d(modes1=[k_max,k_max,k_max,k_max], modes2=[k_max,k_max,k_max,k_max],
-                        fc_dim=128,
-                        # 4 fourier layers
-                        layers=[128,128,128,128,128],
-                        in_dim=3, 
-                        out_dim=1,
-                        act="gelu",
-                        pad_ratio=0.0).to(device)
+
+
+
+model = Transolver(space_dim=2,
+                   n_layers=8,
+                 n_hidden=128,
+                 dropout=0.0,
+                 n_head=8,
+                 fun_dim=1,
+                 out_dim=1,
+                 slice_num=64,
+                 ref=8).to(device)
+
 
 epochs = 500
 base_lr = 0.001
-scheduler_gamma = 0.5
-pad_ratio = 0.0
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size=8
@@ -112,8 +114,8 @@ normalization_dim = []
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNO_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_darcy_model"
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = Transolver_train(
+    x_train, y_train, x_test, y_test, config, model, save_model_name="./Pit_darcy_model"
 )
 
 

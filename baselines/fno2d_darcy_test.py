@@ -97,7 +97,7 @@ model = FNO2d(modes1=[k_max,k_max,k_max,k_max], modes2=[k_max,k_max,k_max,k_max]
                         act="gelu",
                         pad_ratio=0.0).to(device)
 
-epochs = 500
+epochs = 1000
 base_lr = 0.001
 scheduler_gamma = 0.5
 pad_ratio = 0.0

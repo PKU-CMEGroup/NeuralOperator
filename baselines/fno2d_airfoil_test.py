@@ -96,7 +96,7 @@ model = FNO2d(modes1=[kx_max,kx_max,kx_max,kx_max], modes2=[ky_max,ky_max,ky_max
                         act="gelu",
                         pad_ratio=0.0).to(device)
 
-epochs = 500
+epochs = 1000
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4

@@ -10,6 +10,6 @@
 
 module load conda
 source activate pytorch 
-# python geofno2d_darcy_test.py > geofno2d_Darcy.log
+python geofno2d_darcy_test.py > geofno2d_Darcy.log
 python geofno2d_airfoil_test.py > geofno2d_Airfoil.log
 

@@ -42,15 +42,9 @@ print("data_out.shape", data_out.shape)
 
 
 Nx_ref, Ny_ref = data_in.shape[1], data_in.shape[2]
-#L=1.0
-#grid_1d = np.linspace(0, L, Np_ref)
-#grid_x, grid_y = np.meshgrid(grid_1d, grid_1d)
-#grid_x_ds = grid_x[0::downsample_ratio, 0::downsample_ratio]
-#grid_y_ds = grid_y[0::downsample_ratio, 0::downsample_ratio]
 Nx, Ny = 1+(Nx_ref -  1)//downsample_ratio, 1+(Ny_ref -  1)//downsample_ratio
 L = 1.0
-# grid_1d = np.linspace(0, L, Np+1)[0:Np]
-grid_x_1d, grid_y_1d = np.linspace(0, L, Nx+1)[0:Nx], np.linspace(0, L, Ny+1)[0:Ny]
+grid_x_1d, grid_y_1d = np.linspace(0, L, Nx), np.linspace(0, L, Ny)
 grid_x_ds, grid_y_ds = np.meshgrid(grid_x_1d, grid_y_1d)
 grid_x_ds, grid_y_ds = grid_x_ds.T, grid_y_ds.T
 data_in_ds = data_in[:, 0::downsample_ratio, 0::downsample_ratio, :]
@@ -108,13 +102,12 @@ modes = compute_Fourier_modes(ndim, [kx_max,ky_max], [L, L])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = GeoFNO(ndim, modes,
                layers=[128,128,128,128,128],
-               #layers=[1,1,1,1,1],
                fc_dim=128,
                in_dim=4, out_dim=1,
                act='gelu').to(device)
 
 
-epochs = 500
+epochs = 1000
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4

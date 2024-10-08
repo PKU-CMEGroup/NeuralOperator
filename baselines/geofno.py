@@ -161,52 +161,23 @@ class SpectralConv2d(nn.Module):
 
 
     def forward(self, x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0):
-        #batchsize = x.shape[0]
         size = x.shape[-1]
-        # # Compute Fourier coeffcients up to factor of e^(- something constant)
-        # x_ft = torch.fft.rfftn(x, dim=[2, 3])
-        # # Multiply relevant Fourier modes
-        # out_ft0 = torch.zeros(
-        #     batchsize,
-        #     self.out_channels,
-        #     x.size(-2),
-        #     x.size(-1) // 2 + 1,
-        #     device=x.device,
-        #     dtype=torch.cfloat,
-        # )
-        # out_ft0[:, :, : self.modes1, : self.modes2] = compl_mul2d(
-        #     x_ft[:, :, : self.modes1, : self.modes2], self.weights1
-        # )
-        # out_ft0[:, :, -self.modes1 :, : self.modes2] = compl_mul2d(
-        #     x_ft[:, :, -self.modes1 :, : self.modes2], self.weights2
-        # )
-        # x0 = torch.fft.irfftn(out_ft0, s=(x.size(-2), x.size(-1)), dim=[2, 3])
 
 
         x_c_hat =  torch.einsum("bix,bkx->bik", x, wbases_c)
         x_s_hat = -torch.einsum("bix,bkx->bik", x, wbases_s)
         x_0_hat =  torch.einsum("bix,bkx->bik", x, wbases_0)
 
-        # print("fft+: ", torch.norm(x_ft[:, :,  : self.modes1, : self.modes2] - torch.complex(x_c_hat[:, :, : self.modes1  , :], x_s_hat[:, :, : self.modes1  , :]))/torch.norm(x_ft[:, :,  : self.modes1, : self.modes2]))
-        # print("fft-: ", torch.norm(x_ft[:, :,  -self.modes1:, : self.modes2] - torch.complex(x_c_hat[:, :, -self.modes1:  , :], x_s_hat[:, :, -self.modes1:  , :]))/torch.norm(x_ft[:, :,  -self.modes1:, : self.modes2]))
-        
-        # weights12 = torch.cat((self.weights1, self.weights2), axis=2)/(size1*size2)
         weights_c, weights_s, weights_0 = self.weights_c/(size), self.weights_s/(size), self.weights_0/(size)
+        
         f_c_hat = torch.einsum("bik,iok->bok", x_c_hat, weights_c) - torch.einsum("bik,iok->bok", x_s_hat, weights_s)
         f_s_hat = torch.einsum("bik,iok->bok", x_s_hat, weights_c) + torch.einsum("bik,iok->bok", x_c_hat, weights_s)
         f_0_hat = torch.einsum("bik,iok->bok", x_0_hat, weights_0) 
 
-        # print(torch.norm(torch.einsum("bok,bkx->box", f_0_hat, bases_0)), torch.norm(torch.einsum("bok,bkx->box", f_c_hat, bases_c)), torch.norm(torch.einsum("bok,bkx->box", f_s_hat, bases_s)))
         x = torch.einsum("bok,bkx->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bkx->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bkx->box", f_s_hat, bases_s) 
         
         return x
     
-
-# Epoch :  490  Rel. Train L2 Loss :  0.002117458561435342  Rel. Test L2 Loss :  0.0061201491020619865  Test L2 Loss :  4.155228569288738e-05
-# Epoch :  499  Rel. Train L2 Loss :  0.002108049723319709  Rel. Test L2 Loss :  0.006121462248265743  Test L2 Loss :  4.155958908086177e-05
-# Epoch :  490  Rel. Train L2 Loss :  0.0022899034479632973  Rel. Test L2 Loss :  0.006440818700939417  Test L2 Loss :  4.3853282695636155e-05
-# Epoch :  499  Rel. Train L2 Loss :  0.002278903964906931  Rel. Test L2 Loss :  0.006441509649157524  Test L2 Loss :  4.385238949907943e-05
-
 
 
 
@@ -291,13 +262,8 @@ class GeoFNO(nn.Module):
         x = self.fc0(x[...,0:self.in_dim])
         x = x.permute(0, 2, 1)
 
-        # size_x, size_y = x.shape[-2], x.shape[-1]
-
         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0)
-            # x2 = w(x.view(batchsize, self.layers[i], -1)).view(
-            #     batchsize, self.layers[i + 1], size_x, size_y
-            # )
             x2 = w(x)
             x = x1 + x2
             if self.act is not None and i != length - 1:

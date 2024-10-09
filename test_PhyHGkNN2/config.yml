@@ -1,0 +1,124 @@
+Darcy:
+
+  data:
+    L: 1.0
+    downsample_ratio: 14
+    n_train: 800
+    n_test: 200   #n_train + n_test < 1300
+
+  model:
+    # layer_types: ['lowrankHGalerkinConv','lowrankHGalerkinConv','lowrankHGalerkinConv','lowrankHGalerkinConv']
+    layer_types: ['compositeHGalerkinConv','compositeHGalerkinConv','compositeHGalerkinConv','compositeHGalerkinConv']
+    composite_type1: 'D'
+    composite_type2: 'D'
+    phy_dim: 2
+    range_pts: [[0,1],[0,1]]
+    pts_type: 'fixed'  #trained or fixed
+    phybases_out: 'phy'  # phy or pca
+    baseweight_type: 'same'  #same or parameter
+    if_bases_threhold: False
+    num_basepts: 225  #must be a square
+    baseradius: 200
+    minweight: 50
+    fc_dim: 128
+    in_dim: 3  #default
+    out_dim: 1  #default
+    layers_dim: [64,64,64,64,64]     # len(layers_dim) == len(..modes)+1 
+    act: 'gelu'
+    # dropout: [0.1,0.1,0.1,0.1]
+    dropout: [False,False,False,False]
+    layer:
+      GkNN_mode_in: 96  # modes for GkNN
+      GkNN_mode_out: 96  # modes for GkNN
+      GkNN_mode_out_phybases: 32
+      kernel_mode: 16
+    print_time: False
+
+
+  train:
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: False
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+    update_base_ep: 0
+
+
+  plot:
+    plot_H_num: 0
+    plot_hidden_layers: True
+    save_figure_H: figure/H/bsz30/
+    save_figure_hidden: figure/hidden_test/
+    plot_shape: [31,31]
+
+
+
+
+
+
+airfoil:
+
+  data:
+    L: 1.0
+    downsample_ratio: 1
+    n_train: 1000
+    n_test: 200   #n_train + n_test < 1300
+
+  model:
+    # layer_types: ['lowrankHGalerkinConv','lowrankHGalerkinConv','lowrankHGalerkinConv','lowrankHGalerkinConv']
+    layer_types: ['compositeHGalerkinConv','compositeHGalerkinConv','compositeHGalerkinConv','compositeHGalerkinConv']
+    composite_type1: 'H'
+    composite_type2: 'H'
+    phy_dim: 2
+    range_pts: [[-1,1],[-1,1]]
+    pts_type: 'fixed'  #trained or fixed
+    phybases_out: 'phy'  # phy or pca
+    baseweight_type: 'same'  #same or parameter
+    if_bases_threhold: False
+    num_basepts: 100  #must be a square
+    baseradius: 200
+    minweight: 50
+    fc_dim: 128
+    in_dim: 4  #default
+    out_dim: 1  #default
+    layers_dim: [64,64,64,64,64]     # len(layers_dim) == len(..modes)+1 
+    act: 'gelu'
+    # dropout: [0.1,0.1,0.1,0.1]
+    dropout: [False,False,False,False]
+    layer:
+      GkNN_mode_in: 48  # modes for GkNN
+      GkNN_mode_out: 48  # modes for GkNN
+      GkNN_mode_out_phybases: 96
+      kernel_mode: 16
+    print_time: False
+
+
+  train:
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 20
+    normalization_x: False
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+    update_base_ep: 500
+
+
+  plot:
+    plot_H_num: 0
+    plot_hidden_layers: True
+    save_figure_H: figure/H/bsz30/
+    save_figure_hidden: figure/hidden_test/
+    plot_shape: [221,51]

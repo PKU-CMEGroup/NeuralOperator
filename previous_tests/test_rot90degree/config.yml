@@ -1,0 +1,51 @@
+Darcy_HGkNN:
+
+  data:
+    L: 1.0
+    downsample_ratio: 14
+    n_train: 800
+    n_test: 200   #n_train + n_test < 1300
+
+  model:
+    layer_types: ['newHGalerkinConv','newHGalerkinConv','newHGalerkinConv','newHGalerkinConv']
+    double_bases: False
+    fc_dim: 128
+    in_dim: 3  #default
+    out_dim: 1  #default
+    layers_dim: [64,64,64,64,64]     # len(layers_dim) == len(..modes)+1 
+    act: 'gelu'
+    # dropout: [0.1,0.1,0.1,0.1]
+    dropout: [False,False,False,False]
+    layer:
+      GkNN_mode_in: 512  # modes for GkNN
+      GkNN_mode_out: 512  # modes for GkNN
+      kernel_mode: 64
+      mask_mode: False
+      rank: 5
+      dim: 64
+    
+
+
+
+  train:
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+    # L1regularization_lambda: 0.0001
+
+
+  plot:
+    plot_H_num: 15
+    plot_hidden_layers: True
+    save_figure_H: figure/test_H/
+    save_figure_hidden: figure/test_hidden/
+    plot_shape: [31,31]

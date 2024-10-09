@@ -1,0 +1,47 @@
+test:
+
+  data:
+    L: 1.0
+    downsample_ratio: 14
+    n_train: 800
+    n_test: 200
+
+  model:
+    layer_types: ['Multi_HGalerkinConv','Multi_HGalerkinConv','Multi_HGalerkinConv','Multi_HGalerkinConv']  #Multi_HGalerkinConv,Multi_GalerkinConv
+    double_bases: True
+    fc_dim: 128
+    in_dim: 3  #default
+    out_dim: 1  #default
+    layers_dim: [96,96,96,96,96]     
+    act: 'gelu'
+    dropout: [False,False,False,False]
+    num_inside_points: 64
+    outside:
+      modes: 96
+      kernel_modes: 64
+    inside:
+      modes: 64
+      kernel_modes: 32
+
+
+
+
+  train:
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+    L1regularization_lambda: 0.0001
+    # hard_pruning: 0.0001
+    # grad_clip: 1
+    # L2regularization_alpha: 0.0005
+    # L2regularization_beta: 0.001
+    
+

@@ -40,8 +40,8 @@ data_out = np.load(data_path+"NACA_Cylinder_Q.npy")[:,4,:,:] #density, velocity 
 print("data_in.shape:" , data_in.shape)
 print("data_out.shape", data_out.shape)
 
-cny = 40 # how many layer to compute
-cnx = 50 - cny
+cnx = cny = None
+cny, cnx = 40, 10 # how many layer to compute
 data_in_ds  = data_in[:,  cnx:-cnx:downsample_ratio, 0:cny:downsample_ratio, :]
 data_out_ds = data_out[:, cnx:-cnx:downsample_ratio, 0:cny:downsample_ratio, np.newaxis]
 
@@ -100,7 +100,6 @@ modes = compute_Fourier_modes(ndim, [kx_max,ky_max], [Lx, Ly])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = GeoFNO(ndim, modes,
                layers=[128,128,128,128,128],
-               #layers=[1,1,1,1,1],
                fc_dim=128,
                in_dim=2, out_dim=1,
                act='gelu').to(device)

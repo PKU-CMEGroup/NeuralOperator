@@ -1,14 +1,13 @@
 data/
 notes/
 previous_tests/eq2d/model/
-test/model/
 previous_tests/test2/model/
 previous_tests/test3/model/
 previous_tests/test4/model/
 previous_tests/test5/model/
 previous_tests/test6/model/
 previous_tests/test7/model/
-test_airfoil/model/
+previous_tests/test_airfoil/model/
 previous_tests/test_rot90degree/figure/
 previous_tests/test11/figure/
 previous_tests/test12/figure/

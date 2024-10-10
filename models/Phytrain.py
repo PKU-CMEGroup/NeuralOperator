@@ -18,7 +18,7 @@ from .adam import Adam
 from .losses import LpLoss
 from .normalizer import UnitGaussianNormalizer
 from .Galerkin import GkNN
-from .myGkNN11 import compute_H_model
+
 
 
 def count_params(model):
@@ -127,26 +127,6 @@ def PhyHGkNN_train(
         update_base_ep =config['train']['update_base_ep']
         if ep>update_base_ep:
             model.if_update_bases =False
-        if plot_H_num:
-            save_figure_H = config['plot']['save_figure_H']
-
-            if ep % 20 == 0 or ep<10:
-                # 创建一个新的图形和子图
-                fig, axs = plt.subplots(int(np.ceil(plot_H_num/5)), 5, figsize=(15, 10))
-                H = compute_H_model(model).detach().to('cpu').numpy()
-                for i in range(plot_H_num):
-                    # 计算子图的行列索引
-                    row = i // 5
-                    col = i % 5
-                    
-                    # 绘制图像
-                    im = axs[row, col].imshow(H[i, :, :], vmin=-0.02, vmax=0.02,cmap='viridis')
-                    axs[row, col].set_title(f'H[{i},:,:]')
-                    fig.colorbar(im, ax=axs[i//5, i%5])
-                    
-                plt.tight_layout()
-                plt.savefig(save_figure_H + 'ep'+str(ep).zfill(3)+'.png', format='png')
-                plt.close() 
 
         for x, y in train_loader:
 
@@ -241,9 +221,9 @@ def PhyHGkNN_train(
 
                     fig, axs = plt.subplots(1, 8, figsize=(24, 5))     
                     for i in range(8):       
-                        y0 = model.wbases2[0,:,i*10].cpu().reshape(Nx,Ny)
+                        y0 = model.wbases2[0,:,i*12].cpu().reshape(Nx,Ny)
                         im = axs[i].imshow(y0, cmap='viridis')
-                        axs[i].set_title(f'bases{i*10}')
+                        axs[i].set_title(f'bases{i*12}')
                         fig.colorbar(im, ax=axs[i])
                     plt.tight_layout()
                     plt.savefig(save_figure_hidden + 'bases_ep'+str(ep).zfill(3)+'.png', format='png')

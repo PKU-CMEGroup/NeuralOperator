@@ -84,7 +84,7 @@ airfoil:
     if_bases_threhold: False
     num_basepts: 100  #must be a square
     baseradius: 200
-    minweight: 50
+    minweight: 5
     fc_dim: 128
     in_dim: 4  #default
     out_dim: 1  #default

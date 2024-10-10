@@ -40,13 +40,7 @@ class DGalerkinConv(nn.Module):
         self.bases = bases
         self.wbases = wbases
         self.scale1 = 1 / kernel_modes
-        if D == False:
-            self.D = nn.Parameter(
-                    self.scale1
-                    * torch.rand(kernel_modes, modes, dtype=torch.float)
-                )
-        else:
-            self.D = D
+        self.D = D
             
 
         self.scale2 = 1 / (in_channels * out_channels)
@@ -67,10 +61,9 @@ class DGalerkinConv(nn.Module):
 
         # Multiply relevant Fourier modes
         x_hat = mycompl_mul1d_D(self.weights, self.D , x_hat)
-        x_hat = x_hat.real
 
         # Return to physical space
-        x = torch.real(torch.einsum("bck,xk->bcx", x_hat, bases))
+        x = torch.einsum("bck,xk->bcx", x_hat, bases)
 
         return x
  
@@ -97,9 +90,9 @@ class DGalerkinConv_double(nn.Module):
 
 
 
-class myGkNN8(nn.Module):
+class DGalerkin(nn.Module):
     def __init__(self, bases_list  ,**config):
-        super(myGkNN8, self).__init__()
+        super(DGalerkin, self).__init__()
 
         self.bases_fourier=bases_list[0]
         self.wbases_fourier=bases_list[1]

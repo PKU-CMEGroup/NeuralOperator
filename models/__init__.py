@@ -1,8 +1,6 @@
 from .FCN import FCNet
 from .train import FNN_train,count_params,HGkNN_train
-from .newtrain import newHGkNN_train
 from .Phytrain import PhyHGkNN_train
-from .Phytrain_time import PhyHGkNN_train_time
 from .utils import (
     count_params,
     compute_1dFourier_bases,

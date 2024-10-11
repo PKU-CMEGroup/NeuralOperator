@@ -85,6 +85,7 @@ print("y_train.shape: ",y_train.shape)
 
 
 k_max = 16
+cnn_kernel_size=1
 ###################################
 #construct model and train
 ###################################
@@ -95,7 +96,8 @@ model = FNO2d(modes1=[k_max,k_max,k_max,k_max], modes2=[k_max,k_max,k_max,k_max]
                         in_dim=3, 
                         out_dim=1,
                         act="gelu",
-                        pad_ratio=0.0).to(device)
+                        pad_ratio=0.0,
+                        cnn_kernel_size=cnn_kernel_size).to(device)
 
 epochs = 1000
 base_lr = 0.001

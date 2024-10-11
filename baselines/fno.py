@@ -205,7 +205,8 @@ class FNO1d(nn.Module):
                  fc_dim=128,
                  in_dim=2, out_dim=1,
                  act='gelu',
-                 pad_ratio=0):
+                 pad_ratio=0, 
+                 cnn_kernel_size=1):
         super(FNO1d, self).__init__()
 
         """
@@ -235,7 +236,7 @@ class FNO1d(nn.Module):
         self.sp_convs = nn.ModuleList([SpectralConv1d(
             in_size, out_size, num_modes) for in_size, out_size, num_modes in zip(layers, layers[1:], self.modes1)])
 
-        self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
+        self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, kernel_size=cnn_kernel_size, padding=(cnn_kernel_size//2))
                                  for in_size, out_size in zip(layers, layers[1:])])
         
         # if fc_dim = 0, we do not have nonlinear layer
@@ -303,6 +304,7 @@ class FNO2d(nn.Module):
         out_dim=1,
         act="gelu",
         pad_ratio=0,
+        cnn_kernel_size=1,
     ):
         super(FNO2d, self).__init__()
 
@@ -343,7 +345,9 @@ class FNO2d(nn.Module):
 
         self.ws = nn.ModuleList(
             [
-                nn.Conv1d(in_size, out_size, 1)
+                #nn.Conv1d(in_size, out_size, 1)
+                #for in_size, out_size in zip(self.layers, self.layers[1:])
+                nn.Conv2d(in_size, out_size, kernel_size=(cnn_kernel_size,cnn_kernel_size), padding=(cnn_kernel_size//2,cnn_kernel_size//2))
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
@@ -378,9 +382,10 @@ class FNO2d(nn.Module):
 
         for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x)
-            x2 = w(x.view(batchsize, self.layers[i], -1)).view(
-                batchsize, self.layers[i + 1], size_x, size_y
-            )
+            #x2 = w(x.view(batchsize, self.layers[i], -1)).view(
+            #    batchsize, self.layers[i + 1], size_x, size_y
+            #)
+            x2 = w(x)
             x = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x)
@@ -509,7 +514,7 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
     
 
         if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
+            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
             torch.save(model, save_model_name)
     
     

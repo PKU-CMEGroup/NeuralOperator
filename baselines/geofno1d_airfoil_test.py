@@ -40,10 +40,13 @@ data_out = np.load(data_path+"NACA_Cylinder_Q.npy")[:,4,:,:] #density, velocity 
 print("data_in.shape:" , data_in.shape)
 print("data_out.shape", data_out.shape)
 
-cnx = cny = None
-cny, cnx = 40, 10 # how many layer to compute
-data_in_ds  = data_in[:,  cnx:-cnx:downsample_ratio, 0:cny:downsample_ratio, :]
-data_out_ds = data_out[:, cnx:-cnx:downsample_ratio, 0:cny:downsample_ratio, np.newaxis]
+
+data_in_ds  = data_in[:,  ::downsample_ratio, 0::downsample_ratio, :]
+data_out_ds = data_out[:, ::downsample_ratio, 0::downsample_ratio, np.newaxis]
+
+# cny, cnx = 40, 10 # how many layer to compute
+# data_in_ds  = data_in[:,  cnx:-cnx:downsample_ratio, 0:cny:downsample_ratio, :]
+# data_out_ds = data_out[:, cnx:-cnx:downsample_ratio, 0:cny:downsample_ratio, np.newaxis]
 
 grid_ds = data_in_ds
 
@@ -94,7 +97,8 @@ print("y_train.shape: ",y_train.shape)
 kx_max, ky_max = 32, 16
 ndim = 2
 pad_ratio = 0.05
-Lx, Ly = (1.0+pad_ratio)*(grid_ds[0:n_train,...,0].max()-grid_ds[0:n_train,...,0].min()), (1.0+pad_ratio)*(grid_ds[0:n_train,...,1].max()-grid_ds[0:n_train,...,1].min())
+# Lx, Ly = (1.0+pad_ratio)*(grid_ds[0:n_train,...,0].max()-grid_ds[0:n_train,...,0].min()), (1.0+pad_ratio)*(grid_ds[0:n_train,...,1].max()-grid_ds[0:n_train,...,1].min())
+Lx = Ly = 4.0
 print("Lx, Ly = ", Lx, Ly)
 modes = compute_Fourier_modes(ndim, [kx_max,ky_max], [Lx, Ly])
 modes = torch.tensor(modes, dtype=torch.float).to(device)

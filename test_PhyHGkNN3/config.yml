@@ -1,0 +1,117 @@
+Darcy:
+
+  data:
+    L: 1.0
+    downsample_ratio: 14
+    n_train: 800
+    n_test: 200   #n_train + n_test < 1300
+
+  model:
+    layer_types: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']
+    phy_dim: 2
+    pts_type: 'fixed'  #trained or fixed
+    baseweight_type: 'trained'  #trained or fixed
+    base_type: 'Gauss'
+    num_modes_in: 225
+    num_modes_out: 225
+    kernel_mode: 16
+
+    num_basepts_Gauss: 225  #must be a square
+    num_fourierbases: 225
+    basicwt_Gauss: 0
+    minweight_Gauss: 150
+    range_pts_Gauss: [[0,1],[0,1]]
+    basicwt_Fourier: 5
+    
+    fc_dim: 128
+    in_dim: 3  #default
+    out_dim: 1  #default
+    layers_dim: [128,128,128,128,128]     # len(layers_dim) == len(..modes)+1 
+    act: 'gelu'
+    dropout: [False,False,False,False]
+    device: 'cuda' 
+
+
+  train:
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: False
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+
+
+  plot:
+    plot_H_num: 0
+    plot_hidden_layers: False
+    plot_bases_num: 0
+    save_figure_H: figure/H/bsz30/
+    save_figure_hidden: figure/hidden_test/
+    save_figure_bases: figure/bases/
+    plot_shape: [31,31]
+
+
+
+airfoil:
+
+  data:
+    L: 1.0
+    downsample_ratio: 1
+    n_train: 1000
+    n_test: 200   #n_train + n_test < 1300
+
+  model:
+    layer_types: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']
+    phy_dim: 2
+    pts_type: 'fixed'  #trained or fixed
+    baseweight_type: 'trained'  #trained or fixed
+    base_type: 'Gauss'
+    num_modes_in: 225
+    num_modes_out: 225
+    kernel_mode: 16
+
+    num_basepts_Gauss: 225  #must be a square
+    num_fourierbases: 225
+    basicwt_Gauss: 0
+    minweight_Gauss: 150
+    range_pts_Gauss: [[-1,1],[-1,1]]
+    basicwt_Fourier: 5
+    
+    fc_dim: 128
+    in_dim: 4  #default
+    out_dim: 1  #default
+    layers_dim: [128,128,128,128,128]     # len(layers_dim) == len(..modes)+1 
+    act: 'gelu'
+    dropout: [False,False,False,False]
+    device: 'cuda' 
+
+
+  train:
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 10
+    normalization_x: False
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+
+
+  plot:
+    plot_H_num: 0
+    plot_hidden_layers: False
+    plot_bases_num: 0
+    save_figure_H: figure/H/bsz30/
+    save_figure_hidden: figure/hidden_test/
+    save_figure_bases: figure/bases/
+    plot_shape: [31,31]

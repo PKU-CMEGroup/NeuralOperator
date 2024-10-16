@@ -13,6 +13,10 @@ previous_tests/test11/figure/
 previous_tests/test12/figure/
 test_PhyHGkNN/figure/
 test_PhyHGkNN2/figure/
+test_PhyHGkNN3/figure/
+test_PhyHGkNN3/para/
+test_base_appro/figure/
+test_base_appro/para/
 .DS_Store
 models/__pycache__/
 previous_tests/baselines/__pycache__/

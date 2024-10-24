@@ -32,14 +32,14 @@ def compute_bases_Gauss(basepts_Gauss ,baseweight_Gauss, grid):
     baseweight = torch.abs(baseweight_Gauss).unsqueeze(0).unsqueeze(0)  #1,1,phy_out_channel,phy_in_channel
     sum = torch.sum(baseweight*(grid-basepts)**2,dim=3)
     bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-sum)  #bsz,n,phy_out_channel,phy_in_channel-->bsz,n,phy_out_channel
-    bases = bases*math.sqrt(bases.shape[1])/torch.norm(bases, p=2, dim=1, keepdim=True)
+
     ones1 = torch.ones_like(bases)[:,:,0].unsqueeze(-1)  #bsz,n,1
     
     ones2_bool = (grid >= -5) & (grid <= 5)  # (bsz, n, 1, phy_in_channel)
     ones2 = ones2_bool.all(dim=3)  #  (bsz, n, 1)
     ones2 = ones2.float()
     bases = torch.cat((bases,ones1,ones2),dim=-1)
-    # bases = bases*math.sqrt(bases.shape[1])/torch.norm(bases, p=2, dim=1, keepdim=True)
+    bases = bases*math.sqrt(bases.shape[1])/torch.norm(bases, p=2, dim=1, keepdim=True)
     return bases
 
 def compute_bases_Fourier(baseweight_Fourier,a,grid):
@@ -75,11 +75,7 @@ n_train = 1000
 n_test = 200
 phy_dim = 2
 device = 'cuda'
-base_type = 'Gauss'
 
-base_init = 'load'
-print(f'base_type = {base_type}')
-print(f'base_init = {base_init}')
 
 
 data_path = "../data/airfoil/"
@@ -125,16 +121,51 @@ print("x_train.shape: ",x_train.shape)
 print("x_test.shape: ",x_test.shape)
 
 
+
+
+base_type = 'Gauss'
+basepts_init = 'load'
+print(f'base_type = {base_type}')
+print(f'basepts_init = {basepts_init}')
+
+learning_rate = 0.1
+batch_size = 1
+num_epochs = 100
+L2_lambda = True
+K = 0
+patience = 20
+best_val_loss = float('inf')
+no_improvement_count = 0
+
+print(f'learning_rate = {learning_rate}')
+print(f'batch_size = {batch_size}')
+print(f'L2_lambda = {L2_lambda} , K = {K}')
+print(f'patience = {patience}')
+
+plotbases=True
+plotx=True
+plotGaussbasepts=False
+update_model = False
+save_figure_bases = 'figure/airfoil/test_Gauss4/'
+save_figure_x = save_figure_bases 
+save_figure_basespts = save_figure_bases
+save_tensor = 'para/airfoil/base_Gauss400_bsz1_valtrain_squaresum.pt'
+load_tensor = 'para/airfoil/basepts_Gauss400_squaresum.pt'
+num_plot_bases = 32
+range_pts = [[-1,1],[-1,1]]
+
+
 if base_type == 'Gauss':
-    if base_init == 'uniform':
+    if basepts_init == 'uniform':
         basepts_Gauss = uniform_points([[-1,1],[-1,1]],225,2)
         # basepts_Gauss2 = uniform_points([[-40,40],[-40,40]],4,2)
         baseweight_Gauss = 100*torch.ones(225, 2, dtype = torch.float)
         # baseweight_Gauss2 = 50*torch.ones(4, 2, dtype = torch.float)
         # basepts_Gauss = torch.cat((basepts_Gauss1,basepts_Gauss2),dim=0)
         # baseweight_Gauss = torch.cat((baseweight_Gauss1,baseweight_Gauss2),dim=0)
-    elif base_init == 'load':
-        basepts_Gauss= torch.load('para/airfoil/basepts_Gauss225.pt')
+    elif basepts_init == 'load':
+        basepts_Gauss= torch.load(load_tensor)
+        print(f'load pts from {load_tensor}')
         distances = torch.cdist(basepts_Gauss, basepts_Gauss)
         mask = ~torch.eye(distances.size(0), dtype=torch.bool)
         min_distances = torch.where(mask, distances, torch.inf)
@@ -157,36 +188,10 @@ model.to(device)
 
 
 
-
-
-# 设置训练参数
-learning_rate = 0.1
-batch_size = 1
-num_epochs = 100
-L2_lambda = True
-K = 0
-patience = 20
-best_val_loss = float('inf')
-no_improvement_count = 0
-
-print(f'learning_rate = {learning_rate}')
-print(f'batch_size = {batch_size}')
-print(f'L2_lambda = {L2_lambda} , K = {K}')
-print(f'patience = {patience}')
-
-plotbases=True
-plotx=True
-plotGaussbasepts=False
-save_figure_bases = 'figure/airfoil/test_Gauss3/'
-save_figure_x = save_figure_bases 
-save_figure_basespts = save_figure_bases
-num_plot_bases = 32
-range_pts = [[-1,1],[-1,1]]
-
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.1)
-train_loader = torch.utils.data.DataLoader(x_train[:600], batch_size=batch_size, shuffle=True)
-val_loader = torch.utils.data.DataLoader(x_train[600:], batch_size=batch_size, shuffle=True)
+scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.3)
+train_loader = torch.utils.data.DataLoader(x_train[:700], batch_size=batch_size, shuffle=True)
+val_loader = torch.utils.data.DataLoader(x_train[700:], batch_size=batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(x_test, batch_size=batch_size, shuffle=False)
 # # 训练循环
 print('start training')
@@ -237,12 +242,13 @@ for epoch in range(num_epochs):
         
         val_loss /= len(val_loader)
         scheduler.step(val_loss)
-        
+
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             no_improvement_count = 0
-            print(f'save model at val_loss = {val_loss:.4f}')
-            torch.save([model.base_para1.detach().cpu(), model.base_para2.detach().cpu()], 'para/airfoil/base_Gauss225_bsz1_valtrain2.pt')
+            if update_model:
+                print(f'save model at val_loss = {val_loss:.4f}')
+                torch.save([model.base_para1.detach().cpu(), model.base_para2.detach().cpu()], save_tensor)
         else:
             print(f'val_loss = {val_loss}')
             no_improvement_count += 1
@@ -253,7 +259,7 @@ for epoch in range(num_epochs):
         
 
 
-tensor1,tensor2 = torch.load('para/airfoil/base_Gauss225_bsz1_valtrain2.pt') 
+tensor1,tensor2 = torch.load(save_tensor) 
 modeltest = base_approximator(compute_bases_Gauss , tensor1, tensor2,False,False).to(device)
 with torch.no_grad():
     test_loss = 0

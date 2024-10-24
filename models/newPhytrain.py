@@ -113,13 +113,17 @@ def newPhyHGkNN_train(
     except:
         plot_H_num = 0
     try:
-        plot_hidden_layers = config['plot']['plot_hidden_layers']
+        plot_hidden_layers_num = config['plot']['plot_hidden_layers_num']
     except:
-        plot_hidden_layers = False
+        plot_hidden_layers_num = False
     try:
         plot_bases_num = config['plot']['plot_bases_num']
     except:
         plot_bases_num = 0
+    try:
+        plot_data_index = config['plot']['plot_data_index']
+    except:
+        plot_data_index = False
     t1 = default_timer()
 
 
@@ -139,7 +143,6 @@ def newPhyHGkNN_train(
                 y = y_normalizer.decode(y)
             loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
             train_rel_l2 += loss.item()
-
             loss.backward()
 
             optimizer.step()
@@ -147,13 +150,17 @@ def newPhyHGkNN_train(
         # test_l2 = 0
         test_rel_l2 = 0
         with torch.no_grad():
-            if plot_hidden_layers:
-                x = x_test[:8,:,:].to(device)
-                y = y_test[:8,:,:].to(device)
+            if plot_hidden_layers_num:
+                if plot_data_index:
+                    x = x_test[plot_data_index,:,:].to(device)
+                    y = y_test[plot_data_index,:,:].to(device)
+                else:
+                    x = x_test[:8,:,:].to(device)
+                    y = y_test[:8,:,:].to(device)
                 save_figure_hidden = config['plot']['save_figure_hidden']
                 Nx,Ny = config['plot']['plot_shape'][0],config['plot']['plot_shape'][1]
                 if ep%10 ==0:
-                    model.plot_hidden_layer(x,y,Nx,Ny,save_figure_hidden,ep)
+                    model.plot_hidden_layer(x,y,Nx,Ny,save_figure_hidden,ep,plot_hidden_layers_num)
             if plot_bases_num:
                 if ep%10==0:
                     Nx,Ny = config['plot']['plot_shape'][0],config['plot']['plot_shape'][1]

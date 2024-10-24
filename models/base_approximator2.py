@@ -9,67 +9,60 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-class base_approximator(nn.Module):
-    def __init__(self, construct_func , init_parameter1, init_parameter2,if_train_para1,if_train_para2):
+class base_approximator2(nn.Module):
+    def __init__(self, construct_func , para_list , para_if_train, device = 'cuda'):
 
-        super(base_approximator, self).__init__()  
-        if if_train_para1:
-            self.base_para1 = nn.Parameter(init_parameter1)
-        else:
-            self.base_para1 = init_parameter1.to('cuda')
-        if if_train_para2:
-            self.base_para2 = nn.Parameter(init_parameter2)
-        else:
-            self.base_para2 = init_parameter2.to('cuda')
+        super(base_approximator2, self).__init__()  
+
+        self.all_parameters = [para.to(device) for para in para_list]
+        self.trainable_indices = {index: idx for idx, index in enumerate(i for i, trainable in enumerate(para_if_train) if trainable)}
+        self.trainable_parameters = nn.ParameterList()
+        
+        for index in self.trainable_indices:
+            self.trainable_parameters.append(nn.Parameter(para_list[index]))
+
         self.construct_fun = construct_func
-
+    def get_para_list(self):
+        para_list = [self.trainable_parameters[self.trainable_indices.get(i, None)] if i in self.trainable_indices else param for i, param in enumerate(self.all_parameters)]
+        return para_list
     def forward(self,x,grid):
         # x = Phi*c + y,  Phi^T*y=0
         # Phi^T*x = Phi^T*Phi*c
         # c = (Phi^T*Phi)^-1*Phi^T*x 
         # x_proj = Phi*(Phi^T*Phi)^-1*Phi^T*x 
         #x.shape: bsz,N,1
+        para_list = self.get_para_list()
         N = x.shape[1]
-        Phi = self.construct_fun(self.base_para1,self.base_para2,grid)  #shape: bsz,N,k
+        bases_Fourier ,bases_Gauss = self.construct_fun(para_list,grid)
+        Phi =  torch.cat((bases_Fourier ,bases_Gauss),dim=-1) #shape: bsz,N,k
 
         x = x.to(Phi.dtype)
 
-        # coeff = torch.bmm(Phi.transpose(1,2),x)  # bsz,k,1
-        # P = torch.bmm(Phi.transpose(1,2),Phi) # bsz,k,k
+        Q, R = torch.linalg.qr(Phi, mode='reduced')  # Q (bsz, N, k), R (bsz, k, k)
 
-        # alpha = 1e-4*N  #diag(P) ~ N
-        # identity = torch.eye(P.size(-1), device=P.device, dtype=P.dtype)[None, :, :]
-        # P_reg = P + alpha * identity
-        # P_reg = torch.linalg.inv(P_reg)
-        
-        # c = torch.bmm(P_reg,coeff)  #bsz,k,1
+        # alpha = 1e-5 
+        # identity = torch.eye(R.size(-1), device=R.device, dtype=R.dtype)[None, :, :]
+        # R_reg = R + alpha * identity
+        R_reg = R
 
+        Qt_x = torch.bmm(Q.permute(0, 2, 1), x)  # (bsz, k, 1)
 
-
-        # QR 分解 Phi
-        Q, R = torch.linalg.qr(Phi, mode='reduced')  # Q 形状: (bsz, N, k), R 形状: (bsz, k, k)
-
-        alpha = 1e-5  # 正则化参数
-        identity = torch.eye(R.size(-1), device=R.device, dtype=R.dtype)[None, :, :]
-        R_reg = R + alpha * identity
-        # 计算 Q^T * x
-        Qt_x = torch.bmm(Q.permute(0, 2, 1), x)  # 结果形状: (bsz, k, 1)
-
-        # 使用 linalg.solve_triangular 来解决上三角矩阵的线性方程组
-        c = torch.linalg.solve_triangular(R_reg, Qt_x, upper=True)  # 解决最小二乘问题得到 c
+        c = torch.linalg.solve_triangular(R_reg, Qt_x, upper=True) 
 
         x_proj = torch.bmm(Phi,c)
         res = x-x_proj
         return res
     
-    def plotbases(self,num_bases,weight_pos,grid,Nx,Ny,save_figure_bases,epoch,additional_plotbases=False):
-        base = self.construct_fun(self.base_para1,self.base_para2,grid)  #bsz,N,k
+    def plotGaussbases(self,num_bases,grid,Nx,Ny,save_figure_bases,epoch,additional_plotbases=False):
+        para_list = self.get_para_list()
+        _ ,bases_Gauss = self.construct_fun(para_list,grid)
+        bases = bases_Gauss
         if additional_plotbases:
             row, col = decompose_integer(num_bases+1) 
         else:
             row, col = decompose_integer(num_bases)
         fig, axs = plt.subplots(row, col, figsize=(3*col, 3*row))             
-        K = base.shape[-1]
+        K = bases.shape[-1]
         ratio = K//num_bases
         for i in range(row): 
             for j in range(col): 
@@ -77,11 +70,9 @@ class base_approximator(nn.Module):
                     k = additional_plotbases-1
                 else:
                     k = (i*col+j)*ratio
-                base_k = base[0,:,k].detach().cpu().reshape(Nx,Ny)
-                if weight_pos==1:
-                    weight = ['{:.1f}'.format(w.item()) for w in self.base_para1[k%self.base_para1.shape[0],:].detach().cpu().numpy()]
-                if weight_pos==2:
-                    weight = ['{:.1f}'.format(w.item()) for w in self.base_para2[k%self.base_para2.shape[0],:].detach().cpu().numpy()]
+                base_k = bases[0,:,k].detach().cpu().reshape(Nx,Ny)
+                weight = ['{:.1f}'.format(w.item()) for w in para_list[2][k,:].detach().cpu().numpy()]
+
                 im = axs[i,j].imshow(base_k, cmap='viridis')
                 axs[i,j].set_title(f'base{k},{weight}')
                 fig.colorbar(im, ax=axs[i,j])
@@ -113,7 +104,8 @@ class base_approximator(nn.Module):
         plt.close()  
     
     def plotGaussbasepts(self,range_pts,save_figure_basespts,epoch):
-        basepts = self.base_para1.detach().cpu().numpy()
+        para_list = self.get_para_list()
+        basepts = para_list[1].detach().cpu().numpy()
 
         xmin, xmax = range_pts[0][0],range_pts[0][1]
         ymin, ymax = range_pts[1][0],range_pts[1][1]

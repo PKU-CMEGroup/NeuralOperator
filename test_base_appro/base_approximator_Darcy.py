@@ -32,8 +32,10 @@ def compute_bases_Gauss(basepts_Gauss ,baseweight_Gauss, grid):
     # range_pts_max = range_pts[:, 1].unsqueeze(0).expand(num_pts, dim) 
     # basepts = torch.clamp(self.basepts, min=range_pts_min, max=range_pts_max)
     basepts = basepts_Gauss.unsqueeze(0).unsqueeze(0) # 1,1,phy_out_channel,phy_in_channel
-    baseweight = baseweight_Gauss.unsqueeze(0).unsqueeze(0)  #1,1,phy_out_channel,phy_in_channel
-    bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,n,phy_out_channel,phy_in_channel-->bsz,n,phy_out_channel
+    baseweight = torch.abs(baseweight_Gauss).unsqueeze(0).unsqueeze(0)  #1,1,phy_out_channel,phy_in_channel
+    sum = torch.sum(baseweight*(grid-basepts)**2,dim=3)
+    bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-sum)  #bsz,n,phy_out_channel,phy_in_channel-->bsz,n,phy_out_channel
+    bases = bases*math.sqrt(bases.shape[1])/torch.norm(bases, p=2, dim=1, keepdim=True)
     return bases
 
 def compute_bases_Fourier(baseweight_Fourier,a,grid):
@@ -108,34 +110,54 @@ x_test = x_test.reshape(x_test.shape[0], -1, x_test.shape[-1])
 print("x_train.shape: ",x_train.shape)
 print("x_test.shape: ",x_test.shape)
 
-basepts_Gauss = uniform_points([[0,1],[0,1]],225,2)
-baseweight_Gauss = 100*torch.ones(225, 2, dtype = torch.float)
-model = base_approximator( compute_bases_Gauss , basepts_Gauss, baseweight_Gauss,False,True).to(device)
-weight_pos=2
-# x = torch.arange(-7, 8) 
-# y = torch.arange(-7, 8) 
-# X, Y = torch.meshgrid(x, y)
-# baseweight_Fourier = 2*np.pi*torch.stack((X.flatten(), Y.flatten()), dim=1)
-# a = torch.tensor(0,dtype = torch.float)
-# model = base_approximator( compute_bases_Fourier , baseweight_Fourier, a,a).to(device)
-# weight_pos=1
-model.to(device)
 
 
 
 
 
-# 设置训练参数
-learning_rate = 0.5
-batch_size = 20
+base_type = 'Gauss'
+basepts_init = 'uniform'
+print(f'base_type = {base_type}')
+print(f'basepts_init = {basepts_init}')
+
+learning_rate = 0.1
+batch_size = 10
 num_epochs = 100
-
+print(f'learning_rate = {learning_rate}')
+print(f'batch_size = {batch_size}')
 Nx = 420//downsample_ratio+1
 Ny = 420//downsample_ratio+1
-save_figure_bases = 'figure/darcy/base_appro/'
-save_figure_x = 'figure/darcy/base_appro/'
+plot_bases = True
+plot_x = True
+plotGaussbasepts= False
+save_figure_bases = 'figure/darcy/base_appro_r6_1/'
+save_figure_x = save_figure_bases
 num_plot_bases = 32
+save_tensor = 'para/darcy/baseweight_Gauss225_fixedpts_r6_1.pt'
 
+
+
+if base_type == 'Gauss':
+    if basepts_init == 'uniform':
+        basepts_Gauss = uniform_points([[0,1],[0,1]],225,2)
+        baseweight_Gauss = 100*torch.ones(225, 2, dtype = torch.float)
+
+    elif basepts_init == 'load':
+        raise TypeError('not defined yet')
+    weight_pos = 2
+    model = base_approximator(compute_bases_Gauss , basepts_Gauss, baseweight_Gauss,False,True).to(device)
+    print('base train:',False,True)
+elif base_type == 'Fourier':
+    x = torch.arange(-7, 8) 
+    y = torch.arange(-7, 8) 
+    X, Y = torch.meshgrid(x, y)
+    baseweight_Fourier = 2*np.pi*torch.stack((X.flatten(), Y.flatten()), dim=1)
+    a = torch.tensor(0,dtype = torch.float)
+    weight_pos = 1
+    model = base_approximator(compute_bases_Fourier , baseweight_Fourier, a,True,False).to(device)
+    print('base train:',True,False)
+
+model.to(device)
 
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 scheduler = torch.optim.lr_scheduler.OneCycleLR(
@@ -147,9 +169,9 @@ test_loader = torch.utils.data.DataLoader(x_test, batch_size=batch_size, shuffle
 # 训练循环
 for epoch in range(num_epochs):
     model.train() 
-    
+    t1 = default_timer()
     for batch_idx, data in enumerate(train_loader):
-        t1 = default_timer()
+
         data = data.to('cuda')
         x = data[:,:,0].unsqueeze(-1)
         grid = data[:,:,1:]
@@ -159,18 +181,21 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         
-        t2 = default_timer()
+    t2 = default_timer()
     print(f'Epoch [{epoch}/{num_epochs-1}], time: {t2-t1}, Loss: {loss.item():.4f}',flush=True)
     scheduler.step()
     if epoch % 10 ==0:
         data = x_test[0].unsqueeze(0).to(device)
         x = data[:,:,0].unsqueeze(-1)
         grid = data[:,:,1:]
+        if plot_bases:
+            model.plotbases(num_plot_bases,weight_pos,grid,Nx,Ny,save_figure_bases,epoch)
+        if plot_x:
+            model.plotx(x,grid,Nx,Ny,save_figure_x,epoch)
+torch.save([model.base_para1.detach().cpu(), model.base_para2.detach().cpu()], save_tensor)
 
-        model.plotbases(num_plot_bases,weight_pos,grid,Nx,Ny,save_figure_bases,epoch)
-        model.plotx(x,grid,Nx,Ny,save_figure_x,epoch)
-
-model.eval()  
+tensor1,tensor2 = torch.load(save_tensor) 
+modeltest = base_approximator(compute_bases_Gauss , tensor1, tensor2,False,False).to(device)
 with torch.no_grad():
     test_loss = 0
     n=0
@@ -178,10 +203,9 @@ with torch.no_grad():
         data = data.to(device)
         x = data[:,:,0].unsqueeze(-1)
         grid = data[:,:,1:]
-        output = model(x,grid)
+        output = modeltest(x,grid)
         test_loss += torch.norm(output)/torch.norm(x)
         n = n+1
     print(f'Test Loss: {test_loss/n:.4f}')
 
 
-torch.save([model.base_para1.detach().cpu(), model.base_para2.detach().cpu()], 'para/baseweight_Gauss225_fixedpts_r6.pt')

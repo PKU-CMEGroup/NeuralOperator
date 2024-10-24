@@ -1,0 +1,63 @@
+Darcy:
+  train: True
+  save: True
+  eval: True
+
+  phy_dim: 2
+  downsample_ratio: 6
+  L: 1.0
+  n_train: 800
+  n_test:  200
+  num_Gauss: 225
+  num_Fourier: 225
+  device: 'cuda'
+  para_if_train: [True,False,True]
+  basepts_init: 'uniform'
+  L2_lambda: True
+  K: 0
+  learning_rate: 0.1
+  batch_size: 10
+  num_epochs: 100
+
+  plot_Gaussbases: True
+  plot_x: True
+  plotGaussbasepts: False
+
+  save_figure_bases: 'figure/darcy/test/'
+  num_plot_bases: 32
+  save_tensor: 'para/darcy/test.pt'
+  eval_tensor: 'para/darcy/test.pt'
+
+
+
+airfoil:
+  train: True
+  save: False
+  eval: True
+
+  phy_dim: 2
+  downsample_ratio: 1
+  L: 1.0
+  n_train: 800
+  n_test:  200
+  num_Gauss: 225
+  num_Fourier: 225
+
+  device: 'cuda'
+  para_if_train: [True,False,False]
+  basepts_init: 'para/airfoil/basepts_Gauss225.pt'
+
+  L2_lambda: True
+  K: 0
+  learning_rate: 0.1
+  batch_size: 10
+  num_epochs: 100
+
+  plot_Gaussbases: True
+  plot_x: True
+  plotGaussbasepts: False
+
+  save_figure_bases: 'figure/airfoil/test/'
+  num_plot_bases: 32
+  save_tensor: 'para/airfoil/test.pt'
+  eval_tensor: 'para/airfoil/test.pt'

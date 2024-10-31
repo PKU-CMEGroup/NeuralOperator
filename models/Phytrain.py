@@ -108,14 +108,9 @@ def PhyHGkNN_train(
     myloss = LpLoss(d=1, p=2, size_average=False)
 
     epochs = config["train"]["epochs"]
-    try:
-        plot_H_num = config['plot']['plot_H_num']
-    except:
-        plot_H_num = 0
-    try:
-        plot_hidden_layers = config['plot']['plot_hidden_layers']
-    except:
-        plot_hidden_layers = False
+    plot_H_num = config.get('plot', {}).get('plot_H_num', 0)
+    plot_hidden_layers = config.get('plot', {}).get('plot_hidden_layers', False)
+
     t1 = default_timer()
 
 

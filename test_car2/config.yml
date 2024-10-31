@@ -1,0 +1,115 @@
+Darcy:
+
+
+  data:
+    L: 1.0
+    downsample_ratio: 14
+    n_train: 800
+    n_test: 200 
+
+  model:
+    layer_types_global: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']    
+    layer_types_local: ['GraphGaussconv','GraphGaussconv','GraphGaussconv','GraphGaussconv']
+    phy_dim: 2
+    kernel_mode: 16
+    r: 0.1
+    max_num_neighbors: 300
+    Fourier_freq_para: 'para/darcy/Fourier7_uniform.pt'
+    init_freq_local: 20
+    init_weight_local: 50
+
+    fc_dim: 128
+    input_with_weight: True
+    in_dim: 3  # for fc0(x)
+    out_dim: 1  
+    layers_dim: [64,64,64,64,64]     # len(layers_dim) == len(..modes)+1 
+    layer_hidden_dim: [64,64,64,64]
+    act: 'gelu'
+    dropout: [False,False,False,False]
+    device: 'cuda' 
+    
+    global_only: False
+    local_only: False
+
+  train:
+
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: False
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+
+
+  plot:
+
+    plot_hidden_layers_num: 4
+    save_figure_hidden: figure/darcy/test/
+    plot_shape: [31,31]
+    # plot_data_index: [0,6,11,23,24,25]
+
+
+
+
+
+car_normal:
+
+
+  data:
+    L: 1.0
+    downsample_ratio: 1
+    n_train: 500
+    n_test: 100 
+
+  model:
+    layer_types_global: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']    
+    layer_types_local: ['GraphGaussconv','GraphGaussconv','GraphGaussconv','GraphGaussconv']
+    phy_dim: 3
+    kernel_mode: 16
+    r: 0.1
+    max_num_neighbors: 800
+    Fourier_freq_para: 'para/Fourier3_uniform.pt'
+    init_freq_local: 10
+    init_weight_local: 50
+
+    fc_dim: 128
+    input_with_weight: True
+    in_dim: 3  # for fc0(x)
+    out_dim: 3  
+    layers_dim: [128,128,128,128,128]     # len(layers_dim) == len(..modes)+1 
+    layer_hidden_dim: [32,32,32,32]
+    act: 'gelu'
+    dropout: [False,False,False,False]
+    device: 'cuda' 
+    
+    global_only: False
+    local_only: True
+
+  train:
+
+    device: 'cuda'   #cpu or cuda
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: 'OneCycleLR'
+    milestones: [200,300,400,500,800,900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: False
+    normalization_y: True
+    normalization_dim: []
+    regularization_ep: 0
+
+
+  plot:
+
+    plot_hidden_layers_num: 0
+    save_figure_hidden: figure/test/
+    plot_shape: [31,31]
+    # plot_data_index: [0,6,11,23,24,25]

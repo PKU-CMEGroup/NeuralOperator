@@ -143,7 +143,7 @@ class PhyDGalerkinConv(nn.Module):
         x_hat = torch.einsum("bcx,bxk->bck", x, wbases[:,:,:self.modes])
         x_hat = x_hat.to(self.dtype)
 
-        
+
         # Multiply relevant Fourier modes
         x_hat = mycompl_mul1d_D(self.weights, self.D , x_hat)
 

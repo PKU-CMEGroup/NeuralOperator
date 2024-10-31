@@ -10,19 +10,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.linalg import block_diag
+from torch_cluster import knn
 sys.path.append("../")
 from mayavi import mlab
 import imageio
 from PIL import Image, ImageDraw, ImageFont
-from .basics import (
-    compl_mul1d,
-    SpectralConv1d,
-    SpectralConv2d_shape,
-    SimpleAttention,
-)
-from .utils import _get_act, add_padding, remove_padding
 
-        
+from .utils import _get_act, add_padding, remove_padding
+from models.GPDconv import GPDconv
+from models.GraphGaussconv import GraphGaussconv
+
+
 def mycompl_mul1d(weights, H , x_hat):
     x_hat1 = torch.einsum('jkl,bil -> bijk', H , x_hat)
     y = torch.einsum('ioj,bijk -> bok', weights , x_hat1)
@@ -34,50 +32,6 @@ def mycompl_mul1d_D(weights, D , x_hat):
     x_hat1 = x_hat_expanded * D_expanded  # shape: (bsz, input channel, kernel_modes, modes)
     y = torch.einsum('bijk,ioj -> bok', x_hat1 , weights )
     return y
-
-def compute_H_D(D, product):
-    #D.shape: kernel_mode,modes_out
-    #product.shape: modes_out,modes_in
-    J = D.shape[0]
-    #product.shape: bsz,K,L
-    K = product.shape[0]
-    L = product.shape[1]
-    # print(f'bsz={bsz}')
-    H = D.reshape(J,K,1)*product.reshape(1,K,L)
-    return H
-
-class PhyGalerkinConv(nn.Module):
-    def __init__(self, in_channels, out_channels, modes):
-        super(PhyGalerkinConv, self).__init__()
-
-        """
-        1D Spectral layer. It avoids FFT, but utilizes low rank approximation. 
-        
-        """
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        # Number of Fourier modes to multiply, at most floor(N/2) + 1
-        self.modes = modes
-        self.dtype = torch.float
-        self.scale = 1 / (in_channels * out_channels)
-        self.weights = nn.Parameter(
-            self.scale
-            * torch.rand(in_channels, out_channels, self.modes, dtype=self.dtype)
-        )
-
-    def forward(self, x, wbases, bases):
-
-        # Compute coeffcients
-        x_hat = torch.einsum("bcx,bxk->bck", x, wbases)
-        # x_hat = x_hat.to(self.dtype)
-        # Multiply relevant Fourier modes
-        x_hat = compl_mul1d(x_hat, self.weights)
-
-        # Return to physical space
-        x = torch.real(torch.einsum("bck,bxk->bcx", x_hat, bases))
-
-        return x
 
 class PhyHGalerkinConv(nn.Module):
     def __init__(self, in_channels, out_channels, modes_in, modes_out, kernel_modes, H):
@@ -114,7 +68,7 @@ class PhyHGalerkinConv(nn.Module):
         # Return to physical space
         x = torch.real(torch.einsum("bck,bxk->bcx", x_hat, bases[:,:,:self.modes_out]))
         return x
-
+    
 class PhyDGalerkinConv(nn.Module):
     def __init__(self, in_channels, out_channels, modes, kernel_modes, D):
         super(PhyDGalerkinConv, self).__init__()
@@ -152,11 +106,11 @@ class PhyDGalerkinConv(nn.Module):
         x = torch.einsum("bck,bxk->bcx", x_hat, bases[:,:,:self.modes])
 
         return x
-
-class PhyHGkNN5(nn.Module):
+    
+class GPGkNN(nn.Module):
     def __init__(self,base_para_list,**config):
 
-        super(PhyHGkNN5, self).__init__()
+        super(GPGkNN, self).__init__()
 
         self.base_para_list = base_para_list
         self.config = defaultdict(lambda: None, **config)
@@ -208,14 +162,18 @@ class PhyHGkNN5(nn.Module):
         self.ln0 = nn.LayerNorm(self.layers_dim[0])
 
 
-    def forward(self, x):
-        """
-        Input shape (of x):     (batch, nx_in,  channels_in)
-        Output shape:           (batch, nx_out, channels_out)
+    def forward(self, x, edge_grid, edge_Gauss):
+        '''
+        x:                          (bsz, N, in_channel)
 
-        The input resolution is determined by x.shape[-1]
-        The output resolution is determined by self.s_outputspace
-        """
+        grid:                       (bsz, N, phy_dim)
+
+        grid_weight:                (bsz, N)
+
+        edge_grid, edge_Gauss:          (bsz, num_pts, k)
+
+        out:                        (bsz, N, out_channel)
+        '''
 
         
         if self.input_with_weight:
@@ -227,8 +185,9 @@ class PhyHGkNN5(nn.Module):
             grid_weight = None
         if not self.local_only:
             bases_g, wbases_g = self.compute_bases_global(grid, grid_weight)
-        if not self.global_only:
-            bases_l, wbases_l = self.compute_bases_local(grid, grid_weight)
+        # if not self.global_only:
+        #     bases_l, wbases_l = self.compute_bases_local(grid, grid_weight)
+        
 
         length = len(self.ws)
         x = self.fc0(x)
@@ -248,12 +207,13 @@ class PhyHGkNN5(nn.Module):
                 x1 = layer_g(x , wbases_g , bases_g)
             elif self.local_only:
                 layer_l, w, dplayer, ln = items
-                x1 = layer_l(x , wbases_l , bases_l)
+                x1 = layer_l(x, grid , grid_weight , edge_grid , edge_Gauss)
             else:
                 layer_g, layer_l, w, dplayer, ln = items
-                x1 = layer_g(x , wbases_g , bases_g) + layer_l(x , wbases_l , bases_l)   
+                x1 = layer_g(x , wbases_g , bases_g) + layer_l(x, grid , grid_weight , edge_grid , edge_Gauss)   
             x2 = w(x)
             x = x1 + x2
+            # x = x2
             x = dplayer(x)
             x = ln(x.transpose(1,2)).transpose(1,2)
             if self.act is not None and i != length - 1:
@@ -284,7 +244,7 @@ class PhyHGkNN5(nn.Module):
                 H = self.H_local
             kernel_modes = self.kernel_mode
             return PhyHGalerkinConv(in_channels, out_channels, num_modes_in, num_modes_out, kernel_modes, H)
-        if layer_type == "DGalerkinConv":
+        elif layer_type == "DGalerkinConv":
             if if_global:
                 num_modes = self.num_modes_global
                 H = self.H_global
@@ -293,6 +253,15 @@ class PhyHGkNN5(nn.Module):
                 H = self.H_local        
             kernel_modes = self.kernel_mode
             return PhyDGalerkinConv(in_channels, out_channels,  num_modes, kernel_modes,H)
+        elif layer_type == "GPDconv":
+            assert if_global ==False
+            num_modes = self.num_modes_local   
+            H = self.H_local        
+            kernel_modes = self.kernel_mode
+            return GPDconv(in_channels, out_channels,  num_modes, kernel_modes,H, self.basepts_Gauss_in, self.baseweight_Gauss_in)
+        elif layer_type == "GraphGaussconv":
+
+            return GraphGaussconv(in_channels,self.layer_hidden_dim[index], out_channels, self.init_weight)
         else:
             raise ValueError("Layer Type Undefined.")
 
@@ -303,52 +272,59 @@ class PhyHGkNN5(nn.Module):
             k1 = self.basefreq_Fourier.shape[0]
             self.num_modes_global = 2*k1
         if not self.global_only:
-            if self.local_bases_type =='Gauss':
-                self.basepts_Gauss_in = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
-                self.baseweight_Gauss_in = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
-                if self.train_local_out:
-                    self.basepts_Gauss_out = nn.Parameter(self.base_para_list[1].to(self.device))  #shape: K2,phy_dim
-                    self.baseweight_Gauss_out = nn.Parameter(self.base_para_list[2].to(self.device))  #shape: K2,phy_dim
-                else:
-                    self.basepts_Gauss_out = self.basepts_Gauss_in
-                    self.baseweight_Gauss_out = self.baseweight_Gauss_in
-                k2 = self.baseweight_Gauss_in.shape[0]
-                self.num_modes_local = k2
-            elif self.local_bases_type =='Morlet':
-                self.basepts_Morlet = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
-                self.baseweight_Morlet = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
-                self.basefreq_Morlet = self.base_para_list[3].to(self.device)  #shape: K2,phy_dim
-                k2 = self.basepts_Morlet.shape[0]
-                self.num_modes_local = 2*k2
+            if "GraphGaussconv" in self.layer_types_local:
+                self.init_weight = self.base_para_list[4].to(self.device)
+            else:
+                if self.local_bases_type =='Gauss':
+                    self.basepts_Gauss_in = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
+                    if self.train_local_weight:
+                        self.baseweight_Gauss_in = nn.Parameter(self.base_para_list[2].to(self.device))
+                    else:
+                        self.baseweight_Gauss_in = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
+                    if self.train_local_out:
+                        self.basepts_Gauss_out = nn.Parameter(self.base_para_list[1].to(self.device))  #shape: K2,phy_dim
+                        self.baseweight_Gauss_out = nn.Parameter(self.base_para_list[2].to(self.device))  #shape: K2,phy_dim
+                    else:
+                        self.basepts_Gauss_out = self.basepts_Gauss_in
+                        self.baseweight_Gauss_out = self.baseweight_Gauss_in
+                    k2 = self.baseweight_Gauss_in.shape[0]
+                    self.num_modes_local = k2
+                elif self.local_bases_type =='Morlet':
+                    self.basepts_Morlet = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
+                    self.baseweight_Morlet = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
+                    self.basefreq_Morlet = self.base_para_list[3].to(self.device)  #shape: K2,phy_dim
+                    k2 = self.basepts_Morlet.shape[0]
+                    self.num_modes_local = 2*k2
 
 
-    def compute_bases_local(self, grid, gridweight):
-        N = grid.shape[1]
-        if gridweight != None:
-            gridweight = gridweight.unsqueeze(-1)
-            if self.local_bases_type =='Gauss':
-                bases_Gauss = self.compute_basesout_Gauss(grid) #shape: bsz,N,K2
-                if not self.train_local_out:
-                        wbases_Gauss = bases_Gauss * gridweight
-                else:
-                    wbases_Gauss = self.compute_basesin_Gauss(grid) * gridweight
-                return bases_Gauss, wbases_Gauss
-            elif self.local_bases_type =='Morlet':
-                bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
-                wbases_Morlet = bases_Morlet * gridweight
-                return bases_Morlet, wbases_Morlet
-        else:
-            if self.local_bases_type =='Gauss':
-                bases_Gauss = self.compute_basesout_Gauss(grid) #shape: bsz,N,K2
-                if not self.train_local_out:
-                    wbases_Gauss = bases_Gauss/N
-                else:
-                    wbases_Gauss = self.compute_basesin_Gauss(grid) * gridweight
-                return bases_Gauss, wbases_Gauss
-            elif self.local_bases_type =='Morlet':
-                bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
-                wbases_Morlet = bases_Morlet/N
-                return bases_Morlet, wbases_Morlet
+
+    # def compute_bases_local(self, grid, gridweight):
+    #     N = grid.shape[1]
+    #     if gridweight != None:
+    #         gridweight = gridweight.unsqueeze(-1)
+    #         if self.local_bases_type =='Gauss':
+    #             bases_Gauss = self.compute_basesout_Gauss(grid) #shape: bsz,N,K2
+    #             if not self.train_local_out:
+    #                     wbases_Gauss = bases_Gauss * gridweight
+    #             else:
+    #                 wbases_Gauss = self.compute_basesin_Gauss(grid) * gridweight
+    #             return bases_Gauss, wbases_Gauss
+    #         elif self.local_bases_type =='Morlet':
+    #             bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
+    #             wbases_Morlet = bases_Morlet * gridweight
+    #             return bases_Morlet, wbases_Morlet
+    #     else:
+    #         if self.local_bases_type =='Gauss':
+    #             bases_Gauss = self.compute_basesout_Gauss(grid) #shape: bsz,N,K2
+    #             if not self.train_local_out:
+    #                 wbases_Gauss = bases_Gauss/N
+    #             else:
+    #                 wbases_Gauss = self.compute_basesin_Gauss(grid) * gridweight
+    #             return bases_Gauss, wbases_Gauss
+    #         elif self.local_bases_type =='Morlet':
+    #             bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
+    #             wbases_Morlet = bases_Morlet/N
+    #             return bases_Morlet, wbases_Morlet
             
         
     def compute_bases_global(self, grid, gridweight):
@@ -371,34 +347,34 @@ class PhyHGkNN5(nn.Module):
         bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True) + 1e-5)
         return bases     
     
-    def compute_basesout_Gauss(self,grid):
-        #grid.shape:  bsz,N,phy_dim
-        grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
-        basepts = self.basepts_Gauss_out.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
-        baseweight = torch.abs(self.baseweight_Gauss_out).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
-        bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
-        bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True)+1e-5)
-        return bases
+    # def compute_basesout_Gauss(self,grid):
+    #     #grid.shape:  bsz,N,phy_dim
+    #     grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
+    #     basepts = self.basepts_Gauss_out.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
+    #     baseweight = torch.abs(self.baseweight_Gauss_out).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
+    #     bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
+    #     bases = bases*math.sqrt(bases.shape[1])/torch.norm(bases, p=2, dim=1, keepdim=True)
+    #     return bases
     
-    def compute_basesin_Gauss(self,grid):
-        grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
-        basepts = self.basepts_Gauss_in.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
-        baseweight = torch.abs(self.baseweight_Gauss_in).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
-        bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
-        bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True)+1e-5)
-        return bases
+    # def compute_basesin_Gauss(self,grid):
+    #     grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
+    #     basepts = self.basepts_Gauss_in.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
+    #     baseweight = torch.abs(self.baseweight_Gauss_in).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
+    #     bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
+    #     bases = bases*math.sqrt(bases.shape[1])/torch.norm(bases, p=2, dim=1, keepdim=True)
+    #     return bases
     
-    def compute_bases_Morlet(self,grid):
-        grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
-        basepts = self.basepts_Morlet.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
-        baseweight = torch.abs(self.baseweight_Morlet).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
-        basefreq = self.basefreq_Morlet.unsqueeze(0).unsqueeze(0) #1,1,K2,phy_dim
-        b1 = torch.exp(torch.sum(1j*basefreq*grid,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
-        b = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
-        bases_complex = b1*b  #bsz,N,K1
-        bases = torch.cat((torch.real(bases_complex),torch.imag(bases_complex)),dim=-1)  #bsz,N,2*K1
-        bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True) + 1e-5)
-        return bases 
+    # def compute_bases_Morlet(self,grid):
+    #     grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
+    #     basepts = self.basepts_Morlet.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
+    #     baseweight = torch.abs(self.baseweight_Morlet).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
+    #     basefreq = self.basefreq_Morlet.unsqueeze(0).unsqueeze(0) #1,1,K2,phy_dim
+    #     b1 = torch.exp(torch.sum(1j*basefreq*grid,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
+    #     b = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
+    #     bases_complex = b1*b  #bsz,N,K1
+    #     bases = torch.cat((torch.real(bases_complex),torch.imag(bases_complex)),dim=-1)  #bsz,N,2*K1
+    #     bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True) + 1e-5)
+    #     return bases 
     
     def construct_H(self):
         if not self.local_only:
@@ -421,14 +397,14 @@ class PhyHGkNN5(nn.Module):
                         scale
                         * torch.rand(self.kernel_mode, self.num_modes_local, self.num_modes_local, dtype=torch.float)
                     )
-            if 'DGalerkinConv' in self.layer_types_local:
+            if 'DGalerkinConv' in self.layer_types_local or  "GPDconv" in self.layer_types_local:
                 scale = 1/self.num_modes_local
                 self.H_local = nn.Parameter(
                         scale
                         * torch.rand(self.kernel_mode, self.num_modes_local, dtype=torch.float)
                     )
 
-    def plot_hidden_layer(self,x,y,Nx,Ny,save_figure_hidden,epoch,plot_hidden_layers_num):
+    def plot_hidden_layer(self,x, edge_grid, edge_Gauss,y,Nx,Ny,save_figure_hidden,epoch,plot_hidden_layers_num):
         fig, axs = plt.subplots(plot_hidden_layers_num, 9, figsize=(27, 3*plot_hidden_layers_num))
         length = len(self.ws)
         for j in range(plot_hidden_layers_num):
@@ -445,17 +421,17 @@ class PhyHGkNN5(nn.Module):
 
 
         if self.input_with_weight:
-            grid = x[:,:,self.in_dim-self.phy_dim-1:-1]
+            grid = x[:,:,self.in_dim-self.phy_dim:-1]
             grid_weight = x[:,:,-1]
+            x = x[:,:,:-1]
         else:
             grid = x[:,:,self.in_dim-self.phy_dim:]
             grid_weight = None
-
         if not self.local_only:
             bases_g, wbases_g = self.compute_bases_global(grid, grid_weight)
-        if not self.global_only:
-            bases_l, wbases_l = self.compute_bases_local(grid, grid_weight)
-
+        # if not self.global_only:
+        #     bases_l, wbases_l = self.compute_bases_local(grid, grid_weight)
+        
 
         length = len(self.ws)
         x = self.fc0(x)
@@ -487,10 +463,10 @@ class PhyHGkNN5(nn.Module):
                 x1 = layer_g(x , wbases_g , bases_g)
             elif self.local_only:
                 layer_l, w, dplayer, ln = items
-                x1 = layer_l(x , wbases_l , bases_l)
+                x1 = layer_l(x, grid , grid_weight , edge_grid , edge_Gauss)
             else:
                 layer_g, layer_l, w, dplayer, ln = items
-                x1 = layer_g(x , wbases_g , bases_g) + layer_l(x , wbases_l , bases_l)   
+                x1 = layer_g(x , wbases_g , bases_g) + layer_l(x, grid , grid_weight , edge_grid , edge_Gauss)   
             x2 = w(x)
             x = x1 + x2
             x = dplayer(x)
@@ -501,7 +477,7 @@ class PhyHGkNN5(nn.Module):
                 if self.phy_dim==2:
                     x0 = x[j,0,:].cpu().reshape(Nx,Ny)
                     im = axs[j,i+2].imshow(x0, cmap='viridis')
-                    fig.colorbar(im, ax=axs[i+2])
+                    fig.colorbar(im, ax=axs[j,i+2])
                 elif self.phy_dim==1:
                     x0 = x[j,0,:].cpu()
                     im = axs[j,i+2].plot(x0)
@@ -555,10 +531,11 @@ class PhyHGkNN5(nn.Module):
         plt.savefig(save_figure_hidden + 'ep'+str(epoch).zfill(3)+'.png', format='png')
         plt.close()
     
-    def plot_hidden_layer_3d(self,x,y,save_figure_hidden,epoch,plot_hidden_layers_num):
+    def plot_hidden_layer_3d(self,x, edge_grid, edge_Gauss,y,save_figure_hidden,epoch,plot_hidden_layers_num):
+
         assert self.phy_dim ==3
         mlab.options.offscreen = True  # 设置为无头模式
-        out = self.forward(x)
+        out = self.forward(x,edge_grid, edge_Gauss)
         images = []
         font_path = 'arial.ttf'  # 字体文件路径，或者使用系统字体
         text_color = (0, 0, 0)  # 文本颜色为黑色
@@ -602,6 +579,8 @@ class PhyHGkNN5(nn.Module):
         final_image = np.vstack(images)
         filename = save_figure_hidden+ 'ep'+str(epoch).zfill(3)+ '.png'
         imageio.imwrite(filename, final_image)
+
+
     # def plot_bases(self,num_bases,grid,Nx,Ny,save_figure_bases,epoch):
     #     bases = self.compute_base(grid)  #bsz,N,k
     #     row, col = decompose_integer(num_bases)
@@ -630,6 +609,56 @@ def decompose_integer(n):
         if n % i == 0:
             return (i, n // i)
     return (1, n)
+
+def compute_edge_fixpts(grid,basepts,k):
+    '''
+    grid:        (bsz, N, phy_dim)
+
+    basepts:      (num_pts, phy_dim)
+
+    out(edge_grid,edge_Gauss):       (bsz, num_pts, k)
+    '''
+    M, phy_dim = basepts.shape
+    bsz, N, _ = grid.shape
+    grid = grid.reshape(-1,phy_dim)
+    basepts = basepts.reshape(1,M,phy_dim).repeat(bsz,1,1).reshape(-1,phy_dim)   #bsz*M, phy_dim
+    batch_x = torch.arange(bsz).reshape(bsz,1,1).repeat(1,N,1).reshape(-1)
+    batch_y = torch.arange(bsz).reshape(bsz,1,1).repeat(1,M,1).reshape(-1)
+    edge_Gauss, edge_grid  = knn(grid , basepts ,batch_x = batch_x , batch_y = batch_y, k = k, batch_size=bsz)
+
+    edge_grid = edge_grid.reshape(bsz,M,k)
+    edge_Gauss = edge_Gauss.reshape(bsz,M,k)
+
+    edge_grid = edge_grid - (torch.arange(bsz) * N).reshape(bsz, 1, 1)  # Shape: (bsz, M, k)
+    edge_Gauss = edge_Gauss - (torch.arange(bsz) * M).reshape(bsz, 1, 1)  # Shape: (bsz, M, k)
+    return edge_grid, edge_Gauss
+
+
+
+def compute_self_edge(grid,k):
+    '''
+    grid:        (bsz, N, phy_dim)
+
+
+    out(edge_src,edge_dst):       (bsz, N, k)
+    '''
+
+    bsz, N, phy_dim = grid.shape
+    grid = grid.reshape(-1,phy_dim)
+
+    batch = torch.arange(bsz).reshape(bsz,1,1).repeat(1,N,1).reshape(-1)
+
+    edge_src,edge_dst  = knn(grid , grid ,batch_x = batch , batch_y = batch, k = k, batch_size=bsz)
+
+    mask = edge_src != edge_dst  # mask 是一个布尔数组，标记非 self-loops 的位置
+    edge_src = edge_src[mask]
+    edge_dst = edge_dst[mask]
+    edge_src = edge_src.reshape(bsz,N,k-1)
+    edge_dst = edge_dst.reshape(bsz,N,k-1)
+
+    edge_src = edge_src - (torch.arange(bsz) * N).reshape(bsz, 1, 1)  # Shape: (bsz, N, k)
+    edge_dst = edge_dst - (torch.arange(bsz) * N).reshape(bsz, 1, 1)  # Shape: (bsz, N, k)
+    return edge_src, edge_dst
 
 def add_label(image, text, font_path, text_color, position):
     pil_image = Image.fromarray(image)

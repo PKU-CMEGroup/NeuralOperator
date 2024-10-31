@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
+import torch.optim as optim
 
 from .adam import Adam
 from .losses import LpLoss
@@ -29,8 +29,8 @@ def count_params(model):
     return c
 
 
-def newPhyHGkNN_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"
+def GPtrain(
+    x_train, y_train,edge_grid_train, edge_Gauss_train, x_test, y_test, edge_grid_test, edge_Gauss_test, config, model, save_model_name="./FNO_model"
 ):
 
     n_train, n_test = x_train.shape[0], x_test.shape[0]
@@ -47,7 +47,7 @@ def newPhyHGkNN_train(
     # cost = FNN_cost(x_train.shape[1], config, dim)
 
     device = torch.device(config["train"]["device"])
-
+    same_edge = config['model']['same_edge']
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
@@ -60,20 +60,35 @@ def newPhyHGkNN_train(
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
 
-    train_loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_train, y_train),
-        batch_size=config["train"]["batch_size"],
-        shuffle=True,
-        pin_memory=True
-    )
-    test_loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_test, y_test),
-        batch_size=config["train"]["batch_size"],
-        shuffle=False,
-        pin_memory=True
-    )
+    if not same_edge:
+        train_loader = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(x_train, y_train, edge_grid_train, edge_Gauss_train,),
+            batch_size=config["train"]["batch_size"],
+            shuffle=True,
+            pin_memory=True
+        )
+        test_loader = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(x_test, y_test, edge_grid_test, edge_Gauss_test,),
+            batch_size=config["train"]["batch_size"],
+            shuffle=False,
+            pin_memory=True
+        )
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(x_train, y_train),
+            batch_size=config["train"]["batch_size"],
+            shuffle=True,
+            pin_memory=True
+        )
+        test_loader = torch.utils.data.DataLoader(
+            torch.utils.data.TensorDataset(x_test, y_test),
+            batch_size=config["train"]["batch_size"],
+            shuffle=False,
+            pin_memory=True
+        )
 
-    # Load from checkpoint
+
+    
     optimizer = Adam(
         model.parameters(),
         betas=(0.9, 0.999),
@@ -108,35 +123,29 @@ def newPhyHGkNN_train(
     myloss = LpLoss(d=1, p=2, size_average=False)
 
     epochs = config["train"]["epochs"]
-    try:
-        plot_H_num = config['plot']['plot_H_num']
-    except:
-        plot_H_num = 0
-    try:
-        plot_hidden_layers_num = config['plot']['plot_hidden_layers_num']
-    except:
-        plot_hidden_layers_num = False
-    try:
-        plot_bases_num = config['plot']['plot_bases_num']
-    except:
-        plot_bases_num = 0
-    try:
-        plot_data_index = config['plot']['plot_data_index']
-    except:
-        plot_data_index = False
+
+    plot_hidden_layers_num = config.get('plot', {}).get('plot_hidden_layers_num', False)
+    plot_bases_num = config.get('plot', {}).get('plot_bases_num', 0)
+    plot_data_index = config.get('plot', {}).get('plot_data_index', False)
     t1 = default_timer()
 
 
     for ep in range(epochs):
+        
         train_rel_l2 = 0
         model.train()
-        for x, y in train_loader:
-
+        for item in train_loader:
+            if not same_edge:
+                x, y ,edge_grid, edge_Gauss = item
+            else:
+                x, y = item
+                edge_grid = edge_grid_train.repeat(config["train"]["batch_size"],1,1)
+                edge_Gauss = edge_Gauss_train.repeat(config["train"]["batch_size"],1,1)
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
-
+            edge_grid, edge_Gauss = edge_grid.to(device, non_blocking=True), edge_Gauss.to(device, non_blocking=True)
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x)  # .reshape(batch_size_,  -1)
+            out = model(x, edge_grid, edge_Gauss)  # .reshape(batch_size_,  -1)
 
             if normalization_y:
                 out = y_normalizer.decode(out)
@@ -145,6 +154,22 @@ def newPhyHGkNN_train(
             train_rel_l2 += loss.item()
             loss.backward()
 
+            # special_weights = []
+            # try:
+            #     for i in range(4):
+            #         special_weights.append(getattr(model.sp_layers_local[i], 'baseweight'))
+            # except Exception:
+            #     pass 
+            # try:
+            #     if model.train_local_weight:
+            #         special_weights.append(model.baseweight_Gauss_in)
+            # except Exception:
+            #     pass
+            # for sw in special_weights:
+            #     if sw.grad is not None:
+            #         # print(sw.grad[:3])
+            #         sw.grad.data.mul_(0)
+            #         # print(sw.grad[:3])
             optimizer.step()
 
         # test_l2 = 0
@@ -154,18 +179,22 @@ def newPhyHGkNN_train(
                 if plot_data_index:
                     x = x_test[plot_data_index,:,:].to(device)
                     y = y_test[plot_data_index,:,:].to(device)
+                    edge_grid = edge_grid_test[plot_data_index,:,:].to(device)
+                    edge_Gauss = edge_Gauss_test[plot_data_index,:,:].to(device)
                 else:
                     interval = n_test//(8-1)
                     indices = [i * interval for i in range(8)]
-                    x = x_test[indices,:,:].to(device)
-                    y = y_test[indices,:,:].to(device)
+                    x = x_test[indices].to(device)
+                    y = y_test[indices].to(device)
+                    edge_grid = edge_grid_test[indices].to(device)
+                    edge_Gauss = edge_Gauss_test[indices].to(device)
                 save_figure_hidden = config['plot']['save_figure_hidden']
                 Nx,Ny = config['plot']['plot_shape'][0],config['plot']['plot_shape'][1]
                 if ep%10 ==0:
                     if config['model']['phy_dim']==3:
-                        model.plot_hidden_layer_3d(x,y,save_figure_hidden,ep,plot_hidden_layers_num)
+                        model.plot_hidden_layer_3d(x,edge_grid, edge_Gauss,y,save_figure_hidden,ep,plot_hidden_layers_num)
                     else:
-                        model.plot_hidden_layer(x,y,Nx,Ny,save_figure_hidden,ep,plot_hidden_layers_num)
+                        model.plot_hidden_layer(x,edge_grid, edge_Gauss,y,Nx,Ny,save_figure_hidden,ep,plot_hidden_layers_num)
             if plot_bases_num:
                 if ep%10==0:
                     Nx,Ny = config['plot']['plot_shape'][0],config['plot']['plot_shape'][1]
@@ -173,11 +202,18 @@ def newPhyHGkNN_train(
                     grid =  x[:,:,model.in_dim-model.phy_dim:]
                     model.plot_bases(plot_bases_num,grid,Nx,Ny,save_figure_bases,ep)
                 
-            for x, y in test_loader:
+            for item in test_loader:
+                if not same_edge:
+                    x, y ,edge_grid, edge_Gauss = item
+                else:
+                    x, y = item
+                    edge_grid = edge_grid_test.repeat(config["train"]["batch_size"],1,1)
+                    edge_Gauss = edge_Gauss_test.repeat(config["train"]["batch_size"],1,1)
                 x, y = x.to(device), y.to(device)
+                edge_grid, edge_Gauss = edge_grid.to(device, non_blocking=True), edge_Gauss.to(device, non_blocking=True)
 
                 batch_size_ = x.shape[0]
-                out = model(x)
+                out = model(x, edge_grid, edge_Gauss)
                 
                 if normalization_y:
                     out = y_normalizer.decode(out)

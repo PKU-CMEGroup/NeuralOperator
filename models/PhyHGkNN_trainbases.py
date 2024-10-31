@@ -153,10 +153,10 @@ class PhyDGalerkinConv(nn.Module):
 
         return x
 
-class PhyHGkNN5(nn.Module):
+class PhyHGkNN_trainbases(nn.Module):
     def __init__(self,base_para_list,**config):
 
-        super(PhyHGkNN5, self).__init__()
+        super(PhyHGkNN_trainbases, self).__init__()
 
         self.base_para_list = base_para_list
         self.config = defaultdict(lambda: None, **config)
@@ -299,27 +299,21 @@ class PhyHGkNN5(nn.Module):
 
     def construct_base_parameter(self):
         if not self.local_only:
-            self.basefreq_Fourier = self.base_para_list[0].to(self.device)  #shape: K1,phy_dim
+            self.basefreq_Fourier = nn.Parameter(self.base_para_list[0].to(self.device))  #shape: K1,phy_dim
             k1 = self.basefreq_Fourier.shape[0]
             self.num_modes_global = 2*k1
         if not self.global_only:
             if self.local_bases_type =='Gauss':
-                self.basepts_Gauss_in = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
-                self.baseweight_Gauss_in = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
-                if self.train_local_out:
-                    self.basepts_Gauss_out = nn.Parameter(self.base_para_list[1].to(self.device))  #shape: K2,phy_dim
-                    self.baseweight_Gauss_out = nn.Parameter(self.base_para_list[2].to(self.device))  #shape: K2,phy_dim
-                else:
-                    self.basepts_Gauss_out = self.basepts_Gauss_in
-                    self.baseweight_Gauss_out = self.baseweight_Gauss_in
-                k2 = self.baseweight_Gauss_in.shape[0]
+                self.basepts_Gauss = nn.Parameter(self.base_para_list[1])  #shape: K2,phy_dim
+                self.baseweight_Gauss = nn.Parameter(self.base_para_list[2])  #shape: K2,phy_dim
+                k2 = self.baseweight_Gauss.shape[0]
                 self.num_modes_local = k2
-            elif self.local_bases_type =='Morlet':
-                self.basepts_Morlet = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
-                self.baseweight_Morlet = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
-                self.basefreq_Morlet = self.base_para_list[3].to(self.device)  #shape: K2,phy_dim
-                k2 = self.basepts_Morlet.shape[0]
-                self.num_modes_local = 2*k2
+            # elif self.local_bases_type =='Morlet':
+            #     self.basepts_Morlet = self.base_para_list[1].to(self.device)  #shape: K2,phy_dim
+            #     self.baseweight_Morlet = self.base_para_list[2].to(self.device)  #shape: K2,phy_dim
+            #     self.basefreq_Morlet = self.base_para_list[3].to(self.device)  #shape: K2,phy_dim
+            #     k2 = self.basepts_Morlet.shape[0]
+            #     self.num_modes_local = 2*k2
 
 
     def compute_bases_local(self, grid, gridweight):
@@ -327,28 +321,28 @@ class PhyHGkNN5(nn.Module):
         if gridweight != None:
             gridweight = gridweight.unsqueeze(-1)
             if self.local_bases_type =='Gauss':
-                bases_Gauss = self.compute_basesout_Gauss(grid) #shape: bsz,N,K2
+                bases_Gauss = self.compute_bases_Gauss(grid) #shape: bsz,N,K2
                 if not self.train_local_out:
                         wbases_Gauss = bases_Gauss * gridweight
                 else:
-                    wbases_Gauss = self.compute_basesin_Gauss(grid) * gridweight
+                    wbases_Gauss = bases_Gauss * gridweight
                 return bases_Gauss, wbases_Gauss
-            elif self.local_bases_type =='Morlet':
-                bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
-                wbases_Morlet = bases_Morlet * gridweight
-                return bases_Morlet, wbases_Morlet
+            # elif self.local_bases_type =='Morlet':
+            #     bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
+            #     wbases_Morlet = bases_Morlet * gridweight
+            #     return bases_Morlet, wbases_Morlet
         else:
             if self.local_bases_type =='Gauss':
-                bases_Gauss = self.compute_basesout_Gauss(grid) #shape: bsz,N,K2
+                bases_Gauss = self.compute_bases_Gauss(grid) #shape: bsz,N,K2
                 if not self.train_local_out:
                     wbases_Gauss = bases_Gauss/N
                 else:
-                    wbases_Gauss = self.compute_basesin_Gauss(grid) * gridweight
+                    wbases_Gauss = bases_Gauss * gridweight
                 return bases_Gauss, wbases_Gauss
-            elif self.local_bases_type =='Morlet':
-                bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
-                wbases_Morlet = bases_Morlet/N
-                return bases_Morlet, wbases_Morlet
+            # elif self.local_bases_type =='Morlet':
+            #     bases_Morlet = self.compute_bases_Morlet(grid) #shape: bsz,N,K2
+            #     wbases_Morlet = bases_Morlet/N
+            #     return bases_Morlet, wbases_Morlet
             
         
     def compute_bases_global(self, grid, gridweight):
@@ -371,34 +365,28 @@ class PhyHGkNN5(nn.Module):
         bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True) + 1e-5)
         return bases     
     
-    def compute_basesout_Gauss(self,grid):
+    def compute_bases_Gauss(self,grid):
         #grid.shape:  bsz,N,phy_dim
         grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
-        basepts = self.basepts_Gauss_out.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
-        baseweight = torch.abs(self.baseweight_Gauss_out).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
+        basepts = self.basepts_Gauss.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
+        baseweight = torch.abs(self.baseweight_Gauss).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
         bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
         bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True)+1e-5)
         return bases
     
-    def compute_basesin_Gauss(self,grid):
-        grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
-        basepts = self.basepts_Gauss_in.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
-        baseweight = torch.abs(self.baseweight_Gauss_in).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
-        bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
-        bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True)+1e-5)
-        return bases
+
     
-    def compute_bases_Morlet(self,grid):
-        grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
-        basepts = self.basepts_Morlet.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
-        baseweight = torch.abs(self.baseweight_Morlet).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
-        basefreq = self.basefreq_Morlet.unsqueeze(0).unsqueeze(0) #1,1,K2,phy_dim
-        b1 = torch.exp(torch.sum(1j*basefreq*grid,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
-        b = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
-        bases_complex = b1*b  #bsz,N,K1
-        bases = torch.cat((torch.real(bases_complex),torch.imag(bases_complex)),dim=-1)  #bsz,N,2*K1
-        bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True) + 1e-5)
-        return bases 
+    # def compute_bases_Morlet(self,grid):
+    #     grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
+    #     basepts = self.basepts_Morlet.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
+    #     baseweight = torch.abs(self.baseweight_Morlet).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
+    #     basefreq = self.basefreq_Morlet.unsqueeze(0).unsqueeze(0) #1,1,K2,phy_dim
+    #     b1 = torch.exp(torch.sum(1j*basefreq*grid,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
+    #     b = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K1,phy_dim-->bsz,N,K1
+    #     bases_complex = b1*b  #bsz,N,K1
+    #     bases = torch.cat((torch.real(bases_complex),torch.imag(bases_complex)),dim=-1)  #bsz,N,2*K1
+    #     bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True) + 1e-5)
+    #     return bases 
     
     def construct_H(self):
         if not self.local_only:

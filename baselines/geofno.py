@@ -65,21 +65,6 @@ def _get_act(act):
 
 
 
-@torch.jit.script
-def compl_mul1d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    # (batch, in_channel, x ), (in_channel, out_channel, x) -> (batch, out_channel, x)
-    res = torch.einsum("bix,iox->box", a, b)
-    return res
-
-
-@torch.jit.script
-def compl_mul2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    # (batch, in_channel, x,y,t ), (in_channel, out_channel, x,y,t) -> (batch, out_channel, x,y,t)
-    res = torch.einsum("bixy,ioxy->boxy", a, b)
-    return res
-
-
-
 # def compute_Fourier_modes(ndim, nks, Ls):
 #     # 2d 
 #     if ndim == 2:

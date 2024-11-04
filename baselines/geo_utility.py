@@ -55,6 +55,7 @@ def compute_node_weights(nodes, elems, weight_type):
     for each element, compute its length, area or volume, 
     equally assign it to its nodes.
     
+    # TODO compute as FEM mass matrix
 
         Parameters:  
             nodes : float[nnodes, ndims]
@@ -212,6 +213,14 @@ def preprocess_data(nodes_list, elems_list, features_list, node_weight_type="are
 def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_include_coords = True):
     '''
     Convert structured data, to unstructured data
+                    ny-1                                                                  ny-1   2ny-1
+                    ny-2                                                                  ny-2    .
+                    .                                                                       .     .
+    y direction     .          nodes are ordered from left to right/bottom to top           .     .
+                    .                                                                       .     .
+                    1                                                                       1     ny+1
+                    0                                                                       0     ny
+                        0 - 1 - 2 - ... - nx-1   (x direction)
 
         Parameters:  
             coords_list            :  list of ndims float[nnodes, nx, ny], for each dimension

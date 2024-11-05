@@ -53,9 +53,10 @@ def load_data(data_path = "../data/car"):
 ###################################
 # load data
 ###################################
-print("Loading data")
+
 CONVERT_DATA = True
 if CONVERT_DATA:
+    print("Loading data")
     data_path = "../data/car"
     max_nnodes, nodes_list, elems_list, features_list  = load_data(data_path = data_path)
 
@@ -89,7 +90,7 @@ aux_test        = (node_markers[-n_test:,...],  nodes[-n_test:,...],  node_weigh
 y_train, y_test = features[:n_train,...],     features[-n_test:,...]
 
 
-k_max = 16
+k_max = 8
 ndim = 3
 modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [1.0,1.0,1.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)

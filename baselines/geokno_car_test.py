@@ -1,4 +1,4 @@
-import open3d as o3d
+# import open3d as o3d
 import os
 import glob
 import random
@@ -54,7 +54,7 @@ def load_data(data_path = "../data/car"):
 # load data
 ###################################
 
-CONVERT_DATA = True
+CONVERT_DATA = False
 if CONVERT_DATA:
     print("Loading data")
     data_path = "../data/car"
@@ -72,7 +72,7 @@ else:
 
 print("Casting to tensor")
 nnodes = torch.from_numpy(nnodes)
-node_markers = torch.from_numpy(node_mask)
+node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
 features = torch.from_numpy(features.astype(np.float32))
@@ -85,8 +85,8 @@ n_train, n_test = 500, 100
 
 
 x_train, x_test = nodes[:n_train,...], nodes[-n_test:,...]
-aux_train       = (node_markers[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
-aux_test        = (node_markers[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
+aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
+aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 y_train, y_test = features[:n_train,...],     features[-n_test:,...]
 
 

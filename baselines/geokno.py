@@ -260,7 +260,7 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     message = torch.einsum('bed,bec->becd', edge_gradient_weights, f[torch.arange(batch_size).unsqueeze(1), source] - f[torch.arange(batch_size).unsqueeze(1), target]).reshape(batch_size, max_nedges, in_channels*ndims)
     
     # f_gradients : float Tensor[batch_size, max_nnodes, in_channels*ndims]
-    f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype)
+    f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype).to(message.get_device())
     f_gradients.scatter_add_(dim=1,  src=message, index=target.unsqueeze(2).repeat(1,1,in_channels*ndims))
     
     return f_gradients.permute(0,2,1)
@@ -402,12 +402,12 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         y_normalizer.to(device)
 
 
-    node_markers_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_markers_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
-    node_markers_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_markers_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test), 
+    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
     
@@ -441,12 +441,12 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_markers, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
-            x, y, node_markers, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_markers.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_markers, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -460,11 +460,11 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         test_l2 = 0
         test_rel_l2 = 0
         with torch.no_grad():
-            for x, y, node_markers, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
-                x, y, node_markers, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_markers.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_markers, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)

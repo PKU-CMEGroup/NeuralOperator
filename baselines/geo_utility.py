@@ -87,7 +87,7 @@ def compute_node_weights(nodes, elems, weight_type):
     return weights
 
 
-def compute_edge_gradient_weights(nodes, elems):
+def compute_edge_gradient_weights(nodes, elems, rcond = 10.0):
     '''
     Compute weights for gradient computation  
     The gradient is computed by least square.
@@ -113,6 +113,7 @@ def compute_edge_gradient_weights(nodes, elems):
         Parameters:  
             nodes : float[nnodes, ndims]
             elems : int[nelems, max_num_of_nodes_per_elem]
+            rcond : float, truncate the singular values in numpy.linalg.pinv at rcond*largest_singular_value
             
             * The elems array can have some padding numbers, for example, when
             we have both line segments and triangles, the padding values are
@@ -148,7 +149,7 @@ def compute_edge_gradient_weights(nodes, elems):
         for i, b in enumerate(adj_list[a]):
             dx[i, :] = nodes[b,:] - nodes[a,:]
             directed_edges.append([a,b])
-        edge_gradient_weights.append(np.linalg.pinv(dx).T)
+        edge_gradient_weights.append(np.linalg.pinv(dx, rcond=rcond).T)
         
     directed_edges = np.array(directed_edges, dtype=int)
     edge_gradient_weights = np.concatenate(edge_gradient_weights, axis=0)

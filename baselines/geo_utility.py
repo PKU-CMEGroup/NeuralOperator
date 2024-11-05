@@ -55,12 +55,18 @@ def compute_node_weights(nodes, elems, weight_type):
     for each element, compute its length, area or volume, 
     equally assign it to its nodes.
     
+    * When weight_type is None, all nodes are of equal weight
+
     # TODO compute as FEM mass matrix
 
         Parameters:  
             nodes : float[nnodes, ndims]
             elems : int[nelems, max_num_of_nodes_per_elem]
-            type  : string, "length", "area", or "volume"
+            type  : string, "length", "area", "volume", or None
+
+            * When node_weight_type is None, all nodes are of equal weight, S/N
+
+            # TODO set 1/N
 
             * The elems array can have some padding numbers, for example, when
             we have both line segments and triangles, the padding values are
@@ -75,6 +81,9 @@ def compute_node_weights(nodes, elems, weight_type):
         ne = len(e)
         s = compute_weight_per_elem_(nodes[e, :], weight_type)
         weights[e] += s/ne 
+
+    if weights is None:
+        weights = sum(weights)/nnodes
     return weights
 
 
@@ -108,7 +117,9 @@ def compute_edge_gradient_weights(nodes, elems):
             * The elems array can have some padding numbers, for example, when
             we have both line segments and triangles, the padding values are
             -1 or any negative integers.
+
         Return :
+
             directed_edges : int[nedges,2]
             edge_gradient_weights   : float[nedges, ndims]
 
@@ -155,6 +166,9 @@ def preprocess_data(nodes_list, elems_list, features_list, node_weight_type="are
             nodes_list :     list of float[nnodes, ndims]
             elems_list :     list int[nelems, max_num_of_nodes_per_elem]
             features_list  : list of float[nnodes, nfeatures]
+            node_weight_type : "length", "area", "volumn", None
+
+            * When node_weight_type is None, all nodes are of equal weight, S/N
 
             * The elems array can have some padding numbers, for example, when
             we have both line segments and triangles, the padding values are

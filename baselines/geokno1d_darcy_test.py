@@ -24,7 +24,7 @@ np.random.seed(0)
 
 
 
-downsample_ratio = 20
+downsample_ratio = 2
 n_train = 1000
 n_test = 200
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -49,8 +49,20 @@ grid_1d = np.linspace(0, L, Np)
 grid_x, grid_y = np.meshgrid(grid_1d, grid_1d)
 grid_x, grid_y = grid_x.T, grid_y.T
 
-nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 3, feature_include_coords = True)
-nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
+
+CONVERT_DATA = True
+
+if CONVERT_DATA:
+    nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = True)
+    #uniform weights
+    nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
+    np.savez("../data/darcy_2d/geokno_quad_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+else:
+    data = np.load("../data/darcy_2d/geokno_quad_data.npz")
+    nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = data["nnodes"], data["node_mask"], data["nodes"], data["node_weights"], data["features"], data["directed_edges"], data["edge_gradient_weights"]
+    
+
+
 
 print("Casting to tensor")
 nnodes = torch.from_numpy(nnodes)

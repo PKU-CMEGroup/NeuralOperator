@@ -516,7 +516,7 @@ def gradient_test(ndims = 2):
     elem_dim = 2
     elems = np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64)
     # (nedges, 2), (nedges, ndims)
-    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, rcond=1e-2)
+    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, rcond=1e-3)
     nedges = directed_edges.shape[0]
     directed_edges = torch.from_numpy(directed_edges)
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
@@ -531,6 +531,10 @@ def gradient_test(ndims = 2):
     features =  gradients @ nodes.T
     # nnodes by (nchannels * ndims) f1_x f1_y f2_x f2_y,.....
     features_gradients_ref = np.repeat(gradients.reshape(1,-1), nnodes, axis=0)
+    if ndims == 3:
+        # remove the gradient in the normal direction
+        features_gradients_ref[:,2::ndims] = 0.0
+
     features = torch.from_numpy(features).permute(1,0)  #nx by nchannels
     
     ################################
@@ -543,6 +547,7 @@ def gradient_test(ndims = 2):
     features_gradients.scatter_add_(dim=0,  src=message, index=target.unsqueeze(1).repeat(1,nchannels*ndims))
     
     print("gradient error is ", np.linalg.norm(features_gradients-features_gradients_ref))
+    assert(np.allclose(features_gradients-features_gradients_ref, 0.0, rtol=1e-15))
 
 
 def batch_gradient_test(ndims = 2):
@@ -550,21 +555,21 @@ def batch_gradient_test(ndims = 2):
     # Preprocess
     ################################
     batch_size = 2
-    elem_dim = 2
     if ndims == 2:
+        elem_dims = [2,2]
         # batch by nnodes by ndims
         nodes_list = [np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.5,0.5]]), \
                     np.array([[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]])]
         
-        elems_list = [np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64), \
-                    np.array([[elem_dim,0,1,2],[elem_dim,0,2,3]], dtype=np.int64)]
+        elems_list = [np.array([[elem_dims[0],0,1,4],[elem_dims[0],2,4,1],[elem_dims[0],2,3,4],[elem_dims[0],0,4,3]], dtype=np.int64), \
+                    np.array([[elem_dims[1],0,1,2],[elem_dims[1],0,2,3]], dtype=np.int64)]
     else:
         # batch by nnodes by ndims
-        nodes_list = [np.array([[0.0,0.0, 0.0],[1.0,0.0, 1.0],[1.0,1.0, 1.0],[0.0,1.0, 0.0],[0.5,0.5, 0.3]]), \
-                      np.array([[1.0,0.0, 1.0],[1.0,1.0, 1.0],[0.0,1.0, 0.0],[0.0,0.0, 0.0]])]
-        
-        elems_list = [np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64), \
-                    np.array([[elem_dim,0,1,2],[elem_dim,0,2,3]], dtype=np.int64)]
+        nodes_list = [np.array([[0.0,0.0, 0.0],[1.0,0.0, 0.0],[1.0,1.0, 0.0],[0.0,1.0, 0.0],[0.5,0.5, 0.0]]), \
+                      np.array([[1.0,0.0, 0.0],[1.0,1.0, 0.0],[0.0,1.0, 0.0],[1.0,0.0, 1.0]])]
+        elem_dims = [2,3]
+        elems_list = [np.array([[elem_dims[0],0,1,4],[elem_dims[0],2,4,1],[elem_dims[0],2,3,4],[elem_dims[0],0,4,3]], dtype=np.int64), \
+                    np.array([[elem_dims[1],0,1,2, 3]], dtype=np.int64)]
     max_nnodes = max([nodes.shape[0] for nodes in nodes_list])
 
     # batch by ndims by nnodes
@@ -575,7 +580,7 @@ def batch_gradient_test(ndims = 2):
 
     directed_edges_list, edge_weights_list = [], []
     for b in range(batch_size):
-        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b], rcond=1e-2)
+        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b], rcond=1e-3)
         directed_edges_list.append(directed_edges)
         edge_weights_list.append(edge_gradient_weights) 
     max_nedges = max([directed_edges.shape[0] for directed_edges in directed_edges_list])
@@ -608,6 +613,10 @@ def batch_gradient_test(ndims = 2):
     for b in range(batch_size):
         # print(np.tile(gradients[b,:,:].flatten(), (nodes_list[b].shape[0],1)).shape)
         features_gradients_ref[b,:,:nodes_list[b].shape[0]] = np.tile(gradients[b,:,:].flatten(), (nodes_list[b].shape[0],1)).T
+    for i, elem_dim in enumerate(elem_dims):
+        if ndims == 3 and elem_dim == 2:
+            # remove the gradient in the normal direction
+            features_gradients_ref[i,2::ndims,:] = 0.0
     # batch_size, nnodes, nchannels
     features = torch.from_numpy(features)  
     ##############################
@@ -616,10 +625,11 @@ def batch_gradient_test(ndims = 2):
     features_gradients = compute_gradient(features, directed_edges, edge_gradient_weights)
 
     
-    print("batch gradient error is ", np.linalg.norm(features_gradients-features_gradients_ref))
     for b in range(batch_size):
         print("batch gradient[%d] error is "%b, np.linalg.norm(features_gradients[b,...]-features_gradients_ref[b,...]))
 
+    assert(np.allclose(features_gradients-features_gradients_ref, 0.0, rtol=1e-15))
+    
     print("When the point and its neighbors are on the a degenerated plane, the gradient in the normal direction is not known")
 
 if __name__ == "__main__":

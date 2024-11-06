@@ -90,7 +90,44 @@ def compute_node_weights(nodes, elems, weight_type):
 
     return weights
 
-def compute_edge_gradient_weights(nodes, elems, rcond = 1e-1):
+def pinv(a, rrank, rcond=1e-3):
+    """
+    Compute the (Moore-Penrose) pseudo-inverse of a matrix.
+
+    Calculate the generalized inverse of a matrix using its
+    singular-value decomposition (SVD) and including all
+    *large* singular values.
+
+        Parameters:
+            a : float[M, N]
+                Matrix to be pseudo-inverted.
+            rrank : int
+                Maximum rank
+            rcond : float, optional
+                Cutoff for small singular values.
+                Singular values less than or equal to
+                ``rcond * largest_singular_value`` are set to zero.
+                Default: ``1e-3``.
+
+        Returns:
+            B : float[N, M]
+                The pseudo-inverse of `a`. 
+
+    """
+    u, s, vt = np.linalg.svd(a, full_matrices=False)
+
+    # discard small singular values
+    cutoff = rcond * s[0]
+    large = s > cutoff
+    large[rrank:] = False
+    s = np.divide(1, s, where=large, out=s)
+    s[~large] = 0
+
+    res = np.matmul(np.transpose(vt), np.multiply(s[..., np.newaxis], np.transpose(u)))
+    return res
+
+
+def compute_edge_gradient_weights(nodes, elems, rcond = 1e-3):
     '''
     Compute weights for gradient computation  
     The gradient is computed by least square.
@@ -136,12 +173,15 @@ def compute_edge_gradient_weights(nodes, elems, rcond = 1e-1):
     nnodes, ndims = nodes.shape
     nelems, _ = elems.shape
     # Initialize adjacency list as a list of sets
-    adj_list = [set() for _ in range(nnodes)]
     # Use a set to store unique directed edges
-
+    adj_list = [set() for _ in range(nnodes)]
+    
+    # Initialize node_dims to store the maximum dimensionality at that node
+    node_dims = np.zeros(nnodes, dtype=int)
     # Loop through each element and create directed edges
     for elem in elems:
-        e = elem[1:]
+        elem_dim, e = elem[0], elem[1:]
+        node_dims[e] = np.maximum(node_dims[e], elem_dim)
         e = e[e >= 0]
         nnodes_per_elem = len(e)
         for i in range(nnodes_per_elem):
@@ -155,7 +195,7 @@ def compute_edge_gradient_weights(nodes, elems, rcond = 1e-1):
         for i, b in enumerate(adj_list[a]):
             dx[i, :] = nodes[b,:] - nodes[a,:]
             directed_edges.append([a,b])
-        edge_gradient_weights.append(np.linalg.pinv(dx, rcond=rcond).T)
+        edge_gradient_weights.append(pinv(dx, rrank=node_dims[a], rcond=rcond).T)
         
     directed_edges = np.array(directed_edges, dtype=int)
     edge_gradient_weights = np.concatenate(edge_gradient_weights, axis=0)

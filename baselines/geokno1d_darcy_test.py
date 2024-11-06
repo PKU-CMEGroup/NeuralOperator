@@ -18,45 +18,44 @@ from baselines.geokno import compute_Fourier_modes, GeoKNO, GeoKNO_train
 
 torch.set_printoptions(precision=16)
 
-
 torch.manual_seed(0)
 np.random.seed(0)
 
-
-
-downsample_ratio = 2
-n_train = 1000
-n_test = 200
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-###################################
-# load data
-###################################
-data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
-data1 = loadmat(data_path)
-data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
-data2 = loadmat(data_path)
-data_in = np.vstack((data1["coeff"], data2["coeff"]))[:, 0::downsample_ratio, 0::downsample_ratio]  # shape: 2048,421,421
-data_out = np.vstack((data1["sol"], data2["sol"]))[:, 0::downsample_ratio, 0::downsample_ratio]     # shape: 2048,421,421
-features = np.stack((data_in, data_out), axis=3)
-print("Data size is ", features.shape)
-ndata = data_in.shape[0]
 
-Np = data_in.shape[1]
-L = 1.0
-grid_1d = np.linspace(0, L, Np)
-grid_x, grid_y = np.meshgrid(grid_1d, grid_1d)
-grid_x, grid_y = grid_x.T, grid_y.T
 
 
 CONVERT_DATA = True
 
 if CONVERT_DATA:
+    ###################################
+    # load data
+    ###################################
+    data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
+    data1 = loadmat(data_path)
+    data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
+    data2 = loadmat(data_path)
+    downsample_ratio = 2
+    data_in = np.vstack((data1["coeff"], data2["coeff"]))[:, 0::downsample_ratio, 0::downsample_ratio]  # shape: 2048,421,421
+    data_out = np.vstack((data1["sol"], data2["sol"]))[:, 0::downsample_ratio, 0::downsample_ratio]     # shape: 2048,421,421
+    features = np.stack((data_in, data_out), axis=3)
+    ndata = data_in.shape[0]
+
+    Np = data_in.shape[1]
+    L = 1.0
+    grid_1d = np.linspace(0, L, Np)
+    grid_x, grid_y = np.meshgrid(grid_1d, grid_1d)
+    grid_x, grid_y = grid_x.T, grid_y.T
+
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = True)
     #uniform weights
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
+    np.savez("../data/darcy_2d/geokno_quad_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
     np.savez("../data/darcy_2d/geokno_quad_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+
 else:
     data = np.load("../data/darcy_2d/geokno_quad_data.npz")
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = data["nnodes"], data["node_mask"], data["nodes"], data["node_weights"], data["features"], data["directed_edges"], data["edge_gradient_weights"]
@@ -73,6 +72,8 @@ features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
+n_train = 1000
+n_test = 200
 
 x_train, x_test = features[:n_train, :, [0, 2, 3]], features[-n_test:, :, [0, 2, 3]]
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])

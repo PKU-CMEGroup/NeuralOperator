@@ -34,7 +34,7 @@ def load_data(data_path = "../data/car"):
     ply_files = sorted(glob.glob(os.path.join(dataset_folder_mesh, "*.ply")))
     npy_normal_files = sorted(glob.glob(os.path.join(dataset_folder_normal, "*.npy")))
     nodes, max_nnodes = [], 0
-    elems = []
+    elems, elem_dim = [], 2
     features = []
 
     for index, i in enumerate(valid_indices):
@@ -43,7 +43,8 @@ def load_data(data_path = "../data/car"):
         vertices = np.asarray(mesh.vertices)
         max_nnodes = max(max_nnodes, vertices.shape[0])
         nodes.append(vertices)
-        elems.append(np.asarray(mesh.triangles))
+        elem = np.asarray(mesh.triangles)
+        elems.append(np.concatenate((np.full((elem.shape[0], 1), elem_dim, dtype=int), elem), axis=1))
         features.append(np.load(npy_normal_files[index]))
     return max_nnodes, nodes, elems, features 
 ###################################
@@ -59,6 +60,9 @@ if CONVERT_DATA:
     print("Preprocessing data")
 
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
+    np.savez("../data/car/geokno_triangle_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+
+    nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
     np.savez("../data/car/geokno_triangle_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
 else:
     data = np.load("../data/car/geokno_triangle_data.npz")

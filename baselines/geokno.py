@@ -513,9 +513,10 @@ def gradient_test(ndims = 2):
     else: 
         nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0],[0.5,0.5,1.0]])
     nnodes, ndims = nodes.shape
-    elems = np.array([[0,1,4],[2,4,1],[2,3,4],[0,4,3]], dtype=np.int64)
+    elem_dim = 2
+    elems = np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64)
     # (nedges, 2), (nedges, ndims)
-    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems)
+    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, rcond=1e-2)
     nedges = directed_edges.shape[0]
     directed_edges = torch.from_numpy(directed_edges)
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
@@ -549,20 +550,21 @@ def batch_gradient_test(ndims = 2):
     # Preprocess
     ################################
     batch_size = 2
+    elem_dim = 2
     if ndims == 2:
         # batch by nnodes by ndims
         nodes_list = [np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.5,0.5]]), \
                     np.array([[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]])]
         
-        elems_list = [np.array([[0,1,4],[2,4,1],[2,3,4],[0,4,3]], dtype=np.int64), \
-                    np.array([[0,1,2],[0,2,3]], dtype=np.int64)]
+        elems_list = [np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64), \
+                    np.array([[elem_dim,0,1,2],[elem_dim,0,2,3]], dtype=np.int64)]
     else:
         # batch by nnodes by ndims
         nodes_list = [np.array([[0.0,0.0, 0.0],[1.0,0.0, 1.0],[1.0,1.0, 1.0],[0.0,1.0, 0.0],[0.5,0.5, 0.3]]), \
                       np.array([[1.0,0.0, 1.0],[1.0,1.0, 1.0],[0.0,1.0, 0.0],[0.0,0.0, 0.0]])]
         
-        elems_list = [np.array([[0,1,4],[2,4,1],[2,3,4],[0,4,3]], dtype=np.int64), \
-                    np.array([[0,1,2],[0,2,3]], dtype=np.int64)]
+        elems_list = [np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64), \
+                    np.array([[elem_dim,0,1,2],[elem_dim,0,2,3]], dtype=np.int64)]
     max_nnodes = max([nodes.shape[0] for nodes in nodes_list])
 
     # batch by ndims by nnodes
@@ -573,7 +575,7 @@ def batch_gradient_test(ndims = 2):
 
     directed_edges_list, edge_weights_list = [], []
     for b in range(batch_size):
-        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b])
+        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b], rcond=1e-2)
         directed_edges_list.append(directed_edges)
         edge_weights_list.append(edge_gradient_weights) 
     max_nedges = max([directed_edges.shape[0] for directed_edges in directed_edges_list])

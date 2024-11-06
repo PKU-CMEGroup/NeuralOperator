@@ -15,17 +15,17 @@ def compute_tetrahedron_volume_(points):
     volume = abs(np.dot(np.cross(ab, ac), ad)) / 6
     return volume
 
-def compute_weight_per_elem_(points, weight_type):
+def compute_weight_per_elem_(points, elem_dim):
     '''
     Compute element weight (length, area or volume)
     for 2-point  element, compute its length
     for 3-point  element, compute its area
-    for 4-point  element, compute its area if weight_type="area"; compute its volume if weight_type="volume"
+    for 4-point  element, compute its area if elem_dim=2; compute its volume if elem_dim=3
     equally assign it to its nodes
     
         Parameters: 
             points : float[npoints, ndims]
-            weight_type : string, "length", "area", or "volume"
+            elem_dim : int
     
         Returns:
             s : float
@@ -38,12 +38,12 @@ def compute_weight_per_elem_(points, weight_type):
         s = compute_triangle_area_(points)
     elif npoints == 4:
         assert(npoints == 3 or npoints == 4)
-        if weight_type == "area":
+        if elem_dim == 2:
             s = compute_triangle_area_(points[:3,:]) + compute_triangle_area_(points[1:,:])
-        elif weight_type == "volume":
+        elif elem_dim == 3:
             s = compute_tetrahedron_volume_(points)
         else:
-            raise ValueError("weight type ", weight_type,  "is not recognized")
+            raise ValueError("elem dim ", elem_dim,  "is not recognized")
     else:   
         raise ValueError("npoints ", npoints,  "is not recognized")
     return s
@@ -61,33 +61,37 @@ def compute_node_weights(nodes, elems, weight_type):
 
         Parameters:  
             nodes : float[nnodes, ndims]
-            elems : int[nelems, max_num_of_nodes_per_elem]
-            type  : string, "length", "area", "volume", or None
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
+            type  : "area" or None
 
-            * When node_weight_type is None, all nodes are of equal weight, S/N
+            * When node_weight_type is None, all nodes are of equal weight, S/N, S is the total weight (i.e., area)
 
             # TODO set 1/N
 
-            * The elems array can have some padding numbers, for example, when
-            we have both line segments and triangles, the padding values are
-            -1 or any negative integers.
+            
         Return :
             weights : float[nnodes]
     '''
     nnodes = nodes.shape[0]
     weights = np.zeros(nnodes)
-    for e in elems:
+    for elem in elems:
+        elem_dim, e = elem[0], elem[1:]
         e = e[e >= 0]
         ne = len(e)
-        s = compute_weight_per_elem_(nodes[e, :], weight_type)
+        s = compute_weight_per_elem_(nodes[e, :], elem_dim)
         weights[e] += s/ne 
 
-    if weights is None:
+    if weight_type is None:
         weights = sum(weights)/nnodes
+
     return weights
 
 
-def compute_edge_gradient_weights(nodes, elems, rcond = 10.0):
+def compute_edge_gradient_weights(nodes, elems, rcond = 1e-2):
     '''
     Compute weights for gradient computation  
     The gradient is computed by least square.
@@ -107,17 +111,19 @@ def compute_edge_gradient_weights(nodes, elems, rcond = 10.0):
     And its associated weight pinvdx[:,1], pinvdx[:,2], ..., pinvdx[:,j]
     Then the gradient can be efficiently computed with scatter_add
     
-    TODO: what will happen, when these points are a degerated plane?
+    When these points are on a degerated plane or surface, the gradient towards the 
+    normal direction is 0.
 
 
         Parameters:  
             nodes : float[nnodes, ndims]
-            elems : int[nelems, max_num_of_nodes_per_elem]
+                    elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                            The first entry is elem_dim, the dimensionality of the element.
+                            The elems array can have some padding numbers, for example, when
+                            we have both line segments and triangles, the padding values are
+                            -1 or any negative integers.
             rcond : float, truncate the singular values in numpy.linalg.pinv at rcond*largest_singular_value
             
-            * The elems array can have some padding numbers, for example, when
-            we have both line segments and triangles, the padding values are
-            -1 or any negative integers.
 
         Return :
 
@@ -135,7 +141,8 @@ def compute_edge_gradient_weights(nodes, elems, rcond = 10.0):
     # Use a set to store unique directed edges
 
     # Loop through each element and create directed edges
-    for e in elems:
+    for elem in elems:
+        e = elem[1:]
         e = e[e >= 0]
         nnodes_per_elem = len(e)
         for i in range(nnodes_per_elem):
@@ -165,15 +172,16 @@ def preprocess_data(nodes_list, elems_list, features_list, node_weight_type="are
 
         Parameters:  
             nodes_list :     list of float[nnodes, ndims]
-            elems_list :     list int[nelems, max_num_of_nodes_per_elem]
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
             features_list  : list of float[nnodes, nfeatures]
             node_weight_type : "length", "area", "volumn", None
 
-            * When node_weight_type is None, all nodes are of equal weight, S/N
+            * When node_weight_type is None, all nodes are of equal weight, S/N, S is the total weight (i.e., area)
 
-            * The elems array can have some padding numbers, for example, when
-            we have both line segments and triangles, the padding values are
-            -1 or any negative integers. 
 
         Return :
             nnodes         :  int
@@ -241,11 +249,16 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
             coords_list            :  list of ndims float[nnodes, nx, ny], for each dimension
             features               :  float[nelems, nx, ny, nfeatures]
             nnodes_per_elem        :  int, nnodes_per_elem = 3: triangle mesh; nnodes_per_elem = 4: quad mesh
-            feature_include_coords :  boolean, whether treating coordinates as features
+            feature_include_coords :  boolean, whether treating coordinates as features, if coordinates
+                                      are treated as features, they are concatenated at the end
 
         Return :  
             nodes_list :     list of float[nnodes, ndims]
-            elems_list :     list int[nelems, max_num_of_nodes_per_elem]
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
             features_list  : list of float[nnodes, nfeatures]
     '''
     print("convert_structured_data so far only supports 2d problems")
@@ -262,15 +275,15 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
         nfeatures = features.shape[-1]
         features = features.reshape((ndata, nnodes, -1))
 
-    elems = np.zeros((nelems, nnodes_per_elem), dtype=int)
+    elems = np.zeros((nelems, nnodes_per_elem + 1), dtype=int)
     for i in range(nx-1):
         for j in range(ny-1):
             ie = i*(ny-1) + j 
             if nnodes_per_elem == 4:
-                elems[ie, :] = i*ny+j, i*ny+j+1, (i+1)*ny+j+1, (i+1)*ny+j
+                elems[ie, :] = 2, i*ny+j, i*ny+j+1, (i+1)*ny+j+1, (i+1)*ny+j
             else:
-                elems[2*ie, :]   = i*ny+j, i*ny+j+1, (i+1)*ny+j+1
-                elems[2*ie+1, :] = i*ny+j, (i+1)*ny+j+1, (i+1)*ny+j
+                elems[2*ie, :]   = 2, i*ny+j, i*ny+j+1, (i+1)*ny+j+1
+                elems[2*ie+1, :] = 2, i*ny+j, (i+1)*ny+j+1, (i+1)*ny+j
 
     elems = np.tile(elems, (ndata, 1, 1))
 
@@ -282,31 +295,42 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
 
 
 def test_node_weights():
-    elems = np.array([[0,1,2],[0,2,3]])
-    type = "area"
+    elem_dim = 2
+    elems = np.array([[elem_dim, 0,1,2],[elem_dim, 0,2,3]])
     nodes = np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0]]) 
-    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/3, 1.0/6, 1.0/3, 1.0/6])) < 1e-15)
-
-    elems = np.array([[0,1,2],[0,2,3]])
     type = "area"
-    nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0]]) 
     assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/3, 1.0/6, 1.0/3, 1.0/6])) < 1e-15)
-    
+    type = None
+    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/4, 1.0/4, 1.0/4, 1.0/4])) < 1e-15)
 
-    elems = np.array([[0,1],[1,2],[2,3]])
-    type = "length"
+    elem_dim = 2
+    elems = np.array([[elem_dim, 0,1,2],[elem_dim, 0,2,3]])
     nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0]]) 
-    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([0.5, 1.0, 1.0, 0.5])) < 1e-15)
+    type = "area"
+    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/3, 1.0/6, 1.0/3, 1.0/6])) < 1e-15)
+    type = None
+    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/4, 1.0/4, 1.0/4, 1.0/4])) < 1e-15)
     
-
-    elems = np.array([[0,1,2,4],[0,2,3,4]])
-    type = "volume"
+    elem_dim = 1 
+    elems = np.array([[elem_dim,0,1],[elem_dim,1,2],[elem_dim,2,3]])
+    nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0]]) 
+    type = "area"
+    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([0.5, 1.0, 1.0, 0.5])) < 1e-15)
+    type = None
+    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([0.75, 0.75, 0.75, 0.75])) < 1e-15)
+    
+    elem_dim = 3 
+    elems = np.array([[elem_dim,0,1,2,4],[elem_dim,0,2,3,4]])
     nodes = np.array([[0.0,0.0,0.0],[1.0,0.0,0.0],[1.0,1.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]]) 
+    type = "area"
     assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/12.0, 1.0/24.0, 1.0/12.0, 1.0/24.0, 1.0/12.0])) < 1e-15)
+    type = None
+    assert(np.linalg.norm(compute_node_weights(nodes, elems, type) - np.array([1.0/15.0, 1.0/15.0, 1.0/15.0, 1.0/15.0, 1.0/15.0])) < 1e-15)
     
 
 
 def test_convert_structured_data():
+    elem_dim=2
     Lx, Ly = 1.0, 2.0
     Npx, Npy = 2, 3
     grid_1d_x, grid_1d_y = np.linspace(0, Lx, Npx), np.linspace(0, Ly, Npy)
@@ -315,7 +339,7 @@ def test_convert_structured_data():
     ndata = 2
     features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = True)
-    assert(np.linalg.norm(elems_list[0] - np.array([[0,1,4,3],[1,2,5,4]])) == 0)
+    assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,1,4,3],[elem_dim,1,2,5,4]])) == 0)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
     assert(np.linalg.norm(nnodes - Npx * Npy) == 0)
     assert(np.linalg.norm(node_mask - 1) == 0)
@@ -325,7 +349,7 @@ def test_convert_structured_data():
 
     features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 3, feature_include_coords = True)
-    assert(np.linalg.norm(elems_list[0] - np.array([[0,1,4],[0,4,3],[1,2,5],[1,5,4]])) == 0)
+    assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,1,4],[elem_dim,0,4,3],[elem_dim,1,2,5],[elem_dim,1,5,4]])) == 0)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
     assert(np.linalg.norm(nnodes - Npx * Npy) == 0)
     assert(np.linalg.norm(node_mask - 1) == 0)

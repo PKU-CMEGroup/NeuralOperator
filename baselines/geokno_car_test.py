@@ -19,10 +19,6 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 
-
-downsample_ratio = 1
-n_train = 1000
-n_test = 200
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 

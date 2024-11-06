@@ -260,7 +260,7 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     message = torch.einsum('bed,bec->becd', edge_gradient_weights, f[torch.arange(batch_size).unsqueeze(1), source] - f[torch.arange(batch_size).unsqueeze(1), target]).reshape(batch_size, max_nedges, in_channels*ndims)
     
     # f_gradients : float Tensor[batch_size, max_nnodes, in_channels*ndims]
-    f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype).to(message.get_device())
+    f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype, device=message.device)
     f_gradients.scatter_add_(dim=1,  src=message, index=target.unsqueeze(2).repeat(1,1,in_channels*ndims))
     
     return f_gradients.permute(0,2,1)
@@ -359,9 +359,10 @@ class GeoKNO(nn.Module):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             x3 = gw(compute_gradient(x, directed_edges, edge_gradient_weights))
-            x = x1 + x2 + x3
+            # x = x1 + x2 + x3
+            x = x1 + x2
             if self.act is not None and i != length - 1:
-                x = self.act(x)
+                x = self.act(x) + self.act(x3)
 
         x = x.permute(0, 2, 1)
 

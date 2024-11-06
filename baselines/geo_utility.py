@@ -90,8 +90,7 @@ def compute_node_weights(nodes, elems, weight_type):
 
     return weights
 
-
-def compute_edge_gradient_weights(nodes, elems, rcond = 1e-2):
+def compute_edge_gradient_weights(nodes, elems, rcond = 1e-1):
     '''
     Compute weights for gradient computation  
     The gradient is computed by least square.

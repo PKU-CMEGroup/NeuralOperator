@@ -24,7 +24,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 ###################################
 # load data
 ###################################
-CONVERT_DATA = True
+CONVERT_DATA = False
 if CONVERT_DATA:
     print("Loading data")
     data_path = "../data/airfoil/"
@@ -36,13 +36,14 @@ if CONVERT_DATA:
     
 
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
-    np.savez("../data/airfoil/geokno_quad_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez_compressed("../data/airfoil/geokno_quad_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
-    np.savez("../data/airfoil/geokno_quad_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez_compressed("../data/airfoil/geokno_quad_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
 else:
-    data = np.load("../data/airfoil/geokno_quad_data.npz")
+    data = np.load("../data/airfoil/geokno_quad_equal_weight_data.npz")
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = data["nnodes"], data["node_mask"], data["nodes"], data["node_weights"], data["features"], data["directed_edges"], data["edge_gradient_weights"]
-    
+
+
 ###################################
 # prepare data
 ###################################

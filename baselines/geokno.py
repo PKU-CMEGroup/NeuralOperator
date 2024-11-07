@@ -343,10 +343,10 @@ class GeoKNO(nn.Module):
         """
         length = len(self.ws)
 
-        # batch_size, *, nnodes
+        # batch_size, nnodes, ndims
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
 
-        nnodes = nodes.shape[-1]
+        nnodes = nodes.shape[1]
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
         wbases_c, wbases_s, wbases_0 = bases_c*(node_weights*nnodes), bases_s*(node_weights*nnodes), bases_0*(node_weights*nnodes)
         

@@ -51,11 +51,12 @@ def compute_weight_per_elem_(points, elem_dim):
 
 def compute_node_weights(nodes, elems, weight_type):
     '''
-    Compute node weights (length, area or volume for each node), 
-    for each element, compute its length, area or volume, 
+    Compute node weights normalized by the total weight 
+    (length, area or volume for each node), 
+    For each element, compute its length, area or volume, 
     equally assign it to its nodes.
     
-    * When weight_type is None, all nodes are of equal weight
+    When weight_type is None, all nodes are of equal weight (1/N)
 
     # TODO compute as FEM mass matrix
 
@@ -78,15 +79,17 @@ def compute_node_weights(nodes, elems, weight_type):
     '''
     nnodes = nodes.shape[0]
     weights = np.zeros(nnodes)
-    for elem in elems:
-        elem_dim, e = elem[0], elem[1:]
-        e = e[e >= 0]
-        ne = len(e)
-        s = compute_weight_per_elem_(nodes[e, :], elem_dim)
-        weights[e] += s/ne 
-
     if weight_type is None:
-        weights = sum(weights)/nnodes
+        weights = 1.0/nnodes
+    else:
+        for elem in elems:
+            elem_dim, e = elem[0], elem[1:]
+            e = e[e >= 0]
+            ne = len(e)
+            s = compute_weight_per_elem_(nodes[e, :], elem_dim)
+            weights[e] += s/ne 
+
+        weights /= sum(weights)
 
     return weights
 

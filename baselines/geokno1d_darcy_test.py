@@ -27,7 +27,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 
-CONVERT_DATA = False
+CONVERT_DATA = True
 
 if CONVERT_DATA:
     ###################################
@@ -55,7 +55,7 @@ if CONVERT_DATA:
     np.savez_compressed("../data/darcy_2d/geokno_quad_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
     np.savez_compressed("../data/darcy_2d/geokno_quad_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
-
+    exit()
 else:
     data = np.load("../data/darcy_2d/geokno_quad_equal_weight_data.npz")
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = data["nnodes"], data["node_mask"], data["nodes"], data["node_weights"], data["features"], data["directed_edges"], data["edge_gradient_weights"]

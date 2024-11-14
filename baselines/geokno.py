@@ -12,14 +12,25 @@ from baselines.geo_utility import compute_edge_gradient_weights
 
 
 class UnitGaussianNormalizer(object):
-    def __init__(self, x, aux_dim = 0, eps=1.0e-5):
+    def __init__(self, x, aux_dim = 0, normalization_dim = [], eps=1.0e-5):
         super(UnitGaussianNormalizer, self).__init__()
-        # x: ndata, nx, nchannels
-        # when dim = [], mean and std are both scalars
+        '''
+        Normalize the input
+
+            Parameters:  
+                x : float[..., nchannels]
+                normalization_dim  : list, which dimension to normalize
+                                  when normalization_dim = [], global normalization 
+                                  when normalization_dim = [0,1,...,len(x.shape)-2], and channel-by-channel normalization 
+                aux_dim  : last aux_dim channels are note normalized
+
+            Return :
+                UnitGaussianNormalizer : class 
+        '''
         self.aux_dim = aux_dim
-        self.mean = torch.mean(x[...,0:x.shape[-1]-aux_dim])
-        self.std = torch.std(x[...,0:x.shape[-1]-aux_dim])
-        self.eps = eps
+        self.mean = torch.mean(x[...,0:x.shape[-1]-aux_dim], dim=normalization_dim)
+        self.std  = torch.std(x[...,0:x.shape[-1]-aux_dim],  dim=normalization_dim)
+        self.eps  = eps
 
     def encode(self, x):
         x[...,0:x.shape[-1]-self.aux_dim] = (x[...,0:x.shape[-1]-self.aux_dim] - self.mean) / (self.std + self.eps)
@@ -197,12 +208,12 @@ class SpectralConv2d(nn.Module):
             Return :
                 x                   : float[batch_size, out_channels, nnodes]
         '''
-            
+        nnodes = x.shape[-1]    
         x_c_hat =  torch.einsum("bix,bxk->bik", x, wbases_c)
         x_s_hat = -torch.einsum("bix,bxk->bik", x, wbases_s)
         x_0_hat =  torch.einsum("bix,bxk->bik", x, wbases_0)
 
-        weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
+        weights_c, weights_s, weights_0 = self.weights_c/nnodes, self.weights_s/nnodes, self.weights_0/nnodes
         
         f_c_hat = torch.einsum("bik,iok->bok", x_c_hat, weights_c) - torch.einsum("bik,iok->bok", x_s_hat, weights_s)
         f_s_hat = torch.einsum("bik,iok->bok", x_s_hat, weights_c) + torch.einsum("bik,iok->bok", x_c_hat, weights_s)
@@ -316,12 +327,12 @@ class GeoKNO(nn.Module):
             ]
         )
 
-        self.gws = nn.ModuleList(
-            [
-                nn.Conv1d(ndims*in_size, out_size, 1)
-                for in_size, out_size in zip(self.layers, self.layers[1:])
-            ]
-        )
+        # self.gws = nn.ModuleList(
+        #     [
+        #         nn.Conv1d(ndims*in_size, out_size, 1)
+        #         for in_size, out_size in zip(self.layers, self.layers[1:])
+        #     ]
+        # )
 
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
@@ -345,21 +356,22 @@ class GeoKNO(nn.Module):
 
         nnodes = nodes.shape[1]
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
-        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights
+        wbases_c, wbases_s, wbases_0 = bases_c*(node_weights*nnodes), bases_s*(node_weights*nnodes), bases_0*(node_weights*nnodes)
         
         
         
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
+        # for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
+        for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
-            x3 = gw(compute_gradient(x, directed_edges, edge_gradient_weights))
+            # x3 = gw(compute_gradient(x, directed_edges, edge_gradient_weights))
             # x = x1 + x2 + x3
             x = x1 + x2
             if self.act is not None and i != length - 1:
-                x = self.act(x) + self.act(x3)
+                x = self.act(x) #+ self.act(x3)
 
         x = x.permute(0, 2, 1)
 
@@ -382,19 +394,21 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
     test_rel_l2_losses = []
     test_l2_losses = []
     normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
+    x_aux_dim, y_aux_dim = config["train"]["x_aux_dim"], config["train"]["y_aux_dim"]
+    
     ndims = model.ndims # n_train, size, n_channel
     print("In GeoKNO_train, ndims = ", ndims)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = 0)
+        x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = x_aux_dim, normalization_dim=normalization_dim, )
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = 0)
+        y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = y_aux_dim, normalization_dim=normalization_dim)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)

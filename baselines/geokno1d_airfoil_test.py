@@ -24,7 +24,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 ###################################
 # load data
 ###################################
-CONVERT_DATA = True
+CONVERT_DATA = False
 if CONVERT_DATA:
     print("Loading data")
     data_path = "../data/airfoil/"
@@ -57,7 +57,7 @@ features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
-data_in, data_out = nodes, features
+data_in = nodes.clone()
 
 n_train, n_test = 1000, 200
 
@@ -65,7 +65,7 @@ n_train, n_test = 1000, 200
 x_train, x_test = data_in[:n_train,...],     data_in[-n_test:,...]
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
-y_train, y_test = data_out[:n_train,...],    data_out[-n_test:,...]
+y_train, y_test = features[:n_train,...],    features[-n_test:,...]
 
 
 ###################################
@@ -83,21 +83,23 @@ model = GeoKNO(ndim, modes,
                in_dim=2, out_dim=1,
                act='gelu').to(device)
 
-epochs = 1000
+epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size=8
+batch_size=20
 
 normalization_x = True
 normalization_y = True
 normalization_dim = []
-
+x_aux_dim = 0
+y_aux_dim = 0
 
 
 
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
-                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
+                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim, 
+                     "x_aux_dim": x_aux_dim, "y_aux_dim": y_aux_dim}}
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = GeoKNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./GeoKNO_airfoil_model"

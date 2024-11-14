@@ -207,13 +207,12 @@ class SpectralConv2d(nn.Module):
 
             Return :
                 x                   : float[batch_size, out_channels, nnodes]
-        '''
-        nnodes = x.shape[-1]    
+        '''    
         x_c_hat =  torch.einsum("bix,bxk->bik", x, wbases_c)
         x_s_hat = -torch.einsum("bix,bxk->bik", x, wbases_s)
         x_0_hat =  torch.einsum("bix,bxk->bik", x, wbases_0)
 
-        weights_c, weights_s, weights_0 = self.weights_c/nnodes, self.weights_s/nnodes, self.weights_0/nnodes
+        weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
         
         f_c_hat = torch.einsum("bik,iok->bok", x_c_hat, weights_c) - torch.einsum("bik,iok->bok", x_s_hat, weights_s)
         f_s_hat = torch.einsum("bik,iok->bok", x_s_hat, weights_c) + torch.einsum("bik,iok->bok", x_c_hat, weights_s)
@@ -354,9 +353,8 @@ class GeoKNO(nn.Module):
         # batch_size, nnodes, ndims
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
 
-        nnodes = nodes.shape[1]
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
-        wbases_c, wbases_s, wbases_0 = bases_c*(node_weights*nnodes), bases_s*(node_weights*nnodes), bases_0*(node_weights*nnodes)
+        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights
         
         
         

@@ -112,12 +112,14 @@ batch_size=8
 normalization_x = True
 normalization_y = True
 normalization_dim = []
-
-
+x_aux_dim = 0
+y_aux_dim = 0
 
 
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
-                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
+                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim, 
+                     "x_aux_dim": x_aux_dim, "y_aux_dim": y_aux_dim}}
+
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = GeoKNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./GeoKNO_car_model"

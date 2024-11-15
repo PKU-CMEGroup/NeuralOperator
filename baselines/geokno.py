@@ -326,12 +326,12 @@ class GeoKNO(nn.Module):
             ]
         )
 
-        # self.gws = nn.ModuleList(
-        #     [
-        #         nn.Conv1d(ndims*in_size, out_size, 1)
-        #         for in_size, out_size in zip(self.layers, self.layers[1:])
-        #     ]
-        # )
+        self.gws = nn.ModuleList(
+            [
+                nn.Conv1d(ndims*in_size, out_size, 1)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
 
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
@@ -361,15 +361,13 @@ class GeoKNO(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        # for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
-        for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
+        for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
-            # x3 = gw(compute_gradient(x, directed_edges, edge_gradient_weights))
-            # x = x1 + x2 + x3
-            x = x1 + x2
+            x3 = gw(compute_gradient(x, directed_edges, edge_gradient_weights))
+            x = x1 + x2  #+ x3
             if self.act is not None and i != length - 1:
-                x = self.act(x) #+ self.act(x3)
+                x = self.act(x) + self.act(x3)
 
         x = x.permute(0, 2, 1)
 

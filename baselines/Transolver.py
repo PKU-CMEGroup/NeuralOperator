@@ -4,9 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 import math
 from timm.models.layers import trunc_normal_
-from myutils.adam import Adam
-from myutils.losses import LpLoss
-from myutils.normalizer import UnitGaussianNormalizer
+from models.adam import Adam
+from models.losses import LpLoss
+from models.normalizer import UnitGaussianNormalizer
 from einops import rearrange, repeat
 
 
@@ -65,8 +65,8 @@ class Physics_Attention_Irregular_Mesh(nn.Module):
         self.scale = dim_head ** -0.5
         self.softmax = nn.Softmax(dim=-1)
         self.dropout = nn.Dropout(dropout)
-        self.temperature = nn.Parameter(torch.ones([1, heads, 1, 1]) * 0.5)
-
+        #self.temperature = nn.Parameter(torch.ones([1, heads, 1, 1]) * 0.5)
+        self.temperature = 0.5
         self.in_project_x = nn.Linear(dim, inner_dim)
         self.in_project_fx = nn.Linear(dim, inner_dim)
         self.in_project_slice = nn.Linear(dim_head, slice_num)

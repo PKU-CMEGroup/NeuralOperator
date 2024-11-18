@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from myutils.adam import Adam
-from myutils.losses import LpLoss
-from myutils.normalizer import UnitGaussianNormalizer
+from models.adam import Adam
+from models.losses import LpLoss
+from models.normalizer import UnitGaussianNormalizer
 
 
 

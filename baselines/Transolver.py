@@ -4,9 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 import math
 from timm.models.layers import trunc_normal_
-from models.adam import Adam
-from models.losses import LpLoss
-from models.normalizer import UnitGaussianNormalizer
+from myutils.adam import Adam
+from myutils.losses import LpLoss
+from myutils.normalizer import UnitGaussianNormalizer
 from einops import rearrange, repeat
 
 

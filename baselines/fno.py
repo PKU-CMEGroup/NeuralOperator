@@ -1,102 +1,17 @@
+## FNO 1D and 2D
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.adam import Adam
-from models.losses import LpLoss
-from models.normalizer import UnitGaussianNormalizer
-## FNO 1D and 2D
-
-def add_padding(x, pad_nums):
-
-    if x.ndim == 3:  # fourier1d
-        res = F.pad(x, [0, pad_nums[0]], "constant", 0)
-    elif x.ndim == 4:  # fourier2d
-        res = F.pad(x, [0, pad_nums[1], 0, pad_nums[0]], "constant", 0)
-    elif x.ndim == 5:  # fourier3d
-        res = F.pad(x, [0, pad_nums[2], 0, pad_nums[1], 0, pad_nums[0]], "constant", 0)
-    elif x.ndim == 6:  # fourier4d
-        res = F.pad(
-            x,
-            [0, pad_nums[3], 0, pad_nums[2], 0, pad_nums[1], 0, pad_nums[0]],
-            "constant",
-            0,
-        )
-    else:
-        print("error : x.ndim = ", x.ndim)
-
-    return res
+from myutils.adam import Adam
+from myutils.losses import LpLoss
+from myutils.normalizer import UnitGaussianNormalizer
+from myutils.basics import add_padding, remove_padding, compl_mul1d, compl_mul2d, _get_act
 
 
-def remove_padding(x, pad_nums):
-
-    if x.ndim == 3:  # fourier1d
-        res = x[..., : (None if pad_nums[0] == 0 else -pad_nums[0])]
-
-    elif x.ndim == 4:  # fourier2d
-        res = x[
-            ...,
-            : (None if pad_nums[0] == 0 else -pad_nums[0]),
-            : (None if pad_nums[1] == 0 else -pad_nums[1]),
-        ]
-
-    elif x.ndim == 5:  # fourier3d
-        res = x[
-            ...,
-            : (None if pad_nums[0] == 0 else -pad_nums[0]),
-            : (None if pad_nums[1] == 0 else -pad_nums[1]),
-            : (None if pad_nums[2] == 0 else -pad_nums[2]),
-        ]
-
-    elif x.ndim == 6:  # fourier4d
-        res = x[
-            ...,
-            : (None if pad_nums[0] == 0 else -pad_nums[0]),
-            : (None if pad_nums[1] == 0 else -pad_nums[1]),
-            : (None if pad_nums[2] == 0 else -pad_nums[2]),
-            : (None if pad_nums[3] == 0 else -pad_nums[3]),
-        ]
-
-    else:
-        print("error : x.ndim = ", x.ndim)
-
-    return res
-
-
-def _get_act(act):
-    if act == "tanh":
-        func = F.tanh
-    elif act == "gelu":
-        func = F.gelu
-    elif act == "relu":
-        func = F.relu_
-    elif act == "elu":
-        func = F.elu_
-    elif act == "leaky_relu":
-        func = F.leaky_relu_
-    elif act == "none":
-        func = None
-    else:
-        raise ValueError(f"{act} is not supported")
-    return func
-
-
-
-@torch.jit.script
-def compl_mul1d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    # (batch, in_channel, x ), (in_channel, out_channel, x) -> (batch, out_channel, x)
-    res = torch.einsum("bix,iox->box", a, b)
-    return res
-
-
-@torch.jit.script
-def compl_mul2d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    # (batch, in_channel, x,y,t ), (in_channel, out_channel, x,y,t) -> (batch, out_channel, x,y,t)
-    res = torch.einsum("bixy,ioxy->boxy", a, b)
-    return res
-
-
-
+################################################################
+# 1d fourier layer
+################################################################
 class SpectralConv1d(nn.Module):
     def __init__(self, in_channels, out_channels, modes1):
         super(SpectralConv1d, self).__init__()
@@ -142,8 +57,6 @@ class SpectralConv1d(nn.Module):
 ################################################################
 # 2d fourier layer
 ################################################################
-
-
 class SpectralConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, modes1, modes2):
         super(SpectralConv2d, self).__init__()
@@ -193,19 +106,20 @@ class SpectralConv2d(nn.Module):
         # Return to physical space
         x = torch.fft.irfftn(out_ft, s=(x.size(-2), x.size(-1)), dim=[2, 3])
         return x
-    
-
-
 
 
 class FNO1d(nn.Module):
-    def __init__(self,
-                 modes, width=32,
-                 layers=None,
-                 fc_dim=128,
-                 in_dim=2, out_dim=1,
-                 act='gelu',
-                 pad_ratio=0):
+    def __init__(
+        self,
+        modes,
+        width=32,
+        layers=None,
+        fc_dim=128,
+        in_dim=2,
+        out_dim=1,
+        act="gelu",
+        pad_ratio=0,
+    ):
         super(FNO1d, self).__init__()
 
         """
@@ -229,38 +143,46 @@ class FNO1d(nn.Module):
             self.layers = layers
         self.pad_ratio = pad_ratio
         self.fc_dim = fc_dim
-        
+
         self.fc0 = nn.Linear(in_dim, layers[0])  # input channel is 2: (a(x), x)
 
-        self.sp_convs = nn.ModuleList([SpectralConv1d(
-            in_size, out_size, num_modes) for in_size, out_size, num_modes in zip(layers, layers[1:], self.modes1)])
+        self.sp_convs = nn.ModuleList(
+            [
+                SpectralConv1d(in_size, out_size, num_modes)
+                for in_size, out_size, num_modes in zip(layers, layers[1:], self.modes1)
+            ]
+        )
 
-        self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, 1)
-                                 for in_size, out_size in zip(layers, layers[1:])])
-        
+        self.ws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size, out_size, 1)
+                for in_size, out_size in zip(layers, layers[1:])
+            ]
+        )
+
         # if fc_dim = 0, we do not have nonlinear layer
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim) 
+            self.fc2 = nn.Linear(fc_dim, out_dim)
         else:
             self.fc2 = nn.Linear(layers[-1], out_dim)
-            
+
         self.act = _get_act(act)
 
     def forward(self, x):
         """
         Input shape (of x):     (batch, nx_in,  channels_in)
         Output shape:           (batch, nx_out, channels_out)
-        
+
         The input resolution is determined by x.shape[-1]
         The output resolution is determined by self.s_outputspace
         """
-        
+
         length = len(self.ws)
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
         pad_nums = [math.floor(self.pad_ratio * x.shape[-1])]
-        
+
         # add padding
         x = add_padding(x, pad_nums=pad_nums)
 
@@ -270,25 +192,23 @@ class FNO1d(nn.Module):
             x = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x)
-                
+
         # remove padding
         x = remove_padding(x, pad_nums=pad_nums)
-        
+
         x = x.permute(0, 2, 1)
-        
+
         # if fc_dim = 0, we do not have nonlinear layer
-        fc_dim = self.fc_dim if hasattr(self, 'fc_dim') else 1
-        
+        fc_dim = self.fc_dim if hasattr(self, "fc_dim") else 1
+
         if fc_dim > 0:
             x = self.fc1(x)
             if self.act is not None:
                 x = self.act(x)
-            
-        x = self.fc2(x)
-        
-        
-        return x
 
+        x = self.fc2(x)
+
+        return x
 
 
 class FNO2d(nn.Module):
@@ -398,66 +318,92 @@ class FNO2d(nn.Module):
         return x
 
 
-
-
-
-
+################################################################
+# training
+################################################################
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"):
+def FNO_train(data, config, model, save_model_name="./FNO_model"):
+
+    x_train = data["xtrain"]
+    y_train = data["ytrain"]
+    x_test = data["xtest"]
+    y_test = data["ytest"]
+
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
     test_l2_losses = []
-    normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
-    dim = len(x_train.shape) - 2 # n_train, size, n_channel
-    
-    
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+    normalization_x, normalization_y, normalization_dim = (
+        config["train"]["normalization_x"],
+        config["train"]["normalization_y"],
+        config["train"]["normalization_dim"],
+    )
+    dim = len(x_train.shape) - 2  # n_train, size, n_channel
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
-        
+
     if normalization_y:
         y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
 
+    train_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(x_train, y_train),
+        batch_size=config["train"]["batch_size"],
+        shuffle=True,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(x_test, y_test),
+        batch_size=config["train"]["batch_size"],
+        shuffle=False,
+    )
 
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
-                                               batch_size=config['train']['batch_size'], shuffle=True)
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
-                                               batch_size=config['train']['batch_size'], shuffle=False)
-    
-    
     # Load from checkpoint
-    optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
-                     lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
-    
-    if config['train']['scheduler'] == "MultiStepLR":
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=config['train']['milestones'],
-                                                     gamma=config['train']['scheduler_gamma'])
-    elif config['train']['scheduler'] == "CosineAnnealingLR":
-        T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
-        eta_min  = 0.0
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
+    optimizer = Adam(
+        model.parameters(),
+        betas=(0.9, 0.999),
+        lr=config["train"]["base_lr"],
+        weight_decay=config["train"]["weight_decay"],
+    )
+
+    if config["train"]["scheduler"] == "MultiStepLR":
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=config["train"]["milestones"],
+            gamma=config["train"]["scheduler_gamma"],
+        )
+    elif config["train"]["scheduler"] == "CosineAnnealingLR":
+        T_max = (config["train"]["epochs"] // 10) * (
+            n_train // config["train"]["batch_size"]
+        )
+        eta_min = 0.0
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=T_max, eta_min=eta_min
+        )
     elif config["train"]["scheduler"] == "OneCycleLR":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=config['train']['base_lr'], 
-            div_factor=2, final_div_factor=100,pct_start=0.2,
-            steps_per_epoch=1, epochs=config['train']['epochs'])
+            optimizer,
+            max_lr=config["train"]["base_lr"],
+            div_factor=2,
+            final_div_factor=100,
+            pct_start=0.2,
+            steps_per_epoch=1,
+            epochs=config["train"]["epochs"],
+        )
     else:
-        print("Scheduler ", config['train']['scheduler'], " has not implemented.")
+        print("Scheduler ", config["train"]["scheduler"], " has not implemented.")
 
     model.train()
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    epochs = config['train']['epochs']
-
+    epochs = config["train"]["epochs"]
 
     for ep in range(epochs):
         train_rel_l2 = 0
@@ -468,12 +414,12 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x) #.reshape(batch_size_,  -1)
+            out = model(x)  # .reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
 
-            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+            loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
             loss.backward()
 
             optimizer.step()
@@ -485,32 +431,40 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
                 batch_size_ = x.shape[0]
-                out = model(x) #.reshape(batch_size_,  -1)
+                out = model(x)  # .reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
 
-                test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-                test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-
-
-
+                test_rel_l2 += myloss(
+                    out.view(batch_size_, -1), y.view(batch_size_, -1)
+                ).item()
+                test_l2 += myloss.abs(
+                    out.view(batch_size_, -1), y.view(batch_size_, -1)
+                ).item()
 
         scheduler.step()
 
-        train_rel_l2/= n_train
+        train_rel_l2 /= n_train
         test_l2 /= n_test
-        test_rel_l2/= n_test
-        
+        test_rel_l2 /= n_test
+
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
-    
 
-        if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2)
-            torch.save(model, save_model_name)
-    
-    
+        if (ep % 10 == 0) or (ep == epochs - 1):
+            print(
+                "Epoch : ",
+                ep,
+                " Rel. Train L2 Loss : ",
+                train_rel_l2,
+                " Rel. Test L2 Loss : ",
+                test_rel_l2,
+                " Test L2 Loss : ",
+                test_l2,
+            )
+            # torch.save(model, save_model_name)
+
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

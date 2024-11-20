@@ -366,9 +366,9 @@ class GeoKNO(nn.Module):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x = x1 + x2  #+ x3
+            x = x1 + x2 + x3
             if self.act is not None and i != length - 1:
-                x = self.act(x + x3) #+ self.act(x3)
+                x = self.act(x) 
 
         x = x.permute(0, 2, 1)
 

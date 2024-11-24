@@ -1,0 +1,65 @@
+original data: in (1324, 421, 421) out (1324, 421, 421)
+used data: x_train (1000, 44521, 3) y_train (1000, 44521, 1) x_test (200, 44521, 3) y_test (200, 44521, 1)
+############################################################ config of data ############################################################
+type: normal
+L: 1.0
+downsample_ratio: 2
+n_train: 1000
+n_test: 200
+pca_include_input: False
+pca_include_grid: False
+should_include_F: False
+should_flatten: True
+should_compute_bases: False
+############################################################ config of model ############################################################
+in_dim: 3
+out_dim: 1
+fc_channels: 128
+layer_channels: [128, 128, 128, 128, 128]
+layer_types: ['LocalSoftmaxAttention', 'LocalSoftmaxAttention', 'LocalSoftmaxAttention', 'LocalSoftmaxAttention']
+heads: 1
+act: gelu
+should_residual: [True, True, True, True]
+attention_types: None
+num_heads: None
+############################################################ config of train ############################################################
+device: cuda
+normalization_x: True
+normalization_y: True
+normalization_dim: []
+epochs: 500
+batch_size: 1
+scheduler: OneCycleLR
+base_lr: 0.001
+weight_decay: 0.0001
+milestones: None
+scheduler_gamma: None
+############################################################ Start Training ############################################################
+number of parameters is 349441
+no boundary loss
+epoch0  rel.Train: 0.43695776917040346  rel.Test: 0.23087227486073972  abs.Test: 0.0015540356474230065  abs.TestBoundary: 0j  time: 157.70027824677527
+epoch1  rel.Train: 0.23754810455441475  rel.Test: 0.22434827499091625  abs.Test: 0.001523638959042728  abs.TestBoundary: 0j  time: 155.2671395931393
+epoch2  rel.Train: 0.2148330664858222  rel.Test: 0.20371892161667346  abs.Test: 0.0013841576626873575  abs.TestBoundary: 0j  time: 155.4827298456803
+epoch3  rel.Train: 0.20210268997400999  rel.Test: 0.18252476908266543  abs.Test: 0.0012316662882221863  abs.TestBoundary: 0j  time: 155.10487390495837
+epoch4  rel.Train: 0.19479695904254912  rel.Test: 0.1715119521319866  abs.Test: 0.0011643999948864803  abs.TestBoundary: 0j  time: 155.27150583919138
+epoch5  rel.Train: 0.19886305248737335  rel.Test: 0.20571397207677364  abs.Test: 0.0013915395102230832  abs.TestBoundary: 0j  time: 155.1655335817486
+epoch6  rel.Train: 0.19353435394912957  rel.Test: 0.20841899819672108  abs.Test: 0.0014107876076013782  abs.TestBoundary: 0j  time: 155.44992489600554
+epoch7  rel.Train: 0.1910266254618764  rel.Test: 0.19586681462824346  abs.Test: 0.0013276600113022142  abs.TestBoundary: 0j  time: 155.28996997186914
+epoch8  rel.Train: 0.19255092021077871  rel.Test: 0.1848942679911852  abs.Test: 0.001261184107279405  abs.TestBoundary: 0j  time: 155.6242238851264
+epoch9  rel.Train: 0.19298625790327786  rel.Test: 0.1858824349567294  abs.Test: 0.0012645351665560155  abs.TestBoundary: 0j  time: 155.12128456588835
+epoch10  rel.Train: 0.1872715689614415  rel.Test: 0.17881980884820223  abs.Test: 0.0012138721460360103  abs.TestBoundary: 0j  time: 155.37760702800006
+epoch11  rel.Train: 0.18766486745327712  rel.Test: 0.18745317667722702  abs.Test: 0.0012641613220330328  abs.TestBoundary: 0j  time: 155.34936847398058
+epoch12  rel.Train: 0.18490548089146613  rel.Test: 0.17985247619450093  abs.Test: 0.0012206857415731065  abs.TestBoundary: 0j  time: 155.23443406866863
+epoch13  rel.Train: 0.1876358058154583  rel.Test: 0.24822893485426903  abs.Test: 0.0016718349215807393  abs.TestBoundary: 0j  time: 155.195053556934
+epoch14  rel.Train: 0.18550891509652137  rel.Test: 0.1747980296984315  abs.Test: 0.0011817704880377278  abs.TestBoundary: 0j  time: 155.24933091597632
+epoch15  rel.Train: 0.1814883050918579  rel.Test: 0.27075164213776587  abs.Test: 0.0018286831595469267  abs.TestBoundary: 0j  time: 156.1417952151969
+epoch16  rel.Train: 0.18357428761571645  rel.Test: 0.20673180617392062  abs.Test: 0.0013939734525047242  abs.TestBoundary: 0j  time: 156.39983702031896
+epoch17  rel.Train: 0.1828788430392742  rel.Test: 0.18842663519084454  abs.Test: 0.0012745498173171654  abs.TestBoundary: 0j  time: 156.11098829703405
+epoch18  rel.Train: 0.1799654089063406  rel.Test: 0.17000548969954252  abs.Test: 0.0011551879189210012  abs.TestBoundary: 0j  time: 155.46647207112983
+epoch19  rel.Train: 0.18016143991798161  rel.Test: 0.1746048340201378  abs.Test: 0.0011853227639221585  abs.TestBoundary: 0j  time: 155.05361527390778
+epoch20  rel.Train: 0.18404981230944395  rel.Test: 0.1797294181585312  abs.Test: 0.0012206174581660888  abs.TestBoundary: 0j  time: 155.54429249931127
+epoch21  rel.Train: 0.17921007811278106  rel.Test: 0.19177453130483627  abs.Test: 0.001302097533189226  abs.TestBoundary: 0j  time: 156.13032768992707
+epoch22  rel.Train: 0.18241857332736253  rel.Test: 0.17417987380176783  abs.Test: 0.001179030167113524  abs.TestBoundary: 0j  time: 156.29637884208933
+epoch23  rel.Train: 0.17731828647106887  rel.Test: 0.1785588477179408  abs.Test: 0.001208197010855656  abs.TestBoundary: 0j  time: 156.31979920715094
+epoch24  rel.Train: 0.1793440566584468  rel.Test: 0.17170517913997174  abs.Test: 0.0011644369835266844  abs.TestBoundary: 0j  time: 156.2109419228509
+slurmstepd: error: *** JOB 3971243 ON l12gpu07 CANCELLED AT 2024-10-10T01:12:44 ***

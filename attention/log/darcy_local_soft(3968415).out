@@ -1,0 +1,52 @@
+original data: in (1324, 421, 421) out (1324, 421, 421)
+used data: x_train (1000, 44521, 3) y_train (1000, 44521, 1) x_test (200, 44521, 3) y_test (200, 44521, 1)
+############################################################ config of data ############################################################
+type: normal
+L: 1.0
+downsample_ratio: 2
+n_train: 1000
+n_test: 200
+pca_include_input: False
+pca_include_grid: False
+should_include_F: False
+should_flatten: True
+should_compute_bases: False
+############################################################ config of model ############################################################
+in_dim: 3
+out_dim: 1
+fc_channels: 128
+layer_channels: [128, 128, 128, 128, 128]
+layer_types: ['LocalSoftmaxAttention', 'LocalSoftmaxAttention', 'LocalSoftmaxAttention', 'LocalSoftmaxAttention']
+heads: 1
+act: gelu
+should_residual: [True, True, True, True]
+attention_types: None
+num_heads: None
+############################################################ config of train ############################################################
+device: cuda
+normalization_x: True
+normalization_y: True
+normalization_dim: []
+epochs: 500
+batch_size: 8
+scheduler: OneCycleLR
+base_lr: 0.001
+weight_decay: 0.0001
+milestones: None
+scheduler_gamma: None
+############################################################ Start Training ############################################################
+number of parameters is 349441
+no boundary loss
+Traceback (most recent call last):
+  File "/lustre/home/2200010870/works/NeuralOperator/Attention/attention_darcy_test.py", line 27, in <module>
+    model_train(data, config, model)
+  File "/lustre/home/2200010870/works/NeuralOperator/Attention/../utils/train.py", line 123, in model_train
+    loss.backward()
+  File "/lustre/home/2200010870/software/miniconda3/envs/PyTorch/lib/python3.12/site-packages/torch/_tensor.py", line 521, in backward
+    torch.autograd.backward(
+  File "/lustre/home/2200010870/software/miniconda3/envs/PyTorch/lib/python3.12/site-packages/torch/autograd/__init__.py", line 289, in backward
+    _engine_run_backward(
+  File "/lustre/home/2200010870/software/miniconda3/envs/PyTorch/lib/python3.12/site-packages/torch/autograd/graph.py", line 768, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 8.32 GiB. GPU 0 has a total capacity of 79.19 GiB of which 7.49 GiB is free. Including non-PyTorch memory, this process has 71.70 GiB memory in use. Of the allocated memory 70.96 GiB is allocated by PyTorch, and 254.49 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

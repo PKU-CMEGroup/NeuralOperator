@@ -1,0 +1,56 @@
+###########################################################################
+# config for darcy 2d
+###########################################################################
+darcy2d:
+  data:
+    type: "normal"
+    L: 1.0
+    downsample_ratio: 10
+    n_train: 1000
+    n_test: 200
+    pca_include_input: False
+    pca_include_grid: False
+    should_include_F: False
+    should_flatten: True
+    should_compute_bases: False
+    should_aux: False
+
+  model:
+    # Network Construction
+    in_dim: 3
+    out_dim: 1
+    aux_dim: 0
+    fc_channels: 128
+    layer_channels: [128, 128, 128, 128, 128]
+    layer_types:
+      [
+        "LocalSoftmaxAttention",
+        "LocalSoftmaxAttention",
+        "LocalSoftmaxAttention",
+        "LocalSoftmaxAttention",
+      ]
+    heads: 1
+    act: "gelu"
+    should_residual: [True, True, True, True]
+
+    # SimpleAttention
+    attention_types:
+    num_heads:
+
+  train:
+    device: "cuda"
+
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+
+    epochs: 500
+    batch_size: 1
+
+    scheduler: "OneCycleLR"
+    base_lr: 0.001
+    weight_decay: 0.0001
+
+    # MultiStep
+    milestones:
+    scheduler_gamma:

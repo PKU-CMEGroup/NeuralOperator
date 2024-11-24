@@ -1,0 +1,106 @@
+###########################################################################
+# config for darcy 2d
+###########################################################################
+darcy2d:
+  data:
+    type: "normal"
+    L: 1.0
+    downsample_ratio: 2
+    n_train: 1000
+    n_test: 200
+    pca_include_input: False
+    pca_include_grid: False
+    should_include_F: False
+    should_flatten: True
+    should_compute_bases: True
+
+  model:
+    # Network Construction
+    in_dim: 3
+    out_dim: 1
+    fc_channels: 128
+    layer_channels: [128, 128, 128, 128, 128]
+    layer_types:
+      ["GalerkinConv", "GalerkinConv", "GalerkinConv", "GalerkinConv"]
+    act: "gelu"
+    should_residual: [False, False, False, False]
+    dropouts: [0.5, 0.5, 0.5, 0.5]
+
+    # GalerkinConv
+    modes_gk: [512, 512, 512, 512]
+    bases_types: ["id_out", "fourier", "fourier", "fourier"]
+    wbases_types: ["id_out", "fourier", "fourier", "fourier"]
+
+    # adjust GalerkinConv
+    diag_widths: [3, 3, 3, 3]
+    should_adjust: [False, False, False, False]
+
+  train:
+    device: "cuda"
+
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+
+    epochs: 500
+    batch_size: 8
+
+    scheduler: "OneCycleLR"
+    base_lr: 0.001
+    weight_decay: 0.0001
+
+    # MultiStep
+    milestones:
+    scheduler_gamma:
+
+###########################################################################
+# config for airfoil
+###########################################################################
+airfoil:
+  data:
+    L: 1.0
+    downsample_ratio: 2
+    n_train: 1000
+    n_test: 200
+    pca_include_input: False
+    pca_include_grid: False
+    should_include_F: False
+    should_flatten: True
+    should_compute_bases: True
+
+  model:
+    # Network Construction
+    in_dim: 4
+    out_dim: 1
+    fc_channels: 128
+    layer_channels: [64, 64, 64, 64, 64]
+    layer_types:
+      ["GalerkinConv", "GalerkinConv", "GalerkinConv", "GalerkinConv"]
+    act: "gelu"
+    should_residual: [False, False, False, False]
+    dropouts: [0.5, 0.5, 0.5, 0.5]
+
+    # GalerkinConv
+    modes_gk: [64, 64, 64, 64]
+    bases_types: ["fourier", "fourier", "fourier", "fourier"]
+    wbases_types: ["fourier", "fourier", "fourier", "fourier"]
+    diag_widths: [1, 1, 1, 1]
+    should_adjust: [False, False, False, False]
+
+  train:
+    device: "cuda"
+
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+
+    epochs: 500
+    batch_size: 30
+
+    scheduler: "OneCycleLR"
+    base_lr: 0.001
+    weight_decay: 0.0001
+
+    # MultiStep
+    milestones:
+    scheduler_gamma:

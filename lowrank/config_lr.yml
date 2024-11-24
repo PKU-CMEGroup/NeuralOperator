@@ -1,0 +1,126 @@
+###########################################################################
+# config for darcy 2d
+###########################################################################
+darcy2d:
+  data:
+    type: "normal"
+    L: 1.0
+    downsample_ratio: 2
+    n_train: 1000
+    n_test: 200
+    pca_include_input: False
+    pca_include_grid: False
+    should_include_F: False
+    should_flatten: True
+    should_compute_bases: True
+    should_aux: False
+
+  model:
+    # Network Construction
+    in_dim: 3
+    out_dim: 1
+    aux_dim: 0
+    fc_channels: 128
+    layer_channels: [128, 128, 128, 128, 128]
+    layer_types:
+      ["GalerkinConv", "GalerkinConv", "GalerkinConv", "GalerkinConv"]
+    act: "gelu"
+    should_residual: [False, False, False, False]
+
+    # GalerkinConv
+    modes_gk: [512, 512, 512, 512]
+    bases_types: ["fourier", "fourier", "fourier", "fourier"]
+    wbases_types: ["fourier", "fourier", "fourier", "fourier"]
+
+    # Green Function
+    green_types: ["HierLrMGreen", "HierLrMGreen", "HierLrMGreen", "HierLrMGreen"]
+    # ["DiagLrGreen", "DiagLrMGreen", "HierLrGreen", "HierLrMGreen"]
+
+    # HierLrGreen/HierLrMGreen
+    ranks_h: [2, 2, 2, 2]
+    levels: [4, 4, 4, 4]
+
+    # DiagLrGreen/DiagLrMGreen
+    ranks_d: [4, 4, 4, 4]
+    heads: [4, 4, 4, 4]
+
+  train:
+    device: "cuda"
+
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+
+    epochs: 500
+    batch_size: 8
+
+    scheduler: "OneCycleLR"
+    base_lr: 0.001
+    weight_decay: 0.0001
+
+    # MultiStep
+    milestones:
+    scheduler_gamma:
+
+###########################################################################
+# config for airfoil
+###########################################################################
+airfoil:
+  data:
+    L: 1.0
+    downsample_ratio: 1
+    n_train: 1000
+    n_test: 200
+    pca_include_input: False
+    pca_include_grid: False
+    should_include_F: False
+    should_flatten: True
+    should_compute_bases: True
+    should_aux: False
+
+  model:
+    # Network Construction
+    in_dim: 4
+    out_dim: 1
+    aux_dim: 0
+    fc_channels: 128
+    layer_channels: [64, 64, 64, 64, 64]
+    layer_types:
+      ["GalerkinConv", "GalerkinConv", "GalerkinConv", "GalerkinConv"]
+    act: "gelu"
+    should_residual: [False, False, False, False]
+
+    # GalerkinConv
+    modes_gk: [128, 128,128, 128]
+    bases_types: ["fourier", "fourier", "fourier", "fourier"]
+    wbases_types: ["fourier", "fourier", "fourier", "fourier"]
+
+    # Green Function
+    green_types: ["HierLrMGreen", "HierLrMGreen", "HierLrMGreen", "HierLrMGreen"]
+    # "DiagLrGreen", "DiagLrMGreen", "HierLrGreen", "HierLrMGreen"
+
+    # HierLrGreen/HierLrMGreen
+    ranks_h: [4, 4, 4, 4]
+    levels: [4, 4, 4, 4]
+
+    # DiagLrGreen/DiagLrMGreen
+    ranks_d: [4, 4, 4, 4]
+    heads: [4, 4, 4, 4]
+
+  train:
+    device: "cuda"
+
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+
+    epochs: 500
+    batch_size: 30
+
+    scheduler: "OneCycleLR"
+    base_lr: 0.001
+    weight_decay: 0.0001
+
+    # MultiStep
+    milestones:
+    scheduler_gamma:

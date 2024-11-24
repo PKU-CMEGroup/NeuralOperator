@@ -1,0 +1,7 @@
+original data: in (1324, 421, 421) out (1324, 421, 421)
+used data: x_train (1000, 44521, 3) y_train (1000, 44521, 1) x_test (200, 44521, 3) y_test (200, 44521, 1)
+Traceback (most recent call last):
+  File "/lustre/home/2200010870/works/NeuralOperator/Attention/attention_darcy_test.py", line 24, in <module>
+    indices, k = indices_neighbor2d(n1, n2, k1, k2, should_flatten=True)
+    ^^^^^^^^^^
+ValueError: too many values to unpack (expected 2)

@@ -1,0 +1,77 @@
+darcy2d:
+  data:
+    L: 1.0
+    downsample_ratio: 2
+    n_train: 1000
+    n_test: 200
+
+  model:
+    layer_types: [
+        "GalerkinConv_fourier",
+        "GalerkinConv_fourier",
+        "GalerkinConv_fourier",
+        "GalerkinConv_fourier",
+      ] # GalerkinConv_fourier, GalerkinConv_pca, FourierConv2d
+    FNO_modes:  
+    GkNN_modes: [512, 512, 512, 512] 
+    fc_dim: 128
+    in_dim: 3 # default
+    out_dim: 1 # default
+    pca_include_input: False
+    pca_include_grid: False
+    layers_dim: [128, 128, 128, 128, 128]
+    act: "gelu"
+    pad_ratio: 0.05
+    residual: [False, False, False, False]
+
+  train:
+    device: "cuda"
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: "OneCycleLR"
+    milestones: [200, 300, 400, 500, 800, 900]
+    scheduler_gamma: 0.5
+    batch_size: 8
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []
+
+airfoil:
+  data:
+    L: 1.0
+    downsample_ratio: 1
+    n_train: 500
+    n_test: 200
+
+  model:
+    layer_types: [
+        "GalerkinConv_fourier",
+        "GalerkinConv_fourier",
+        "GalerkinConv_fourier",
+        "GalerkinConv_fourier",
+      ] # GalerkinConv_fourier, GalerkinConv_pca, FourierConv2d
+    FNO_modes: # [16, 16, 16, 16] # modes for FourierConv2d
+    GkNN_modes: [512, 512, 512, 512] # modes for GkNN
+    fc_dim: 128
+    in_dim: 4 # default
+    out_dim: 1 # default
+    pca_include_input: False
+    pca_include_grid: False
+    layers_dim: [128, 128, 128, 128, 128]
+    act: "gelu"
+    pad_ratio: 0.05
+    residual: [False, False, False, False]
+
+  train:
+    device: "cuda"
+    base_lr: 0.001
+    weight_decay: 0.0001
+    epochs: 500
+    scheduler: "OneCycleLR"
+    milestones: [200, 300, 400, 500, 800, 900]
+    scheduler_gamma: 0.5
+    batch_size: 30
+    normalization_x: True
+    normalization_y: True
+    normalization_dim: []

@@ -1,6 +1,8 @@
 data/
 notes/
+eqs/
+saves/
+.vscode/
 .DS_Store
+*.sh
 **/__pycache__/
-torch_test.py
-github_key.text

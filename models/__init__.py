@@ -2,6 +2,7 @@ from .FCN import FCNet
 from .train import FNN_train,count_params,HGkNN_train
 from .Phytrain import PhyHGkNN_train
 from .newPhytrain import newPhyHGkNN_train
+from .optPhytrain import optPhytrain
 from .GPtrain import GPtrain
 from .GPtrain2 import GPtrain2
 from .utils import (

@@ -26,7 +26,7 @@ car_normal:
     device: 'cuda' 
     input_with_weight: True
     global_only: False
-    local_only: False
+    local_only: True
 
   train:
 
@@ -46,7 +46,7 @@ car_normal:
 
   plot:
     plot_H_num: 0
-    plot_hidden_layers_num: 3
+    plot_hidden_layers_num: False
     plot_bases_num: 0
     save_figure_H: figure/H/bsz30/
     save_figure_hidden: figure/car_normal/test_local_PhyHGkNN0/

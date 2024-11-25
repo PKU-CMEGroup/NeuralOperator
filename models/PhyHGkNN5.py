@@ -376,7 +376,8 @@ class PhyHGkNN5(nn.Module):
         grid = grid.unsqueeze(2) #bsz,N,1,phy_dim
         basepts = self.basepts_Gauss_out.unsqueeze(0).unsqueeze(0) # 1,1,K2,phy_dim
         baseweight = torch.abs(self.baseweight_Gauss_out).unsqueeze(0).unsqueeze(0)  #1,1,K2,phy_dim
-        bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2 
+        # bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.sum((grid-basepts)**2,dim=3)*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2
+        bases = torch.sqrt(torch.prod(baseweight, dim=3))*torch.exp(-1*torch.sum(baseweight*(grid-basepts)**2,dim=3))  #bsz,N,K2,phy_dim-->bsz,N,K2  
         bases = bases*math.sqrt(bases.shape[1])/(torch.norm(bases, p=2, dim=1, keepdim=True)+1e-5)
         return bases
     

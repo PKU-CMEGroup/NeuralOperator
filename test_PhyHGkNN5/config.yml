@@ -7,11 +7,15 @@ Darcy:
     n_test: 200   #n_train + n_test < 1300
 
   model:
-    layer_types: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']
+    layer_types_global: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']    
+    layer_types_local: ['DGalerkinConv','DGalerkinConv','DGalerkinConv','DGalerkinConv']
     phy_dim: 2
     kernel_mode: 16
     Fourier_para: 'para/darcy/uniform_Fourier_225.pt'
     Gauss_para: 'para/darcy/baseweight_Gauss225_fixedpts.pt'
+    Morlet_para: 'para/advection/Morlet_pts10_freq61_uniform.pt'
+    local_bases_type: 'Gauss'
+    train_local_out: False
     fc_dim: 128
     in_dim: 3  #default
     out_dim: 1  #default
@@ -19,7 +23,9 @@ Darcy:
     act: 'gelu'
     dropout: [False,False,False,False]
     device: 'cuda' 
-
+    input_with_weight: False
+    global_only: False
+    local_only: False
 
   train:
     device: 'cuda'   #cpu or cuda

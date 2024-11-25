@@ -14,4 +14,5 @@ git rm '<file_name>'					删除文件
 git branch 						查看所有分支
 git fetch origin  					获取远程仓库的最新状态
 git reset --hard HEAD  				强制恢复到上一次提交的状态
+git reset HEAD~1					将最后一次提交的更改从暂存区移出，但保留这些更改在工作目录中
 git clean -fdx  						清除所有未跟踪的文件(x:包括gitignore中的隐藏文件)

@@ -119,12 +119,18 @@ print("y_train.shape: ",y_train.shape)
 
 
 Fourier_para_path = config_model['Fourier_para']
-Gauss_para_path = config_model['Gauss_para']
 Fourier_weight = torch.load(Fourier_para_path)
-Gauss_pts, Gauss_weight = torch.load(Gauss_para_path)
-para_list = [Fourier_weight,Gauss_pts,Gauss_weight]
 print(f'load Fourier paras from {Fourier_para_path}')
-print(f'load Gauss paras from {Gauss_para_path}')
+if config['model']['local_bases_type'] =='Gauss':
+    Gauss_para_path = config_model['Gauss_para']
+    Gauss_pts, Gauss_weight = torch.load(Gauss_para_path)
+    para_list = [Fourier_weight,Gauss_pts,Gauss_weight]
+    print(f'load Gauss paras from {Gauss_para_path}')
+elif config['model']['local_bases_type'] =='Morlet':
+    Morlet_para_path = config_model['Morlet_para']
+    Morlet_pts, Morlet_weight,Morlet_freq = torch.load(Morlet_para_path)
+    para_list = [Fourier_weight,Morlet_pts, Morlet_weight,Morlet_freq]
+    print(f'load Morlet paras from {Morlet_para_path}')
 
 ###################################
 #construct model and train

@@ -124,6 +124,8 @@ def newPhyHGkNN_train(
         plot_data_index = config['plot']['plot_data_index']
     except:
         plot_data_index = False
+    H_L1_reg = config.get('train', {}).get('H_L1_reg', 0)
+    
     t1 = default_timer()
 
 
@@ -143,6 +145,8 @@ def newPhyHGkNN_train(
                 y = y_normalizer.decode(y)
             loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
             train_rel_l2 += loss.item()
+            if H_L1_reg:
+                loss = loss + H_L1_reg*torch.sum(torch.abs(model.H_local))
             loss.backward()
 
             optimizer.step()
@@ -167,11 +171,15 @@ def newPhyHGkNN_train(
                     else:
                         model.plot_hidden_layer(x,y,Nx,Ny,save_figure_hidden,ep,plot_hidden_layers_num)
             if plot_bases_num:
-                if ep%10==0:
-                    Nx,Ny = config['plot']['plot_shape'][0],config['plot']['plot_shape'][1]
-                    save_figure_bases = config['plot']['save_figure_bases']
-                    grid =  x[:,:,model.in_dim-model.phy_dim:]
-                    model.plot_bases(plot_bases_num,grid,Nx,Ny,save_figure_bases,ep)
+                if ep%5==0:
+                    if model.phy_dim==3:
+                        save_figure_bases = config['plot']['save_figure_bases']
+                        model.plot_bases_3d(save_figure_bases,ep)
+                    else:
+                        Nx,Ny = config['plot']['plot_shape'][0],config['plot']['plot_shape'][1]
+                        save_figure_bases = config['plot']['save_figure_bases']
+                        grid =  x[:,:,model.in_dim-model.phy_dim:]
+                        model.plot_bases(plot_bases_num,grid,Nx,Ny,save_figure_bases,ep)
                 
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)

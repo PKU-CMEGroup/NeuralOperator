@@ -1,0 +1,620 @@
+PS C:\Users\15461\Desktop\mygithub\test_PhyHGkNN6> cd "c:\Users\15461\Desktop\mygithub\test_PhyHGkNN6"
+PS C:\Users\15461\Desktop\mygithub\test_PhyHGkNN6> python -u "c:\Users\15461\Desktop\mygithub\test_PhyHGkNN6\car_pressure_PhyHGkNN.py"
+x_train.shape:  torch.Size([500, 3586, 4])
+y_train.shape:  torch.Size([500, 3586, 1])
+load Fourier paras from para/car/Fourier3_uniform.pt
+select pts from data 400 20
+params: 589249
+config_model:
+{'Fourier_para': 'para/car/Fourier3_uniform.pt',
+ 'Gauss_para': 'para/car/Gauss_343+100_100.pt',
+ 'act': 'gelu',
+ 'device': 'cuda',
+ 'dropout': [False, False, False, False],
+ 'fc_dim': 128,
+ 'in_dim': 3,
+ 'input_with_weight': True,
+ 'kernel_mode': 16,
+ 'layer_types_global': ['DGalerkinConv',
+                        'DGalerkinConv',
+                        'DGalerkinConv',
+                        'DGalerkinConv'],
+ 'layer_types_local': ['DGalerkinConv',
+                       'DGalerkinConv',
+                       'DGalerkinConv',
+                       'DGalerkinConv'],
+ 'layers_dim': [64, 64, 64, 64, 64],
+ 'out_dim': 1,
+ 'phy_dim': 3,
+ 'train_local_pts': True,
+ 'train_local_weight': True,
+ 'with_global': True,
+ 'with_local': True}
+config_train:
+{'base_lr': 0.001,
+ 'basepts_lr_ratio': 100,
+ 'batch_size': 10,
+ 'device': 'cuda',
+ 'epochs': 500,
+ 'milestones': [200, 300, 400, 500, 800, 900],
+ 'normalization_dim': [],
+ 'normalization_x': False,
+ 'normalization_y': True,
+ 'regularization_ep': 0,
+ 'scheduler': 'OneCycleLR',
+ 'scheduler_gamma': 0.5,
+ 'weight_decay': 0.0001}
+Start training
+Epoch :  0  Time :  18.247  Rel. Train L2 Loss :  0.42859099721908567  Rel. Test L2 Loss :  0.36767977714538574  train_reg:  0.0
+Epoch :  1  Time :  14.517  Rel. Train L2 Loss :  0.3392771158218384  Rel. Test L2 Loss :  0.34245641469955446  train_reg:  0.0
+Epoch :  2  Time :  14.364  Rel. Train L2 Loss :  0.3307132039070129  Rel. Test L2 Loss :  0.3647016906738281  train_reg:  0.0
+Epoch :  3  Time :  14.239  Rel. Train L2 Loss :  0.3260220937728882  Rel. Test L2 Loss :  0.3327592754364014  train_reg:  0.0
+Epoch :  4  Time :  14.285  Rel. Train L2 Loss :  0.3225478010177612  Rel. Test L2 Loss :  0.3449473524093628  train_reg:  0.0
+Epoch :  5  Time :  16.873  Rel. Train L2 Loss :  0.32076143550872804  Rel. Test L2 Loss :  0.33080487966537475  train_reg:  0.0
+Epoch :  6  Time :  14.393  Rel. Train L2 Loss :  0.3183129940032959  Rel. Test L2 Loss :  0.3354328608512878  train_reg:  0.0
+Epoch :  7  Time :  15.034  Rel. Train L2 Loss :  0.317315945148468  Rel. Test L2 Loss :  0.33234171152114866  train_reg:  0.0
+Epoch :  8  Time :  14.382  Rel. Train L2 Loss :  0.3137473387718201  Rel. Test L2 Loss :  0.3313563227653503  train_reg:  0.0
+Epoch :  9  Time :  14.828  Rel. Train L2 Loss :  0.3109643692970276  Rel. Test L2 Loss :  0.3260945177078247  train_reg:  0.0
+Epoch :  10  Time :  16.871  Rel. Train L2 Loss :  0.3086313648223877  Rel. Test L2 Loss :  0.32952810764312745  train_reg:  0.0
+Epoch :  11  Time :  14.357  Rel. Train L2 Loss :  0.30799031114578246  Rel. Test L2 Loss :  0.3219467067718506  train_reg:  0.0
+Epoch :  12  Time :  14.301  Rel. Train L2 Loss :  0.30576540565490723  Rel. Test L2 Loss :  0.3305757284164429  train_reg:  0.0
+Epoch :  13  Time :  14.309  Rel. Train L2 Loss :  0.30673043060302735  Rel. Test L2 Loss :  0.3273953652381897  train_reg:  0.0
+Epoch :  14  Time :  14.301  Rel. Train L2 Loss :  0.30504080867767336  Rel. Test L2 Loss :  0.3261001801490784  train_reg:  0.0
+Epoch :  15  Time :  16.833  Rel. Train L2 Loss :  0.30477213191986086  Rel. Test L2 Loss :  0.3254613614082336  train_reg:  0.0
+Epoch :  16  Time :  14.372  Rel. Train L2 Loss :  0.3046578288078308  Rel. Test L2 Loss :  0.3288485670089722  train_reg:  0.0
+Epoch :  17  Time :  14.307  Rel. Train L2 Loss :  0.3030495376586914  Rel. Test L2 Loss :  0.3237576699256897  train_reg:  0.0
+Epoch :  18  Time :  14.354  Rel. Train L2 Loss :  0.29689692211151125  Rel. Test L2 Loss :  0.31538818836212157  train_reg:  0.0
+Epoch :  19  Time :  14.937  Rel. Train L2 Loss :  0.2973520941734314  Rel. Test L2 Loss :  0.31618871450424196  train_reg:  0.0
+Epoch :  20  Time :  17.929  Rel. Train L2 Loss :  0.29585772037506103  Rel. Test L2 Loss :  0.31562969923019407  train_reg:  0.0
+Epoch :  21  Time :  15.121  Rel. Train L2 Loss :  0.2953956141471863  Rel. Test L2 Loss :  0.31662034034729003  train_reg:  0.0
+Epoch :  22  Time :  14.361  Rel. Train L2 Loss :  0.29555869913101196  Rel. Test L2 Loss :  0.3279639410972595  train_reg:  0.0
+Epoch :  23  Time :  14.356  Rel. Train L2 Loss :  0.2940989031791687  Rel. Test L2 Loss :  0.3150558114051819  train_reg:  0.0
+Epoch :  24  Time :  14.348  Rel. Train L2 Loss :  0.2970022087097168  Rel. Test L2 Loss :  0.3172868514060974  train_reg:  0.0
+Epoch :  25  Time :  16.565  Rel. Train L2 Loss :  0.29013493490219117  Rel. Test L2 Loss :  0.31540685176849365  train_reg:  0.0
+Epoch :  26  Time :  14.462  Rel. Train L2 Loss :  0.2881396951675415  Rel. Test L2 Loss :  0.3127545690536499  train_reg:  0.0
+Epoch :  27  Time :  14.328  Rel. Train L2 Loss :  0.28998962545394896  Rel. Test L2 Loss :  0.31425722360610964  train_reg:  0.0
+Epoch :  28  Time :  14.421  Rel. Train L2 Loss :  0.28551808357238767  Rel. Test L2 Loss :  0.3227056002616882  train_reg:  0.0
+Epoch :  29  Time :  14.355  Rel. Train L2 Loss :  0.2865636806488037  Rel. Test L2 Loss :  0.3111996483802795  train_reg:  0.0
+Epoch :  30  Time :  16.732  Rel. Train L2 Loss :  0.2880525164604187  Rel. Test L2 Loss :  0.31217906713485716  train_reg:  0.0
+Epoch :  31  Time :  14.436  Rel. Train L2 Loss :  0.28530043029785157  Rel. Test L2 Loss :  0.3103662943840027  train_reg:  0.0
+Epoch :  32  Time :  14.364  Rel. Train L2 Loss :  0.28215657329559324  Rel. Test L2 Loss :  0.31297112941741945  train_reg:  0.0
+Epoch :  33  Time :  14.429  Rel. Train L2 Loss :  0.2826978740692139  Rel. Test L2 Loss :  0.31547008275985716  train_reg:  0.0
+Epoch :  34  Time :  14.398  Rel. Train L2 Loss :  0.2807810034751892  Rel. Test L2 Loss :  0.30727601528167725  train_reg:  0.0
+Epoch :  35  Time :  17.065  Rel. Train L2 Loss :  0.2812263603210449  Rel. Test L2 Loss :  0.3142381691932678  train_reg:  0.0
+Epoch :  36  Time :  14.417  Rel. Train L2 Loss :  0.27960573053359983  Rel. Test L2 Loss :  0.3150418257713318  train_reg:  0.0
+Epoch :  37  Time :  14.4  Rel. Train L2 Loss :  0.2797964873313904  Rel. Test L2 Loss :  0.31133862495422365  train_reg:  0.0
+Epoch :  38  Time :  14.489  Rel. Train L2 Loss :  0.2784093842506409  Rel. Test L2 Loss :  0.3194500160217285  train_reg:  0.0
+Epoch :  39  Time :  14.437  Rel. Train L2 Loss :  0.2782001051902771  Rel. Test L2 Loss :  0.31858029127120974  train_reg:  0.0
+Epoch :  40  Time :  17.226  Rel. Train L2 Loss :  0.27698749351501467  Rel. Test L2 Loss :  0.3091150379180908  train_reg:  0.0
+Epoch :  41  Time :  14.41  Rel. Train L2 Loss :  0.2750211138725281  Rel. Test L2 Loss :  0.32013979911804197  train_reg:  0.0
+Epoch :  42  Time :  14.414  Rel. Train L2 Loss :  0.27123442649841306  Rel. Test L2 Loss :  0.3134513521194458  train_reg:  0.0
+Epoch :  43  Time :  14.509  Rel. Train L2 Loss :  0.27131990432739256  Rel. Test L2 Loss :  0.3135802221298218  train_reg:  0.0
+Epoch :  44  Time :  14.45  Rel. Train L2 Loss :  0.2706495413780212  Rel. Test L2 Loss :  0.3180232810974121  train_reg:  0.0
+Epoch :  45  Time :  17.211  Rel. Train L2 Loss :  0.2722706050872803  Rel. Test L2 Loss :  0.31831385135650636  train_reg:  0.0
+Epoch :  46  Time :  14.42  Rel. Train L2 Loss :  0.2737074222564697  Rel. Test L2 Loss :  0.31150311946868897  train_reg:  0.0
+Epoch :  47  Time :  14.418  Rel. Train L2 Loss :  0.2689261054992676  Rel. Test L2 Loss :  0.3121169137954712  train_reg:  0.0
+Epoch :  48  Time :  14.494  Rel. Train L2 Loss :  0.26599725341796876  Rel. Test L2 Loss :  0.31327539920806885  train_reg:  0.0
+Epoch :  49  Time :  14.479  Rel. Train L2 Loss :  0.26784562492370606  Rel. Test L2 Loss :  0.31465628623962405  train_reg:  0.0
+Epoch :  50  Time :  18.169  Rel. Train L2 Loss :  0.26663635206222536  Rel. Test L2 Loss :  0.3168530631065369  train_reg:  0.0
+Epoch :  51  Time :  14.412  Rel. Train L2 Loss :  0.2633360404968262  Rel. Test L2 Loss :  0.3143902802467346  train_reg:  0.0
+Epoch :  52  Time :  14.49  Rel. Train L2 Loss :  0.2679043550491333  Rel. Test L2 Loss :  0.32373666524887085  train_reg:  0.0
+Epoch :  53  Time :  14.565  Rel. Train L2 Loss :  0.2648096990585327  Rel. Test L2 Loss :  0.31780359268188474  train_reg:  0.0
+Epoch :  54  Time :  14.457  Rel. Train L2 Loss :  0.2629044432640076  Rel. Test L2 Loss :  0.31415998935699463  train_reg:  0.0
+Epoch :  55  Time :  16.996  Rel. Train L2 Loss :  0.2604342966079712  Rel. Test L2 Loss :  0.3185739254951477  train_reg:  0.0
+Epoch :  56  Time :  14.457  Rel. Train L2 Loss :  0.26084671783447266  Rel. Test L2 Loss :  0.3147882986068726  train_reg:  0.0
+Epoch :  57  Time :  14.506  Rel. Train L2 Loss :  0.2617415771484375  Rel. Test L2 Loss :  0.31323550462722777  train_reg:  0.0
+Epoch :  58  Time :  14.542  Rel. Train L2 Loss :  0.2598985509872436  Rel. Test L2 Loss :  0.311386456489563  train_reg:  0.0
+Epoch :  59  Time :  14.589  Rel. Train L2 Loss :  0.2567288908958435  Rel. Test L2 Loss :  0.3177542495727539  train_reg:  0.0
+Epoch :  60  Time :  17.139  Rel. Train L2 Loss :  0.2581412987709045  Rel. Test L2 Loss :  0.31683149576187136  train_reg:  0.0
+Epoch :  61  Time :  14.557  Rel. Train L2 Loss :  0.2540854721069336  Rel. Test L2 Loss :  0.3121023988723755  train_reg:  0.0
+Epoch :  62  Time :  14.797  Rel. Train L2 Loss :  0.25411459922790525  Rel. Test L2 Loss :  0.3219242358207703  train_reg:  0.0
+Epoch :  63  Time :  15.218  Rel. Train L2 Loss :  0.25162981033325194  Rel. Test L2 Loss :  0.32338027000427244  train_reg:  0.0
+Epoch :  64  Time :  15.219  Rel. Train L2 Loss :  0.252133780002594  Rel. Test L2 Loss :  0.31922435760498047  train_reg:  0.0
+Epoch :  65  Time :  17.281  Rel. Train L2 Loss :  0.25366974639892576  Rel. Test L2 Loss :  0.3195238423347473  train_reg:  0.0
+Epoch :  66  Time :  14.953  Rel. Train L2 Loss :  0.2517974841594696  Rel. Test L2 Loss :  0.3186987900733948  train_reg:  0.0
+Epoch :  67  Time :  14.7  Rel. Train L2 Loss :  0.24796329593658448  Rel. Test L2 Loss :  0.3140204381942749  train_reg:  0.0
+Epoch :  68  Time :  14.819  Rel. Train L2 Loss :  0.24939203548431396  Rel. Test L2 Loss :  0.31764816761016845  train_reg:  0.0
+Epoch :  69  Time :  14.821  Rel. Train L2 Loss :  0.2478499665260315  Rel. Test L2 Loss :  0.3273444557189941  train_reg:  0.0
+Epoch :  70  Time :  17.49  Rel. Train L2 Loss :  0.24782737970352173  Rel. Test L2 Loss :  0.32583178997039797  train_reg:  0.0
+Epoch :  71  Time :  14.959  Rel. Train L2 Loss :  0.24487523102760314  Rel. Test L2 Loss :  0.31924186944961547  train_reg:  0.0
+Epoch :  72  Time :  14.846  Rel. Train L2 Loss :  0.2460217123031616  Rel. Test L2 Loss :  0.32078280925750735  train_reg:  0.0
+Epoch :  73  Time :  15.012  Rel. Train L2 Loss :  0.2446200053691864  Rel. Test L2 Loss :  0.3231363868713379  train_reg:  0.0
+Epoch :  74  Time :  14.936  Rel. Train L2 Loss :  0.24603199458122255  Rel. Test L2 Loss :  0.324432532787323  train_reg:  0.0
+Epoch :  75  Time :  17.938  Rel. Train L2 Loss :  0.24223527574539186  Rel. Test L2 Loss :  0.3227126121520996  train_reg:  0.0
+Epoch :  76  Time :  15.225  Rel. Train L2 Loss :  0.2407303104400635  Rel. Test L2 Loss :  0.3277874994277954  train_reg:  0.0
+Epoch :  77  Time :  15.129  Rel. Train L2 Loss :  0.24055515384674073  Rel. Test L2 Loss :  0.3221551322937012  train_reg:  0.0
+Epoch :  78  Time :  15.386  Rel. Train L2 Loss :  0.23952179050445557  Rel. Test L2 Loss :  0.3232766389846802  train_reg:  0.0
+Epoch :  79  Time :  15.08  Rel. Train L2 Loss :  0.23552372574806213  Rel. Test L2 Loss :  0.3182022428512573  train_reg:  0.0
+Epoch :  80  Time :  17.65  Rel. Train L2 Loss :  0.2353764877319336  Rel. Test L2 Loss :  0.32227625131607057  train_reg:  0.0
+Epoch :  81  Time :  14.97  Rel. Train L2 Loss :  0.2358746747970581  Rel. Test L2 Loss :  0.3181171369552612  train_reg:  0.0
+Epoch :  82  Time :  15.103  Rel. Train L2 Loss :  0.2361738655567169  Rel. Test L2 Loss :  0.3281869459152222  train_reg:  0.0
+Epoch :  83  Time :  14.999  Rel. Train L2 Loss :  0.23727858066558838  Rel. Test L2 Loss :  0.33017533779144287  train_reg:  0.0
+Epoch :  84  Time :  15.241  Rel. Train L2 Loss :  0.23213957691192627  Rel. Test L2 Loss :  0.3224562883377075  train_reg:  0.0
+Epoch :  85  Time :  18.306  Rel. Train L2 Loss :  0.23222332763671874  Rel. Test L2 Loss :  0.3319941353797913  train_reg:  0.0
+Epoch :  86  Time :  15.023  Rel. Train L2 Loss :  0.2349258484840393  Rel. Test L2 Loss :  0.325870418548584  train_reg:  0.0
+Epoch :  87  Time :  15.056  Rel. Train L2 Loss :  0.23130239820480347  Rel. Test L2 Loss :  0.3272134041786194  train_reg:  0.0
+Epoch :  88  Time :  14.933  Rel. Train L2 Loss :  0.23020508551597596  Rel. Test L2 Loss :  0.32519166707992553  train_reg:  0.0
+Epoch :  89  Time :  15.193  Rel. Train L2 Loss :  0.22932960629463195  Rel. Test L2 Loss :  0.32961229801177977  train_reg:  0.0
+Epoch :  90  Time :  17.25  Rel. Train L2 Loss :  0.22577675557136537  Rel. Test L2 Loss :  0.32470144987106325  train_reg:  0.0
+Epoch :  91  Time :  15.27  Rel. Train L2 Loss :  0.22242639803886413  Rel. Test L2 Loss :  0.3276225566864014  train_reg:  0.0
+Epoch :  92  Time :  15.123  Rel. Train L2 Loss :  0.22297499084472655  Rel. Test L2 Loss :  0.3287103796005249  train_reg:  0.0
+Epoch :  93  Time :  15.037  Rel. Train L2 Loss :  0.2238493547439575  Rel. Test L2 Loss :  0.32643908977508546  train_reg:  0.0
+Epoch :  94  Time :  15.241  Rel. Train L2 Loss :  0.22384230470657349  Rel. Test L2 Loss :  0.3319552946090698  train_reg:  0.0
+Epoch :  95  Time :  17.493  Rel. Train L2 Loss :  0.22039779615402222  Rel. Test L2 Loss :  0.32647531032562255  train_reg:  0.0
+Epoch :  96  Time :  14.998  Rel. Train L2 Loss :  0.21846800756454468  Rel. Test L2 Loss :  0.3289525246620178  train_reg:  0.0
+Epoch :  97  Time :  15.008  Rel. Train L2 Loss :  0.21968137621879577  Rel. Test L2 Loss :  0.32721479892730715  train_reg:  0.0
+Epoch :  98  Time :  15.095  Rel. Train L2 Loss :  0.21830922484397888  Rel. Test L2 Loss :  0.33367009162902833  train_reg:  0.0
+Epoch :  99  Time :  15.294  Rel. Train L2 Loss :  0.21568430590629578  Rel. Test L2 Loss :  0.3389259243011475  train_reg:  0.0
+Epoch :  100  Time :  17.038  Rel. Train L2 Loss :  0.21580759167671204  Rel. Test L2 Loss :  0.33334184885025026  train_reg:  0.0
+Epoch :  101  Time :  14.787  Rel. Train L2 Loss :  0.21485538005828858  Rel. Test L2 Loss :  0.33565115451812744  train_reg:  0.0
+Epoch :  102  Time :  14.928  Rel. Train L2 Loss :  0.21526249384880067  Rel. Test L2 Loss :  0.33566712141036986  train_reg:  0.0
+Epoch :  103  Time :  14.974  Rel. Train L2 Loss :  0.21325906920433044  Rel. Test L2 Loss :  0.3341302728652954  train_reg:  0.0
+Epoch :  104  Time :  14.917  Rel. Train L2 Loss :  0.21018679189682007  Rel. Test L2 Loss :  0.3336917686462402  train_reg:  0.0
+Epoch :  105  Time :  17.114  Rel. Train L2 Loss :  0.21324106025695802  Rel. Test L2 Loss :  0.3334729552268982  train_reg:  0.0
+Epoch :  106  Time :  14.789  Rel. Train L2 Loss :  0.2105400516986847  Rel. Test L2 Loss :  0.33414827585220336  train_reg:  0.0
+Epoch :  107  Time :  14.927  Rel. Train L2 Loss :  0.2059159951210022  Rel. Test L2 Loss :  0.33492929697036744  train_reg:  0.0
+Epoch :  108  Time :  14.848  Rel. Train L2 Loss :  0.20718794393539428  Rel. Test L2 Loss :  0.3336492133140564  train_reg:  0.0
+Epoch :  109  Time :  14.888  Rel. Train L2 Loss :  0.20694008564949035  Rel. Test L2 Loss :  0.33658872365951537  train_reg:  0.0
+Epoch :  110  Time :  17.104  Rel. Train L2 Loss :  0.20883283853530885  Rel. Test L2 Loss :  0.3314591693878174  train_reg:  0.0
+Epoch :  111  Time :  14.784  Rel. Train L2 Loss :  0.20491803359985353  Rel. Test L2 Loss :  0.33524499654769896  train_reg:  0.0
+Epoch :  112  Time :  14.835  Rel. Train L2 Loss :  0.20525424456596375  Rel. Test L2 Loss :  0.3291963839530945  train_reg:  0.0
+Epoch :  113  Time :  14.883  Rel. Train L2 Loss :  0.20422253704071044  Rel. Test L2 Loss :  0.3403553700447082  train_reg:  0.0
+Epoch :  114  Time :  15.0  Rel. Train L2 Loss :  0.20832678842544555  Rel. Test L2 Loss :  0.3379086637496948  train_reg:  0.0
+Epoch :  115  Time :  17.505  Rel. Train L2 Loss :  0.20272693610191345  Rel. Test L2 Loss :  0.33778985261917116  train_reg:  0.0
+Epoch :  116  Time :  15.002  Rel. Train L2 Loss :  0.19890595626831054  Rel. Test L2 Loss :  0.3344274401664734  train_reg:  0.0
+Epoch :  117  Time :  15.885  Rel. Train L2 Loss :  0.1963836009502411  Rel. Test L2 Loss :  0.33949042558670045  train_reg:  0.0
+Epoch :  118  Time :  14.948  Rel. Train L2 Loss :  0.19760989427566528  Rel. Test L2 Loss :  0.3399854254722595  train_reg:  0.0
+Epoch :  119  Time :  14.989  Rel. Train L2 Loss :  0.19900914192199706  Rel. Test L2 Loss :  0.33664066791534425  train_reg:  0.0
+Epoch :  120  Time :  17.127  Rel. Train L2 Loss :  0.19949689078330993  Rel. Test L2 Loss :  0.3383261799812317  train_reg:  0.0
+Epoch :  121  Time :  14.8  Rel. Train L2 Loss :  0.19501588892936705  Rel. Test L2 Loss :  0.33719000577926633  train_reg:  0.0
+Epoch :  122  Time :  14.923  Rel. Train L2 Loss :  0.19251083636283875  Rel. Test L2 Loss :  0.3372925090789795  train_reg:  0.0
+Epoch :  123  Time :  14.921  Rel. Train L2 Loss :  0.1936289875507355  Rel. Test L2 Loss :  0.34020875453948973  train_reg:  0.0
+Epoch :  124  Time :  14.914  Rel. Train L2 Loss :  0.1954714548587799  Rel. Test L2 Loss :  0.33411956548690797  train_reg:  0.0
+Epoch :  125  Time :  17.051  Rel. Train L2 Loss :  0.19258063125610353  Rel. Test L2 Loss :  0.33546876192092895  train_reg:  0.0
+Epoch :  126  Time :  14.744  Rel. Train L2 Loss :  0.18958514761924744  Rel. Test L2 Loss :  0.3425314569473267  train_reg:  0.0
+Epoch :  127  Time :  15.134  Rel. Train L2 Loss :  0.19112466359138489  Rel. Test L2 Loss :  0.3375718092918396  train_reg:  0.0
+Epoch :  128  Time :  15.232  Rel. Train L2 Loss :  0.19241713619232179  Rel. Test L2 Loss :  0.33943230867385865  train_reg:  0.0
+Epoch :  129  Time :  15.015  Rel. Train L2 Loss :  0.18983259344100953  Rel. Test L2 Loss :  0.3339951419830322  train_reg:  0.0
+Epoch :  130  Time :  3481.815  Rel. Train L2 Loss :  0.18713106679916383  Rel. Test L2 Loss :  0.33596563816070557  train_reg:  0.0
+Epoch :  131  Time :  15.344  Rel. Train L2 Loss :  0.1855648980140686  Rel. Test L2 Loss :  0.3411752271652222  train_reg:  0.0
+Epoch :  132  Time :  14.656  Rel. Train L2 Loss :  0.18442162919044494  Rel. Test L2 Loss :  0.34517415046691896  train_reg:  0.0
+Epoch :  133  Time :  14.635  Rel. Train L2 Loss :  0.18361044478416444  Rel. Test L2 Loss :  0.3438983726501465  train_reg:  0.0
+Epoch :  134  Time :  14.982  Rel. Train L2 Loss :  0.18272615456581115  Rel. Test L2 Loss :  0.33935946464538574  train_reg:  0.0
+Epoch :  135  Time :  17.582  Rel. Train L2 Loss :  0.18377456545829773  Rel. Test L2 Loss :  0.34250235080718994  train_reg:  0.0
+Epoch :  136  Time :  15.251  Rel. Train L2 Loss :  0.18276543045043944  Rel. Test L2 Loss :  0.34309853553771974  train_reg:  0.0
+Epoch :  137  Time :  14.23  Rel. Train L2 Loss :  0.18339015078544615  Rel. Test L2 Loss :  0.3386261200904846  train_reg:  0.0
+Epoch :  138  Time :  14.402  Rel. Train L2 Loss :  0.1824395363330841  Rel. Test L2 Loss :  0.33730891466140744  train_reg:  0.0
+Epoch :  139  Time :  14.344  Rel. Train L2 Loss :  0.18056982350349426  Rel. Test L2 Loss :  0.34126450300216676  train_reg:  0.0
+Epoch :  140  Time :  17.428  Rel. Train L2 Loss :  0.181606014251709  Rel. Test L2 Loss :  0.34554797410964966  train_reg:  0.0
+Epoch :  141  Time :  14.234  Rel. Train L2 Loss :  0.1813442006111145  Rel. Test L2 Loss :  0.339625403881073  train_reg:  0.0
+Epoch :  142  Time :  14.666  Rel. Train L2 Loss :  0.18103270292282103  Rel. Test L2 Loss :  0.3379754781723022  train_reg:  0.0
+Epoch :  143  Time :  14.364  Rel. Train L2 Loss :  0.17941075587272645  Rel. Test L2 Loss :  0.3403418803215027  train_reg:  0.0
+Epoch :  144  Time :  14.201  Rel. Train L2 Loss :  0.17540562796592712  Rel. Test L2 Loss :  0.33902228593826295  train_reg:  0.0
+Epoch :  145  Time :  16.427  Rel. Train L2 Loss :  0.1749375398159027  Rel. Test L2 Loss :  0.3395222783088684  train_reg:  0.0
+Epoch :  146  Time :  14.32  Rel. Train L2 Loss :  0.17425150203704834  Rel. Test L2 Loss :  0.3381094002723694  train_reg:  0.0
+Epoch :  147  Time :  14.218  Rel. Train L2 Loss :  0.17413058257102967  Rel. Test L2 Loss :  0.3437540578842163  train_reg:  0.0
+Epoch :  148  Time :  14.28  Rel. Train L2 Loss :  0.17479700922966004  Rel. Test L2 Loss :  0.3413074016571045  train_reg:  0.0
+Epoch :  149  Time :  14.311  Rel. Train L2 Loss :  0.1731101005077362  Rel. Test L2 Loss :  0.34534448623657227  train_reg:  0.0
+Epoch :  150  Time :  17.872  Rel. Train L2 Loss :  0.1726773247718811  Rel. Test L2 Loss :  0.342293963432312  train_reg:  0.0
+Epoch :  151  Time :  14.543  Rel. Train L2 Loss :  0.173560644865036  Rel. Test L2 Loss :  0.3396881484985352  train_reg:  0.0
+Epoch :  152  Time :  14.366  Rel. Train L2 Loss :  0.17110057616233826  Rel. Test L2 Loss :  0.3435210227966309  train_reg:  0.0
+Epoch :  153  Time :  14.293  Rel. Train L2 Loss :  0.17064114665985108  Rel. Test L2 Loss :  0.3383013367652893  train_reg:  0.0
+Epoch :  154  Time :  14.263  Rel. Train L2 Loss :  0.1719039433002472  Rel. Test L2 Loss :  0.34641365766525267  train_reg:  0.0
+Epoch :  155  Time :  16.734  Rel. Train L2 Loss :  0.17123213076591492  Rel. Test L2 Loss :  0.34350778818130495  train_reg:  0.0
+Epoch :  156  Time :  14.594  Rel. Train L2 Loss :  0.1688539514541626  Rel. Test L2 Loss :  0.3395290064811707  train_reg:  0.0
+Epoch :  157  Time :  14.384  Rel. Train L2 Loss :  0.16836850142478943  Rel. Test L2 Loss :  0.346401526927948  train_reg:  0.0
+Epoch :  158  Time :  14.667  Rel. Train L2 Loss :  0.1682255160808563  Rel. Test L2 Loss :  0.3457476997375488  train_reg:  0.0
+Epoch :  159  Time :  14.328  Rel. Train L2 Loss :  0.16791473388671874  Rel. Test L2 Loss :  0.3408564805984497  train_reg:  0.0
+Epoch :  160  Time :  16.64  Rel. Train L2 Loss :  0.1670355281829834  Rel. Test L2 Loss :  0.34470882415771487  train_reg:  0.0
+Epoch :  161  Time :  14.414  Rel. Train L2 Loss :  0.16594318675994874  Rel. Test L2 Loss :  0.34341553926467894  train_reg:  0.0
+Epoch :  162  Time :  14.384  Rel. Train L2 Loss :  0.16397209787368774  Rel. Test L2 Loss :  0.3453659129142761  train_reg:  0.0
+Epoch :  163  Time :  14.408  Rel. Train L2 Loss :  0.16393203616142274  Rel. Test L2 Loss :  0.340199818611145  train_reg:  0.0
+Epoch :  164  Time :  14.335  Rel. Train L2 Loss :  0.16670385694503784  Rel. Test L2 Loss :  0.3445926022529602  train_reg:  0.0
+Epoch :  165  Time :  16.523  Rel. Train L2 Loss :  0.1656622393131256  Rel. Test L2 Loss :  0.34443432331085205  train_reg:  0.0
+Epoch :  166  Time :  14.506  Rel. Train L2 Loss :  0.1622139344215393  Rel. Test L2 Loss :  0.3364622330665588  train_reg:  0.0
+Epoch :  167  Time :  14.326  Rel. Train L2 Loss :  0.1631409993171692  Rel. Test L2 Loss :  0.34176800489425657  train_reg:  0.0
+Epoch :  168  Time :  14.956  Rel. Train L2 Loss :  0.16259694147109985  Rel. Test L2 Loss :  0.34171772480010987  train_reg:  0.0
+Epoch :  169  Time :  14.344  Rel. Train L2 Loss :  0.163109943151474  Rel. Test L2 Loss :  0.34470863580703737  train_reg:  0.0
+Epoch :  170  Time :  16.594  Rel. Train L2 Loss :  0.16381147289276124  Rel. Test L2 Loss :  0.34489290952682494  train_reg:  0.0
+Epoch :  171  Time :  14.349  Rel. Train L2 Loss :  0.15958217215538026  Rel. Test L2 Loss :  0.34140456676483155  train_reg:  0.0
+Epoch :  172  Time :  14.395  Rel. Train L2 Loss :  0.15941968417167662  Rel. Test L2 Loss :  0.342811758518219  train_reg:  0.0
+Epoch :  173  Time :  14.992  Rel. Train L2 Loss :  0.16065228724479674  Rel. Test L2 Loss :  0.3453752088546753  train_reg:  0.0
+Epoch :  174  Time :  14.946  Rel. Train L2 Loss :  0.16257518792152406  Rel. Test L2 Loss :  0.3383235239982605  train_reg:  0.0
+Epoch :  175  Time :  16.972  Rel. Train L2 Loss :  0.16051008391380311  Rel. Test L2 Loss :  0.34327814817428587  train_reg:  0.0
+Epoch :  176  Time :  14.396  Rel. Train L2 Loss :  0.16204464483261108  Rel. Test L2 Loss :  0.34566162586212157  train_reg:  0.0
+Epoch :  177  Time :  14.667  Rel. Train L2 Loss :  0.15676135230064392  Rel. Test L2 Loss :  0.34261555671691896  train_reg:  0.0
+Epoch :  178  Time :  15.21  Rel. Train L2 Loss :  0.15584609937667845  Rel. Test L2 Loss :  0.3433809494972229  train_reg:  0.0
+Epoch :  179  Time :  15.079  Rel. Train L2 Loss :  0.15618467569351197  Rel. Test L2 Loss :  0.3446224784851074  train_reg:  0.0
+Epoch :  180  Time :  16.564  Rel. Train L2 Loss :  0.15674542903900146  Rel. Test L2 Loss :  0.34177566051483155  train_reg:  0.0
+Epoch :  181  Time :  14.649  Rel. Train L2 Loss :  0.15577648687362672  Rel. Test L2 Loss :  0.3422995018959045  train_reg:  0.0
+Epoch :  182  Time :  15.399  Rel. Train L2 Loss :  0.15605456829071046  Rel. Test L2 Loss :  0.34364217042922973  train_reg:  0.0
+Epoch :  183  Time :  15.12  Rel. Train L2 Loss :  0.15609783148765563  Rel. Test L2 Loss :  0.34017946004867555  train_reg:  0.0
+Epoch :  184  Time :  14.56  Rel. Train L2 Loss :  0.15785219287872315  Rel. Test L2 Loss :  0.34707011222839357  train_reg:  0.0
+Epoch :  185  Time :  16.733  Rel. Train L2 Loss :  0.1546864538192749  Rel. Test L2 Loss :  0.34546828031539917  train_reg:  0.0
+Epoch :  186  Time :  14.783  Rel. Train L2 Loss :  0.15545473861694337  Rel. Test L2 Loss :  0.34363972663879394  train_reg:  0.0
+Epoch :  187  Time :  14.639  Rel. Train L2 Loss :  0.15308775734901428  Rel. Test L2 Loss :  0.34251084089279177  train_reg:  0.0
+Epoch :  188  Time :  14.746  Rel. Train L2 Loss :  0.15317708110809325  Rel. Test L2 Loss :  0.34365798473358156  train_reg:  0.0
+Epoch :  189  Time :  14.654  Rel. Train L2 Loss :  0.15262280464172362  Rel. Test L2 Loss :  0.34488261699676515  train_reg:  0.0
+Epoch :  190  Time :  17.069  Rel. Train L2 Loss :  0.15014100432395935  Rel. Test L2 Loss :  0.3386626601219177  train_reg:  0.0
+Epoch :  191  Time :  15.174  Rel. Train L2 Loss :  0.14952826833724975  Rel. Test L2 Loss :  0.34053529977798463  train_reg:  0.0
+Epoch :  192  Time :  14.901  Rel. Train L2 Loss :  0.1496442413330078  Rel. Test L2 Loss :  0.34382809162139893  train_reg:  0.0
+Epoch :  193  Time :  14.405  Rel. Train L2 Loss :  0.15228157496452333  Rel. Test L2 Loss :  0.34675283908843996  train_reg:  0.0
+Epoch :  194  Time :  14.602  Rel. Train L2 Loss :  0.15227705025672914  Rel. Test L2 Loss :  0.34497197151184084  train_reg:  0.0
+Epoch :  195  Time :  17.035  Rel. Train L2 Loss :  0.14867490863800048  Rel. Test L2 Loss :  0.3422026562690735  train_reg:  0.0
+Epoch :  196  Time :  14.558  Rel. Train L2 Loss :  0.14970507431030272  Rel. Test L2 Loss :  0.3496647667884827  train_reg:  0.0
+Epoch :  197  Time :  14.922  Rel. Train L2 Loss :  0.15059462761878967  Rel. Test L2 Loss :  0.348484468460083  train_reg:  0.0
+Epoch :  198  Time :  14.697  Rel. Train L2 Loss :  0.14891811156272888  Rel. Test L2 Loss :  0.3403783297538757  train_reg:  0.0
+Epoch :  199  Time :  14.749  Rel. Train L2 Loss :  0.15072262477874757  Rel. Test L2 Loss :  0.34421936750411986  train_reg:  0.0
+Epoch :  200  Time :  16.977  Rel. Train L2 Loss :  0.1475706489086151  Rel. Test L2 Loss :  0.3426787710189819  train_reg:  0.0
+Epoch :  201  Time :  14.547  Rel. Train L2 Loss :  0.14439869046211243  Rel. Test L2 Loss :  0.34628905057907106  train_reg:  0.0
+Epoch :  202  Time :  15.698  Rel. Train L2 Loss :  0.14562777256965637  Rel. Test L2 Loss :  0.34374415159225463  train_reg:  0.0
+Epoch :  203  Time :  15.414  Rel. Train L2 Loss :  0.1435997018814087  Rel. Test L2 Loss :  0.3479806017875671  train_reg:  0.0
+Epoch :  204  Time :  15.578  Rel. Train L2 Loss :  0.14582664728164674  Rel. Test L2 Loss :  0.34083768606185916  train_reg:  0.0
+Epoch :  205  Time :  17.033  Rel. Train L2 Loss :  0.14576732754707336  Rel. Test L2 Loss :  0.3467052745819092  train_reg:  0.0
+Epoch :  206  Time :  14.468  Rel. Train L2 Loss :  0.14478632593154908  Rel. Test L2 Loss :  0.3493160104751587  train_reg:  0.0
+Epoch :  207  Time :  14.536  Rel. Train L2 Loss :  0.14625190138816835  Rel. Test L2 Loss :  0.34328083753585814  train_reg:  0.0
+Epoch :  208  Time :  14.627  Rel. Train L2 Loss :  0.14326345896720885  Rel. Test L2 Loss :  0.3448567652702332  train_reg:  0.0
+Epoch :  209  Time :  15.428  Rel. Train L2 Loss :  0.14350361537933348  Rel. Test L2 Loss :  0.34418242931365967  train_reg:  0.0
+Epoch :  210  Time :  17.06  Rel. Train L2 Loss :  0.14268236923217772  Rel. Test L2 Loss :  0.3464061641693115  train_reg:  0.0
+Epoch :  211  Time :  15.074  Rel. Train L2 Loss :  0.14359956216812134  Rel. Test L2 Loss :  0.3477723479270935  train_reg:  0.0
+Epoch :  212  Time :  15.014  Rel. Train L2 Loss :  0.14206597232818605  Rel. Test L2 Loss :  0.3437656259536743  train_reg:  0.0
+Epoch :  213  Time :  14.571  Rel. Train L2 Loss :  0.14518929886817933  Rel. Test L2 Loss :  0.3435518789291382  train_reg:  0.0
+Epoch :  214  Time :  15.291  Rel. Train L2 Loss :  0.143438796043396  Rel. Test L2 Loss :  0.3459282279014587  train_reg:  0.0
+Epoch :  215  Time :  17.486  Rel. Train L2 Loss :  0.14169076538085937  Rel. Test L2 Loss :  0.3439528179168701  train_reg:  0.0
+Epoch :  216  Time :  15.373  Rel. Train L2 Loss :  0.14206479740142822  Rel. Test L2 Loss :  0.3484363150596619  train_reg:  0.0
+Epoch :  217  Time :  14.824  Rel. Train L2 Loss :  0.14125074648857117  Rel. Test L2 Loss :  0.3467667078971863  train_reg:  0.0
+Epoch :  218  Time :  14.53  Rel. Train L2 Loss :  0.14072234225273134  Rel. Test L2 Loss :  0.34603759288787844  train_reg:  0.0
+Epoch :  219  Time :  15.025  Rel. Train L2 Loss :  0.14039130067825317  Rel. Test L2 Loss :  0.3506583023071289  train_reg:  0.0
+Epoch :  220  Time :  17.247  Rel. Train L2 Loss :  0.14212078070640563  Rel. Test L2 Loss :  0.3496217584609985  train_reg:  0.0
+Epoch :  221  Time :  15.023  Rel. Train L2 Loss :  0.138517817735672  Rel. Test L2 Loss :  0.34895564794540407  train_reg:  0.0
+Epoch :  222  Time :  14.547  Rel. Train L2 Loss :  0.13679859972000122  Rel. Test L2 Loss :  0.3448406362533569  train_reg:  0.0
+Epoch :  223  Time :  14.823  Rel. Train L2 Loss :  0.140168386220932  Rel. Test L2 Loss :  0.3463189649581909  train_reg:  0.0
+Epoch :  224  Time :  14.919  Rel. Train L2 Loss :  0.13873723220825196  Rel. Test L2 Loss :  0.34488452434539796  train_reg:  0.0
+Epoch :  225  Time :  17.261  Rel. Train L2 Loss :  0.13979472231864928  Rel. Test L2 Loss :  0.347436945438385  train_reg:  0.0
+Epoch :  226  Time :  15.288  Rel. Train L2 Loss :  0.1382218050956726  Rel. Test L2 Loss :  0.346319944858551  train_reg:  0.0
+Epoch :  227  Time :  15.13  Rel. Train L2 Loss :  0.1370041890144348  Rel. Test L2 Loss :  0.345048189163208  train_reg:  0.0
+Epoch :  228  Time :  15.294  Rel. Train L2 Loss :  0.13662009596824645  Rel. Test L2 Loss :  0.3493713140487671  train_reg:  0.0
+Epoch :  229  Time :  15.146  Rel. Train L2 Loss :  0.13763224720954895  Rel. Test L2 Loss :  0.3480649900436401  train_reg:  0.0
+Epoch :  230  Time :  17.56  Rel. Train L2 Loss :  0.13823940706253052  Rel. Test L2 Loss :  0.3427076625823975  train_reg:  0.0
+Epoch :  231  Time :  15.143  Rel. Train L2 Loss :  0.13618749380111694  Rel. Test L2 Loss :  0.3469731330871582  train_reg:  0.0
+Epoch :  232  Time :  14.987  Rel. Train L2 Loss :  0.13795800113677978  Rel. Test L2 Loss :  0.3517449951171875  train_reg:  0.0
+Epoch :  233  Time :  15.083  Rel. Train L2 Loss :  0.13900665211677551  Rel. Test L2 Loss :  0.3505902910232544  train_reg:  0.0
+Epoch :  234  Time :  14.802  Rel. Train L2 Loss :  0.1416352391242981  Rel. Test L2 Loss :  0.3476292896270752  train_reg:  0.0
+Epoch :  235  Time :  17.201  Rel. Train L2 Loss :  0.1385847156047821  Rel. Test L2 Loss :  0.3448867607116699  train_reg:  0.0
+Epoch :  236  Time :  14.779  Rel. Train L2 Loss :  0.13849872946739197  Rel. Test L2 Loss :  0.34907318115234376  train_reg:  0.0
+Epoch :  237  Time :  14.779  Rel. Train L2 Loss :  0.1358567452430725  Rel. Test L2 Loss :  0.3483403658866882  train_reg:  0.0
+Epoch :  238  Time :  14.973  Rel. Train L2 Loss :  0.13580333399772643  Rel. Test L2 Loss :  0.3492443084716797  train_reg:  0.0
+Epoch :  239  Time :  14.802  Rel. Train L2 Loss :  0.13743123364448548  Rel. Test L2 Loss :  0.34469577312469485  train_reg:  0.0
+Epoch :  240  Time :  17.634  Rel. Train L2 Loss :  0.13475539207458495  Rel. Test L2 Loss :  0.34531296968460085  train_reg:  0.0
+Epoch :  241  Time :  15.047  Rel. Train L2 Loss :  0.13080579900741576  Rel. Test L2 Loss :  0.34386454105377195  train_reg:  0.0
+Epoch :  242  Time :  14.872  Rel. Train L2 Loss :  0.13190661931037903  Rel. Test L2 Loss :  0.3461173701286316  train_reg:  0.0
+Epoch :  243  Time :  15.142  Rel. Train L2 Loss :  0.13249184679985046  Rel. Test L2 Loss :  0.3474594140052795  train_reg:  0.0
+Epoch :  244  Time :  18.385  Rel. Train L2 Loss :  0.13308149862289428  Rel. Test L2 Loss :  0.34845236778259275  train_reg:  0.0
+Epoch :  245  Time :  17.22  Rel. Train L2 Loss :  0.13236501026153563  Rel. Test L2 Loss :  0.3484126377105713  train_reg:  0.0
+Epoch :  246  Time :  14.836  Rel. Train L2 Loss :  0.13337390589714052  Rel. Test L2 Loss :  0.34439342737197876  train_reg:  0.0
+Epoch :  247  Time :  15.309  Rel. Train L2 Loss :  0.1318648772239685  Rel. Test L2 Loss :  0.34695106267929077  train_reg:  0.0
+Epoch :  248  Time :  14.579  Rel. Train L2 Loss :  0.13025092530250548  Rel. Test L2 Loss :  0.3495844602584839  train_reg:  0.0
+Epoch :  249  Time :  14.748  Rel. Train L2 Loss :  0.1296459755897522  Rel. Test L2 Loss :  0.3480315637588501  train_reg:  0.0
+Epoch :  250  Time :  16.876  Rel. Train L2 Loss :  0.129469575881958  Rel. Test L2 Loss :  0.34357744932174683  train_reg:  0.0
+Epoch :  251  Time :  14.664  Rel. Train L2 Loss :  0.13242063403129578  Rel. Test L2 Loss :  0.34463418006896973  train_reg:  0.0
+Epoch :  252  Time :  15.189  Rel. Train L2 Loss :  0.12999367332458497  Rel. Test L2 Loss :  0.3469147896766663  train_reg:  0.0
+Epoch :  253  Time :  14.72  Rel. Train L2 Loss :  0.1292032151222229  Rel. Test L2 Loss :  0.347902729511261  train_reg:  0.0
+Epoch :  254  Time :  14.864  Rel. Train L2 Loss :  0.1311877920627594  Rel. Test L2 Loss :  0.3461673450469971  train_reg:  0.0
+Epoch :  255  Time :  16.993  Rel. Train L2 Loss :  0.13030923485755921  Rel. Test L2 Loss :  0.3456021070480347  train_reg:  0.0
+Epoch :  256  Time :  14.741  Rel. Train L2 Loss :  0.1278992908000946  Rel. Test L2 Loss :  0.34716106176376343  train_reg:  0.0
+Epoch :  257  Time :  15.146  Rel. Train L2 Loss :  0.12940118908882142  Rel. Test L2 Loss :  0.34412813901901246  train_reg:  0.0
+Epoch :  258  Time :  16.715  Rel. Train L2 Loss :  0.12871937131881714  Rel. Test L2 Loss :  0.352379732131958  train_reg:  0.0
+Epoch :  259  Time :  14.783  Rel. Train L2 Loss :  0.12743063831329346  Rel. Test L2 Loss :  0.3464872574806213  train_reg:  0.0
+Epoch :  260  Time :  17.363  Rel. Train L2 Loss :  0.12859377121925353  Rel. Test L2 Loss :  0.34897330284118655  train_reg:  0.0
+Epoch :  261  Time :  22.911  Rel. Train L2 Loss :  0.1276230330467224  Rel. Test L2 Loss :  0.34815322160720824  train_reg:  0.0
+Epoch :  262  Time :  41.713  Rel. Train L2 Loss :  0.12843610620498658  Rel. Test L2 Loss :  0.3485453319549561  train_reg:  0.0
+Epoch :  263  Time :  15.109  Rel. Train L2 Loss :  0.12696069872379304  Rel. Test L2 Loss :  0.3489765477180481  train_reg:  0.0
+Epoch :  264  Time :  14.997  Rel. Train L2 Loss :  0.12861198329925538  Rel. Test L2 Loss :  0.34655766248703  train_reg:  0.0
+Epoch :  265  Time :  17.364  Rel. Train L2 Loss :  0.12736547684669494  Rel. Test L2 Loss :  0.34587988138198855  train_reg:  0.0
+Epoch :  266  Time :  36.876  Rel. Train L2 Loss :  0.12716644763946533  Rel. Test L2 Loss :  0.34642146110534666  train_reg:  0.0
+Epoch :  267  Time :  53.876  Rel. Train L2 Loss :  0.12484614193439483  Rel. Test L2 Loss :  0.34581162691116335  train_reg:  0.0
+Epoch :  268  Time :  25.592  Rel. Train L2 Loss :  0.12571218609809875  Rel. Test L2 Loss :  0.35117284059524534  train_reg:  0.0
+Epoch :  269  Time :  16.247  Rel. Train L2 Loss :  0.12579011583328248  Rel. Test L2 Loss :  0.34951943159103394  train_reg:  0.0
+Epoch :  270  Time :  18.183  Rel. Train L2 Loss :  0.12945041561126708  Rel. Test L2 Loss :  0.3465736508369446  train_reg:  0.0
+Epoch :  271  Time :  15.752  Rel. Train L2 Loss :  0.1280450599193573  Rel. Test L2 Loss :  0.34908491373062134  train_reg:  0.0
+Epoch :  272  Time :  14.781  Rel. Train L2 Loss :  0.124269935131073  Rel. Test L2 Loss :  0.34395169258117675  train_reg:  0.0
+Epoch :  273  Time :  14.938  Rel. Train L2 Loss :  0.12269601202011109  Rel. Test L2 Loss :  0.3463007688522339  train_reg:  0.0
+Epoch :  274  Time :  15.113  Rel. Train L2 Loss :  0.12362172627449036  Rel. Test L2 Loss :  0.34823491334915163  train_reg:  0.0
+Epoch :  275  Time :  17.624  Rel. Train L2 Loss :  0.12410238409042358  Rel. Test L2 Loss :  0.3487289571762085  train_reg:  0.0
+Epoch :  276  Time :  15.296  Rel. Train L2 Loss :  0.1264068627357483  Rel. Test L2 Loss :  0.34993828773498536  train_reg:  0.0
+Epoch :  277  Time :  15.269  Rel. Train L2 Loss :  0.12577522277832032  Rel. Test L2 Loss :  0.34584099769592286  train_reg:  0.0
+Epoch :  278  Time :  40.3  Rel. Train L2 Loss :  0.12422293162345886  Rel. Test L2 Loss :  0.3440458059310913  train_reg:  0.0
+Epoch :  279  Time :  46.295  Rel. Train L2 Loss :  0.12416850352287293  Rel. Test L2 Loss :  0.34963610887527463  train_reg:  0.0
+Epoch :  280  Time :  50.38  Rel. Train L2 Loss :  0.12501259064674378  Rel. Test L2 Loss :  0.3479329490661621  train_reg:  0.0
+Epoch :  281  Time :  14.777  Rel. Train L2 Loss :  0.12313042664527893  Rel. Test L2 Loss :  0.3485727596282959  train_reg:  0.0
+Epoch :  282  Time :  14.793  Rel. Train L2 Loss :  0.12414646816253662  Rel. Test L2 Loss :  0.3487208247184753  train_reg:  0.0
+Epoch :  283  Time :  15.779  Rel. Train L2 Loss :  0.12524356603622436  Rel. Test L2 Loss :  0.34835602045059205  train_reg:  0.0
+Epoch :  284  Time :  15.074  Rel. Train L2 Loss :  0.12251868748664856  Rel. Test L2 Loss :  0.34892348527908323  train_reg:  0.0
+Epoch :  285  Time :  18.207  Rel. Train L2 Loss :  0.12143032777309418  Rel. Test L2 Loss :  0.34099958419799803  train_reg:  0.0
+Epoch :  286  Time :  15.288  Rel. Train L2 Loss :  0.12080981719493866  Rel. Test L2 Loss :  0.3469302988052368  train_reg:  0.0
+Epoch :  287  Time :  14.851  Rel. Train L2 Loss :  0.12033209681510926  Rel. Test L2 Loss :  0.34829499006271364  train_reg:  0.0
+Epoch :  288  Time :  14.922  Rel. Train L2 Loss :  0.12363743162155151  Rel. Test L2 Loss :  0.3459725737571716  train_reg:  0.0
+Epoch :  289  Time :  14.738  Rel. Train L2 Loss :  0.1229438283443451  Rel. Test L2 Loss :  0.34826011657714845  train_reg:  0.0
+Epoch :  290  Time :  17.095  Rel. Train L2 Loss :  0.12043366074562073  Rel. Test L2 Loss :  0.3499558639526367  train_reg:  0.0
+Epoch :  291  Time :  15.287  Rel. Train L2 Loss :  0.11965143239498138  Rel. Test L2 Loss :  0.34589619636535646  train_reg:  0.0
+Epoch :  292  Time :  14.694  Rel. Train L2 Loss :  0.11841668963432311  Rel. Test L2 Loss :  0.3479915165901184  train_reg:  0.0
+Epoch :  293  Time :  14.795  Rel. Train L2 Loss :  0.12017725253105163  Rel. Test L2 Loss :  0.3465554618835449  train_reg:  0.0
+Epoch :  294  Time :  14.748  Rel. Train L2 Loss :  0.11976141059398651  Rel. Test L2 Loss :  0.3490131974220276  train_reg:  0.0
+Epoch :  295  Time :  17.02  Rel. Train L2 Loss :  0.12127975225448609  Rel. Test L2 Loss :  0.34974940538406374  train_reg:  0.0
+Epoch :  296  Time :  14.721  Rel. Train L2 Loss :  0.12318774747848511  Rel. Test L2 Loss :  0.3466458320617676  train_reg:  0.0
+Epoch :  297  Time :  16.067  Rel. Train L2 Loss :  0.12154172015190125  Rel. Test L2 Loss :  0.3499824714660644  train_reg:  0.0
+Epoch :  298  Time :  15.612  Rel. Train L2 Loss :  0.1199661453962326  Rel. Test L2 Loss :  0.3489337348937988  train_reg:  0.0
+Epoch :  299  Time :  16.191  Rel. Train L2 Loss :  0.11973343217372895  Rel. Test L2 Loss :  0.35125228881835935  train_reg:  0.0
+Epoch :  300  Time :  17.651  Rel. Train L2 Loss :  0.11905746495723725  Rel. Test L2 Loss :  0.3499606609344482  train_reg:  0.0
+Epoch :  301  Time :  15.647  Rel. Train L2 Loss :  0.12159687566757202  Rel. Test L2 Loss :  0.3513181686401367  train_reg:  0.0
+Epoch :  302  Time :  15.263  Rel. Train L2 Loss :  0.12052909004688263  Rel. Test L2 Loss :  0.3521445822715759  train_reg:  0.0
+Epoch :  303  Time :  15.958  Rel. Train L2 Loss :  0.11926138460636139  Rel. Test L2 Loss :  0.3491366839408874  train_reg:  0.0
+Epoch :  304  Time :  15.337  Rel. Train L2 Loss :  0.11799332726001739  Rel. Test L2 Loss :  0.3465083408355713  train_reg:  0.0
+Epoch :  305  Time :  16.886  Rel. Train L2 Loss :  0.11892639791965484  Rel. Test L2 Loss :  0.348164439201355  train_reg:  0.0
+Epoch :  306  Time :  15.553  Rel. Train L2 Loss :  0.1191531240940094  Rel. Test L2 Loss :  0.3510712695121765  train_reg:  0.0
+Epoch :  307  Time :  14.782  Rel. Train L2 Loss :  0.1179321780204773  Rel. Test L2 Loss :  0.3476457262039185  train_reg:  0.0
+Epoch :  308  Time :  14.707  Rel. Train L2 Loss :  0.11575160455703735  Rel. Test L2 Loss :  0.3489064383506775  train_reg:  0.0
+Epoch :  309  Time :  14.797  Rel. Train L2 Loss :  0.11522270095348358  Rel. Test L2 Loss :  0.3470685338973999  train_reg:  0.0
+Epoch :  310  Time :  17.684  Rel. Train L2 Loss :  0.11678242826461792  Rel. Test L2 Loss :  0.34879122495651244  train_reg:  0.0
+Epoch :  311  Time :  14.988  Rel. Train L2 Loss :  0.1162693191766739  Rel. Test L2 Loss :  0.35001565217971803  train_reg:  0.0
+Epoch :  312  Time :  15.723  Rel. Train L2 Loss :  0.11550303983688355  Rel. Test L2 Loss :  0.35326592683792113  train_reg:  0.0
+Epoch :  313  Time :  15.37  Rel. Train L2 Loss :  0.11778775072097779  Rel. Test L2 Loss :  0.34752137899398805  train_reg:  0.0
+Epoch :  314  Time :  15.153  Rel. Train L2 Loss :  0.11787012040615082  Rel. Test L2 Loss :  0.35378260374069215  train_reg:  0.0
+Epoch :  315  Time :  18.212  Rel. Train L2 Loss :  0.1175344568490982  Rel. Test L2 Loss :  0.3498114800453186  train_reg:  0.0
+Epoch :  316  Time :  15.742  Rel. Train L2 Loss :  0.11621411955356598  Rel. Test L2 Loss :  0.35271037817001344  train_reg:  0.0
+Epoch :  317  Time :  15.864  Rel. Train L2 Loss :  0.11532198882102966  Rel. Test L2 Loss :  0.34456769466400144  train_reg:  0.0
+Epoch :  318  Time :  15.77  Rel. Train L2 Loss :  0.1142352397441864  Rel. Test L2 Loss :  0.34830485105514525  train_reg:  0.0
+Epoch :  319  Time :  15.968  Rel. Train L2 Loss :  0.11376551103591918  Rel. Test L2 Loss :  0.35004635334014894  train_reg:  0.0
+Epoch :  320  Time :  17.982  Rel. Train L2 Loss :  0.1142179639339447  Rel. Test L2 Loss :  0.3489794683456421  train_reg:  0.0
+Epoch :  321  Time :  14.669  Rel. Train L2 Loss :  0.11569374227523804  Rel. Test L2 Loss :  0.3472617268562317  train_reg:  0.0
+Epoch :  322  Time :  14.818  Rel. Train L2 Loss :  0.11867171704769135  Rel. Test L2 Loss :  0.3468149137496948  train_reg:  0.0
+Epoch :  323  Time :  15.546  Rel. Train L2 Loss :  0.11808817517757415  Rel. Test L2 Loss :  0.3425985646247864  train_reg:  0.0
+Epoch :  324  Time :  15.207  Rel. Train L2 Loss :  0.11525471031665802  Rel. Test L2 Loss :  0.34890175819396974  train_reg:  0.0
+Epoch :  325  Time :  17.299  Rel. Train L2 Loss :  0.1147691136598587  Rel. Test L2 Loss :  0.34794743299484254  train_reg:  0.0
+Epoch :  326  Time :  14.599  Rel. Train L2 Loss :  0.1117884271144867  Rel. Test L2 Loss :  0.3480187296867371  train_reg:  0.0
+Epoch :  327  Time :  15.14  Rel. Train L2 Loss :  0.11100388622283935  Rel. Test L2 Loss :  0.34962929725646974  train_reg:  0.0
+Epoch :  328  Time :  14.732  Rel. Train L2 Loss :  0.11089676177501678  Rel. Test L2 Loss :  0.3486110520362854  train_reg:  0.0
+Epoch :  329  Time :  14.618  Rel. Train L2 Loss :  0.11211964666843414  Rel. Test L2 Loss :  0.34833431005477905  train_reg:  0.0
+Epoch :  330  Time :  17.666  Rel. Train L2 Loss :  0.1122448217868805  Rel. Test L2 Loss :  0.3452635812759399  train_reg:  0.0
+Epoch :  331  Time :  15.483  Rel. Train L2 Loss :  0.1116983666419983  Rel. Test L2 Loss :  0.3479121470451355  train_reg:  0.0
+Epoch :  332  Time :  15.23  Rel. Train L2 Loss :  0.11439247012138366  Rel. Test L2 Loss :  0.34695762157440185  train_reg:  0.0
+Epoch :  333  Time :  15.868  Rel. Train L2 Loss :  0.11175080347061157  Rel. Test L2 Loss :  0.34909867763519287  train_reg:  0.0
+Epoch :  334  Time :  14.878  Rel. Train L2 Loss :  0.11284855020046235  Rel. Test L2 Loss :  0.34715203046798704  train_reg:  0.0
+Epoch :  335  Time :  17.191  Rel. Train L2 Loss :  0.11536560297012328  Rel. Test L2 Loss :  0.3466597414016724  train_reg:  0.0
+Epoch :  336  Time :  15.039  Rel. Train L2 Loss :  0.11358400857448578  Rel. Test L2 Loss :  0.34744163274765016  train_reg:  0.0
+Epoch :  337  Time :  15.318  Rel. Train L2 Loss :  0.11371605169773102  Rel. Test L2 Loss :  0.3495580053329468  train_reg:  0.0
+
+
+PS C:\Users\15461\Desktop\mygithub\test_PhyHGkNN6> cd "c:\Users\15461\Desktop\mygithub\test_PhyHGkNN6"
+PS C:\Users\15461\Desktop\mygithub\test_PhyHGkNN6> python -u "c:\Users\15461\Desktop\mygithub\test_PhyHGkNN6\car_pressure_PhyHGkNN.py"
+x_train.shape:  torch.Size([500, 3586, 4])
+y_train.shape:  torch.Size([500, 3586, 1])
+load Fourier paras from para/car/Fourier3_uniform.pt
+select pts from data 400 20
+params: 299105
+config_model:
+{'Fourier_para': 'para/car/Fourier3_uniform.pt',
+ 'Gauss_para': 'para/car/Gauss_343+100_100.pt',
+ 'act': 'gelu',
+ 'device': 'cuda',
+ 'dropout': [False, False, False, False],
+ 'fc_dim': 128,
+ 'in_dim': 3,
+ 'input_with_weight': True,
+ 'kernel_mode': 16,
+ 'layer_types_global': ['DGalerkinConv',
+                        'DGalerkinConv',
+                        'DGalerkinConv',
+                        'DGalerkinConv'],
+ 'layer_types_local': ['DGalerkinConv',
+                       'DGalerkinConv',
+                       'DGalerkinConv',
+                       'DGalerkinConv'],
+ 'layers_dim': [64, 64, 64, 64, 64],
+ 'out_dim': 1,
+ 'phy_dim': 3,
+ 'train_local_pts': True,
+ 'train_local_weight': True,
+ 'with_global': True,
+ 'with_local': False}
+config_train:
+{'base_lr': 0.001,
+ 'basepts_lr_ratio': 100,
+ 'batch_size': 10,
+ 'device': 'cuda',
+ 'epochs': 500,
+ 'milestones': [200, 300, 400, 500, 800, 900],
+ 'normalization_dim': [],
+ 'normalization_x': False,
+ 'normalization_y': True,
+ 'regularization_ep': 0,
+ 'scheduler': 'OneCycleLR',
+ 'scheduler_gamma': 0.5,
+ 'weight_decay': 0.0001}
+Start training
+Epoch :  0  Time :  3.278  Rel. Train L2 Loss :  0.5712024459838867  Rel. Test L2 Loss :  0.43917672634124755
+Epoch :  1  Time :  2.543  Rel. Train L2 Loss :  0.4124508924484253  Rel. Test L2 Loss :  0.40794517040252687
+Epoch :  2  Time :  2.579  Rel. Train L2 Loss :  0.3913297257423401  Rel. Test L2 Loss :  0.3972561001777649
+Epoch :  3  Time :  2.499  Rel. Train L2 Loss :  0.3836061611175537  Rel. Test L2 Loss :  0.4025419688224792
+Epoch :  4  Time :  2.507  Rel. Train L2 Loss :  0.380326913356781  Rel. Test L2 Loss :  0.3811612892150879
+Epoch :  5  Time :  2.495  Rel. Train L2 Loss :  0.3682686762809753  Rel. Test L2 Loss :  0.3783483839035034
+Epoch :  6  Time :  2.517  Rel. Train L2 Loss :  0.3591803641319275  Rel. Test L2 Loss :  0.3726771569252014
+Epoch :  7  Time :  2.585  Rel. Train L2 Loss :  0.35446059799194335  Rel. Test L2 Loss :  0.3655420780181885
+Epoch :  8  Time :  2.531  Rel. Train L2 Loss :  0.3503561563491821  Rel. Test L2 Loss :  0.35806469678878783
+Epoch :  9  Time :  2.504  Rel. Train L2 Loss :  0.3432775001525879  Rel. Test L2 Loss :  0.3540180683135986
+Epoch :  10  Time :  2.49  Rel. Train L2 Loss :  0.3400713982582092  Rel. Test L2 Loss :  0.35340182065963743
+Epoch :  11  Time :  2.507  Rel. Train L2 Loss :  0.33525991868972776  Rel. Test L2 Loss :  0.35199163675308226
+Epoch :  12  Time :  2.5  Rel. Train L2 Loss :  0.3323427953720093  Rel. Test L2 Loss :  0.3502654218673706
+Epoch :  13  Time :  2.527  Rel. Train L2 Loss :  0.3311786437034607  Rel. Test L2 Loss :  0.35221691846847536
+Epoch :  14  Time :  2.514  Rel. Train L2 Loss :  0.33092445039749147  Rel. Test L2 Loss :  0.3460545539855957
+Epoch :  15  Time :  2.524  Rel. Train L2 Loss :  0.32745669889450074  Rel. Test L2 Loss :  0.3465719127655029
+Epoch :  16  Time :  2.553  Rel. Train L2 Loss :  0.3253888826370239  Rel. Test L2 Loss :  0.34389992952346804
+Epoch :  17  Time :  2.597  Rel. Train L2 Loss :  0.3221520504951477  Rel. Test L2 Loss :  0.34271754741668703
+Epoch :  18  Time :  2.596  Rel. Train L2 Loss :  0.32107005691528323  Rel. Test L2 Loss :  0.3435537385940552
+Epoch :  19  Time :  2.636  Rel. Train L2 Loss :  0.3260273103713989  Rel. Test L2 Loss :  0.34196072340011596
+Epoch :  20  Time :  2.592  Rel. Train L2 Loss :  0.3230013937950134  Rel. Test L2 Loss :  0.341214554309845
+Epoch :  21  Time :  2.696  Rel. Train L2 Loss :  0.31849045658111574  Rel. Test L2 Loss :  0.3400352907180786
+Epoch :  22  Time :  2.534  Rel. Train L2 Loss :  0.3182366752624512  Rel. Test L2 Loss :  0.34454323053359986
+
+
+
+
+
+PS C:\Users\15461\Desktop\mygithub\test_PhyHGkNN6> cd "c:\Users\15461\Desktop\mygithub\test_PhyHGkNN6"
+PS C:\Users\15461\Desktop\mygithub\test_PhyHGkNN6> python -u "c:\Users\15461\Desktop\mygithub\test_PhyHGkNN6\car_pressure_PhyHGkNN.py"
+x_train.shape:  torch.Size([500, 3586, 4])
+y_train.shape:  torch.Size([500, 3586, 1])
+load Fourier paras from para/car/Fourier3_uniform.pt
+select pts from data 400 20
+params: 41523649
+config_model:
+{'Fourier_para': 'para/car/Fourier3_uniform.pt',
+ 'Gauss_para': 'para/car/Gauss_343+100_100.pt',
+ 'act': 'gelu',
+ 'device': 'cuda',
+ 'dropout': [False, False, False, False],
+ 'fc_dim': 128,
+ 'in_dim': 3,
+ 'input_with_weight': True,
+ 'kernel_mode': 16,
+ 'layer_types_global': ['DGalerkinConv',
+                        'DGalerkinConv',
+                        'DGalerkinConv',
+                        'DGalerkinConv'],
+ 'layer_types_local': ['HGalerkinConv',
+                       'HGalerkinConv',
+                       'HGalerkinConv',
+                       'HGalerkinConv'],
+ 'layers_dim': [64, 64, 64, 64, 64],
+ 'out_dim': 1,
+ 'phy_dim': 3,
+ 'train_local_pts': True,
+ 'train_local_weight': True,
+ 'with_global': True,
+ 'with_local': True}
+config_train:
+{'base_lr': 0.001,
+ 'basepts_lr_ratio': 100,
+ 'batch_size': 10,
+ 'device': 'cuda',
+ 'epochs': 500,
+ 'milestones': [200, 300, 400, 500, 800, 900],
+ 'normalization_dim': [],
+ 'normalization_x': False,
+ 'normalization_y': True,
+ 'regularization_ep': 0,
+ 'scheduler': 'OneCycleLR',
+ 'scheduler_gamma': 0.5,
+ 'weight_decay': 0.0001}
+Start training
+Epoch :  0  Time :  29.759  Rel. Train L2 Loss :  0.4427297081947327  Rel. Test L2 Loss :  0.3692262983322144  train_reg:  0.0
+Epoch :  1  Time :  23.596  Rel. Train L2 Loss :  0.33878927755355837  Rel. Test L2 Loss :  0.3352484130859375  train_reg:  0.0
+Epoch :  2  Time :  23.421  Rel. Train L2 Loss :  0.3348276333808899  Rel. Test L2 Loss :  0.35117110967636106  train_reg:  0.0
+Epoch :  3  Time :  22.532  Rel. Train L2 Loss :  0.3274914107322693  Rel. Test L2 Loss :  0.3320929574966431  train_reg:  0.0
+Epoch :  4  Time :  23.394  Rel. Train L2 Loss :  0.32890466260910034  Rel. Test L2 Loss :  0.337473361492157  train_reg:  0.0
+Epoch :  5  Time :  25.203  Rel. Train L2 Loss :  0.32025789451599124  Rel. Test L2 Loss :  0.33240403890609743  train_reg:  0.0
+Epoch :  6  Time :  23.392  Rel. Train L2 Loss :  0.3228588252067566  Rel. Test L2 Loss :  0.33125507831573486  train_reg:  0.0
+Epoch :  7  Time :  22.645  Rel. Train L2 Loss :  0.31984644508361815  Rel. Test L2 Loss :  0.3272339606285095  train_reg:  0.0
+Epoch :  8  Time :  23.079  Rel. Train L2 Loss :  0.3149974355697632  Rel. Test L2 Loss :  0.31286594152450564  train_reg:  0.0
+Epoch :  9  Time :  23.875  Rel. Train L2 Loss :  0.31693468284606935  Rel. Test L2 Loss :  0.31818323135375975  train_reg:  0.0
+Epoch :  10  Time :  25.818  Rel. Train L2 Loss :  0.31385767030715944  Rel. Test L2 Loss :  0.32537259817123415  train_reg:  0.0
+Epoch :  11  Time :  22.582  Rel. Train L2 Loss :  0.31095783090591433  Rel. Test L2 Loss :  0.31602277994155886  train_reg:  0.0
+Epoch :  12  Time :  22.674  Rel. Train L2 Loss :  0.3098165526390076  Rel. Test L2 Loss :  0.3248849058151245  train_reg:  0.0
+Epoch :  13  Time :  23.798  Rel. Train L2 Loss :  0.3080256643295288  Rel. Test L2 Loss :  0.3268148112297058  train_reg:  0.0
+Epoch :  14  Time :  22.783  Rel. Train L2 Loss :  0.3109749422073364  Rel. Test L2 Loss :  0.33215445280075073  train_reg:  0.0
+Epoch :  15  Time :  25.449  Rel. Train L2 Loss :  0.3114533100128174  Rel. Test L2 Loss :  0.30857027769088746  train_reg:  0.0
+Epoch :  16  Time :  22.893  Rel. Train L2 Loss :  0.3057433876991272  Rel. Test L2 Loss :  0.3148582649230957  train_reg:  0.0
+Epoch :  17  Time :  23.125  Rel. Train L2 Loss :  0.3084063744544983  Rel. Test L2 Loss :  0.31981834411621096  train_reg:  0.0
+Epoch :  18  Time :  23.086  Rel. Train L2 Loss :  0.30587005662918093  Rel. Test L2 Loss :  0.31329055070877077  train_reg:  0.0
+Epoch :  19  Time :  22.993  Rel. Train L2 Loss :  0.3073688220977783  Rel. Test L2 Loss :  0.31969734191894533  train_reg:  0.0
+Epoch :  20  Time :  29.102  Rel. Train L2 Loss :  0.3084291520118713  Rel. Test L2 Loss :  0.31060065031051637  train_reg:  0.0
+Epoch :  21  Time :  22.599  Rel. Train L2 Loss :  0.3066415514945984  Rel. Test L2 Loss :  0.3068505573272705  train_reg:  0.0
+Epoch :  22  Time :  23.331  Rel. Train L2 Loss :  0.30521109199523927  Rel. Test L2 Loss :  0.3136011290550232  train_reg:  0.0
+Epoch :  23  Time :  24.755  Rel. Train L2 Loss :  0.30779361963272095  Rel. Test L2 Loss :  0.30670330286026  train_reg:  0.0
+Epoch :  24  Time :  23.198  Rel. Train L2 Loss :  0.3068663454055786  Rel. Test L2 Loss :  0.3285009217262268  train_reg:  0.0
+Epoch :  25  Time :  25.804  Rel. Train L2 Loss :  0.30228873205184936  Rel. Test L2 Loss :  0.3067921257019043  train_reg:  0.0
+Epoch :  26  Time :  22.972  Rel. Train L2 Loss :  0.2996483507156372  Rel. Test L2 Loss :  0.30026386976242064  train_reg:  0.0
+Epoch :  27  Time :  25.274  Rel. Train L2 Loss :  0.30477252721786496  Rel. Test L2 Loss :  0.31084141492843625  train_reg:  0.0
+Epoch :  28  Time :  23.19  Rel. Train L2 Loss :  0.302055570602417  Rel. Test L2 Loss :  0.30578022480010986  train_reg:  0.0
+Epoch :  29  Time :  23.236  Rel. Train L2 Loss :  0.30099909353256227  Rel. Test L2 Loss :  0.2969682836532593  train_reg:  0.0
+Epoch :  30  Time :  26.047  Rel. Train L2 Loss :  0.2990569558143616  Rel. Test L2 Loss :  0.30496519804000854  train_reg:  0.0
+Epoch :  31  Time :  23.553  Rel. Train L2 Loss :  0.30167957067489626  Rel. Test L2 Loss :  0.31391497850418093  train_reg:  0.0
+Epoch :  32  Time :  23.178  Rel. Train L2 Loss :  0.29889669179916384  Rel. Test L2 Loss :  0.29849193572998045  train_reg:  0.0
+Epoch :  33  Time :  23.667  Rel. Train L2 Loss :  0.2989169087409973  Rel. Test L2 Loss :  0.30455852031707764  train_reg:  0.0
+Epoch :  34  Time :  23.2  Rel. Train L2 Loss :  0.298848358631134  Rel. Test L2 Loss :  0.3010190773010254  train_reg:  0.0
+Epoch :  35  Time :  25.777  Rel. Train L2 Loss :  0.2990197334289551  Rel. Test L2 Loss :  0.31105406761169435  train_reg:  0.0
+Epoch :  36  Time :  24.593  Rel. Train L2 Loss :  0.29730140209197997  Rel. Test L2 Loss :  0.298712363243103  train_reg:  0.0
+Epoch :  37  Time :  23.137  Rel. Train L2 Loss :  0.29355840730667115  Rel. Test L2 Loss :  0.3101226329803467  train_reg:  0.0
+Epoch :  38  Time :  23.202  Rel. Train L2 Loss :  0.29442734861373904  Rel. Test L2 Loss :  0.29585196495056154  train_reg:  0.0
+Epoch :  39  Time :  24.492  Rel. Train L2 Loss :  0.30331920957565306  Rel. Test L2 Loss :  0.2990723586082458  train_reg:  0.0
+Epoch :  40  Time :  25.76  Rel. Train L2 Loss :  0.29587249422073364  Rel. Test L2 Loss :  0.2980480074882507  train_reg:  0.0
+Epoch :  41  Time :  23.052  Rel. Train L2 Loss :  0.3037404842376709  Rel. Test L2 Loss :  0.3047578287124634  train_reg:  0.0
+Epoch :  42  Time :  23.285  Rel. Train L2 Loss :  0.29331092643737794  Rel. Test L2 Loss :  0.2918000912666321  train_reg:  0.0
+Epoch :  43  Time :  23.924  Rel. Train L2 Loss :  0.2921202397346497  Rel. Test L2 Loss :  0.30953288555145264  train_reg:  0.0
+Epoch :  44  Time :  23.277  Rel. Train L2 Loss :  0.2982248086929321  Rel. Test L2 Loss :  0.3229367280006409  train_reg:  0.0
+Epoch :  45  Time :  25.596  Rel. Train L2 Loss :  0.3007834906578064  Rel. Test L2 Loss :  0.3047896766662598  train_reg:  0.0
+Epoch :  46  Time :  23.051  Rel. Train L2 Loss :  0.2998443717956543  Rel. Test L2 Loss :  0.2930623149871826  train_reg:  0.0
+Epoch :  47  Time :  23.133  Rel. Train L2 Loss :  0.29143261098861695  Rel. Test L2 Loss :  0.29030797004699704  train_reg:  0.0
+Epoch :  48  Time :  23.056  Rel. Train L2 Loss :  0.29334896755218504  Rel. Test L2 Loss :  0.2989962601661682  train_reg:  0.0
+Epoch :  49  Time :  22.843  Rel. Train L2 Loss :  0.29337833070755004  Rel. Test L2 Loss :  0.30221995115280154  train_reg:  0.0
+Epoch :  50  Time :  26.739  Rel. Train L2 Loss :  0.2937713747024536  Rel. Test L2 Loss :  0.3010146307945252  train_reg:  0.0
+Epoch :  51  Time :  23.094  Rel. Train L2 Loss :  0.2923350396156311  Rel. Test L2 Loss :  0.29195538997650144  train_reg:  0.0
+Epoch :  52  Time :  25.369  Rel. Train L2 Loss :  0.2976774940490723  Rel. Test L2 Loss :  0.2969913864135742  train_reg:  0.0
+Epoch :  53  Time :  23.785  Rel. Train L2 Loss :  0.29200750875473025  Rel. Test L2 Loss :  0.29844003915786743  train_reg:  0.0
+Epoch :  54  Time :  23.377  Rel. Train L2 Loss :  0.29579853677749635  Rel. Test L2 Loss :  0.29254731178283694  train_reg:  0.0
+Epoch :  55  Time :  25.709  Rel. Train L2 Loss :  0.2903031992912293  Rel. Test L2 Loss :  0.2906029772758484  train_reg:  0.0
+Epoch :  56  Time :  23.306  Rel. Train L2 Loss :  0.2904266543388367  Rel. Test L2 Loss :  0.29063853740692136  train_reg:  0.0
+Epoch :  57  Time :  23.242  Rel. Train L2 Loss :  0.28853304958343506  Rel. Test L2 Loss :  0.2893128514289856  train_reg:  0.0
+Epoch :  58  Time :  22.969  Rel. Train L2 Loss :  0.288758553981781  Rel. Test L2 Loss :  0.28836726188659667  train_reg:  0.0
+Epoch :  59  Time :  22.908  Rel. Train L2 Loss :  0.2892518191337585  Rel. Test L2 Loss :  0.2955445647239685  train_reg:  0.0
+Epoch :  60  Time :  25.409  Rel. Train L2 Loss :  0.28980126810073853  Rel. Test L2 Loss :  0.3027123689651489  train_reg:  0.0
+Epoch :  61  Time :  23.112  Rel. Train L2 Loss :  0.28822846269607544  Rel. Test L2 Loss :  0.29706100940704344  train_reg:  0.0
+Epoch :  62  Time :  23.299  Rel. Train L2 Loss :  0.2911346383094788  Rel. Test L2 Loss :  0.29028538942337034  train_reg:  0.0
+Epoch :  63  Time :  23.187  Rel. Train L2 Loss :  0.28741925811767577  Rel. Test L2 Loss :  0.30273535013198855  train_reg:  0.0
+Epoch :  64  Time :  23.469  Rel. Train L2 Loss :  0.29353483200073244  Rel. Test L2 Loss :  0.2989797830581665  train_reg:  0.0
+Epoch :  65  Time :  25.642  Rel. Train L2 Loss :  0.2883005657196045  Rel. Test L2 Loss :  0.2953377294540405  train_reg:  0.0
+Epoch :  66  Time :  23.138  Rel. Train L2 Loss :  0.2909868845939636  Rel. Test L2 Loss :  0.30169633865356443  train_reg:  0.0
+Epoch :  67  Time :  23.025  Rel. Train L2 Loss :  0.2905630602836609  Rel. Test L2 Loss :  0.2974070382118225  train_reg:  0.0
+Epoch :  68  Time :  23.15  Rel. Train L2 Loss :  0.292476939201355  Rel. Test L2 Loss :  0.3007503628730774  train_reg:  0.0
+Epoch :  69  Time :  23.094  Rel. Train L2 Loss :  0.28935793256759645  Rel. Test L2 Loss :  0.29265028953552247  train_reg:  0.0
+Epoch :  70  Time :  26.905  Rel. Train L2 Loss :  0.29206626081466674  Rel. Test L2 Loss :  0.2948250150680542  train_reg:  0.0
+Epoch :  71  Time :  23.651  Rel. Train L2 Loss :  0.29064576292037964  Rel. Test L2 Loss :  0.30371769189834597  train_reg:  0.0
+Epoch :  72  Time :  24.729  Rel. Train L2 Loss :  0.2873364901542664  Rel. Test L2 Loss :  0.29062145948410034  train_reg:  0.0
+Epoch :  73  Time :  27.228  Rel. Train L2 Loss :  0.28648760318756106  Rel. Test L2 Loss :  0.2980187702178955  train_reg:  0.0
+Epoch :  74  Time :  24.67  Rel. Train L2 Loss :  0.29407901763916017  Rel. Test L2 Loss :  0.29907512187957763  train_reg:  0.0
+Epoch :  75  Time :  26.216  Rel. Train L2 Loss :  0.29451335525512695  Rel. Test L2 Loss :  0.2954715728759766  train_reg:  0.0
+Epoch :  76  Time :  24.474  Rel. Train L2 Loss :  0.29034058809280394  Rel. Test L2 Loss :  0.29686291694641115  train_reg:  0.0
+Epoch :  77  Time :  25.087  Rel. Train L2 Loss :  0.28898815202713013  Rel. Test L2 Loss :  0.29139676570892337  train_reg:  0.0
+Epoch :  78  Time :  25.597  Rel. Train L2 Loss :  0.28741109561920164  Rel. Test L2 Loss :  0.28940199851989745  train_reg:  0.0
+Epoch :  79  Time :  27.079  Rel. Train L2 Loss :  0.287493200302124  Rel. Test L2 Loss :  0.2966676950454712  train_reg:  0.0
+Epoch :  80  Time :  30.543  Rel. Train L2 Loss :  0.288205668926239  Rel. Test L2 Loss :  0.28733253717422486  train_reg:  0.0
+Epoch :  81  Time :  44.482  Rel. Train L2 Loss :  0.2861114616394043  Rel. Test L2 Loss :  0.29089218616485596  train_reg:  0.0
+Epoch :  82  Time :  28.883  Rel. Train L2 Loss :  0.2873259162902832  Rel. Test L2 Loss :  0.29661097049713137  train_reg:  0.0
+Epoch :  83  Time :  29.0  Rel. Train L2 Loss :  0.28508580589294436  Rel. Test L2 Loss :  0.3072014141082764  train_reg:  0.0
+Epoch :  84  Time :  30.288  Rel. Train L2 Loss :  0.2917453670501709  Rel. Test L2 Loss :  0.28942174196243287  train_reg:  0.0
+Epoch :  85  Time :  35.139  Rel. Train L2 Loss :  0.29441290426254274  Rel. Test L2 Loss :  0.2980430245399475  train_reg:  0.0
+Epoch :  86  Time :  31.406  Rel. Train L2 Loss :  0.28952488899230955  Rel. Test L2 Loss :  0.28441189050674437  train_reg:  0.0
+Epoch :  87  Time :  24.446  Rel. Train L2 Loss :  0.28330934715270994  Rel. Test L2 Loss :  0.29343864440917966  train_reg:  0.0
+Epoch :  88  Time :  24.677  Rel. Train L2 Loss :  0.287671621799469  Rel. Test L2 Loss :  0.3030256962776184  train_reg:  0.0
+Epoch :  89  Time :  28.524  Rel. Train L2 Loss :  0.2876778292655945  Rel. Test L2 Loss :  0.3098914384841919  train_reg:  0.0
+Epoch :  90  Time :  29.35  Rel. Train L2 Loss :  0.2874429512023926  Rel. Test L2 Loss :  0.2875256633758545  train_reg:  0.0
+Epoch :  91  Time :  24.437  Rel. Train L2 Loss :  0.28668579530715943  Rel. Test L2 Loss :  0.2897869634628296  train_reg:  0.0
+Epoch :  92  Time :  29.689  Rel. Train L2 Loss :  0.29078774070739744  Rel. Test L2 Loss :  0.29924285411834717  train_reg:  0.0
+Epoch :  93  Time :  25.159  Rel. Train L2 Loss :  0.2927134103775024  Rel. Test L2 Loss :  0.2948246431350708  train_reg:  0.0
+Epoch :  94  Time :  25.989  Rel. Train L2 Loss :  0.2914752860069275  Rel. Test L2 Loss :  0.3073102402687073  train_reg:  0.0
+Epoch :  95  Time :  28.208  Rel. Train L2 Loss :  0.2867358522415161  Rel. Test L2 Loss :  0.2868353295326233  train_reg:  0.0
+Epoch :  96  Time :  24.721  Rel. Train L2 Loss :  0.2822336874008179  Rel. Test L2 Loss :  0.2914395213127136  train_reg:  0.0
+Epoch :  97  Time :  23.409  Rel. Train L2 Loss :  0.2865497236251831  Rel. Test L2 Loss :  0.2912139463424683  train_reg:  0.0
+Epoch :  98  Time :  23.564  Rel. Train L2 Loss :  0.2878259062767029  Rel. Test L2 Loss :  0.2920668387413025  train_reg:  0.0
+Epoch :  99  Time :  23.578  Rel. Train L2 Loss :  0.28879189252853393  Rel. Test L2 Loss :  0.2903673982620239  train_reg:  0.0
+Epoch :  100  Time :  25.901  Rel. Train L2 Loss :  0.2881770701408386  Rel. Test L2 Loss :  0.28803993225097657  train_reg:  0.0
+Epoch :  101  Time :  27.964  Rel. Train L2 Loss :  0.28540753746032715  Rel. Test L2 Loss :  0.29389636516571044  train_reg:  0.0
+Epoch :  102  Time :  23.698  Rel. Train L2 Loss :  0.2865250487327576  Rel. Test L2 Loss :  0.29529179334640504  train_reg:  0.0
+Epoch :  103  Time :  27.239  Rel. Train L2 Loss :  0.2806815090179443  Rel. Test L2 Loss :  0.28896303176879884  train_reg:  0.0
+Epoch :  104  Time :  32.672  Rel. Train L2 Loss :  0.28494221544265746  Rel. Test L2 Loss :  0.3155491733551025  train_reg:  0.0
+Epoch :  105  Time :  29.938  Rel. Train L2 Loss :  0.2831273608207703  Rel. Test L2 Loss :  0.28984673738479616  train_reg:  0.0
+Epoch :  106  Time :  23.204  Rel. Train L2 Loss :  0.28383813047409057  Rel. Test L2 Loss :  0.2898968505859375  train_reg:  0.0
+Epoch :  107  Time :  23.177  Rel. Train L2 Loss :  0.2800507712364197  Rel. Test L2 Loss :  0.2915624070167542  train_reg:  0.0
+Epoch :  108  Time :  25.752  Rel. Train L2 Loss :  0.282157320022583  Rel. Test L2 Loss :  0.290398473739624  train_reg:  0.0
+Epoch :  109  Time :  26.443  Rel. Train L2 Loss :  0.2818382692337036  Rel. Test L2 Loss :  0.29471407175064085  train_reg:  0.0
+Epoch :  110  Time :  27.353  Rel. Train L2 Loss :  0.28806557893753054  Rel. Test L2 Loss :  0.2961787223815918  train_reg:  0.0

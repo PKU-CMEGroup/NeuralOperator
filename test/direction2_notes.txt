@@ -1,0 +1,52 @@
+SpectralConv2d
+PS C:\Users\15461\Desktop\mygithub2\test> cd "c:\Users\15461\Desktop\mygithub2\test"
+PS C:\Users\15461\Desktop\mygithub2\test> python -u "c:\Users\15461\Desktop\mygithub2\test\directiongeokno1d_darcy_test.py"
+Casting to tensor
+k_max = 16, kernel_modes = 16, directions_dim = 32, directions_modes = 16
+modes.shape: torch.Size([544, 2])
+In GeoKNO_train, ndims =  2
+Epoch :  0 Time : 17.124  Rel. Train L2 Loss :  0.14582383620738984  Rel. Test L2 Loss :  0.08175846442580223
+Epoch :  1 Time : 14.587  Rel. Train L2 Loss :  0.05902952748537064  Rel. Test L2 Loss :  0.0603732194006443
+Epoch :  2 Time : 14.268  Rel. Train L2 Loss :  0.03990801425278187  Rel. Test L2 Loss :  0.036306812912225726
+Epoch :  3 Time : 14.414  Rel. Train L2 Loss :  0.033655964374542234  Rel. Test L2 Loss :  0.033146965801715854
+Epoch :  4 Time : 14.29  Rel. Train L2 Loss :  0.029673970654606818  Rel. Test L2 Loss :  0.034946248978376386
+Epoch :  5 Time : 14.316  Rel. Train L2 Loss :  0.030031021624803544  Rel. Test L2 Loss :  0.029378667548298834
+Epoch :  6 Time : 14.401  Rel. Train L2 Loss :  0.02886500234901905  Rel. Test L2 Loss :  0.026882158145308494
+Epoch :  7 Time : 14.647  Rel. Train L2 Loss :  0.024302982538938523  Rel. Test L2 Loss :  0.028584238588809967
+Epoch :  8 Time : 14.218  Rel. Train L2 Loss :  0.022359972432255744  Rel. Test L2 Loss :  0.024759973287582396
+Epoch :  9 Time : 14.238  Rel. Train L2 Loss :  0.02664482854306698  Rel. Test L2 Loss :  0.026572909131646158
+Epoch :  10 Time : 14.344  Rel. Train L2 Loss :  0.021498108372092248  Rel. Test L2 Loss :  0.023985859379172324
+Epoch :  11 Time : 14.397  Rel. Train L2 Loss :  0.02257941447198391  Rel. Test L2 Loss :  0.026066296324133872
+Epoch :  12 Time : 14.776  Rel. Train L2 Loss :  0.022077288776636124  Rel. Test L2 Loss :  0.025856444165110588
+Epoch :  13 Time : 15.176  Rel. Train L2 Loss :  0.022311220601201057  Rel. Test L2 Loss :  0.02499950908124447
+Epoch :  14 Time : 15.052  Rel. Train L2 Loss :  0.021860319405794144  Rel. Test L2 Loss :  0.023155500739812852
+Epoch :  15 Time : 14.632  Rel. Train L2 Loss :  0.020414345666766167  Rel. Test L2 Loss :  0.02511645644903183
+
+
+
+PS C:\Users\15461\Desktop\mygithub2\test> cd "c:\Users\15461\Desktop\mygithub2\test"
+PS C:\Users\15461\Desktop\mygithub2\test> python -u "c:\Users\15461\Desktop\mygithub2\test\directiongeokno1d_darcy_test.py"
+Casting to tensor
+k_max = 16, kernel_modes = 16, directions_dim = 1, directions_modes = 16
+modes.shape: torch.Size([544, 2])
+In GeoKNO_train, ndims =  2
+Epoch :  0 Time : 24.572  Rel. Train L2 Loss :  0.12741247764229774  Rel. Test L2 Loss :  0.08573070287704468 train_reg : 0.0
+Epoch :  1 Time : 14.8  Rel. Train L2 Loss :  0.058330883741378785  Rel. Test L2 Loss :  0.04905060470104217 train_reg : 0.0
+Epoch :  2 Time : 15.03  Rel. Train L2 Loss :  0.03764862748980522  Rel. Test L2 Loss :  0.033787719756364826 train_reg : 0.0
+Epoch :  3 Time : 21.435  Rel. Train L2 Loss :  0.03072598484158516  Rel. Test L2 Loss :  0.0344823856651783 train_reg : 0.0
+Epoch :  4 Time : 15.432  Rel. Train L2 Loss :  0.028608322367072104  Rel. Test L2 Loss :  0.030836578607559204 train_reg : 0.0
+Epoch :  5 Time : 14.889  Rel. Train L2 Loss :  0.02807329747080803  Rel. Test L2 Loss :  0.029797672629356384 train_reg : 0.0
+Epoch :  6 Time : 21.185  Rel. Train L2 Loss :  0.028382914125919343  Rel. Test L2 Loss :  0.030498766601085664 train_reg : 0.0
+Epoch :  7 Time : 15.001  Rel. Train L2 Loss :  0.023418114706873893  Rel. Test L2 Loss :  0.027293089777231216 train_reg : 0.0
+Epoch :  8 Time : 14.906  Rel. Train L2 Loss :  0.02347718580067158  Rel. Test L2 Loss :  0.025536355897784233 train_reg : 0.0
+Epoch :  9 Time : 22.355  Rel. Train L2 Loss :  0.02339930483698845  Rel. Test L2 Loss :  0.024699660837650298 train_reg : 0.0
+Epoch :  10 Time : 15.214  Rel. Train L2 Loss :  0.0216901243776083  Rel. Test L2 Loss :  0.03261803589761257 train_reg : 0.0
+Epoch :  11 Time : 15.296  Rel. Train L2 Loss :  0.022448723897337913  Rel. Test L2 Loss :  0.027597579658031463 train_reg : 0.0
+Epoch :  12 Time : 22.207  Rel. Train L2 Loss :  0.021534403935074806  Rel. Test L2 Loss :  0.023484044596552848 train_reg : 0.0
+Epoch :  13 Time : 15.418  Rel. Train L2 Loss :  0.02077282552421093  Rel. Test L2 Loss :  0.02290523536503315 train_reg : 0.0
+Epoch :  14 Time : 15.278  Rel. Train L2 Loss :  0.02184483229368925  Rel. Test L2 Loss :  0.02329794190824032 train_reg : 0.0
+Epoch :  15 Time : 22.117  Rel. Train L2 Loss :  0.02592972193658352  Rel. Test L2 Loss :  0.03896213307976723 train_reg : 0.0
+Epoch :  16 Time : 15.207  Rel. Train L2 Loss :  0.023988779172301293  Rel. Test L2 Loss :  0.02395102135837078 train_reg : 0.0
+Epoch :  17 Time : 14.99  Rel. Train L2 Loss :  0.020311028428375722  Rel. Test L2 Loss :  0.02443369507789612 train_reg : 0.0
+Epoch :  18 Time : 22.019  Rel. Train L2 Loss :  0.018867066502571105  Rel. Test L2 Loss :  0.022205104380846025 train_reg : 0.0
+Epoch :  19 Time : 15.417  Rel. Train L2 Loss :  0.020872444435954093  Rel. Test L2 Loss :  0.031368079632520675 train_reg : 0.0

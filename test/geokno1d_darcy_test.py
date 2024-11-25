@@ -11,8 +11,8 @@ from scipy.io import loadmat
 sys.path.append("../")
 
 
-from baselines.geo_utility import preprocess_data, convert_structured_data
-from baselines.geokno import compute_Fourier_modes, GeoKNO, GeoKNO_train
+from geo_utility import preprocess_data, convert_structured_data
+from geokno import compute_Fourier_modes, GeoKNO, GeoKNO_train
 
 
 
@@ -37,7 +37,7 @@ if CONVERT_DATA:
     data1 = loadmat(data_path)
     data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
     data2 = loadmat(data_path)
-    downsample_ratio = 2
+    downsample_ratio = 14
     data_in = np.vstack((data1["coeff"], data2["coeff"]))[:, 0::downsample_ratio, 0::downsample_ratio]  # shape: 2048,421,421
     data_out = np.vstack((data1["sol"], data2["sol"]))[:, 0::downsample_ratio, 0::downsample_ratio]     # shape: 2048,421,421
     features = np.stack((data_in, data_out), axis=3)
@@ -52,9 +52,9 @@ if CONVERT_DATA:
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = False)
     #uniform weights
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
-    np.savez_compressed("../data/darcy_2d/geokno_quad_equal_weight_data.npz", nnodes=nnodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez_compressed("../data/darcy_2d/geokno_quad_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
-    np.savez_compressed("../data/darcy_2d/geokno_quad_data.npz", nnodes=nnodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez_compressed("../data/darcy_2d/geokno_quad_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
     exit()
 else:
     data = np.load("../data/darcy_2d/geokno_quad_equal_weight_data.npz")
@@ -82,9 +82,11 @@ y_train, y_test = features[:n_train, :, [1]],       features[-n_test:, :, [1]]
 
 k_max = 16
 ndim = 2
+kernel_modes = 16
 modes = compute_Fourier_modes(ndim, [k_max,k_max], [1.0,1.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = GeoKNO(ndim, modes,
+print('modes.shape:',modes.shape)
+model = GeoKNO(ndim, modes,kernel_modes,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=3, out_dim=1,
@@ -92,7 +94,7 @@ model = GeoKNO(ndim, modes,
 
 
 
-epochs = 1000
+epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
@@ -101,13 +103,12 @@ batch_size=8
 normalization_x = True
 normalization_y = True
 normalization_dim = []
-x_aux_dim = 2
-y_aux_dim = 0
+
+
 
 
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
-                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim, 
-                     "x_aux_dim": x_aux_dim, "y_aux_dim": y_aux_dim}}
+                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = GeoKNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./GeoKNO_darcy_model"

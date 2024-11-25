@@ -7,33 +7,20 @@ import torch.nn.functional as F
 sys.path.append("../")
 from models.adam import Adam
 from models.losses import LpLoss
-from baselines.geo_utility import compute_edge_gradient_weights
+from geo_utility import compute_edge_gradient_weights
 ## KNO 1D and 2D
-from mayavi import mlab
-import imageio
-from PIL import Image, ImageDraw, ImageFont
 from timeit import default_timer
+import matplotlib.pyplot as plt
 
 class UnitGaussianNormalizer(object):
-    def __init__(self, x, aux_dim = 0, normalization_dim = [], eps=1.0e-5):
+    def __init__(self, x, aux_dim = 0, eps=1.0e-5):
         super(UnitGaussianNormalizer, self).__init__()
-        '''
-        Normalize the input
-
-            Parameters:  
-                x : float[..., nchannels]
-                normalization_dim  : list, which dimension to normalize
-                                  when normalization_dim = [], global normalization 
-                                  when normalization_dim = [0,1,...,len(x.shape)-2], and channel-by-channel normalization 
-                aux_dim  : last aux_dim channels are note normalized
-
-            Return :
-                UnitGaussianNormalizer : class 
-        '''
+        # x: ndata, nx, nchannels
+        # when dim = [], mean and std are both scalars
         self.aux_dim = aux_dim
-        self.mean = torch.mean(x[...,0:x.shape[-1]-aux_dim], dim=normalization_dim)
-        self.std  = torch.std(x[...,0:x.shape[-1]-aux_dim],  dim=normalization_dim)
-        self.eps  = eps
+        self.mean = torch.mean(x[...,0:x.shape[-1]-aux_dim])
+        self.std = torch.std(x[...,0:x.shape[-1]-aux_dim])
+        self.eps = eps
 
     def encode(self, x):
         x[...,0:x.shape[-1]-self.aux_dim] = (x[...,0:x.shape[-1]-self.aux_dim] - self.mean) / (self.std + self.eps)
@@ -163,6 +150,55 @@ def compute_Fourier_bases(nodes, modes, node_mask):
     bases_0 = node_mask
     return bases_c, bases_s, bases_0
 
+
+def mycompl_mul1d_D(weights, D , x_hat):
+    x_hat_expanded = x_hat.unsqueeze(2)  # shape: (bsz, input channel, 1, modes)
+    D_expanded = D.unsqueeze(0).unsqueeze(0)  # shape: (1, 1, kernel_modes, modes)
+    x_hat1 = x_hat_expanded * D_expanded  # shape: (bsz, input channel, kernel_modes, modes)
+    y = torch.einsum('bijk,ioj -> bok', x_hat1 , weights )
+    return y
+
+    
+class PhyDGalerkinConv(nn.Module):
+    def __init__(self, in_channels, out_channels, modes, kernel_modes, D):
+        super(PhyDGalerkinConv, self).__init__()
+
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        # Number of Fourier modes to multiply, at most floor(N/2) + 1
+        self.modes = modes
+
+        self.D = D
+        self.dtype = D.dtype
+            
+
+        self.scale = 1 / (in_channels * out_channels)
+        self.kernel_modes = kernel_modes
+
+        self.weights = nn.Parameter(
+            self.scale
+            * torch.randn(in_channels, out_channels, self.kernel_modes, dtype=self.dtype)
+        )
+                
+    def forward(self, x, wbases, bases):
+
+
+        # Compute coeffcients
+        x = x.to(wbases.dtype)
+        x_hat = torch.einsum("bcx,bxk->bck", x, wbases[:,:,:self.modes])
+        x_hat = x_hat.to(self.dtype)
+
+        
+        # Multiply relevant Fourier modes
+        x_hat = mycompl_mul1d_D(self.weights, self.D , x_hat)
+
+        # Return to physical space
+        x = torch.einsum("bck,bxk->bcx", x_hat, bases[:,:,:self.modes])
+
+        return x
+
+
 ################################################################
 # 2d fourier layer
 ################################################################
@@ -210,7 +246,8 @@ class SpectralConv2d(nn.Module):
 
             Return :
                 x                   : float[batch_size, out_channels, nnodes]
-        '''    
+        '''
+            
         x_c_hat =  torch.einsum("bix,bxk->bik", x, wbases_c)
         x_s_hat = -torch.einsum("bix,bxk->bik", x, wbases_s)
         x_0_hat =  torch.einsum("bix,bxk->bik", x, wbases_0)
@@ -224,7 +261,104 @@ class SpectralConv2d(nn.Module):
         x = torch.einsum("bok,bxk->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bxk->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bxk->box", f_s_hat, bases_s) 
         
         return x
-    
+
+class GeoFNO(nn.Module):
+    def __init__(
+        self,
+        ndim,
+        modes,
+        layers,
+        fc_dim=128,
+        in_dim=3,
+        out_dim=1,
+        act="gelu",
+    ):
+        super(GeoFNO, self).__init__()
+
+        """
+        The overall network. It contains 4 layers of the Fourier layer.
+        1. Lift the input to the desire channel dimension by self.fc0 .
+        2. 4 layers of the integral operators u' = (W + K)(u).
+            W defined by self.w; K defined by self.conv .
+        3. Project from the channel space to the output space by self.fc1 and self.fc2 .
+        
+        input: the solution of the coefficient function and locations (a(x, y), x, y)
+        input shape: (batchsize, x=s, y=s, c=3)
+        output: the solution 
+        output shape: (batchsize, x=s, y=s, c=1)
+        """
+        self.modes = modes
+        
+        self.layers = layers
+        self.fc_dim = fc_dim
+
+        self.ndim = ndim
+        self.in_dim = in_dim
+
+        self.fc0 = nn.Linear(in_dim, layers[0])
+
+        self.sp_convs = nn.ModuleList(
+            [
+                SpectralConv2d(in_size, out_size, modes)
+                for in_size, out_size in zip(
+                    self.layers, self.layers[1:]
+                )
+            ]
+        )
+
+        self.ws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size, out_size, 1)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
+
+        if fc_dim > 0:
+            self.fc1 = nn.Linear(layers[-1], fc_dim)
+            self.fc2 = nn.Linear(fc_dim, out_dim)
+        else:
+            self.fc2 = nn.Linear(layers[-1], out_dim)
+
+        self.act = _get_act(act)
+
+    def forward(self, x, aux):
+        """
+        Args:
+            - x : (batch size, x_grid, y_grid, 2)
+        Returns:
+            - x: (batch size, x_grid, y_grid, 1)
+        """
+        length = len(self.ws)
+
+        # batch_size, nnodes, ndims
+        node_mask, nodes, node_weights, _, _ = aux
+
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
+        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights   
+        
+        
+        
+        x = self.fc0(x[...,0:self.in_dim])
+        x = x.permute(0, 2, 1)
+
+        for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
+            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+            x2 = w(x)
+            x = x1 + x2
+            if self.act is not None and i != length - 1:
+                x = self.act(x)
+
+        x = x.permute(0, 2, 1)
+
+        if self.fc_dim > 0:
+            x = self.fc1(x)
+            if self.act is not None:
+                x = self.act(x)
+
+        x = self.fc2(x)
+        return x
+
+
 def compute_gradient(f, directed_edges, edge_gradient_weights):
     '''
     Compute gradient of field f at each node
@@ -276,20 +410,49 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     return f_gradients.permute(0,2,1)
     
 
+class gradientw(nn.Module):
+    def __init__(self,in_channels,ndims,out_channels,directions_dim):
+        super(gradientw, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.ndim = ndims
+        self.directions_dim = directions_dim
 
+        if directions_dim>1:
+            self.fc0 = nn.Linear(directions_dim,in_channels)
+        self.fc = nn.Linear(in_channels,out_channels)
+    
+    def forward(self,x,f_gradients,directions):
+        '''
+        f_gradients : float Tensor[batch_size, in_channels*ndims, max_nnodes]
+        '''
+        f_gradients = f_gradients.reshape(f_gradients.shape[0],self.in_channels, self.ndim, f_gradients.shape[-1])
+        if self.directions_dim>1:
+            directions = self.fc0(directions)  
+            f_move = torch.einsum('bidn,bndi -> bin',f_gradients,directions)
+        else:
+            directions = directions[:,:,:,0]
+            f_move = torch.einsum('bidn,bnd -> bin',f_gradients,directions)     
+        x = x + f_move
+        x = self.fc(x.permute(0,2,1)).permute(0,2,1)
+        return x
+        
 
-class GeoKNO(nn.Module):
+class directionGeoKNO2(nn.Module):
     def __init__(
         self,
         ndims,
         modes,
+        kernel_modes,
+        directions_dim,
+        directions_modes,
         layers,
         fc_dim=128,
         in_dim=3,
         out_dim=1,
         act="gelu",
     ):
-        super(GeoKNO, self).__init__()
+        super(directionGeoKNO2, self).__init__()
 
         """
         The overall network. It contains 4 layers of the Fourier layer.
@@ -304,13 +467,26 @@ class GeoKNO(nn.Module):
         output shape: (batch_size, x=s, y=s, c=1)
         """
         self.modes = modes
+        self.num_modes = 2*modes.shape[0]+1
+        self.kernel_modes = kernel_modes
         
         self.layers = layers
         self.fc_dim = fc_dim
 
         self.ndims = ndims
         self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.directions_dim = directions_dim
+        self.directions_modes = directions_modes
+
+        self.directions_forward = GeoFNO(  
+                ndims,
+                modes[:directions_modes],
+                layers= [max(directions_dim,64)]*4,
+                fc_dim=128,
+                in_dim=in_dim,
+                out_dim=directions_dim*ndims
+                )
+
 
         self.fc0 = nn.Linear(in_dim, layers[0])
 
@@ -323,6 +499,22 @@ class GeoKNO(nn.Module):
             ]
         )
 
+        # scale = 1/self.num_modes
+        # self.D = nn.Parameter(
+        #                 scale
+        #                 * torch.rand(self.kernel_modes, self.num_modes, dtype=torch.float)
+        #             )
+
+        # self.sp_convs = nn.ModuleList(
+        #     [
+        #         PhyDGalerkinConv(in_size, out_size, self.num_modes,self.kernel_modes,self.D)
+        #         for in_size, out_size in zip(
+        #             self.layers, self.layers[1:]
+        #         )
+        #     ]
+        # )      
+ 
+
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
@@ -330,12 +522,19 @@ class GeoKNO(nn.Module):
             ]
         )
 
+
+        # self.gws = nn.ModuleList(
+        #     [
+        #         nn.Conv1d(ndims*in_size, out_size, 1)
+        #         for in_size, out_size in zip(self.layers, self.layers[1:])
+        #     ]
+        # )
         self.gws = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1)
+                gradientw(in_size,ndims,out_size,self.directions_dim)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
-        )
+        )        
 
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
@@ -344,8 +543,9 @@ class GeoKNO(nn.Module):
             self.fc2 = nn.Linear(layers[-1], out_dim)
 
         self.act = _get_act(act)
-        self.softsign = F.softsign
-        # self.softsign = F.sigmoid
+        self.ln_layers = nn.ModuleList([nn.LayerNorm(dim) for dim in self.layers[1:]])
+        self.ln0 = nn.LayerNorm(self.layers[0])
+
 
     def forward(self, x, aux):
         """
@@ -359,22 +559,34 @@ class GeoKNO(nn.Module):
         # batch_size, nnodes, ndims
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
 
+        nnodes = nodes.shape[1]
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
-        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights
+        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights     
         
-        
-        
+        directions = self.directions_forward(x,aux).reshape(x.shape[0],x.shape[1],self.ndims,self.directions_dim)
         x = self.fc0(x)
+        
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
+        x = self.ln0(x.transpose(1,2)).transpose(1,2)
+
+
+        for i, (speconv, w, gw,ln) in enumerate(zip(self.sp_convs, self.ws, self.gws,self.ln_layers)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+            # x1 = speconv(x, torch.cat((wbases_c, wbases_s, wbases_0),dim=-1), torch.cat((bases_c, bases_s, bases_0),dim=-1))
             x2 = w(x)
-            # x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            # x3 = gw(compute_gradient(x, directed_edges, edge_gradient_weights))
-            x = x1 + x2 #+ x3
+            # x3 = gw(x,compute_gradient(x, directed_edges, edge_gradient_weights))
+            x3 = gw(x,compute_gradient(x, directed_edges, edge_gradient_weights),directions)
+            x = x1 + x2 + x3
+            # x = x2 + x3
+            # x = x1 + x3
+            
+            x = ln(x.transpose(1,2)).transpose(1,2)
+
             if self.act is not None and i != length - 1:
-                x = self.act(x) 
+                # x = self.act(x) + self.act(x3)
+                x = self.act(x)
+
 
         x = x.permute(0, 2, 1)
 
@@ -384,121 +596,123 @@ class GeoKNO(nn.Module):
                 x = self.act(x)
 
         x = self.fc2(x)
-        return x
+        return x,directions
     
-    def plot_hidden_layer_3d(self,x, aux,y,save_figure_hidden,epoch,plot_hidden_layers_num):
-        assert self.ndims ==3
-        mlab.options.offscreen = True  # 设置为无头模式
-        out = self.forward(x,aux)
-        images = []
-        font_path = 'arial.ttf'  # 字体文件路径，或者使用系统字体
-        text_color = (0, 0, 0)  # 文本颜色为黑色
-        text_position = (10, 400)  # 文本的位置，在图像底部
+    def plot_hidden_layer(self, x, aux,y,Nx,Ny,save_figure_hidden,epoch,plot_hidden_layers_num):
+        fig, axs = plt.subplots(plot_hidden_layers_num, 9, figsize=(27, 3*plot_hidden_layers_num))
+        length = len(self.ws)
         for j in range(plot_hidden_layers_num):
-            if self.out_dim==3:
-                x1, y1, z1 = x[j].transpose(0,1).detach().cpu().numpy()
-                u1, v1, w1 = y[j].transpose(0,1).detach().cpu().numpy()
-                fig1 = mlab.figure(size=(500,500), bgcolor=(1, 1, 1))
-                mlab.view(azimuth=0, elevation=70, focalpoint=[0, 0, 0], distance=10, roll=0, figure=fig1)
-                mlab.quiver3d(x1, y1, z1, u1, v1, w1, mode='arrow', color=(0, 1, 0), scale_factor=0.075, figure=fig1)
-                img1 = mlab.screenshot(figure=fig1)
-                img1_with_text = add_label(img1, f"Truth{j}", font_path, text_color, text_position)
+            self.plot_2d(fig,axs, row = j,col = 0,tensor = x[j,:,0],title='input',Nx = Nx,Ny = Ny)
+        # batch_size, nnodes, ndims
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
 
-                u2, v2, w2 = out[j].transpose(0,1).detach().cpu().numpy()
-                fig2 = mlab.figure(size=(500,500), bgcolor=(1, 1, 1))
-                mlab.view(azimuth=0, elevation=70, focalpoint=[0, 0, 0], distance=10, roll=0, figure=fig2)
-                mlab.quiver3d(x1, y1, z1, u2, v2, w2, mode='arrow', color=(0, 1, 0), scale_factor=0.075, figure=fig2)
-                img2 = mlab.screenshot(figure=fig2)
-                img2_with_text = add_label(img2,f"Output{j}", font_path, text_color, text_position)
+        nnodes = nodes.shape[1]
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
+        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights     
+        
+        directions = self.directions_forward(x,aux).reshape(x.shape[0],x.shape[1],self.ndims,self.directions_dim)
+        x = self.fc0(x)
+        
+        x = x.permute(0, 2, 1)
 
-                
-                fig3 = mlab.figure(size=(500,500), bgcolor=(1, 1, 1))
-                e1 = torch.sum((out[j]-y[j])**2,dim=-1).detach().cpu().numpy()
-                mlab.view(azimuth=0, elevation=70, focalpoint=[0, 0, 0], distance=10, roll=0, figure=fig3)
-                mlab.points3d(x1, y1, z1, e1, color=(1, 0, 0),mode = 'sphere', scale_factor=0.075, figure=fig3)
-                img3 = mlab.screenshot(figure=fig3)
-                loss = round(torch.norm(out[j]-y[j]).item()/torch.norm(y[j]).item(),4)
-                img3_with_text = add_label(img3,f"Error{j}, loss{loss}", font_path, text_color, text_position)
-            elif self.out_dim==1:
-                x1, y1, z1 = x[j].transpose(0,1).detach().cpu().numpy()
-                u1 = y[j,:,0].detach().cpu().numpy()
-                fig1 = mlab.figure(size=(500,500), bgcolor=(1, 1, 1))
-                mlab.view(azimuth=0, elevation=70, focalpoint=[0, 0, 0], distance=10, roll=0, figure=fig1)
-                mlab.points3d(x1, y1, z1, u1, color=(1, 0, 0),mode = 'sphere', scale_factor=0.075, figure=fig1)
-                img1 = mlab.screenshot(figure=fig1)
-                img1_with_text = add_label(img1, f"Truth{j}", font_path, text_color, text_position)
+        x = self.ln0(x.transpose(1,2)).transpose(1,2)
 
-                u2 = out[j,:,0].detach().cpu().numpy()
-                fig2 = mlab.figure(size=(500,500), bgcolor=(1, 1, 1))
-                mlab.view(azimuth=0, elevation=70, focalpoint=[0, 0, 0], distance=10, roll=0, figure=fig2)
-                mlab.points3d(x1, y1, z1, u2, color=(1, 0, 0),mode = 'sphere', scale_factor=0.075, figure=fig2)
-                img2 = mlab.screenshot(figure=fig2)
-                img2_with_text = add_label(img2,f"Output{j}", font_path, text_color, text_position)
+        for j in range(plot_hidden_layers_num):
+            self.plot_2d(fig,axs,row = j, col = 1,tensor = x[j,0,:],title= 'x0',Nx = Nx,Ny = Ny)
+        for i, (speconv, w, gw,ln) in enumerate(zip(self.sp_convs, self.ws, self.gws,self.ln_layers)):
+            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+            # x1 = speconv(x, torch.cat((wbases_c, wbases_s, wbases_0),dim=-1), torch.cat((bases_c, bases_s, bases_0),dim=-1))
+            x2 = w(x)
+            # x3 = gw(x,compute_gradient(x, directed_edges, edge_gradient_weights))
+            x3 = gw(x,compute_gradient(x, directed_edges, edge_gradient_weights),directions)
+            x = x1 + x2 + x3
+            # x = x2 + x3
+            # x = x1 + x3
+            
+            x = ln(x.transpose(1,2)).transpose(1,2)
 
-                
-                fig3 = mlab.figure(size=(500,500), bgcolor=(1, 1, 1))
-                e1 = torch.sqrt(torch.sum((out[j]-y[j])**2,dim=-1)).detach().cpu().numpy()
-                mlab.view(azimuth=0, elevation=70, focalpoint=[0, 0, 0], distance=10, roll=0, figure=fig3)
-                mlab.points3d(x1, y1, z1, e1, color=(1, 0, 0),mode = 'sphere', scale_factor=0.075, figure=fig3)
-                img3 = mlab.screenshot(figure=fig3)
-                loss = round(torch.norm(out[j]-y[j]).item()/torch.norm(y[j]).item(),4)
-                img3_with_text = add_label(img3,f"Error{j}, loss{loss}", font_path, text_color, text_position)                
+            if self.act is not None and i != length - 1:
+                # x = self.act(x) + self.act(x3)
+                x = self.act(x)
+            for j in range(plot_hidden_layers_num):
+                self.plot_2d(fig,axs,row = j, col = i+2,tensor = x[j,0,:],title= f'x{i+1}',Nx = Nx,Ny = Ny)
 
-            combined_image = np.hstack([img1_with_text, img2_with_text,img3_with_text])
-            images.append(combined_image)
+        x = x.permute(0, 2, 1)
 
-            mlab.close(fig1)
-            mlab.close(fig2)
-            mlab.close(fig3)
+        if self.fc_dim > 0:
+            x = self.fc1(x)
+            if self.act is not None:
+                x = self.act(x)
+
+        x = self.fc2(x)
+        e = y-x.reshape(y.shape)
+        for j in range(plot_hidden_layers_num):
+            self.plot_2d(fig,axs,row = j, col = 6,tensor = x[j, :, 0],title= 'output',Nx = Nx,Ny = Ny)
+            self.plot_2d(fig,axs,row = j, col = 7,tensor = y[j, :, 0],title= 'truth_y',Nx = Nx,Ny = Ny)
+            loss = torch.norm(x[j,:,0]-y[j,:,0])/torch.norm(y[j,:,0])
+            loss = round(loss.item(),4)
+            self.plot_2d(fig,axs,row = j, col = 8,tensor = e[j, :, 0],title= f'error, loss{loss}',Nx = Nx,Ny = Ny)
+
+        plt.tight_layout()
+        plt.savefig(save_figure_hidden + 'hiddens_' + 'ep'+str(epoch).zfill(3)+'.png', format='png')
+        plt.close()
 
 
-        final_image = np.vstack(images)
-        filename = save_figure_hidden+ 'ep'+str(epoch).zfill(3)+ '.png'
-        imageio.imwrite(filename, final_image)
+    def plot_directions(self, x, aux,y,Nx,Ny,save_figure_hidden,epoch,plot_directions_num):
+
+
+        directions = self.directions_forward(x,aux).reshape(x.shape[0],x.shape[1],self.ndims,self.directions_dim)
+
+        fig, axs = plt.subplots(plot_directions_num, 3, figsize=(9, 3*plot_directions_num))
+        for j in range(plot_directions_num):
+            self.plot_2d(fig,axs,row = j, col = 0,tensor = directions[j, :, 0, 0],title= 'direction_x',Nx = Nx,Ny = Ny)
+            self.plot_2d(fig,axs,row = j, col = 1,tensor = directions[j, :, 1, 0],title= 'direction_y',Nx = Nx,Ny = Ny)
+            self.plot_2d(fig,axs,row = j, col = 2,tensor = y[j, :, 0],title= 'direction_y',Nx = Nx,Ny = Ny)
+        plt.tight_layout()
+        plt.savefig(save_figure_hidden + 'directions_' + 'ep'+str(epoch).zfill(3)+'.png', format='png')
+        plt.close()
+
+
     
-def decompose_integer(n):
-    val = int(math.sqrt(n))
-    for i in range(val, 0, -1):
-        if n % i == 0:
-            return (i, n // i)
-    return (1, n)
-
-def add_label(image, text, font_path, text_color, position):
-    pil_image = Image.fromarray(image)
-    draw = ImageDraw.Draw(pil_image)
-    font = ImageFont.truetype(font_path, 25)  # 调整字体大小
-    
-    # # # 计算文本宽度以居中文本
-    # text_width, text_height = draw.textsize(text, font=font)
-    position = ((pil_image.width - 250) // 2, position[1])
-    
-    draw.text(position, text, fill=text_color, font=font)
-    return np.array(pil_image)
+    def plot_2d(self,fig,axs,row,col,tensor,title,Nx=False,Ny=False):
+        if self.ndims==2:
+            assert Nx & Ny
+            tensor = tensor.cpu().reshape(Nx,Ny)
+            im = axs[row,col].imshow(tensor, cmap='viridis')
+            fig.colorbar(im, ax=axs[row,col])
+            axs[row,col].set_title(title)
+        elif self.ndims==1:
+            tensor = tensor.cpu()
+            im = axs[row,col].plot(tensor)
+            axs[row,col].set_title(title)
 
 
 
+alpha = 1
+Nx,Ny = 31,31
+save_figure_hidden = 'figure/test/'
+plot_hidden_layers_num = 5
+plot_directions_num = 5
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./GeoKNO_model"):
+def GeoKNO2_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./GeoKNO_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
     test_l2_losses = []
     normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
-    x_aux_dim, y_aux_dim = config["train"]["x_aux_dim"], config["train"]["y_aux_dim"]
-    
     ndims = model.ndims # n_train, size, n_channel
     print("In GeoKNO_train, ndims = ", ndims)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = x_aux_dim, normalization_dim=normalization_dim, )
+        x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = 0)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = y_aux_dim, normalization_dim=normalization_dim)
+        y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = 0)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
@@ -538,12 +752,10 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
 
     epochs = config['train']['epochs']
 
-    plot_hidden_layers_num = config.get('plot', {}).get('plot_hidden_layers_num', 0)
-    save_figure_hidden = config.get('plot', {}).get('save_figure_hidden', False)
-
+    t1 = default_timer()
     for ep in range(epochs):
-        t1 = default_timer()
         train_rel_l2 = 0
+        train_reg = 0
 
         model.train()
         for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
@@ -551,37 +763,36 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+            out,directions = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
 
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+            train_rel_l2 += loss.item()
+            gradient_y = compute_gradient(y.permute(0,2,1), directed_edges, edge_gradient_weights)
+            loss_direction = alpha*torch.sum(torch.abs(torch.einsum('bxdi,bdx -> bxi',directions/(torch.sqrt(torch.sum(directions**2)+1e-6)),gradient_y)))
+            loss += loss_direction
+            train_reg += loss_direction.item()
             loss.backward()
 
             optimizer.step()
-            train_rel_l2 += loss.item()
+            
 
         test_l2 = 0
         test_rel_l2 = 0
         with torch.no_grad():
-            if ep%3 ==0:
-                if plot_hidden_layers_num:
-                    interval = n_test//(8-1)
-                    indices = [i * interval for i in range(8)]
-                    x = x_test[indices,:,:].to(device)
-                    y = y_test[indices,:,:].to(device)
-                    node_mask = node_mask_test[indices,:,:].to(device)
-                    nodes = nodes_test[indices,:,:].to(device)
-                    node_weights = node_weights_test[indices,:,:].to(device)
-                    directed_edges = directed_edges_test[indices,:,:].to(device)
-                    edge_gradient_weights = edge_gradient_weights_test[indices,:,:].to(device)
-                    model.plot_hidden_layer_3d(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights),y,save_figure_hidden,ep,plot_hidden_layers_num)
+            if ep%3==0:
+                plot = True
             for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
+                
                 x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
-
+                if plot == True:
+                    model.plot_hidden_layer( x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights),y,Nx,Ny,save_figure_hidden,ep,plot_hidden_layers_num)
+                    model.plot_directions( x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights),y,Nx,Ny,save_figure_hidden,ep,plot_directions_num)
+                    plot = False
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+                out,_ = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
@@ -598,15 +809,18 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         train_rel_l2/= n_train
         test_l2 /= n_test
         test_rel_l2/= n_test
+        train_reg/=n_train
         
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
     
-        t2 = default_timer()
+
         if (ep %1 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep,' time: ',round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+            t2 = default_timer()
+            print("Epoch : ", ep,'Time :',round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, 'train_reg :',train_reg)
             # torch.save(model, save_model_name)
+            t1 = default_timer()
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

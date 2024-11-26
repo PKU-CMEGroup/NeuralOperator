@@ -27,12 +27,15 @@ def read_mesh_indices(file_path):
         indices = f.read().splitlines()
     return [int(index) - 1 for index in indices]
 
+
 def load_data(data_path = "../data/car"):
     dataset_folder_mesh = data_path+"/data/mesh/"
     dataset_folder_normal = data_path+"/data/normal/"
+    dataset_folder_press = data_path+"/data/press/"
     valid_indices = read_mesh_indices(data_path+"/watertight_meshes.txt")
     ply_files = sorted(glob.glob(os.path.join(dataset_folder_mesh, "*.ply")))
     npy_normal_files = sorted(glob.glob(os.path.join(dataset_folder_normal, "*.npy")))
+    npy_press_files = sorted(glob.glob(os.path.join(dataset_folder_press, "*.npy")))
     nodes, max_nnodes = [], 0
     elems, elem_dim = [], 2
     features = []
@@ -45,7 +48,10 @@ def load_data(data_path = "../data/car"):
         nodes.append(vertices)
         elem = np.asarray(mesh.triangles)
         elems.append(np.concatenate((np.full((elem.shape[0], 1), elem_dim, dtype=int), elem), axis=1))
-        features.append(np.load(npy_normal_files[index]))
+
+        pressure = np.load(npy_press_files[i])
+        # features include pressure and normal vector
+        features.append(np.hstack((np.concatenate((pressure[0:16], pressure[112:]))[:,np.newaxis], np.load(npy_normal_files[index]))))
     return max_nnodes, nodes, elems, features 
 ###################################
 # load data
@@ -60,10 +66,10 @@ if CONVERT_DATA:
     print("Preprocessing data")
 
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
-    np.savez("../data/car/geokno_triangle_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez("../data/car/geokno_triangle_equal_weight_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights, elems_list=elems_list)
 
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type="area")
-    np.savez("../data/car/geokno_triangle_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez("../data/car/geokno_triangle_data.npz", nnodes=nodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights, elems_list=elems_list)
     exit()
 else:
     data = np.load("../data/car/geokno_triangle_data.npz")
@@ -84,21 +90,26 @@ data_in, data_out = nodes, features
 
 n_train, n_test = 500, 100
 
+OUTPUT = "pressure" # "normal"  or "pressure"
+
 
 x_train, x_test = nodes[:n_train,...], nodes[-n_test:,...]
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
-y_train, y_test = features[:n_train,...],     features[-n_test:,...]
 
+if OUTPUT == "pressure":
+    y_train, y_test = features[:n_train, :, 0:1],     features[-n_test:, :, 0:1]
+else:  #OUTPUT == "normal":
+    y_train, y_test = features[:n_train, :, 1:],     features[-n_test:, :, 1:]
 
-k_max = 8
+k_max = 16
 ndim = 3
-modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [1.0,1.0,1.0])
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = GeoKNO(ndim, modes,
                layers=[128,128,128,128,128],
                fc_dim=128,
-               in_dim=3, out_dim=3,
+               in_dim=3, out_dim=y_train.shape[-1],
                act='gelu').to(device)
 
 

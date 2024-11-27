@@ -10,11 +10,7 @@ from .utils import _get_act, add_padding, remove_padding
 from .adam import Adam
 from .losses import LpLoss
 from .normalizer import UnitGaussianNormalizer
-from .fourier1d import FNN1d
-from .fourier2d import FNN2d
-from .fourier3d import FNN3d
-from .fourier4d import FNN4d
-from .Galerkin import GkNN
+
 
 def count_params(model):
     c = 0

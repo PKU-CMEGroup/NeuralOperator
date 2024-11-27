@@ -1,0 +1,54 @@
+nodesweight; nosoftsign
+Casting to tensor
+torch.Size([1000, 35986, 2])
+torch.Size([1000, 35986])
+Lx, Ly =  4.0 4.0
+In GeoKNO_train, ndims =  2
+Epoch :  0  Rel. Train L2 Loss :  0.8729116382598877  Rel. Test L2 Loss :  0.457053596496582  L adjust: ['0.995603', '1.003462']  time :  92.63281798362732
+Epoch :  1  Rel. Train L2 Loss :  0.3692718300819397  Rel. Test L2 Loss :  0.3195763540267944  L adjust: ['0.995615', '1.003661']  time :  87.73391318321228
+Epoch :  2  Rel. Train L2 Loss :  0.26862115573883055  Rel. Test L2 Loss :  0.20992959594726562  L adjust: ['0.995604', '1.003685']  time :  87.38049077987671
+Epoch :  3  Rel. Train L2 Loss :  0.13429409742355347  Rel. Test L2 Loss :  0.1486956582069397  L adjust: ['0.995621', '1.003743']  time :  88.05694627761841
+Epoch :  4  Rel. Train L2 Loss :  0.1138070957660675  Rel. Test L2 Loss :  0.1391949200630188  L adjust: ['0.995659', '1.003708']  time :  87.79013514518738
+Epoch :  5  Rel. Train L2 Loss :  0.10084644651412963  Rel. Test L2 Loss :  0.13610431623458863  L adjust: ['0.995596', '1.003726']  time :  87.52459931373596
+Epoch :  6  Rel. Train L2 Loss :  0.08893209779262543  Rel. Test L2 Loss :  0.1354213056564331  L adjust: ['0.995670', '1.003707']  time :  88.173832654953
+Epoch :  7  Rel. Train L2 Loss :  0.08171674501895905  Rel. Test L2 Loss :  0.13226847076416015  L adjust: ['0.995636', '1.003600']  time :  87.61655807495117
+Epoch :  8  Rel. Train L2 Loss :  0.0775130307674408  Rel. Test L2 Loss :  0.1286033501625061  L adjust: ['0.995634', '1.003705']  time :  87.93664145469666
+Epoch :  9  Rel. Train L2 Loss :  0.07548276066780091  Rel. Test L2 Loss :  0.13049945306777955  L adjust: ['0.995567', '1.003750']  time :  88.29556846618652
+Epoch :  10  Rel. Train L2 Loss :  0.0738663536310196  Rel. Test L2 Loss :  0.12979921245574952  L adjust: ['0.995523', '1.003755']  time :  87.76111674308777
+Epoch :  11  Rel. Train L2 Loss :  0.06999908196926118  Rel. Test L2 Loss :  0.1280083589553833  L adjust: ['0.995655', '1.003644']  time :  88.25662088394165
+Epoch :  12  Rel. Train L2 Loss :  0.06746733736991882  Rel. Test L2 Loss :  0.12669609546661376  L adjust: ['0.995594', '1.003694']  time :  87.88252544403076
+Epoch :  13  Rel. Train L2 Loss :  0.06635370934009552  Rel. Test L2 Loss :  0.12818175554275513  L adjust: ['0.995614', '1.003850']  time :  88.12446212768555
+Epoch :  14  Rel. Train L2 Loss :  0.06598144972324371  Rel. Test L2 Loss :  0.12529700565338134  L adjust: ['0.995613', '1.003720']  time :  88.42600607872009
+Epoch :  15  Rel. Train L2 Loss :  0.06535709607601166  Rel. Test L2 Loss :  0.1280876064300537  L adjust: ['0.995669', '1.003725']  time :  87.76871228218079
+Epoch :  16  Rel. Train L2 Loss :  0.06529202318191528  Rel. Test L2 Loss :  0.12660385274887084  L adjust: ['0.995647', '1.003619']  time :  88.14863610267639
+Epoch :  17  Rel. Train L2 Loss :  0.06406780779361725  Rel. Test L2 Loss :  0.12351011276245118  L adjust: ['0.995649', '1.003763']  time :  88.32854080200195
+Epoch :  18  Rel. Train L2 Loss :  0.06216324162483215  Rel. Test L2 Loss :  0.1260770592689514  L adjust: ['0.995647', '1.003896']  time :  87.73167777061462
+Epoch :  19  Rel. Train L2 Loss :  0.0592941575050354  Rel. Test L2 Loss :  0.12261155176162719  L adjust: ['0.995647', '1.003681']  time :  88.38528394699097
+Epoch :  20  Rel. Train L2 Loss :  0.0591464067697525  Rel. Test L2 Loss :  0.1231639370918274  L adjust: ['0.995641', '1.003671']  time :  87.77561640739441
+Epoch :  21  Rel. Train L2 Loss :  0.0583866753578186  Rel. Test L2 Loss :  0.12322333526611329  L adjust: ['0.995653', '1.003601']  time :  87.86375451087952
+Epoch :  22  Rel. Train L2 Loss :  0.05921287500858307  Rel. Test L2 Loss :  0.12494240522384643  L adjust: ['0.995543', '1.003632']  time :  88.25468707084656
+Epoch :  23  Rel. Train L2 Loss :  0.05793553400039673  Rel. Test L2 Loss :  0.12342029333114624  L adjust: ['0.995572', '1.003689']  time :  87.64717173576355
+Epoch :  24  Rel. Train L2 Loss :  0.05760178387165069  Rel. Test L2 Loss :  0.12403551769256592  L adjust: ['0.995574', '1.003806']  time :  88.50393486022949
+Epoch :  25  Rel. Train L2 Loss :  0.056084921002388  Rel. Test L2 Loss :  0.12293619060516357  L adjust: ['0.995548', '1.003615']  time :  87.81010627746582
+Epoch :  26  Rel. Train L2 Loss :  0.05565038681030274  Rel. Test L2 Loss :  0.12137550783157348  L adjust: ['0.995556', '1.003786']  time :  87.86010026931763
+Epoch :  27  Rel. Train L2 Loss :  0.054172122716903685  Rel. Test L2 Loss :  0.12257293272018432  L adjust: ['0.995692', '1.003540']  time :  88.23539090156555
+Epoch :  28  Rel. Train L2 Loss :  0.055574697136878966  Rel. Test L2 Loss :  0.12326902294158935  L adjust: ['0.995509', '1.003463']  time :  87.73180723190308
+Epoch :  29  Rel. Train L2 Loss :  0.05546881598234177  Rel. Test L2 Loss :  0.1218224458694458  L adjust: ['0.995632', '1.003603']  time :  88.213054895401
+Epoch :  30  Rel. Train L2 Loss :  0.054653063476085666  Rel. Test L2 Loss :  0.12248256492614747  L adjust: ['0.995574', '1.003993']  time :  88.17502665519714
+Epoch :  31  Rel. Train L2 Loss :  0.05375088161230087  Rel. Test L2 Loss :  0.12181068563461303  L adjust: ['0.995710', '1.003859']  time :  87.85762214660645
+Epoch :  32  Rel. Train L2 Loss :  0.053802838325500486  Rel. Test L2 Loss :  0.12270645332336426  L adjust: ['0.995645', '1.003734']  time :  88.30252385139465
+Epoch :  33  Rel. Train L2 Loss :  0.05295302724838257  Rel. Test L2 Loss :  0.12292076778411866  L adjust: ['0.995619', '1.003693']  time :  87.87171006202698
+Epoch :  34  Rel. Train L2 Loss :  0.052936310172080996  Rel. Test L2 Loss :  0.12241952419281006  L adjust: ['0.995688', '1.003624']  time :  87.95015287399292
+Epoch :  35  Rel. Train L2 Loss :  0.05204466384649277  Rel. Test L2 Loss :  0.12210706710815429  L adjust: ['0.995612', '1.003810']  time :  88.48307013511658
+Epoch :  36  Rel. Train L2 Loss :  0.052603811144828795  Rel. Test L2 Loss :  0.12075322771072387  L adjust: ['0.995611', '1.003689']  time :  87.70266389846802
+Epoch :  37  Rel. Train L2 Loss :  0.051979440093040466  Rel. Test L2 Loss :  0.12241736268997193  L adjust: ['0.995552', '1.003638']  time :  88.01616096496582
+Epoch :  38  Rel. Train L2 Loss :  0.051595727503299715  Rel. Test L2 Loss :  0.12204390239715576  L adjust: ['0.995656', '1.003661']  time :  88.31634712219238
+Epoch :  39  Rel. Train L2 Loss :  0.05039035302400589  Rel. Test L2 Loss :  0.12141685247421265  L adjust: ['0.995589', '1.003625']  time :  87.69232082366943
+Epoch :  40  Rel. Train L2 Loss :  0.04977535206079483  Rel. Test L2 Loss :  0.12166897344589234  L adjust: ['0.995666', '1.003742']  time :  88.00715494155884
+Epoch :  41  Rel. Train L2 Loss :  0.04989508157968521  Rel. Test L2 Loss :  0.12172146558761597  L adjust: ['0.995600', '1.003794']  time :  88.15650796890259
+Epoch :  42  Rel. Train L2 Loss :  0.050644939661026  Rel. Test L2 Loss :  0.12299564504623413  L adjust: ['0.995841', '1.003628']  time :  87.41222405433655
+Epoch :  43  Rel. Train L2 Loss :  0.0517792347073555  Rel. Test L2 Loss :  0.12033533811569214  L adjust: ['0.995677', '1.003628']  time :  88.26415538787842
+Epoch :  44  Rel. Train L2 Loss :  0.04996364265680313  Rel. Test L2 Loss :  0.1224236536026001  L adjust: ['0.995638', '1.003646']  time :  87.62773084640503
+Epoch :  45  Rel. Train L2 Loss :  0.04811082863807678  Rel. Test L2 Loss :  0.12146765995025635  L adjust: ['0.995679', '1.003797']  time :  87.97981357574463
+Epoch :  46  Rel. Train L2 Loss :  0.05007535684108734  Rel. Test L2 Loss :  0.122260892868042  L adjust: ['0.995796', '1.003565']  time :  88.25051712989807
+slurmstepd: error: *** JOB 4371864 ON l12gpu28 CANCELLED AT 2024-11-24T17:05:50 ***

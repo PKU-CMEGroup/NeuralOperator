@@ -18,7 +18,7 @@ Epoch :  11  time:  9.356  Rel. Train L2 Loss :  0.08585295993089676  Rel. Test 
 Epoch :  12  time:  11.853  Rel. Train L2 Loss :  0.08132394933700561  Rel. Test L2 Loss :  0.14623235106468202  Test L2 Loss :  9.015632514953614
 
 
-geokno   modes = 1.0,1.0,1.0
+geokno   L = 1.0,1.0,1.0
 PS C:\Users\15461\Desktop\mygithub2\test_data> cd "c:\Users\15461\Desktop\mygithub2\test_data"
 PS C:\Users\15461\Desktop\mygithub2\test_data> python -u "c:\Users\15461\Desktop\mygithub2\test_data\geokno_car_pressure_test.py"
 Casting to tensor
@@ -34,7 +34,7 @@ Epoch :  7  time:  11.03  Rel. Train L2 Loss :  0.08718780833482742  Rel. Test L
 Epoch :  8  time:  11.56  Rel. Train L2 Loss :  0.0828427494764328  Rel. Test L2 Loss :  0.15005795121192933  Test L2 Loss :  9.25171760559082
 
 
-geokno   modes = 2.0,2.0,5.0
+geokno   L = 2.0,2.0,5.0
 PS C:\Users\15461\Desktop\mygithub2\test_data> cd "c:\Users\15461\Desktop\mygithub2\test_data"
 PS C:\Users\15461\Desktop\mygithub2\test_data> python -u "c:\Users\15461\Desktop\mygithub2\test_data\geokno_car_pressure_test.py"
 Casting to tensor

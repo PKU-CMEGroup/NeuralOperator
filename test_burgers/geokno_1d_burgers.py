@@ -23,17 +23,18 @@ n_train = 1000
 n_test = 200
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-k_str='-1e+02'   # '0e+00,1e+00,1e+01,1e+02,-1e+00,+1e+01,-1e+02'
+k_str='0e+00'   # '0e+00,1e+00,1e+01,1e+02,-1e+00,+1e+01,-1e+02'
 equal_weight = True
+N = 512
 print('k: '+k_str)
 print('equal_weight: ',equal_weight)
 
-CONVERT_DATA = True
+CONVERT_DATA = False
 if CONVERT_DATA:
     ###################################
     # load data
     ###################################
-    dataloader = loadmat(f"../data/burgers/burgers_k{k_str}_N2048.mat")
+    dataloader = loadmat(f"../data/burgers/matlab/burgers_k{k_str}_N{N}.mat")
     nodes_list = np.array(dataloader.get('nodes_list'))[...,np.newaxis]
     elems_list = np.array(dataloader.get('elems_list'))
     elems_list[:,:,1:] = elems_list[:,:,1:]-1  #python index starts from 0
@@ -43,17 +44,17 @@ if CONVERT_DATA:
     print('features_list.shape',features_list.shape)
 
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type=None)
-    np.savez_compressed(f"../data/burgers/burgers_k{k_str}_N2048_equal_weight_data.npz", nnodes=nnodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez_compressed(f"../data/burgers/burgers_k{k_str}_N{N}_equal_weight_data.npz", nnodes=nnodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list, node_weight_type='area')
-    np.savez_compressed(f"../data/burgers/burgers_k{k_str}_N2048_data.npz", nnodes=nnodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    np.savez_compressed(f"../data/burgers/burgers_k{k_str}_N{N}_data.npz", nnodes=nnodes, node_mask=node_mask, nodes=nodes, node_weights=node_weights, features=features, directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
     exit()
 else:
     if equal_weight:
-        data_path = f"../data/burgers/burgers_k{k_str}_N2048_equal_weight_data.npz"
-        model_path = f"./model/k{k_str}_equal_weight.pth"
+        data_path = f"../data/burgers/burgers_k{k_str}_N{N}_equal_weight_data.npz"
+        model_path = f"./model/k{k_str}_N{N}_equal_weight.pth"
     else:
-        data_path = f"../data/burgers/burgers_k{k_str}_N2048_data.npz"
-        model_path = f"./model/k{k_str}.pth"
+        data_path = f"../data/burgers/burgers_k{k_str}_N{N}_data.npz"
+        model_path = f"./model/k{k_str}_N{N}.pth"
     data = np.load(data_path)
     print('load data from' + data_path)
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = data["nnodes"], data["node_mask"], data["nodes"], data["node_weights"], data["features"], data["directed_edges"], data["edge_gradient_weights"]

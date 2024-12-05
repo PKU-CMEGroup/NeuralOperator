@@ -19,32 +19,36 @@ np.random.seed(10)
 
 downsample_ratio = 1
 n_train = 1000
-n_test = 1000
+n_test = 200
 print('n_test: ',n_test)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-train_k_str = '0e+00' # '0e+00,1e+00,1e+01,1e+02,-1e+00,+1e+01,-1e+02'
-train_equal_weight = False
-test_k_str = '1e+02' # '0e+00,1e+00,1e+01,1e+02,-1e+00,+1e+01,-1e+02'
-test_equal_weight = False
+train_k_str = '1e+02' # '0e+00,1e+00,1e+01,1e+02,-1e+00,+1e+01,-1e+02'
+train_equal_weight = True
+test_k_str = '0e+00' # '0e+00,1e+00,1e+01,1e+02,-1e+00,+1e+01,-1e+02'
+test_equal_weight = True
+train_N = 512
+test_N = 512
 print('train_k: '+ train_k_str)
 print('train_equal_weight: ', train_equal_weight)
+print('train_N: ',train_N)
 print('test_k: '+ test_k_str)
 print('test_equal_weight: ', test_equal_weight)
+print('test_N: ',test_N)
 
 
 if train_equal_weight:
-    train_data_path = f"../data/burgers/burgers_k{train_k_str}_N2048_equal_weight_data.npz"
-    model_path = f'model/k{train_k_str}_equal_weight.pth'
+    train_data_path = f"../data/burgers/burgers_k{train_k_str}_N{train_N}_equal_weight_data.npz"
+    model_path = f'model/k{train_k_str}_N{train_N}_equal_weight.pth'
 else:
-    train_data_path = f"../data/burgers/burgers_k{train_k_str}_N2048_data.npz"    
-    model_path = f'model/k{train_k_str}.pth'
+    train_data_path = f"../data/burgers/burgers_k{train_k_str}_N{train_N}_data.npz"    
+    model_path = f'model/k{train_k_str}_N{train_N}.pth'
 
 if test_equal_weight:
-    test_data_path = f"../data/burgers/burgers_k{test_k_str}_N2048_equal_weight_data.npz"
+    test_data_path = f"../data/burgers/burgers_k{test_k_str}_N{test_N}_equal_weight_data.npz"
 else:
-    test_data_path = f"../data/burgers/burgers_k{test_k_str}_N2048_data.npz"
+    test_data_path = f"../data/burgers/burgers_k{test_k_str}_N{test_N}_data.npz"
 train_data = np.load(train_data_path)
 print('load train data from' + train_data_path)
 test_data = np.load(test_data_path)

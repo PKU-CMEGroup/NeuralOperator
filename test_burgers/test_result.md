@@ -240,6 +240,114 @@ test_k: 1e+02
 
 
 
+# train on 512, test on 2048
+## equal_weight: False
+
+### train_k: 0e+00
+
+test_k: -1e+02
+ Rel. Test L2 Loss :  0.009803738951683044  Test L2 Loss :  0.004424543906003236
+
+test_k: -1e+01
+ Rel. Test L2 Loss :  0.003370581820607185  Test L2 Loss :  0.0016015748474746943
+
+test_k: -1e+00
+ Rel. Test L2 Loss :  0.0033302282840013504  Test L2 Loss :  0.0015803721453994512
+
+test_k: 0e+00
+ Rel. Test L2 Loss :  0.003409637462347746  Test L2 Loss :  0.0016230002697557211  
+(test_N: 512   Rel. Test L2 Loss :  0.0032873564437031744  Test L2 Loss :  0.0015616566371172667)
+
+test_k: 1e+00
+ Rel. Test L2 Loss :  0.0033539927788078785  Test L2 Loss :  0.0016056762132793665
+
+test_k: 1e+01
+ Rel. Test L2 Loss :  0.0034158509485423564  Test L2 Loss :  0.0016462243255227803
+
+test_k: 1e+02
+ Rel. Test L2 Loss :  0.010835754528641701  Test L2 Loss :  0.005115030430257321
+(test_N: 512  Rel. Test L2 Loss :  0.061871088325977326  Test L2 Loss :  0.025907497942447663)
+
+
+### train_k: 1e+02
+
+test_k: -1e+02
+ Rel. Test L2 Loss :  0.00661466845870018  Test L2 Loss :  0.002959791503846645
+
+test_k: -1e+01
+ Rel. Test L2 Loss :  0.007425330318510532  Test L2 Loss :  0.003245380699634552
+
+test_k: -1e+00
+ Rel. Test L2 Loss :  0.008198352307081222  Test L2 Loss :  0.0035203903019428253
+
+test_k: 0e+00
+ Rel. Test L2 Loss :  0.008189844131469727  Test L2 Loss :  0.0035186083950102327
+(test_N: 512  Rel. Test L2 Loss :  0.006800609894096851  Test L2 Loss :  0.0029864839091897012)
+
+test_k: 1e+00
+ Rel. Test L2 Loss :  0.008092553287744522  Test L2 Loss :  0.003464858513325453
+
+test_k: 1e+01
+ Rel. Test L2 Loss :  0.007325893886387348  Test L2 Loss :  0.00315194633603096
+
+test_k: 1e+02
+ Rel. Test L2 Loss :  0.006247050806879997  Test L2 Loss :  0.0028107186816632747
+(test_N: 512  Rel. Test L2 Loss :  0.009389379993081093  Test L2 Loss :  0.004254960995167494)
+
+
+
+## equal_weight: True
+
+### train_k: 0e+00
+
+test_k: -1e+02
+ Rel. Test L2 Loss :  0.09917405068874359  Test L2 Loss :  0.043546651303768155
+
+test_k: -1e+01
+ Rel. Test L2 Loss :  0.06100240725278854  Test L2 Loss :  0.027600232660770416
+
+test_k: -1e+00
+ Rel. Test L2 Loss :  0.010697775825858116  Test L2 Loss :  0.004915213860571385
+
+test_k: 0e+00
+ Rel. Test L2 Loss :  0.007931990459561347  Test L2 Loss :  0.0035908320248126983
+(test_N: 512   Rel. Test L2 Loss :  0.008403428122401238  Test L2 Loss :  0.003846178166568279)
+
+test_k: 1e+00
+ Rel. Test L2 Loss :  0.011449184864759446  Test L2 Loss :  0.0051618158370256425
+
+test_k: 1e+01
+ Rel. Test L2 Loss :  0.06216643130779266  Test L2 Loss :  0.028203514903783797
+
+test_k: 1e+02
+ Rel. Test L2 Loss :  0.10231536412239074  Test L2 Loss :  0.044994785010814664
+( Rel. Test L2 Loss :  0.10773436188697814  Test L2 Loss :  0.04660969942808151)
+
+
+### train_k: 1e+02
+
+test_k: -1e+02
+ Rel. Test L2 Loss :  0.06338245809078216  Test L2 Loss :  0.027735543221235275
+
+test_k: -1e+01
+ Rel. Test L2 Loss :  0.044957362830638885  Test L2 Loss :  0.019741331607103348
+
+test_k: -1e+00
+ Rel. Test L2 Loss :  0.04017915034294128  Test L2 Loss :  0.01748824018239975
+
+test_k: 0e+00
+ Rel. Test L2 Loss :  0.04405929684638977  Test L2 Loss :  0.019206996142864228
+(test_N: 512  Rel. Test L2 Loss :  0.03713494509458542  Test L2 Loss :  0.0162754662334919)
+
+test_k: 1e+00
+ Rel. Test L2 Loss :  0.04256822806596756  Test L2 Loss :  0.018438040584325792
+
+test_k: 1e+01
+ Rel. Test L2 Loss :  0.026883585661649705  Test L2 Loss :  0.011468701869249344
+
+test_k: 1e+02
+ Rel. Test L2 Loss :  0.021418147951364517  Test L2 Loss :  0.00945301130414009
+(test_N: 512  Rel. Test L2 Loss :  0.023208144456148147  Test L2 Loss :  0.010041844323277474)
 
 
 
@@ -256,3 +364,4 @@ test_k: 0e+00
 train_k: 0e+00  
 test_k: 1e+02  
  Rel. Test L2 Loss :  0.027729577273130416  Test L2 Loss :  0.012414094671607017
+

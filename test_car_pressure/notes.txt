@@ -1,0 +1,52 @@
+geofno only
+PS C:\Users\15461\Desktop\mygithub2\test_data> cd "c:\Users\15461\Desktop\mygithub2\test_data"
+PS C:\Users\15461\Desktop\mygithub2\test_data> python -u "c:\Users\15461\Desktop\mygithub2\test_data\geokno_car_pressure_test.py"
+Casting to tensor
+In GeoKNO_train, ndims =  3
+Epoch :  0  time:  11.304  Rel. Train L2 Loss :  0.6139707064628601  Rel. Test L2 Loss :  0.43346584677696226  Test L2 Loss :  26.674891052246092
+Epoch :  1  time:  8.013  Rel. Train L2 Loss :  0.3588105239868164  Rel. Test L2 Loss :  0.30742804050445555  Test L2 Loss :  18.985927200317384
+Epoch :  2  time:  7.948  Rel. Train L2 Loss :  0.25426687693595884  Rel. Test L2 Loss :  0.24118999123573304  Test L2 Loss :  14.896869049072265
+Epoch :  3  time:  10.904  Rel. Train L2 Loss :  0.19581340885162354  Rel. Test L2 Loss :  0.20694443464279175  Test L2 Loss :  12.79562370300293
+Epoch :  4  time:  8.234  Rel. Train L2 Loss :  0.1616793839931488  Rel. Test L2 Loss :  0.1918180203437805  Test L2 Loss :  11.858870391845704
+Epoch :  5  time:  8.731  Rel. Train L2 Loss :  0.13925385797023773  Rel. Test L2 Loss :  0.1805762231349945  Test L2 Loss :  11.155909004211425
+Epoch :  6  time:  11.242  Rel. Train L2 Loss :  0.12395516967773437  Rel. Test L2 Loss :  0.17056302785873412  Test L2 Loss :  10.535950813293457
+Epoch :  7  time:  8.719  Rel. Train L2 Loss :  0.11075987410545349  Rel. Test L2 Loss :  0.1635437309741974  Test L2 Loss :  10.092474517822266
+Epoch :  8  time:  9.032  Rel. Train L2 Loss :  0.1026646438241005  Rel. Test L2 Loss :  0.15859298527240753  Test L2 Loss :  9.784146385192871
+Epoch :  9  time:  12.02  Rel. Train L2 Loss :  0.09627044260501862  Rel. Test L2 Loss :  0.15564805150032043  Test L2 Loss :  9.600638999938965
+Epoch :  10  time:  9.231  Rel. Train L2 Loss :  0.09144962638616562  Rel. Test L2 Loss :  0.15270248234272002  Test L2 Loss :  9.413990058898925
+Epoch :  11  time:  9.356  Rel. Train L2 Loss :  0.08585295993089676  Rel. Test L2 Loss :  0.15117452442646026  Test L2 Loss :  9.317195625305176
+Epoch :  12  time:  11.853  Rel. Train L2 Loss :  0.08132394933700561  Rel. Test L2 Loss :  0.14623235106468202  Test L2 Loss :  9.015632514953614
+
+
+geokno   modes = 1.0,1.0,1.0
+PS C:\Users\15461\Desktop\mygithub2\test_data> cd "c:\Users\15461\Desktop\mygithub2\test_data"
+PS C:\Users\15461\Desktop\mygithub2\test_data> python -u "c:\Users\15461\Desktop\mygithub2\test_data\geokno_car_pressure_test.py"
+Casting to tensor
+In GeoKNO_train, ndims =  3
+Epoch :  0  time:  13.886  Rel. Train L2 Loss :  0.5495996744632721  Rel. Test L2 Loss :  0.34322752118110655  Test L2 Loss :  21.144658203125
+Epoch :  1  time:  10.055  Rel. Train L2 Loss :  0.25851689207553863  Rel. Test L2 Loss :  0.225113725066185  Test L2 Loss :  13.903164825439454
+Epoch :  2  time:  10.463  Rel. Train L2 Loss :  0.17597021079063416  Rel. Test L2 Loss :  0.19139543116092683  Test L2 Loss :  11.83697364807129
+Epoch :  3  time:  12.437  Rel. Train L2 Loss :  0.13687464451789855  Rel. Test L2 Loss :  0.17470309734344483  Test L2 Loss :  10.794557533264161
+Epoch :  4  time:  10.126  Rel. Train L2 Loss :  0.11538062059879303  Rel. Test L2 Loss :  0.16645747542381287  Test L2 Loss :  10.283346633911133
+Epoch :  5  time:  10.602  Rel. Train L2 Loss :  0.10232500231266022  Rel. Test L2 Loss :  0.1613030904531479  Test L2 Loss :  9.958067169189453
+Epoch :  6  time:  13.343  Rel. Train L2 Loss :  0.09393740928173065  Rel. Test L2 Loss :  0.15620748937129975  Test L2 Loss :  9.640088157653809
+Epoch :  7  time:  11.03  Rel. Train L2 Loss :  0.08718780833482742  Rel. Test L2 Loss :  0.1544323569536209  Test L2 Loss :  9.527225494384766
+Epoch :  8  time:  11.56  Rel. Train L2 Loss :  0.0828427494764328  Rel. Test L2 Loss :  0.15005795121192933  Test L2 Loss :  9.25171760559082
+
+
+geokno   modes = 2.0,2.0,5.0
+PS C:\Users\15461\Desktop\mygithub2\test_data> cd "c:\Users\15461\Desktop\mygithub2\test_data"
+PS C:\Users\15461\Desktop\mygithub2\test_data> python -u "c:\Users\15461\Desktop\mygithub2\test_data\geokno_car_pressure_test.py"
+Casting to tensor
+In GeoKNO_train, ndims =  3
+Epoch :  0  time:  13.555  Rel. Train L2 Loss :  0.37717373967170714  Rel. Test L2 Loss :  0.22352633714675904  Test L2 Loss :  13.74823574066162
+Epoch :  1  time:  10.644  Rel. Train L2 Loss :  0.16138994646072388  Rel. Test L2 Loss :  0.142652405500412  Test L2 Loss :  8.777698860168456
+Epoch :  2  time:  11.047  Rel. Train L2 Loss :  0.11487213933467864  Rel. Test L2 Loss :  0.11995482832193374  Test L2 Loss :  7.366215991973877
+Epoch :  3  time:  14.051  Rel. Train L2 Loss :  0.09611091476678849  Rel. Test L2 Loss :  0.11674433946609497  Test L2 Loss :  7.177136650085449
+Epoch :  4  time:  11.773  Rel. Train L2 Loss :  0.08472777956724167  Rel. Test L2 Loss :  0.10277710855007172  Test L2 Loss :  6.3059406661987305
+Epoch :  5  time:  12.13  Rel. Train L2 Loss :  0.07498872238397598  Rel. Test L2 Loss :  0.0960182249546051  Test L2 Loss :  5.891669425964356
+Epoch :  6  time:  15.252  Rel. Train L2 Loss :  0.06726352888345719  Rel. Test L2 Loss :  0.09270260989665985  Test L2 Loss :  5.683719825744629
+Epoch :  7  time:  12.834  Rel. Train L2 Loss :  0.06328491550683975  Rel. Test L2 Loss :  0.09233644843101502  Test L2 Loss :  5.662172088623047
+Epoch :  8  time:  13.068  Rel. Train L2 Loss :  0.06131773030757904  Rel. Test L2 Loss :  0.09032872915267945  Test L2 Loss :  5.537696151733399
+Epoch :  9  time:  15.385  Rel. Train L2 Loss :  0.059121286690235135  Rel. Test L2 Loss :  0.0912288910150528  Test L2 Loss :  5.58902572631836
+Epoch :  10  time:  13.456  Rel. Train L2 Loss :  0.05898034954071045  Rel. Test L2 Loss :  0.08930251479148865  Test L2 Loss :  5.471008033752441

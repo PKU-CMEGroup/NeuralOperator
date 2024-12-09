@@ -5,9 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchinfo import summary
 sys.path.append("../")
-from models.adam import Adam
-from models.losses import LpLoss
-from models.normalizer import UnitGaussianNormalizer
+from utility.adam import Adam
+from utility.losses import LpLoss
+from utility.normalizer import UnitGaussianNormalizer
 
 
 
@@ -23,7 +23,6 @@ class MgIte(nn.Module):
         if isinstance(out, tuple):
             u, f = out
             u = u + (self.S(f-self.A(u)))
-            # u = u + (self.S(-self.A(u)))
         else:
             exit("stop")
             f = out
@@ -174,13 +173,13 @@ def MgNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name=
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
+        x_normalizer = UnitGaussianNormalizer(x_train, normalization_dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
+        y_normalizer = UnitGaussianNormalizer(y_train, normalization_dim=normalization_dim)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)

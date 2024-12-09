@@ -5,55 +5,12 @@ import sys
 import torch.nn as nn
 import torch.nn.functional as F
 sys.path.append("../")
-from models.adam import Adam
-from models.losses import LpLoss
-from baselines.geo_utility import compute_edge_gradient_weights
-## KNO 1D and 2D
+from utility.adam import Adam
+from utility.losses import LpLoss
+from utility.normalizer import UnitGaussianNormalizer
+from pcno.geo_utility import compute_edge_gradient_weights
 
-
-class UnitGaussianNormalizer(object):
-    def __init__(self, x, aux_dim = 0, normalization_dim = [], eps=1.0e-5):
-        super(UnitGaussianNormalizer, self).__init__()
-        '''
-        Normalize the input
-
-            Parameters:  
-                x : float[..., nchannels]
-                normalization_dim  : list, which dimension to normalize
-                                  when normalization_dim = [], global normalization 
-                                  when normalization_dim = [0,1,...,len(x.shape)-2], and channel-by-channel normalization 
-                aux_dim  : last aux_dim channels are note normalized
-
-            Return :
-                UnitGaussianNormalizer : class 
-        '''
-        self.aux_dim = aux_dim
-        self.mean = torch.mean(x[...,0:x.shape[-1]-aux_dim], dim=normalization_dim)
-        self.std  = torch.std(x[...,0:x.shape[-1]-aux_dim],  dim=normalization_dim)
-        self.eps  = eps
-
-    def encode(self, x):
-        x[...,0:x.shape[-1]-self.aux_dim] = (x[...,0:x.shape[-1]-self.aux_dim] - self.mean) / (self.std + self.eps)
-        return x
     
-
-    def decode(self, x):
-        std = self.std + self.eps # n
-        mean = self.mean
-        x[...,0:x.shape[-1]-self.aux_dim] = (x[...,0:x.shape[-1]-self.aux_dim] * std) + mean
-        return x
-    
-    
-    def to(self, device):
-        if device == torch.device('cuda:0'):
-            self.mean = self.mean.cuda()
-            self.std = self.std.cuda()
-        else:
-            self.mean = self.mean.cpu()
-            self.std = self.std.cpu()
-        
-
-
 
 def _get_act(act):
     if act == "tanh":
@@ -138,6 +95,7 @@ def compute_Fourier_modes(ndims, nks, Ls):
     k_pairs = k_pairs[np.argsort(k_pair_mag), :]
     return k_pairs
 
+
 def compute_Fourier_bases(nodes, modes, node_mask):
     '''
     Compute Fourier bases
@@ -161,13 +119,11 @@ def compute_Fourier_bases(nodes, modes, node_mask):
     return bases_c, bases_s, bases_0
 
 ################################################################
-# 2d fourier layer
+# Fourier layer
 ################################################################
-
-
-class SpectralConv2d(nn.Module):
+class SpectralConv(nn.Module):
     def __init__(self, in_channels, out_channels, modes):
-        super(SpectralConv2d, self).__init__()
+        super(SpectralConv, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         nmodes, ndims = modes.shape
@@ -222,6 +178,7 @@ class SpectralConv2d(nn.Module):
         
         return x
     
+
 def compute_gradient(f, directed_edges, edge_gradient_weights):
     '''
     Compute gradient of field f at each node
@@ -275,7 +232,7 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
 
 
 
-class GeoKNO(nn.Module):
+class PCNO(nn.Module):
     def __init__(
         self,
         ndims,
@@ -286,7 +243,7 @@ class GeoKNO(nn.Module):
         out_dim=1,
         act="gelu",
     ):
-        super(GeoKNO, self).__init__()
+        super(PCNO, self).__init__()
 
         """
         The overall network. It contains 4 layers of the Fourier layer.
@@ -312,7 +269,7 @@ class GeoKNO(nn.Module):
 
         self.sp_convs = nn.ModuleList(
             [
-                SpectralConv2d(in_size, out_size, modes)
+                SpectralConv(in_size, out_size, modes)
                 for in_size, out_size in zip(
                     self.layers, self.layers[1:]
                 )
@@ -385,27 +342,27 @@ class GeoKNO(nn.Module):
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./GeoKNO_model"):
+def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
     test_l2_losses = []
     normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
-    x_aux_dim, y_aux_dim = config["train"]["x_aux_dim"], config["train"]["y_aux_dim"]
+    non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
     
     ndims = model.ndims # n_train, size, n_channel
-    print("In GeoKNO_train, ndims = ", ndims)
+    print("In PCNO_train, ndims = ", ndims)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, aux_dim = x_aux_dim, normalization_dim=normalization_dim, )
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, aux_dim = y_aux_dim, normalization_dim=normalization_dim)
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)

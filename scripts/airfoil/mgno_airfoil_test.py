@@ -10,7 +10,7 @@ from scipy.io import loadmat
 sys.path.append("../")
 
 
-from baselines.fno import  FNO2d, FNO_train
+from baselines.mgno import  MgNO, MgNO_train
 
 
 
@@ -31,7 +31,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 ###################################
 # load data
 ###################################
-data_path = "../data/airfoil/"
+data_path = "../../data/airfoil/"
 coordx = np.load(data_path+"NACA_Cylinder_X.npy")
 coordy = np.load(data_path+"NACA_Cylinder_Y.npy")
 data_in = np.stack((coordx, coordy), axis=3)
@@ -54,8 +54,8 @@ print(data_in_ds[0:n_train,:,:,:].shape, np.tile(grid_x_ds, (n_train, 1, 1))[:,:
 x_train = torch.from_numpy(
     np.concatenate(
         (data_in_ds[0:n_train,:,:,:], 
-         np.tile(grid_x_ds, (n_train, 1, 1))[:,:,:, np.newaxis],
-         np.tile(grid_y_ds, (n_train, 1, 1))[:,:,:, np.newaxis],
+        #  np.tile(grid_x_ds, (n_train, 1, 1))[:,:,:, np.newaxis],
+        #  np.tile(grid_y_ds, (n_train, 1, 1))[:,:,:, np.newaxis],
         ),
         axis=3,
     ).astype(np.float32)
@@ -67,8 +67,8 @@ y_train = torch.from_numpy(data_out_ds[0:n_train, :, :, :].astype(np.float32))
 x_test = torch.from_numpy(
     np.concatenate(
         (data_in_ds[-n_test:,:,:,:], 
-         np.tile(grid_x_ds, (n_test, 1, 1))[:,:,:, np.newaxis],
-         np.tile(grid_y_ds, (n_test, 1, 1))[:,:,:, np.newaxis],
+        #  np.tile(grid_x_ds, (n_test, 1, 1))[:,:,:, np.newaxis],
+        #  np.tile(grid_y_ds, (n_test, 1, 1))[:,:,:, np.newaxis],
         ),
         axis=3,
     ).astype(np.float32)
@@ -79,27 +79,27 @@ x_test = torch.from_numpy(
 
 y_test = torch.from_numpy(data_out_ds[-n_test:, :, :, :].astype(np.float32))
 
+
+x_train = x_train.permute(0,3,1,2)
+x_test = x_test.permute(0,3,1,2)
+y_train = y_train.permute(0,3,1,2)
+y_test = y_test.permute(0,3,1,2)
+
 print("x_train.shape: ",x_train.shape)
 print("y_train.shape: ",y_train.shape)
 
 
 kx_max, ky_max = 32,16
-cnn_kernel_size = 1
 ###################################
 #construct model and train
 ###################################
-model = FNO2d(modes1=[kx_max,kx_max,kx_max,kx_max], modes2=[ky_max,ky_max,ky_max,ky_max],
-                        fc_dim=128,
-                        # 4 fourier layers
-                        layers=[128,128,128,128,128],
-                        in_dim=2+2, 
-                        out_dim=1,
-                        act="gelu",
-                        pad_ratio=0.0,
-                        cnn_kernel_size=cnn_kernel_size).to(device)
+model = MgNO(input_shape = [x_train.shape[2], x_train.shape[3]],
+             num_layer=5, num_channel_u=24, 
+             num_channel_f=2, num_classes=1, 
+             num_iteration=[[1,1], [1,1], [1,1], [1,1], [1,1]]).to(device)
 
-epochs = 1000
-base_lr = 0.001
+epochs = 500
+base_lr = 5e-4 
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size=20
@@ -111,7 +111,7 @@ normalization_dim = []
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNO_train(
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = MgNO_train(
     x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_naca_model"
 )
 

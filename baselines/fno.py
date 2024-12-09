@@ -1,10 +1,12 @@
+import sys
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.adam import Adam
-from models.losses import LpLoss
-from models.normalizer import UnitGaussianNormalizer
+sys.path.append("../")
+from utility.adam import Adam
+from utility.losses import LpLoss
+from utility.normalizer import UnitGaussianNormalizer
 ## FNO 1D and 2D
 
 def add_padding(x, pad_nums):
@@ -414,19 +416,19 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
     test_rel_l2_losses = []
     test_l2_losses = []
     normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
-    dim = len(x_train.shape) - 2 # n_train, size, n_channel
+    non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
     
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, dim=normalization_dim)
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, dim=normalization_dim)
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)

@@ -169,7 +169,7 @@ class SpectralConv2d(nn.Module):
             )
         )
 
-    def forward(self, x, gridy=None):
+    def forward(self, x):
         batchsize = x.shape[0]
         size1 = x.shape[-2]
         size2 = x.shape[-1]

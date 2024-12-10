@@ -36,10 +36,7 @@ data_path = "../../data/burgers/"
 if PREPROCESS_DATA:
     print("Loading data")
     data = loadmat(data_path+"burgers_data_R10.mat")
-
-    print("Preprocessing data")
-    features = np.stack((data["a"], data["u"]), axis=2)
-    ndata, nnodes_ref, _ = features.shape
+    ndata, nnodes_ref = data["a"].shape
     grid = np.linspace(0, 1, nnodes_ref)
 
     #downsample

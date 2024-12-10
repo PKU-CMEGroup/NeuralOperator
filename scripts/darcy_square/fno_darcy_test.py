@@ -83,12 +83,11 @@ y_test = torch.from_numpy(
 print("x_train.shape: ",x_train.shape)
 print("y_train.shape: ",y_train.shape)
 
-
-k_max = 16
-cnn_kernel_size=1
 ###################################
 #construct model and train
 ###################################
+k_max = 16
+cnn_kernel_size=1
 model = FNO2d(modes1=[k_max,k_max,k_max,k_max], modes2=[k_max,k_max,k_max,k_max],
                         fc_dim=128,
                         # 4 fourier layers

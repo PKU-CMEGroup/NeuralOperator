@@ -163,21 +163,21 @@ def MgNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name=
     train_rel_l2_losses = []
     test_rel_l2_losses = []
     test_l2_losses = []
-    normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
+    normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
+    normalization_dim_x, normalization_dim_y = config["train"]["normalization_dim_x"], config["train"]["normalization_dim_y"]
     non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
-    dim = len(x_train.shape) - 2 # n_train, size, n_channel
     
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim)
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim)
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)

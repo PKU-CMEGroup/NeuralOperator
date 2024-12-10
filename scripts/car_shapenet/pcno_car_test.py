@@ -112,14 +112,17 @@ batch_size=8
 
 normalization_x = True
 normalization_y = True
-normalization_dim = []
+normalization_dim_x = []
+normalization_dim_y = []
 non_normalized_dim_x = 0
 non_normalized_dim_y = 0
 
 
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
-                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim, 
-                     "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}}
+                     "normalization_x": normalization_x,"normalization_y": normalization_y, 
+                     "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
+                     "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
+                     }
 
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(

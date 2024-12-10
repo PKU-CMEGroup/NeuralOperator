@@ -405,12 +405,12 @@ def compute_node_weights(nnodes,  node_measures,  equal_measure = False):
     node_measures_new = node_measures.copy()
     if equal_measure:
         for i in range(ndata):
-            node_measures_new[i, :nnodes[i], 0] = sum(node_measures_new[i, :, 0])/nnodes[i]
+            node_measures_new[i, :nnodes[i], 0] = sum(node_measures_new[i, :nnodes[i], 0])/nnodes[i]
     
     # node weight is the normalization of node measure
     node_weights = node_measures.copy()
     for i in range(ndata):
-        node_weights[i, :nnodes[i], 0] = node_measures_new[i, :, 0]/sum(node_measures_new[i, :nnodes[i], 0])
+        node_weights[i, :nnodes[i], 0] = node_measures_new[i, :nnodes[i], 0]/sum(node_measures_new[i, :nnodes[i], 0])
     
     return node_measures_new, node_weights
 

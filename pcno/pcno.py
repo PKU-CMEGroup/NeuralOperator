@@ -46,13 +46,11 @@ def compute_Fourier_modes(ndims, nks, Ls):
     '''
         
     if ndims == 1:
-        nx = nks
-        Lx = Ls
-        nk = nx
+        nk, Lx = nks[0], Ls[0]
         k_pairs    = np.zeros((nk, ndims))
         k_pair_mag = np.zeros(nk)
         i = 0
-        for kx in range(1, nx + 1):
+        for kx in range(1, nk + 1):
             k_pairs[i, :] = 2*np.pi/Lx*kx
             k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
             i += 1

@@ -5,7 +5,7 @@ import torch
 import sys
 import numpy as np
 import math
-from timeit import default_timer
+from scipy.io import loadmat
 sys.path.append("../../")
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
@@ -20,36 +20,44 @@ np.random.seed(0)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-def load_data(data_path):
-    ndata = 611
-    nodes_list, elems_list, features_list = [], [], []
-    for i in range(ndata):    
-        nodes_list.append(np.load(data_path+"/nodes_%05d"%(i)+".npy"))
-        elems_list.append(np.load(data_path+"/elems_%05d"%(i)+".npy"))
-        features_list.append(np.load(data_path+"/features_%05d"%(i)+".npy"))
-    return nodes_list, elems_list, features_list 
 
-
+###################################
+# load data
+###################################
 
 try:
     PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
 except IndexError:
     PREPROCESS_DATA = False
 
-###################################
-# load data
-###################################
-data_path = "../../data/car_shapenet/"
+
+data_path = "../../data/burgers/"
 
 if PREPROCESS_DATA:
     print("Loading data")
-    nodes_list, elems_list, features_list  = load_data(data_path = data_path)
-    
+    data = loadmat(data_path+"burgers_data_R10.mat")
+
     print("Preprocessing data")
+    features = np.stack((data["a"], data["u"]), axis=2)
+    ndata, nnodes_ref, _ = features.shape
+    grid = np.linspace(0, 1, nnodes_ref)
+
+    #downsample
+    downsample_ratio = 4
+    features = np.stack((data["a"], data["u"]), axis=2)[:,::downsample_ratio,:]
+    grid = grid[::downsample_ratio, np.newaxis]
+    nnodes = nnodes_ref//downsample_ratio
+    elems = np.vstack((np.full(nnodes - 1, 1), np.arange(0, nnodes - 1), np.arange(1, nnodes))).T
+            
+    nodes_list, elems_list, features_list = [], [], []
+    nodes_list = [grid for i in range(ndata)]
+    elems_list = [elems for i in range(ndata)]
+    features_list = [features[i,...] for i in range(ndata)]
+
     nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
     _, node_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
-    np.savez_compressed(data_path+"pcno_triangle_data.npz", \
+    np.savez_compressed(data_path+"pcno_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures=node_measures, node_weights=node_weights, \
                         node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
@@ -60,7 +68,7 @@ else:
     # load data 
     equal_weights = True
 
-    data = np.load(data_path+"pcno_triangle_data.npz")
+    data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
@@ -76,30 +84,26 @@ features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
+n_train, n_test = 1000, 200
+
 nodes_input = nodes.clone()
 
-n_train, n_test = 500, 100
 
-OUTPUT = "pressure" # "normal"  or "pressure"
-
-
-x_train, x_test = nodes_input[:n_train,...], nodes_input[-n_test:,...]
+x_train, x_test = torch.cat((features[:n_train,:,[0]], nodes_input[:n_train,...]), -1), torch.cat((features[-n_test:,:,[0]],nodes_input[-n_test:,...]), -1)
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 
-if OUTPUT == "pressure":
-    y_train, y_test = features[:n_train, :, 0:1],     features[-n_test:, :, 0:1]
-else:  #OUTPUT == "normal":
-    y_train, y_test = features[:n_train, :, 1:],     features[-n_test:, :, 1:]
 
-k_max = 16
-ndim = 3
-modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
+y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
+
+k_max = 32
+ndim = 1
+modes = compute_Fourier_modes(ndim, [k_max], [1.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes,
                layers=[128,128,128,128,128],
                fc_dim=128,
-               in_dim=3, out_dim=y_train.shape[-1],
+               in_dim=2, out_dim=y_train.shape[-1],
                act='gelu').to(device)
 
 
@@ -123,7 +127,7 @@ config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs":
 
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_car_shapenet_model"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_burgers_model"
 )
 
 

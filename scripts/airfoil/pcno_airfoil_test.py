@@ -21,13 +21,18 @@ np.random.seed(0)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
+try:
+    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
+except IndexError:
+    PREPROCESS_DATA = False
+
 ###################################
 # load data
 ###################################
-CONVERT_DATA = False
-if CONVERT_DATA:
-    print("Loading data")
-    data_path = "../../data/airfoil/"
+data_path = "../../data/airfoil/"
+
+if PREPROCESS_DATA:
+    print("Loading data") 
     coordx    = np.load(data_path+"NACA_Cylinder_X.npy")
     coordy    = np.load(data_path+"NACA_Cylinder_Y.npy")
     data_out  = np.load(data_path+"NACA_Cylinder_Q.npy")[:,4,:,:] #density, velocity 2d, pressure, mach number
@@ -38,7 +43,7 @@ if CONVERT_DATA:
     nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
     _, node_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
-    np.savez_compressed("../../data/airfoil/pcno_quad_data.npz", \
+    np.savez_compressed(data_path+"pcno_quad_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures=node_measures, node_weights=node_weights, \
                         node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
@@ -47,16 +52,13 @@ if CONVERT_DATA:
     exit()
 else:
     # load data 
-    equal_measure = True
+    equal_weights = True
 
-    data = np.load("../../data/airfoil/pcno_quad_data.npz")
+    data = np.load(data_path+"pcno_quad_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
-    if equal_measure:
-        node_measures, node_weights = data["node_equal_measures"], data["node_equal_weights"]
-    else:
-        node_measures, node_weights = data["node_measures"], data["node_weights"]
-
+    node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
+    features = data["features"]
 
 
 
@@ -67,7 +69,6 @@ print("Casting to tensor")
 nnodes = torch.from_numpy(nnodes)
 node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
-node_measures = torch.from_numpy(node_measures.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
 features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)

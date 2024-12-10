@@ -25,17 +25,19 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 
+try:
+    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
+except IndexError:
+    PREPROCESS_DATA = False
 
-CONVERT_DATA = False
+data_path = "../../data/darcy_square/"
 
-if CONVERT_DATA:
+if PREPROCESS_DATA:
     ###################################
     # load data
     ###################################
-    data_path = "../data/darcy_square/piececonst_r421_N1024_smooth1"
-    data1 = loadmat(data_path)
-    data_path = "../data/darcy_square/piececonst_r421_N1024_smooth2"
-    data2 = loadmat(data_path)
+    data1 = loadmat(data_path+"piececonst_r421_N1024_smooth1")
+    data2 = loadmat(data_path+"piececonst_r421_N1024_smooth2")
     downsample_ratio = 2
     data_in = np.vstack((data1["coeff"], data2["coeff"]))[:, 0::downsample_ratio, 0::downsample_ratio]  # shape: 2048,421,421
     data_out = np.vstack((data1["sol"], data2["sol"]))[:, 0::downsample_ratio, 0::downsample_ratio]     # shape: 2048,421,421
@@ -53,7 +55,7 @@ if CONVERT_DATA:
     nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
     _, node_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
-    np.savez_compressed("../../data/darcy_square/pcno_quad_data.npz", \
+    np.savez_compressed(data_path+"pcno_quad_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures=node_measures, node_weights=node_weights, \
                         node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
@@ -62,23 +64,20 @@ if CONVERT_DATA:
     exit()
 else:
     # load data 
-    equal_measure = True
+    equal_weights = True
 
-    data = np.load("../../data/darcy_square/pcno_quad_data.npz")
+    data = np.load(data_path+"pcno_quad_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
-    if equal_measure:
-        node_measures, node_weights = data["node_equal_measures"], data["node_equal_weights"]
-    else:
-        node_measures, node_weights = data["node_measures"], data["node_weights"]
-
+    node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
+    features = data["features"]
+
 
 
 print("Casting to tensor")
 nnodes = torch.from_numpy(nnodes)
 node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
-node_measures = torch.from_numpy(node_measures.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
 features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)

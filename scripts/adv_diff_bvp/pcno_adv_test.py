@@ -20,14 +20,14 @@ np.random.seed(0)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-def load_data(data_path = "../../data/adv_diff_bvp"):
+def load_data(data_path):
     """
     feature Format
 
-    First column:     Force function, \(p(x)\)
-    Second column:    Solution, \(u(x)\)
-    Third columns:    Diffusion coefficient, \(D\)  
-    Fourth columns:   Left boundary condition, \(u_l\)
+    First column:     Force function, (p(x))
+    Second column:    Solution, (u(x))
+    Third columns:    Diffusion coefficient, (D)  
+    Fourth columns:   Left boundary condition, (u_l)
     """
 
     ndata = 2500
@@ -46,10 +46,16 @@ def load_data(data_path = "../../data/adv_diff_bvp"):
 # load data
 ###################################
 
-CONVERT_DATA = True
-if CONVERT_DATA:
+try:
+    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
+except IndexError:
+    PREPROCESS_DATA = False
+
+
+data_path = "../../data/adv_diff_bvp/"
+
+if PREPROCESS_DATA:
     print("Loading data")
-    data_path = "../../data/car_shapenet"
     nodes_list, elems_list, features_list  = load_data(data_path = data_path)
 
     print("Preprocessing data")
@@ -57,7 +63,7 @@ if CONVERT_DATA:
     nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
     _, node_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
-    np.savez_compressed("../../data/adv_diff_bvp/pcno_data.npz", \
+    np.savez_compressed(data_path+"pcno_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures=node_measures, node_weights=node_weights, \
                         node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
@@ -66,17 +72,13 @@ if CONVERT_DATA:
     exit()
 else:
     # load data 
-    equal_measure = True
+    equal_weights = False
 
-    data = np.load("../../data/adv_diff_bvp/pcno_data.npz")
+    data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
-    if equal_measure:
-        node_measures, node_weights = data["node_equal_measures"], data["node_equal_weights"]
-    else:
-        node_measures, node_weights = data["node_measures"], data["node_weights"]
-
+    node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
-
+    features = data["features"]
 
 
 print("Casting to tensor")
@@ -93,7 +95,7 @@ n_train, n_test = 1000, 200
 nodes_input = nodes.clone()
 
 
-x_train, x_test = torch.cat((features[:n_train,:,[0,2,3]], nodes_input[:n_train,...]), -1), torch.cat((features[:n_test,:,[0,2,3]],nodes_input[-n_test:,...]), -1)
+x_train, x_test = torch.cat((features[:n_train,:,[0,2,3]], nodes_input[:n_train,...]), -1), torch.cat((features[-n_test:,:,[0,2,3]],nodes_input[-n_test:,...]), -1)
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 
@@ -101,7 +103,7 @@ aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[
 y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
 
 k_max = 32
-ndim = 3
+ndim = 1
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes,

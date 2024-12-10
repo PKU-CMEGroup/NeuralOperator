@@ -31,10 +31,10 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 ###################################
 # load data
 ###################################
-data_path = "../../data/darcy_square/piececonst_r421_N1024_smooth1"
-data1 = loadmat(data_path)
-data_path = "../../data/darcy_square/piececonst_r421_N1024_smooth2"
-data2 = loadmat(data_path)
+data_path = "../../data/"
+
+data1 = loadmat(data_path + "darcy_square/piececonst_r421_N1024_smooth1")
+data2 = loadmat(data_path + "darcy_square/piececonst_r421_N1024_smooth2")
 data_in = np.vstack((data1["coeff"], data2["coeff"]))  # shape: 2048,421,421
 data_out = np.vstack((data1["sol"], data2["sol"]))     # shape: 2048,421,421
 print("data_in.shape:" , data_in.shape)
@@ -96,7 +96,7 @@ model = FNO2d(modes1=[k_max,k_max,k_max,k_max], modes2=[k_max,k_max,k_max,k_max]
                         in_dim=3, 
                         out_dim=1,
                         act="gelu",
-                        pad_ratio=0.0,
+                        pad_ratio=0.05,
                         cnn_kernel_size=cnn_kernel_size).to(device)
 
 epochs = 1000

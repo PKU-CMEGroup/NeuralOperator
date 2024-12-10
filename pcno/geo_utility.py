@@ -264,7 +264,7 @@ def preprocess_data(nodes_list, elems_list, features_list):
             nnodes         :  int
             node_mask      :  int[ndata, max_nnodes, 1]               (1 for node, 0 for padding)
             nodes          :  float[ndata, max_nnodes, ndims]      (padding 0)
-            node_measures   :  float[ndata, max_nnodes, 1]               (padding 0)   
+            node_measures  :  float[ndata, max_nnodes, 1]               (padding 0)   
             features       :  float[ndata, max_nnodes, nfeatures]  (padding 0)   
             directed_edges :  float[ndata, max_nedges, 2]          (padding 0)   
             edge_gradient_weights   :  float[ndata, max_nedges, ndims]      (padding 0)  

@@ -143,17 +143,14 @@ class MgConv(nn.Module):
     def forward(self, f):
         out_list = [0] * len(self.num_iteration)
         out = f 
-        print("input.shape = ", f.shape)
         for l in range(len(self.num_iteration)):
             out = getattr(self, 'layer'+str(l))(out) 
-            print(l, " out_shape = ", out[0].shape, out[1].shape)
             out_list[l] = out
         # upblock                                 
         for j in range(len(self.num_iteration)-2,-1,-1):
             u, f = out_list[j][0], out_list[j][1]
             u_post = u + self.RTlayers[j](out_list[j+1][0])
             out = (u_post, f)
-            print(j, " upblack out_shape = ", out[0].shape, out[1].shape)
             out_list[j] = getattr(self, 'post_smooth_layer'+str(j))(out) 
             
         return out_list[0][0]
@@ -167,19 +164,20 @@ def MgNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name=
     test_rel_l2_losses = []
     test_l2_losses = []
     normalization_x, normalization_y, normalization_dim = config["train"]["normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
+    non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
     dim = len(x_train.shape) - 2 # n_train, size, n_channel
     
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, normalization_dim=normalization_dim)
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
         
     if normalization_y:
-        y_normalizer = UnitGaussianNormalizer(y_train, normalization_dim=normalization_dim)
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim)
         y_train = y_normalizer.encode(y_train)
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)

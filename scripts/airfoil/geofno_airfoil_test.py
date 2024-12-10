@@ -58,7 +58,7 @@ else:
 data_in_ds  = torch.from_numpy(data_in[:,  ::downsample_ratio, 0::downsample_ratio, :].reshape(data_in.shape[0], -1, data_in.shape[-1]).astype(np.float32))
 data_out_ds = torch.from_numpy(data_out[:, ::downsample_ratio, 0::downsample_ratio, np.newaxis].reshape(data_out.shape[0], -1, 1).astype(np.float32))
 nodes = torch.from_numpy(np.copy(data_in_ds).astype(np.float32))
-node_weights = torch.from_numpy(np.ones(nodes[...,0:1].shape) / (nodes.shape[1]*nodes.shape[2]).astype(np.float32))
+node_weights = torch.from_numpy((np.ones(nodes[...,0:1].shape) / (nodes.shape[1]*nodes.shape[2])).astype(np.float32))
 node_mask = torch.from_numpy(np.ones(nodes[...,0:1].shape, dtype=int))
 
 

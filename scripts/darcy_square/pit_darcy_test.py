@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from timeit import default_timer
 from scipy.io import loadmat
 
-sys.path.append("../")
+sys.path.append("../../")
 
 
 from baselines.pit import  PiT, PiT_train
@@ -31,10 +31,10 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 ###################################
 # load data
 ###################################
-data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth1"
-data1 = loadmat(data_path)
-data_path = "../data/darcy_2d/piececonst_r421_N1024_smooth2"
-data2 = loadmat(data_path)
+data_path = "../../data/"
+
+data1 = loadmat(data_path + "darcy_square/piececonst_r421_N1024_smooth1")
+data2 = loadmat(data_path + "darcy_square/piececonst_r421_N1024_smooth2")
 data_in = np.vstack((data1["coeff"], data2["coeff"]))  # shape: 2048,421,421
 data_out = np.vstack((data1["sol"], data2["sol"]))     # shape: 2048,421,421
 print("data_in.shape:" , data_in.shape)
@@ -131,12 +131,17 @@ batch_size=8
 normalization_x = True
 normalization_y = True
 normalization_dim = []
+non_normalized_dim_x = 0
+non_normalized_dim_y = 0
+
+
 
 config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
-                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim}}
+                     "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim, 
+                     "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}}
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PiT_train(
-    x_train, y_train, x_test, y_test, config, model, save_model_name="./Pit_darcy_model"
+    x_train, y_train, x_test, y_test, config, model, save_model_name="./PiT_darcy_model"
 )
 
 

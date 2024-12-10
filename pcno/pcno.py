@@ -244,16 +244,42 @@ class PCNO(nn.Module):
         super(PCNO, self).__init__()
 
         """
-        The overall network. It contains 4 layers of the Fourier layer.
+        The overall network. 
         1. Lift the input to the desire channel dimension by self.fc0 .
-        2. 4 layers of the integral operators u' = (W + K)(u).
-            W defined by self.w; K defined by self.conv .
+        2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
+           linear functions  W: parameterized by self.ws; 
+           integral operator K: parameterized by self.sp_convs
+           differential operator D: parameterized by self.gws
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
         
-        input: the solution of the coefficient function and locations (a(x, y), x, y)
-        input shape: (batch_size, x=s, y=s, c=3)
-        output: the solution 
-        output shape: (batch_size, x=s, y=s, c=1)
+            
+            Parameters: 
+                ndims : int 
+                    Dimensionality of the problem
+                modes : float[nmodes, ndims]
+                    It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
+                    * We cannot have both k and -k
+                layers : list of int
+                    number of channels of each layer
+                    The lifting layer first lifts to layers[0]
+                    The first Fourier layer maps between layers[0] and layers[1]
+                    ...
+                    The nlayers Fourier layer maps between layers[nlayers-1] and layers[nlayers]
+                    The number of Fourier layers is len(layers) - 1
+                fc_dim : int 
+                    hidden layers for the projection layer, when fc_dim > 0, otherwise there is no hidden layer
+                in_dim : int 
+                    The number of channels for the input function
+                    For example, when the coefficient function and locations (a(x, y), x, y) are inputs, in_dim = 3
+                out_dim : int 
+                    The number of channels for the output function
+                act : string (default gelu)
+                    The activation function
+
+            
+            Returns:
+                Point cloud neural operator
+
         """
         self.modes = modes
         
@@ -299,10 +325,40 @@ class PCNO(nn.Module):
 
     def forward(self, x, aux):
         """
-        Args:
-            - x : (batch nnodes, x_grid, y_grid, 2)
-        Returns:
-            - x : (batch nnodes, x_grid, y_grid, 1)
+        Forward evaluation. 
+        1. Lift the input to the desire channel dimension by self.fc0 .
+        2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
+           linear functions  W: parameterized by self.ws; 
+           integral operator K: parameterized by self.sp_convs
+           differential operator D: parameterized by self.gws
+        3. Project from the channel space to the output space by self.fc1 and self.fc2 .
+        
+            
+            Parameters: 
+                x : Tensor float[batch_size, max_nnomdes, in_dim] 
+                    Input data
+                aux : list of Tensor, containing
+                    node_mask : Tensor int[batch_size, max_nnomdes, 1]  
+                                1: node; otherwise 0
+
+                    nodes : Tensor float[batch_size, max_nnomdes, ndim]  
+                            nodal coordinate; padding with 0
+
+                    node_weights  : Tensor float[batch_size, max_nnomdes, 1]  
+                                    rho(x)dx used for integration; padding with 0
+
+                    directed_edges : Tensor int[batch_size, max_nedges, 2]  
+                                     direted edge pairs; padding with 0  
+                                     gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)] 
+
+                    edge_gradient_weights      : Tensor float[batch_size, max_nedges, ndim] 
+                                                 pinvdx on each directed edge 
+                                                 gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)] 
+
+            
+            Returns:
+                G(x)
+
         """
         length = len(self.ws)
 

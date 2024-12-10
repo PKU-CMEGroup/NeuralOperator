@@ -31,10 +31,10 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 ###################################
 # load data
 ###################################
-data_path = "../../data/darcy_square/piececonst_r421_N1024_smooth1"
-data1 = loadmat(data_path)
-data_path = "../../data/darcy_square/piececonst_r421_N1024_smooth2"
-data2 = loadmat(data_path)
+data_path = "../../data/"
+
+data1 = loadmat(data_path + "darcy_square/piececonst_r421_N1024_smooth1")
+data2 = loadmat(data_path + "darcy_square/piececonst_r421_N1024_smooth2")
 data_in = np.vstack((data1["coeff"], data2["coeff"]))  # shape: 2048,421,421
 data_out = np.vstack((data1["sol"], data2["sol"]))     # shape: 2048,421,421
 
@@ -48,21 +48,21 @@ grid_1d = np.linspace(0, L, Np)
 grid_x_ds, grid_y_ds = np.meshgrid(grid_1d, grid_1d)
 grid_x_ds, grid_y_ds = grid_x_ds.T, grid_y_ds.T
 
-data_in_ds  = torch.from_numpy(data_in[:,  ::downsample_ratio, 0::downsample_ratio, :].reshape(data_in.shape[0], -1, data_in.shape[-1]).astype(np.float32))
-data_out_ds = torch.from_numpy(data_out[:, ::downsample_ratio, 0::downsample_ratio, np.newaxis].reshape(data_out.shape[0], -1, 1).astype(np.float32))
+data_in_ds  = torch.from_numpy(data_in[:,  ::downsample_ratio, 0::downsample_ratio].reshape(data_in.shape[0], -1, 1).astype(np.float32))
+data_out_ds = torch.from_numpy(data_out[:, ::downsample_ratio, 0::downsample_ratio].reshape(data_out.shape[0], -1, 1).astype(np.float32))
 nodes = torch.from_numpy(np.stack(
         (
-            np.tile(grid_x_ds, (n_train, 1, 1)),
-            np.tile(grid_y_ds, (n_train, 1, 1)),
+            np.tile(grid_x_ds, (data_in.shape[0], 1, 1)),
+            np.tile(grid_y_ds, (data_in.shape[0], 1, 1)),
         ),
         axis=-1,
     ).reshape(data_in.shape[0], -1, 2).astype(np.float32))
-node_weights = torch.from_numpy(np.ones(nodes[...,0:1].shape) / (nodes.shape[1]*nodes.shape[2]).astype(np.float32))
-node_mask = torch.from_numpy(np.ones(nodes[...,0:1].shape, dtype=int))
+node_weights = torch.from_numpy((np.ones(nodes[...,0:1].shape) / nodes.shape[1]).astype(np.float32))
+node_mask = torch.from_numpy(np.ones(node_weights.shape, dtype=int))
 
 nodes_input = nodes.clone()
 
-x_train, x_test = torch.cat((data_in_ds[:n_train,...],nodes_input[:n_train,...]), -1) ,  torch.cat((data_in_ds[-n_test:,...], nodes_input[:n_train,...]), -1)
+x_train, x_test = torch.cat((data_in_ds[:n_train,...],nodes_input[:n_train,...]), -1) ,  torch.cat((data_in_ds[-n_test:,...], nodes_input[-n_test:,...]), -1)
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...])
 y_train, y_test = data_out_ds[:n_train,...],    data_out_ds[-n_test:,...]

@@ -46,9 +46,7 @@ def compute_Fourier_modes(ndims, nks, Ls):
     '''
         
     if ndims == 1:
-        nx = nks
-        Lx = Ls
-        nk = nx
+        nk, Lx = nks[0], Ls[0]
         k_pairs    = np.zeros((nk, ndims))
         k_pair_mag = np.zeros(nk)
         i = 0
@@ -152,21 +150,30 @@ class SpectralConv(nn.Module):
         )
 
 
-    def forward(self, x, wbases_c, wbases_s, wbases_0, bases_c, bases_s, bases_0):
-        size = x.shape[-1]
+    def forward(self, x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0):
+        '''
+        Compute Fourier neural layer
+            Parameters:  
+                x                   : float[batch_size, in_channels, nnodes]
+                bases_c, bases_s    : float[batch_size, nnodes, nmodes]
+                bases_0             : float[batch_size, nnodes, 1]
+                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes]
+                wbases_0            : float[batch_size, nnodes, 1]
 
+            Return :
+                x                   : float[batch_size, out_channels, nnodes]
+        '''    
+        x_c_hat =  torch.einsum("bix,bxk->bik", x, wbases_c)
+        x_s_hat = -torch.einsum("bix,bxk->bik", x, wbases_s)
+        x_0_hat =  torch.einsum("bix,bxk->bik", x, wbases_0)
 
-        x_c_hat =  torch.einsum("bix,bkx->bik", x, wbases_c)
-        x_s_hat = -torch.einsum("bix,bkx->bik", x, wbases_s)
-        x_0_hat =  torch.einsum("bix,bkx->bik", x, wbases_0)
-
-        weights_c, weights_s, weights_0 = self.weights_c/(size), self.weights_s/(size), self.weights_0/(size)
+        weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
         
         f_c_hat = torch.einsum("bik,iok->bok", x_c_hat, weights_c) - torch.einsum("bik,iok->bok", x_s_hat, weights_s)
         f_s_hat = torch.einsum("bik,iok->bok", x_s_hat, weights_c) + torch.einsum("bik,iok->bok", x_c_hat, weights_s)
         f_0_hat = torch.einsum("bik,iok->bok", x_0_hat, weights_0) 
 
-        x = torch.einsum("bok,bkx->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bkx->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bkx->box", f_s_hat, bases_s) 
+        x = torch.einsum("bok,bxk->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bxk->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bxk->box", f_s_hat, bases_s) 
         
         return x
     
@@ -185,18 +192,42 @@ class GeoFNO(nn.Module):
         act="gelu",
     ):
         super(GeoFNO, self).__init__()
-
         """
-        The overall network. It contains 4 layers of the Fourier layer.
+        The overall network. 
         1. Lift the input to the desire channel dimension by self.fc0 .
-        2. 4 layers of the integral operators u' = (W + K)(u).
-            W defined by self.w; K defined by self.conv .
+        2. len(layers)-1 layers of the Fourier neural layers u' = (W + K)(u).
+           linear functions  W: parameterized by self.ws; 
+           integral operator K: parameterized by self.sp_convs
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
         
-        input: the solution of the coefficient function and locations (a(x, y), x, y)
-        input shape: (batch_size, x=s, y=s, c=3)
-        output: the solution 
-        output shape: (batch_size, x=s, y=s, c=1)
+            
+            Parameters: 
+                ndims : int 
+                    Dimensionality of the problem
+                modes : float[nmodes, ndims]
+                    It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
+                    * We cannot have both k and -k
+                layers : list of int
+                    number of channels of each layer
+                    The lifting layer first lifts to layers[0]
+                    The first Fourier layer maps between layers[0] and layers[1]
+                    ...
+                    The nlayers Fourier layer maps between layers[nlayers-1] and layers[nlayers]
+                    The number of Fourier layers is len(layers) - 1
+                fc_dim : int 
+                    hidden layers for the projection layer, when fc_dim > 0, otherwise there is no hidden layer
+                in_dim : int 
+                    The number of channels for the input function
+                    For example, when the coefficient function and locations (a(x, y), x, y) are inputs, in_dim = 3
+                out_dim : int 
+                    The number of channels for the output function
+                act : string (default gelu)
+                    The activation function
+
+            
+            Returns:
+                Geometry aware FNO
+
         """
         self.modes = modes
         
@@ -234,25 +265,44 @@ class GeoFNO(nn.Module):
 
     def forward(self, x, aux):
         """
-        Args:
-            - x : (batch nnodes, x_grid, y_grid, 2)
-        Returns:
-            - x : (batch nnodes, x_grid, y_grid, 1)
+        Forward evaluation. 
+        1. Lift the input to the desire channel dimension by self.fc0 .
+        2. len(layers)-1 layers of the Fourier neural layers u' = (W + K)(u).
+           linear functions  W: parameterized by self.ws; 
+           integral operator K: parameterized by self.sp_convs
+        3. Project from the channel space to the output space by self.fc1 and self.fc2 .
+        
+            
+            Parameters: 
+                x : Tensor float[batch_size, max_nnomdes, in_dim] 
+                    Input data
+                aux : list of Tensor, containing
+                    node_mask : Tensor int[batch_size, max_nnomdes, 1]  
+                                1: node; otherwise 0
+
+                    nodes : Tensor float[batch_size, max_nnomdes, ndim]  
+                            nodal coordinate; padding with 0
+
+                    node_weights  : Tensor float[batch_size, max_nnomdes, 1]  
+                                    rho(x)dx used for integration; padding with 0
+            
+            Returns:
+                G(x)
+
         """
+
         length = len(self.ws)
 
-        # batch_size, nnodes, ndims
         node_mask, nodes, node_weights = aux
 
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
         wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights
         
-        
-        
+        # x: batch_size, nnodes, ndims
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
+        for i, (speconv, w) in enumerate(zip(self.sp_convs, self.ws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             x = x1 + x2
@@ -289,7 +339,7 @@ def GeoFNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
     if normalization_x:
-        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim, )
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
@@ -340,12 +390,12 @@ def GeoFNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+        for x, y, node_mask, nodes, node_weights in train_loader:
+            x, y, node_mask, nodes, node_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -359,11 +409,11 @@ def GeoFNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         test_l2 = 0
         test_rel_l2 = 0
         with torch.no_grad():
-            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
-                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+            for x, y, node_mask, nodes, node_weights in test_loader:
+                x, y, node_mask, nodes, node_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+                out = model(x, (node_mask, nodes, node_weights)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)

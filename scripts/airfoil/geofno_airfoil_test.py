@@ -1,13 +1,13 @@
 import random
 import torch
-import sys
+import os
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 from timeit import default_timer
 from scipy.io import loadmat
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-sys.path.append("../../")
 
 
 from baselines.geofno import  GeoFNO, GeoFNO_train, compute_Fourier_modes

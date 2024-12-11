@@ -1,14 +1,14 @@
 import random
 import torch
 import sys
+import os
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 from timeit import default_timer
 from scipy.io import loadmat
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-
-sys.path.append("../../")
 
 from pcno.geo_utility import preprocess_data, convert_structured_data, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
@@ -52,9 +52,9 @@ if PREPROCESS_DATA:
 
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = False)
     #uniform weights
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
-    _, node_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = False)
-    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
+    node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
+    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
     np.savez_compressed(data_path+"pcno_quad_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures=node_measures, node_weights=node_weights, \
@@ -97,7 +97,7 @@ k_max = 16
 ndim = 2
 modes = compute_Fourier_modes(ndim, [k_max,k_max], [1.0,1.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes,
+model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=3, out_dim=1,

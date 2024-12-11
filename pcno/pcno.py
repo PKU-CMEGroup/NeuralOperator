@@ -260,6 +260,7 @@ class PCNO(nn.Module):
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
                     * We cannot have both k and -k
                 nmeasures : int
+                    Number of measures
                     There might be different integrals with different measures
                 layers : list of int
                     number of channels of each layer

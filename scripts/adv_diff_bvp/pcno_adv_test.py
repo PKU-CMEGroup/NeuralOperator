@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import math
 from timeit import default_timer
-sys.path.append("../../")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
@@ -60,9 +60,9 @@ if PREPROCESS_DATA:
 
     print("Preprocessing data")
 
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
-    _, node_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = False)
-    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
+    node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
+    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
     np.savez_compressed(data_path+"pcno_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures=node_measures, node_weights=node_weights, \
@@ -106,7 +106,7 @@ k_max = 32
 ndim = 1
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes,
+model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=4, out_dim=y_train.shape[-1],

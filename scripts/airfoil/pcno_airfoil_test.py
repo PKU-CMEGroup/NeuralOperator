@@ -52,6 +52,7 @@ if PREPROCESS_DATA:
     exit()
 else:
     # load data 
+    print("Loading data") 
     equal_weights = True
 
     data = np.load(data_path+"pcno_quad_data.npz")

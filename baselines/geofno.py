@@ -285,14 +285,15 @@ class GeoFNO(nn.Module):
                                     rho(x)dx used for integration; padding with 0
             
             Returns:
-                G(x)
+                G(x) : Tensor float[batch_size, max_nnomdes, out_dim] 
 
         """
 
         length = len(self.ws)
 
         node_mask, nodes, node_weights = aux
-
+        # bases  : float[batch_size, max_nnodes, nmodes]
+        # node_weights : float[batch_size, max_nnomdes, 1]  
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
         wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights
         
@@ -315,7 +316,8 @@ class GeoFNO(nn.Module):
                 x = self.act(x)
 
         x = self.fc2(x)
-        return x
+
+        return x * node_mask
 
 
 

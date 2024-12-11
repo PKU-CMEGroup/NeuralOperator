@@ -1,6 +1,7 @@
 ## Code Structure
 
-
+<pre style="white-space: pre-wrap;">
+<code>
 NeuralOperator/
 
 ├── baselines/
@@ -30,7 +31,8 @@ NeuralOperator/
 
 ├── data/
 │   ├── (various data folders)
-
+</code>
+</pre>
 
 
 Folder and file names are all lower case.

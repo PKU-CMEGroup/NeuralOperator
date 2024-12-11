@@ -4,6 +4,7 @@ import torch
 import sys
 import torch.nn as nn
 import torch.nn.functional as F
+from timeit import default_timer
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
@@ -29,7 +30,7 @@ def _get_act(act):
     return func
 
 
-def compute_Fourier_modes(ndims, nks, Ls):
+def compute_Fourier_modes_helper(ndims, nks, Ls):
     '''
     Compute Fourier modes number k
     Fourier bases are cos(kx), sin(kx), 1
@@ -41,9 +42,9 @@ def compute_Fourier_modes(ndims, nks, Ls):
             Ls    : float[ndims]
 
         Return :
-            k_pairs : float[:, ndims]
+            k_pairs : float[nmodes, ndims]
     '''
-        
+    assert(len(nks) == len(Ls) == ndims)    
     if ndims == 1:
         nk, Lx = nks[0], Ls[0]
         k_pairs    = np.zeros((nk, ndims))
@@ -93,57 +94,78 @@ def compute_Fourier_modes(ndims, nks, Ls):
     return k_pairs
 
 
-def compute_Fourier_bases(nodes, modes, node_mask):
+def compute_Fourier_modes(ndims, nks, Ls):
     '''
-    Compute Fourier bases
+    Compute `nmesareus` sets of Fourier modes number k
+    Fourier bases are cos(kx), sin(kx), 1
+    * We cannot have both k and -k
+
+        Parameters:  
+            ndims : int
+            nks   : int[ndims * nmeasures]
+            Ls    : float[ndims * nmeasures]
+
+        Return :
+            k_pairs : float[nmodes, ndims, nmeasures]
+    '''
+    assert(len(nks) == len(Ls))
+    nmeasures = len(nks) // ndims
+    k_pairs = np.stack([compute_Fourier_modes_helper(ndims, nks[i*ndims:(i+1)*ndims], Ls[i*ndims:(i+1)*ndims]) for i in range(nmeasures)], axis=-1)
+    
+    return k_pairs
+
+
+def compute_Fourier_bases(nodes, modes):
+    '''
+    Compute Fourier bases for the whole space
     Fourier bases are cos(kx), sin(kx), 1
 
         Parameters:  
             nodes        : float[batch_size, nnodes, ndims]
-            modes        : float[nmodes, ndims]
-            node_mask    : float[batch_size, nnodes, 1]
-
+            modes        : float[nmodes, ndims, nmeasures]
+            
         Return :
-            bases_c, bases_s : float[batch_size, nnodes, nmodes]
-            bases_0 : float[batch_size, nnodes, 1]
+            bases_c, bases_s : float[batch_size, nnodes, nmodes, nmeasures]
+            bases_0 : float[batch_size, nnodes, 1, nmeasures]
     '''
-    # temp : float[batch_size, nnodes, nmodes]
-    temp  = torch.einsum("bxd,kd->bxk", nodes, modes) 
+    # temp : float[batch_size, nnodes, nmodes, nmeasures]
+    temp  = torch.einsum("bxd,kdw->bxkw", nodes, modes) 
     
-    bases_c = torch.cos(temp) * node_mask
-    bases_s = torch.sin(temp) * node_mask
-    bases_0 = node_mask
+    bases_c = torch.cos(temp) 
+    bases_s = torch.sin(temp) 
+    batch_size, nnodes, _, nmeasures = temp.shape
+    bases_0 = torch.zeros(batch_size, nnodes, 1, nmeasures, dtype=temp.dtype, device=temp.device)
     return bases_c, bases_s, bases_0
 
 ################################################################
 # Fourier layer
 ################################################################
 class SpectralConv(nn.Module):
-    def __init__(self, in_channels, out_channels, modes, nweights):
+    def __init__(self, in_channels, out_channels, modes):
         super(SpectralConv, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        nmodes, ndims = modes.shape
+        nmodes, ndims, nmeasures = modes.shape
         self.modes = modes
-        self.nweights = nweights
+        self.nmeasures = nmeasures
         self.scale = 1 / (in_channels * out_channels)
 
         self.weights_c = nn.Parameter(
             self.scale
             * torch.rand(
-                in_channels, out_channels, nmodes, nweights, dtype=torch.float
+                in_channels, out_channels, nmodes, nmeasures, dtype=torch.float
             )
         )
         self.weights_s = nn.Parameter(
             self.scale
             * torch.rand(
-                in_channels, out_channels, nmodes, nweights, dtype=torch.float
+                in_channels, out_channels, nmodes, nmeasures, dtype=torch.float
             )
         )
         self.weights_0 = nn.Parameter(
             self.scale
             * torch.rand(
-                in_channels, out_channels, 1, nweights, dtype=torch.float
+                in_channels, out_channels, 1, nmeasures, dtype=torch.float
             )
         )
 
@@ -153,10 +175,10 @@ class SpectralConv(nn.Module):
         Compute Fourier neural layer
             Parameters:  
                 x                   : float[batch_size, in_channels, nnodes]
-                bases_c, bases_s    : float[batch_size, nnodes, nmodes]
-                bases_0             : float[batch_size, nnodes, 1]
-                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes, nweights]
-                wbases_0            : float[batch_size, nnodes, 1, nweights]
+                bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
+                bases_0             : float[batch_size, nnodes, 1, nmeasures]
+                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes, nmeasures]
+                wbases_0            : float[batch_size, nnodes, 1, nmeasures]
 
             Return :
                 x                   : float[batch_size, out_channels, nnodes]
@@ -167,11 +189,11 @@ class SpectralConv(nn.Module):
 
         weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
         
-        f_c_hat = torch.einsum("bikw,iokw->bok", x_c_hat, weights_c) - torch.einsum("bikw,iokw->bok", x_s_hat, weights_s)
-        f_s_hat = torch.einsum("bikw,iokw->bok", x_s_hat, weights_c) + torch.einsum("bikw,iokw->bok", x_c_hat, weights_s)
-        f_0_hat = torch.einsum("bikw,iokw->bok", x_0_hat, weights_0) 
+        f_c_hat = torch.einsum("bikw,iokw->bokw", x_c_hat, weights_c) - torch.einsum("bikw,iokw->bokw", x_s_hat, weights_s)
+        f_s_hat = torch.einsum("bikw,iokw->bokw", x_s_hat, weights_c) + torch.einsum("bikw,iokw->bokw", x_c_hat, weights_s)
+        f_0_hat = torch.einsum("bikw,iokw->bokw", x_0_hat, weights_0) 
 
-        x = torch.einsum("bok,bxk->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bxk->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bxk->box", f_s_hat, bases_s) 
+        x = torch.einsum("bokw,bxkw->box", f_0_hat, bases_0)  + 2*torch.einsum("bokw,bxkw->box", f_c_hat, bases_c) -  2*torch.einsum("bokw,bxkw->box", f_s_hat, bases_s) 
         
         return x
     
@@ -296,7 +318,7 @@ class PCNO(nn.Module):
 
         self.sp_convs = nn.ModuleList(
             [
-                SpectralConv(in_size, out_size, modes, nmeasures)
+                SpectralConv(in_size, out_size, modes)
                 for in_size, out_size in zip(
                     self.layers, self.layers[1:]
                 )
@@ -359,7 +381,8 @@ class PCNO(nn.Module):
 
             
             Returns:
-                G(x)
+                G(x) : Tensor float[batch_size, max_nnomdes, out_dim] 
+                       Input data
 
         """
         length = len(self.ws)
@@ -367,12 +390,13 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes)
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
-        wbases_c = torch.einsum("bxk,bxw->bxkw", bases_c, node_weights)
-        wbases_s = torch.einsum("bxk,bxw->bxkw", bases_s, node_weights)
-        wbases_0 = torch.einsum("bxk,bxw->bxkw", bases_0, node_weights)
+        # set nodes with zero measure to 0
+        wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
+        wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
+        wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
         
         
@@ -395,7 +419,9 @@ class PCNO(nn.Module):
                 x = self.act(x)
 
         x = self.fc2(x)
-        return x
+
+        # set values on padding nodes 0
+        return x * node_mask
     
 
 
@@ -465,6 +491,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
     for ep in range(epochs):
+        t1 = default_timer()
         train_rel_l2 = 0
 
         model.train()
@@ -514,8 +541,10 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         test_l2_losses.append(test_l2)
     
 
-        if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+        t2 = default_timer()
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+        
+        if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model, save_model_name)
     
     

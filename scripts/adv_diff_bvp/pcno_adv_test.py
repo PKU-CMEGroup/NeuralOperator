@@ -120,8 +120,8 @@ scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size=8
 
-normalization_x = True
-normalization_y = True
+normalization_x = False
+normalization_y = False
 normalization_dim_x = []
 normalization_dim_y = []
 non_normalized_dim_x = 0

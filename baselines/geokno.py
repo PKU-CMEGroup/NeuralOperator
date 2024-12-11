@@ -9,9 +9,7 @@ from models.adam import Adam
 from models.losses import LpLoss
 from baselines.geo_utility import compute_edge_gradient_weights
 ## KNO 1D and 2D
-from mayavi import mlab
-import imageio
-from PIL import Image, ImageDraw, ImageFont
+
 from timeit import default_timer
 
 class UnitGaussianNormalizer(object):
@@ -388,6 +386,9 @@ class GeoKNO(nn.Module):
     
     def plot_hidden_layer_3d(self,x, aux,y,save_figure_hidden,epoch,plot_hidden_layers_num):
         assert self.ndims ==3
+        from mayavi import mlab
+        import imageio
+
         mlab.options.offscreen = True  # 设置为无头模式
         out = self.forward(x,aux)
         images = []
@@ -464,6 +465,7 @@ def decompose_integer(n):
     return (1, n)
 
 def add_label(image, text, font_path, text_color, position):
+    from PIL import Image, ImageDraw, ImageFont
     pil_image = Image.fromarray(image)
     draw = ImageDraw.Draw(pil_image)
     font = ImageFont.truetype(font_path, 25)  # 调整字体大小

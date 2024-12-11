@@ -4,7 +4,6 @@ import torch
 import sys
 import torch.nn as nn
 import torch.nn.functional as F
-sys.path.append("../")
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
@@ -120,31 +119,31 @@ def compute_Fourier_bases(nodes, modes, node_mask):
 # Fourier layer
 ################################################################
 class SpectralConv(nn.Module):
-    def __init__(self, in_channels, out_channels, modes):
+    def __init__(self, in_channels, out_channels, modes, nweights):
         super(SpectralConv, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         nmodes, ndims = modes.shape
         self.modes = modes
-
+        self.nweights = nweights
         self.scale = 1 / (in_channels * out_channels)
 
         self.weights_c = nn.Parameter(
             self.scale
             * torch.rand(
-                in_channels, out_channels, nmodes, dtype=torch.float
+                in_channels, out_channels, nmodes, nweights, dtype=torch.float
             )
         )
         self.weights_s = nn.Parameter(
             self.scale
             * torch.rand(
-                in_channels, out_channels, nmodes, dtype=torch.float
+                in_channels, out_channels, nmodes, nweights, dtype=torch.float
             )
         )
         self.weights_0 = nn.Parameter(
             self.scale
             * torch.rand(
-                in_channels, out_channels, 1, dtype=torch.float
+                in_channels, out_channels, 1, nweights, dtype=torch.float
             )
         )
 
@@ -156,21 +155,21 @@ class SpectralConv(nn.Module):
                 x                   : float[batch_size, in_channels, nnodes]
                 bases_c, bases_s    : float[batch_size, nnodes, nmodes]
                 bases_0             : float[batch_size, nnodes, 1]
-                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes]
-                wbases_0            : float[batch_size, nnodes, 1]
+                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes, nweights]
+                wbases_0            : float[batch_size, nnodes, 1, nweights]
 
             Return :
                 x                   : float[batch_size, out_channels, nnodes]
         '''    
-        x_c_hat =  torch.einsum("bix,bxk->bik", x, wbases_c)
-        x_s_hat = -torch.einsum("bix,bxk->bik", x, wbases_s)
-        x_0_hat =  torch.einsum("bix,bxk->bik", x, wbases_0)
+        x_c_hat =  torch.einsum("bix,bxkw->bikw", x, wbases_c)
+        x_s_hat = -torch.einsum("bix,bxkw->bikw", x, wbases_s)
+        x_0_hat =  torch.einsum("bix,bxkw->bikw", x, wbases_0)
 
         weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
         
-        f_c_hat = torch.einsum("bik,iok->bok", x_c_hat, weights_c) - torch.einsum("bik,iok->bok", x_s_hat, weights_s)
-        f_s_hat = torch.einsum("bik,iok->bok", x_s_hat, weights_c) + torch.einsum("bik,iok->bok", x_c_hat, weights_s)
-        f_0_hat = torch.einsum("bik,iok->bok", x_0_hat, weights_0) 
+        f_c_hat = torch.einsum("bikw,iokw->bok", x_c_hat, weights_c) - torch.einsum("bikw,iokw->bok", x_s_hat, weights_s)
+        f_s_hat = torch.einsum("bikw,iokw->bok", x_s_hat, weights_c) + torch.einsum("bikw,iokw->bok", x_c_hat, weights_s)
+        f_0_hat = torch.einsum("bikw,iokw->bok", x_0_hat, weights_0) 
 
         x = torch.einsum("bok,bxk->box", f_0_hat, bases_0)  + 2*torch.einsum("bok,bxk->box", f_c_hat, bases_c) -  2*torch.einsum("bok,bxk->box", f_s_hat, bases_s) 
         
@@ -235,6 +234,7 @@ class PCNO(nn.Module):
         self,
         ndims,
         modes,
+        nmeasures,
         layers,
         fc_dim=128,
         in_dim=3,
@@ -248,7 +248,7 @@ class PCNO(nn.Module):
         1. Lift the input to the desire channel dimension by self.fc0 .
         2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
            linear functions  W: parameterized by self.ws; 
-           integral operator K: parameterized by self.sp_convs
+           integral operator K: parameterized by self.sp_convs with nmeasures different integrals
            differential operator D: parameterized by self.gws
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
         
@@ -259,6 +259,8 @@ class PCNO(nn.Module):
                 modes : float[nmodes, ndims]
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
                     * We cannot have both k and -k
+                nmeasures : int
+                    There might be different integrals with different measures
                 layers : list of int
                     number of channels of each layer
                     The lifting layer first lifts to layers[0]
@@ -282,7 +284,7 @@ class PCNO(nn.Module):
 
         """
         self.modes = modes
-        
+        self.nmeasures = nmeasures
         self.layers = layers
         self.fc_dim = fc_dim
 
@@ -293,7 +295,7 @@ class PCNO(nn.Module):
 
         self.sp_convs = nn.ModuleList(
             [
-                SpectralConv(in_size, out_size, modes)
+                SpectralConv(in_size, out_size, modes, nmeasures)
                 for in_size, out_size in zip(
                     self.layers, self.layers[1:]
                 )
@@ -329,10 +331,9 @@ class PCNO(nn.Module):
         1. Lift the input to the desire channel dimension by self.fc0 .
         2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
            linear functions  W: parameterized by self.ws; 
-           integral operator K: parameterized by self.sp_convs
+           integral operator K: parameterized by self.sp_convs with nmeasures different integrals
            differential operator D: parameterized by self.gws
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
-        
             
             Parameters: 
                 x : Tensor float[batch_size, max_nnomdes, in_dim] 
@@ -344,8 +345,8 @@ class PCNO(nn.Module):
                     nodes : Tensor float[batch_size, max_nnomdes, ndim]  
                             nodal coordinate; padding with 0
 
-                    node_weights  : Tensor float[batch_size, max_nnomdes, 1]  
-                                    rho(x)dx used for integration; padding with 0
+                    node_weights  : Tensor float[batch_size, max_nnomdes, nmeasures]  
+                                    rho(x)dx used for nmeasures integrations; padding with 0
 
                     directed_edges : Tensor int[batch_size, max_nedges, 2]  
                                      direted edge pairs; padding with 0  
@@ -362,11 +363,15 @@ class PCNO(nn.Module):
         """
         length = len(self.ws)
 
-        # batch_size, nnodes, ndims
+        # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
-
+        # bases: float[batch_size, nnodes, nmodes]
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes, node_mask)
-        wbases_c, wbases_s, wbases_0 = bases_c*node_weights, bases_s*node_weights, bases_0*node_weights
+        # node_weights: float[batch_size, nnodes, nmeasures]
+        # wbases: float[batch_size, nnodes, nmodes, nmeasures]
+        wbases_c = torch.einsum("bxk,bxw->bxkw", bases_c, node_weights)
+        wbases_s = torch.einsum("bxk,bxw->bxkw", bases_s, node_weights)
+        wbases_0 = torch.einsum("bxk,bxw->bxkw", bases_0, node_weights)
         
         
         
@@ -521,143 +526,5 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
 
-
-
-def gradient_test(ndims = 2):
-    ################################
-    # Preprocess
-    ################################
-    #nnodes by ndims
-    if ndims == 2:
-        nodes = np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.5,0.5]])
-    else: 
-        nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0],[0.5,0.5,1.0]])
-    nnodes, ndims = nodes.shape
-    elem_dim = 2
-    elems = np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64)
-    # (nedges, 2), (nedges, ndims)
-    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, rcond=1e-3)
-    nedges = directed_edges.shape[0]
-    directed_edges = torch.from_numpy(directed_edges)
-    edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
-
-    ################################
-    # Construct features
-    ################################
-    nchannels = 4
-    # features is a nchannels by nnodes array, for each channel, the gradient 
-    # is gradients[i, :], and the gradient is constant for all nodes
-    gradients = np.random.rand(nchannels, ndims)
-    features =  gradients @ nodes.T
-    # nnodes by (nchannels * ndims) f1_x f1_y f2_x f2_y,.....
-    features_gradients_ref = np.repeat(gradients.reshape(1,-1), nnodes, axis=0)
-    if ndims == 3:
-        # remove the gradient in the normal direction
-        features_gradients_ref[:,2::ndims] = 0.0
-
-    features = torch.from_numpy(features).permute(1,0)  #nx by nchannels
-    
-    ################################
-    # Online computation
-    ################################
-    # Message passing: compute f_source - f_target for each edge
-    target, source = directed_edges.T  # source and target nodes of edges
-    message = torch.einsum('ed,ec->ecd', edge_gradient_weights, features[source] - features[target]).reshape(nedges, nchannels*ndims)
-    features_gradients = torch.zeros(nnodes, nchannels*ndims, dtype=message.dtype)
-    features_gradients.scatter_add_(dim=0,  src=message, index=target.unsqueeze(1).repeat(1,nchannels*ndims))
-    
-    print("gradient error is ", np.linalg.norm(features_gradients-features_gradients_ref))
-    assert(np.allclose(features_gradients-features_gradients_ref, 0.0, rtol=1e-15))
-
-
-def batch_gradient_test(ndims = 2):
-    ################################
-    # Preprocess
-    ################################
-    batch_size = 2
-    if ndims == 2:
-        elem_dims = [2,2]
-        # batch by nnodes by ndims
-        nodes_list = [np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.5,0.5]]), \
-                    np.array([[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]])]
-        
-        elems_list = [np.array([[elem_dims[0],0,1,4],[elem_dims[0],2,4,1],[elem_dims[0],2,3,4],[elem_dims[0],0,4,3]], dtype=np.int64), \
-                    np.array([[elem_dims[1],0,1,2],[elem_dims[1],0,2,3]], dtype=np.int64)]
-    else:
-        # batch by nnodes by ndims
-        nodes_list = [np.array([[0.0,0.0, 0.0],[1.0,0.0, 0.0],[1.0,1.0, 0.0],[0.0,1.0, 0.0],[0.5,0.5, 0.0]]), \
-                      np.array([[1.0,0.0, 0.0],[1.0,1.0, 0.0],[0.0,1.0, 0.0],[1.0,0.0, 1.0]])]
-        elem_dims = [2,3]
-        elems_list = [np.array([[elem_dims[0],0,1,4],[elem_dims[0],2,4,1],[elem_dims[0],2,3,4],[elem_dims[0],0,4,3]], dtype=np.int64), \
-                    np.array([[elem_dims[1],0,1,2, 3]], dtype=np.int64)]
-    max_nnodes = max([nodes.shape[0] for nodes in nodes_list])
-
-    # batch by ndims by nnodes
-    grids = np.zeros((batch_size,ndims,max_nnodes))
-    for b in range(batch_size):
-        grids[b,:,:nodes_list[b].shape[0]] = nodes_list[b].T
-
-
-    directed_edges_list, edge_weights_list = [], []
-    for b in range(batch_size):
-        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b], rcond=1e-3)
-        directed_edges_list.append(directed_edges)
-        edge_weights_list.append(edge_gradient_weights) 
-    max_nedges = max([directed_edges.shape[0] for directed_edges in directed_edges_list])
-    
-    #padding with zero
-    directed_edges = np.zeros((batch_size, max_nedges, 2), dtype=np.int64)
-    edge_gradient_weights = np.zeros((batch_size, max_nedges, ndims))
-    for b in range(batch_size):
-        directed_edges[b, :directed_edges_list[b].shape[0], :] = directed_edges_list[b]
-        edge_gradient_weights[b, :edge_weights_list[b].shape[0], :] = edge_weights_list[b]
-    # batch_size by ndims by max_nnodes 
-    grids = torch.from_numpy(grids)
-    # batch_size by max_edges by 2
-    directed_edges = torch.from_numpy(directed_edges)
-    # batch_size by max_edges by ndims
-    edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
-
-    ################################
-    # Construct features
-    ################################
-    nchannels = 5
-    # features is a batch_size by nchannels by max_nnodes array, 
-    # for each channel, the gradient is gradients[i, :], 
-    # and the gradient is constant for all nodes
-    gradients = np.random.rand(batch_size, nchannels, ndims)
-    # grids = batch_size, ndims, nnodes
-    features =  np.einsum('bcd,bdn->bcn', gradients, grids)
-    # batch_size by nnodes by (nchannels * ndims) f1_x f1_y f2_x f2_y,.....
-    features_gradients_ref = np.zeros((batch_size, nchannels * ndims, max_nnodes))
-    for b in range(batch_size):
-        # print(np.tile(gradients[b,:,:].flatten(), (nodes_list[b].shape[0],1)).shape)
-        features_gradients_ref[b,:,:nodes_list[b].shape[0]] = np.tile(gradients[b,:,:].flatten(), (nodes_list[b].shape[0],1)).T
-    for i, elem_dim in enumerate(elem_dims):
-        if ndims == 3 and elem_dim == 2:
-            # remove the gradient in the normal direction
-            features_gradients_ref[i,2::ndims,:] = 0.0
-    # batch_size, nnodes, nchannels
-    features = torch.from_numpy(features)  
-    ##############################
-    # Online computation
-    ##############################
-    features_gradients = compute_gradient(features, directed_edges, edge_gradient_weights)
-
-    
-    for b in range(batch_size):
-        print("batch gradient[%d] error is "%b, np.linalg.norm(features_gradients[b,...]-features_gradients_ref[b,...]))
-
-    assert(np.allclose(features_gradients-features_gradients_ref, 0.0, rtol=1e-15))
-    
-    print("When the point and its neighbors are on the a degenerated plane, the gradient in the normal direction is not known")
-
-if __name__ == "__main__":
-    print("2d gradient test")
-    gradient_test(ndims = 2)
-    batch_gradient_test(ndims=2)
-    print("3d gradient test")
-    gradient_test(ndims = 3)
-    batch_gradient_test(ndims=3)
 
 

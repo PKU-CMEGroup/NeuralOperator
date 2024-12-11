@@ -1,10 +1,8 @@
 import numpy as np
-import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchinfo import summary
-sys.path.append("../")
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer

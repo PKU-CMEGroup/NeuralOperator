@@ -97,7 +97,7 @@ k_max = 32
 ndim = 1
 modes = compute_Fourier_modes(ndim, [k_max], [1.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes,
+model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=2, out_dim=y_train.shape[-1],

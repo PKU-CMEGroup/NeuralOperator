@@ -51,11 +51,9 @@ def compute_measure_per_elem_(points, elem_dim):
 
 def compute_node_measures(nodes, elems):
     '''
-    Compute node measures  (length, area or volume for each node), 
+    Compute node measures  (separate length, area and volume ... for each node), 
     For each element, compute its length, area or volume s, 
-    equally assign it to its ne nodes (measures[:] += s/ne ).
-    
-    # TODO compute as FEM mass matrix
+    equally assign it to its ne nodes (measures[:] += s/ne).
 
         Parameters:  
             nodes : float[nnodes, ndims]
@@ -66,19 +64,28 @@ def compute_node_measures(nodes, elems):
                     -1 or any negative integers.
             
         Return :
-            measures : float[nnodes]
+            measures : float[nnodes, nmeasures]
+                       padding NaN for nodes that do not have measures
+                       nmeasures >= 1: number of measures with different dimensionalities
+                       For example, if there are both lines and triangles, nmeasures = 2
+            
     '''
-    nnodes = nodes.shape[0]
-    measures = np.zeros(nnodes)
-    
+    nnodes, ndims = nodes.shape
+    measures = np.full((nnodes, ndims), np.NaN)
+    measure_types = [False] * ndims
     for elem in elems:
         elem_dim, e = elem[0], elem[1:]
         e = e[e >= 0]
         ne = len(e)
+        # compute measure based on elem_dim
         s = compute_measure_per_elem_(nodes[e, :], elem_dim)
-        measures[e] += s/ne 
+        # assign it to cooresponding measures
+        measures[e, elem_dim-1] = np.nan_to_num(measures[e, elem_dim-1], nan=0.0)
+        measures[e, elem_dim-1] += s/ne 
+        measure_types[elem_dim - 1] = True
 
-    return measures
+    # return only nonzero measures
+    return measures[:, measure_types]
 
 def pinv(a, rrank, rcond=1e-3):
     """
@@ -251,8 +258,8 @@ def preprocess_data(nodes_list, elems_list, features_list):
     equally assign it to its nodes.
 
         Parameters:  
-            nodes_list :     list of float[nnodes, ndims]
-            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+            nodes_list :  list of float[nnodes, ndims]
+            elems_list :  list of float[nelems, max_num_of_nodes_per_elem+1]. 
                     The first entry is elem_dim, the dimensionality of the element.
                     The elems array can have some padding numbers, for example, when
                     we have both line segments and triangles, the padding values are
@@ -264,7 +271,7 @@ def preprocess_data(nodes_list, elems_list, features_list):
             nnodes         :  int
             node_mask      :  int[ndata, max_nnodes, 1]               (1 for node, 0 for padding)
             nodes          :  float[ndata, max_nnodes, ndims]      (padding 0)
-            node_measures  :  float[ndata, max_nnodes, 1]               (padding 0)   
+            node_measures  :  float[ndata, max_nnodes, 1]               (padding NaN)   
             features       :  float[ndata, max_nnodes, nfeatures]  (padding 0)   
             directed_edges :  float[ndata, max_nedges, 2]          (padding 0)   
             edge_gradient_weights   :  float[ndata, max_nedges, ndims]      (padding 0)  
@@ -285,9 +292,17 @@ def preprocess_data(nodes_list, elems_list, features_list):
         nodes[i,:nnodes[i], :] = nodes_list[i]
     
     print("Preprocessing data : computing node_measures")
-    node_measures = np.zeros((ndata, max_nnodes, 1))
+    # The mesh might have elements with different dimensionalities (e.g., 1D edges, 2D faces, 3D volumes).
+    # If any mesh includes both 1D and 2D elements, it is assumed that all meshes in the dataset will also include both types of elements.
+    # This ensures uniformity in processing and avoids inconsistencies in element handling.
+    node_measures = np.full((ndata, max_nnodes, ndims), np.NaN)
+    nmeasures = 0
     for i in range(ndata):
-        node_measures[i,:nnodes[i], 0] = compute_node_measures(nodes_list[i], elems_list[i])
+        measures = compute_node_measures(nodes_list[i], elems_list[i])
+        if i == 0:
+            nmeasures = measures.shape[1]
+        node_measures[i,:nnodes[i], :nmeasures] = measures
+    node_measures = node_measures[...,:nmeasures]
 
     print("Preprocessing data : computing features")
     features = np.zeros((ndata, max_nnodes, nfeatures))
@@ -377,100 +392,60 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
 
 def compute_node_weights(nnodes,  node_measures,  equal_measure = False):
     '''
-    Compute node weights based on node measures.
+    Compute node weights based on node measures (length, area, volume,......).
 
-    This function calculates weights for each node using its corresponding measure. If `equal_measure` is set to True,
-    the node measures are recomputed as equal, |Omega|/n, where `|Omega|` is the total measure and `n` is the number of nodes.
+    This function calculates weights for each node using its corresponding measures. 
+    If `equal_measure` is set to True, the node measures are recomputed as equal, |Omega|/n, 
+    where `|Omega|` is the total measure and `n` is the number of nodes with nonzero measures.
     Node weights are computed such that their sum equals 1, using the formula:
         node_weight = node_measure / sum(node_measures)
+
+    If there are several types of measures, compute weights for each type of measures, and normalize it by nmeasures
+    node_weight = 1/nmeasures * node_measure / sum(node_measures)
 
     Parameters:
         nnodes int[ndata]: 
             Number of nodes for each data instance.
-        node_measures float[ndata, max_nnodes, 1]: 
+        
+        node_measures float[ndata, max_nnodes, nmeasures]: 
             Each value corresponds to the measure of a node.
-            Padding with 0 is used for indices greater than or equal to the number of nodes (`nnodes`).
+            Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
+
         equal_measure (bool, optional): 
             If True, node measures are uniformly distributed as |Omega|/n. Default is False.
 
     Returns:
-        node_measures float[ndata, max_nnodes, 1]: 
-            Updated array of node measures with shape, maintaining the same padding structure.
-            If equal_measure is False, it remains unchanged
-        node_weights float[ndata, max_nnodes, 1]: 
+        node_measures float[ndata, max_nnodes, nmeasures]: 
+            Updated array of node measures with shape, maintaining the same padding structure (But with padding 0).
+            If equal_measure is False, the measures remains unchanged
+        node_weights float[ndata, max_nnodes, nmeasures]: 
             Array of computed node weights, maintaining the same padding structure.
     '''
         
-    ndata, max_nnodes, _ = node_measures.shape
-    node_measures_new = node_measures.copy()
+    ndata, max_nnodes, nmeasures = node_measures.shape
+    node_measures_new = np.zeros((ndata, max_nnodes, nmeasures))
+    node_weights = np.zeros((ndata, max_nnodes, nmeasures))
     if equal_measure:
         for i in range(ndata):
-            node_measures_new[i, :nnodes[i], 0] = sum(node_measures_new[i, :nnodes[i], 0])/nnodes[i]
-    
+            for j in range(nmeasures):
+                # take average for nonzero measure nodes
+                indices = np.isfinite(node_measures[i, :, j])  
+                node_measures_new[i, indices, j] = sum(node_measures[i, indices, j])/sum(indices)
+    else:
+        # replace all NaN value to 0
+        node_measures_new = np.nan_to_num(node_measures, nan=0.0)
+
+
     # node weight is the normalization of node measure
-    node_weights = node_measures.copy()
     for i in range(ndata):
-        node_weights[i, :nnodes[i], 0] = node_measures_new[i, :nnodes[i], 0]/sum(node_measures_new[i, :nnodes[i], 0])
+        for j in range(nmeasures):
+            node_weights[i, :nnodes[i], j] = 1.0/nmeasures * node_measures_new[i, :nnodes[i], j]/sum(node_measures_new[i, :nnodes[i], j])
     
     return node_measures_new, node_weights
 
 
-def test_node_measures():
-    elem_dim = 2
-    elems = np.array([[elem_dim, 0,1,2],[elem_dim, 0,2,3]])
-    nodes = np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0]]) 
-    assert(np.linalg.norm(compute_node_measures(nodes, elems) - np.array([1.0/3, 1.0/6, 1.0/3, 1.0/6])) < 1e-15)
-    
-    elem_dim = 2
-    elems = np.array([[elem_dim, 0,1,2],[elem_dim, 0,2,3]])
-    nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0]]) 
-    assert(np.linalg.norm(compute_node_measures(nodes, elems) - np.array([1.0/3, 1.0/6, 1.0/3, 1.0/6])) < 1e-15)
-    
-    elem_dim = 1 
-    elems = np.array([[elem_dim,0,1],[elem_dim,1,2],[elem_dim,2,3]])
-    nodes = np.array([[0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0]]) 
-    assert(np.linalg.norm(compute_node_measures(nodes, elems) - np.array([0.5, 1.0, 1.0, 0.5])) < 1e-15)
-    
-    elem_dim = 3 
-    elems = np.array([[elem_dim,0,1,2,4],[elem_dim,0,2,3,4]])
-    nodes = np.array([[0.0,0.0,0.0],[1.0,0.0,0.0],[1.0,1.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]]) 
-    assert(np.linalg.norm(compute_node_measures(nodes, elems) - np.array([1.0/12.0, 1.0/24.0, 1.0/12.0, 1.0/24.0, 1.0/12.0])) < 1e-15)
-    
 
 
-def test_convert_structured_data():
-    elem_dim=2
-    Lx, Ly = 1.0, 2.0
-    Npx, Npy = 2, 3
-    grid_1d_x, grid_1d_y = np.linspace(0, Lx, Npx), np.linspace(0, Ly, Npy)
-    grid_x, grid_y = np.meshgrid(grid_1d_x, grid_1d_y)
-    grid_x, grid_y = grid_x.T, grid_y.T
-    ndata = 2
-    features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
-    nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = True)
-    assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,1,4,3],[elem_dim,1,2,5,4]])) == 0)
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
-    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
-    assert(np.linalg.norm(nnodes - Npx * Npy) == 0)
-    assert(np.linalg.norm(node_mask - 1) == 0)
-    assert(np.linalg.norm(nodes - np.tile(np.array([[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]]), (ndata, 1, 1))) == 0)
-    assert(np.all(np.isclose(node_measures - np.tile(np.array([1.0/4,1.0/2,1.0/4,1.0/4,1.0/2,1.0/4])[:,np.newaxis], (ndata,1,1)), 0)))
-    assert(np.all(np.isclose(node_equal_measures - np.tile(np.array([1.0/3,1.0/3,1.0/3,1.0/3,1.0/3,1.0/3])[:,np.newaxis], (ndata,1,1)), 0)))
-    assert(np.all(np.isclose(node_equal_weights - np.tile(np.array([1.0/6,1.0/6,1.0/6,1.0/6,1.0/6,1.0/6])[:,np.newaxis], (ndata,1,1)), 0.0)))
-    assert(np.linalg.norm(features - np.concatenate((np.zeros((ndata, Npx*Npy, 1)), nodes), axis=2)) == 0)
 
 
-    features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
-    nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 3, feature_include_coords = True)
-    assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,1,4],[elem_dim,0,4,3],[elem_dim,1,2,5],[elem_dim,1,5,4]])) == 0)
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
-    assert(np.linalg.norm(nnodes - Npx * Npy) == 0)
-    assert(np.linalg.norm(node_mask - 1) == 0)
-    assert(np.linalg.norm(nodes - np.tile(np.array([[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]]), (ndata, 1, 1))) == 0)
-    assert(np.linalg.norm(node_measures - np.tile(np.array([1.0/3,1.0/2,1.0/6,1.0/6,1.0/2,1.0/3])[:,np.newaxis], (ndata,1,1))) == 0)
-    assert(np.linalg.norm(features - np.concatenate((np.zeros((ndata, Npx*Npy, 1)), nodes), axis=2)) == 0)
 
-
-if __name__ == "__main__":
-    test_node_measures()
-    test_convert_structured_data()

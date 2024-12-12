@@ -257,6 +257,7 @@ class PCNO(nn.Module):
         ndims,
         modes,
         nmeasures,
+        train_L,
         layers,
         fc_dim=128,
         in_dim=3,
@@ -308,6 +309,8 @@ class PCNO(nn.Module):
         """
         self.modes = modes
         self.nmeasures = nmeasures
+        
+
         self.layers = layers
         self.fc_dim = fc_dim
 
@@ -324,6 +327,8 @@ class PCNO(nn.Module):
                 )
             ]
         )
+        self.train_L = train_L
+        self.sp_length_scale = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad = bool(train_L))
 
         self.ws = nn.ModuleList(
             [
@@ -347,6 +352,14 @@ class PCNO(nn.Module):
 
         self.act = _get_act(act)
         self.softsign = F.softsign
+
+        self.normal_params = []
+        self.L_params = []
+        for _, param in self.named_parameters():
+            if param is not self.sp_length_scale or train_L == 'together':
+                self.normal_params.append(param)
+            else:
+                self.L_params.append(param)
 
     def forward(self, x, aux):
         """
@@ -390,7 +403,7 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes)
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_length_scale)
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
@@ -424,7 +437,57 @@ class PCNO(nn.Module):
         return x 
     
 
+class CombinedOptimizer:
+    def __init__(self, params1, params2, betas, lr, lr_ratio, weight_decay):
 
+        self.optimizer1 = Adam(
+        params1,
+        betas=betas,
+        lr=lr,
+        weight_decay=weight_decay,
+    )
+        if params2 == []:
+            self.optimizer2 = None
+        else:
+            self.optimizer2 = Adam(
+            params2,
+            betas=betas,
+            lr= lr_ratio*lr,
+            weight_decay=weight_decay,
+        )
+
+    def step(self):
+        self.optimizer1.step()
+        if self.optimizer2:
+            self.optimizer2.step()
+    
+    def zero_grad(self):
+        self.optimizer1.zero_grad()
+        if self.optimizer2:
+            self.optimizer2.zero_grad()
+
+
+class Combinedscheduler_OneCycleLR:
+    def __init__(self, Combinedoptimizer,  max_lr, lr_ratio,
+            div_factor, final_div_factor, pct_start,
+            steps_per_epoch, epochs):
+
+        self.scheduler1 = torch.optim.lr_scheduler.OneCycleLR(
+            Combinedoptimizer.optimizer1, max_lr=max_lr,
+            div_factor=div_factor, final_div_factor=final_div_factor, pct_start=pct_start,
+            steps_per_epoch=steps_per_epoch, epochs=epochs)
+        if Combinedoptimizer.optimizer2:
+            self.scheduler2 = torch.optim.lr_scheduler.OneCycleLR(
+                Combinedoptimizer.optimizer2, max_lr=max_lr*lr_ratio,
+                div_factor=div_factor, final_div_factor=final_div_factor, pct_start=pct_start,
+                steps_per_epoch=steps_per_epoch, epochs=epochs)
+        else:
+            self.scheduler2 = None
+
+    def step(self):
+        self.scheduler1.step()
+        if self.scheduler2:
+            self.scheduler2.step()
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
@@ -465,25 +528,36 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
     
     # Load from checkpoint
-    optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
-                     lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
+    # optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
+    #                  lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
     
-    if config['train']['scheduler'] == "MultiStepLR":
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=config['train']['milestones'],
-                                                     gamma=config['train']['scheduler_gamma'])
-    elif config['train']['scheduler'] == "CosineAnnealingLR":
-        T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
-        eta_min  = 0.0
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
-    elif config["train"]["scheduler"] == "OneCycleLR":
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer, max_lr=config['train']['base_lr'], 
-            div_factor=2, final_div_factor=100,pct_start=0.2,
-            steps_per_epoch=1, epochs=config['train']['epochs'])
-    else:
-        print("Scheduler ", config['train']['scheduler'], " has not implemented.")
-
+    # if config['train']['scheduler'] == "MultiStepLR":
+    #     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+    #                                                  milestones=config['train']['milestones'],
+    #                                                  gamma=config['train']['scheduler_gamma'])
+    # elif config['train']['scheduler'] == "CosineAnnealingLR":
+    #     T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
+    #     eta_min  = 0.0
+    #     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
+    # elif config["train"]["scheduler"] == "OneCycleLR":
+    #     scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    #         optimizer, max_lr=config['train']['base_lr'], 
+    #         div_factor=2, final_div_factor=100,pct_start=0.2,
+    #         steps_per_epoch=1, epochs=config['train']['epochs'])
+    # else:
+    #     print("Scheduler ", config['train']['scheduler'], " has not implemented.")
+    optimizer = CombinedOptimizer(model.normal_params,model.L_params,
+        betas=(0.9, 0.999),
+        lr=config["train"]["base_lr"],
+        lr_ratio = config["train"]["lr_ratio"],
+        weight_decay=config["train"]["weight_decay"],
+        )
+    
+    scheduler = Combinedscheduler_OneCycleLR(
+        optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
+        div_factor=2, final_div_factor=100,pct_start=0.2,
+        steps_per_epoch=1, epochs=config['train']['epochs'])
+    
     model.train()
     myloss = LpLoss(d=1, p=2, size_average=False)
 
@@ -504,7 +578,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
-            out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+            out = out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
             loss.backward()
 
@@ -542,7 +616,9 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
 
         t2 = default_timer()
-        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
+              ' 1/L: ',[round(float(x), 3) for x in model.sp_length_scale.cpu().tolist()[0]],
+                  flush=True)
         
         if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model, save_model_name)

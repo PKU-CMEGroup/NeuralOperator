@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 def compute_triangle_area_(points):
     ab = points[1, :] - points[0,:]
@@ -297,7 +298,7 @@ def preprocess_data(nodes_list, elems_list, features_list):
     # This ensures uniformity in processing and avoids inconsistencies in element handling.
     node_measures = np.full((ndata, max_nnodes, ndims), np.NaN)
     nmeasures = 0
-    for i in range(ndata):
+    for i in tqdm(range(ndata)):
         measures = compute_node_measures(nodes_list[i], elems_list[i])
         if i == 0:
             nmeasures = measures.shape[1]
@@ -311,7 +312,7 @@ def preprocess_data(nodes_list, elems_list, features_list):
 
     print("Preprocessing data : computing directed_edges and edge_gradient_weights")
     directed_edges_list, edge_gradient_weights_list = [], []
-    for i in range(ndata):
+    for i in tqdm(range(ndata)):
         directed_edges, edge_gradient_weights, edge_adj_list = compute_edge_gradient_weights(nodes_list[i], elems_list[i])
         directed_edges_list.append(directed_edges) 
         edge_gradient_weights_list.append(edge_gradient_weights)   

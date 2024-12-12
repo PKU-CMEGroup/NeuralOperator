@@ -87,7 +87,7 @@ node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
 features = torch.from_numpy(features.astype(np.float32))
-directed_edges = torch.from_numpy(directed_edges)
+directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
 n_train, n_test = 1000, 200
@@ -104,9 +104,10 @@ y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
 
 k_max = 32
 ndim = 1
+train_L = False  # False , 'together' or 'independent'
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1,
+model = PCNO(ndim, modes, nmeasures=1, train_L = train_L,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=4, out_dim=y_train.shape[-1],
@@ -114,11 +115,12 @@ model = PCNO(ndim, modes, nmeasures=1,
 
 
 
-epochs = 1000
+epochs = 500
 base_lr = 0.001
+lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size=8
+batch_size = 8
 
 normalization_x = False
 normalization_y = False
@@ -128,12 +130,12 @@ non_normalized_dim_x = 0
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }
-
+print(f'Start training , train_L = {train_L}, lr_ratio = {lr_ratio}')
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_adv_diff_bvp_model"

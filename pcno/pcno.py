@@ -420,7 +420,7 @@ class PCNO(nn.Module):
 
         x = self.fc2(x)
 
-        # set values on padding nodes 0
+       
         return x 
     
 

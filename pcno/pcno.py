@@ -308,6 +308,8 @@ class PCNO(nn.Module):
         """
         self.modes = modes
         self.nmeasures = nmeasures
+        
+
         self.layers = layers
         self.fc_dim = fc_dim
 
@@ -324,6 +326,8 @@ class PCNO(nn.Module):
                 )
             ]
         )
+
+        self.sp_length_scale = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad=True)
 
         self.ws = nn.ModuleList(
             [
@@ -390,7 +394,7 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes)
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_length_scale)
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0

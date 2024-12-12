@@ -60,6 +60,7 @@ if PREPROCESS_DATA:
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
     np.savez_compressed(data_path+"pcno_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
+                        node_measures_raw = node_measures_raw, \
                         node_measures=node_measures, node_weights=node_weights, \
                         node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
                         features=features, \
@@ -95,9 +96,10 @@ aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 y_train, y_test = features[:n_train, :, 1:],     features[-n_test:, :, 1:]
 
-k_max = 16
+k_max = 12
 ndim = 3
-modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [9.0,9.0,12.0])
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max, k_max,k_max,k_max], [9.0,9.0,12.0, 9.0,9.0,12.0])
+
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=2,
                layers=[128,128,128,128,128],
@@ -107,14 +109,14 @@ model = PCNO(ndim, modes, nmeasures=2,
 
 
 
-epochs = 1000
+epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size=8
+batch_size = 8
 
-normalization_x = True
-normalization_y = True
+normalization_x = False
+normalization_y = False
 normalization_dim_x = []
 normalization_dim_y = []
 non_normalized_dim_x = 1

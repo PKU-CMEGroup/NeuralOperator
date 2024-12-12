@@ -244,7 +244,7 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     
     # f_gradients : float Tensor[batch_size, max_nnodes, in_channels*ndims]
     f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype, device=message.device)
-    f_gradients.scatter_add_(dim=1,  src=message, index=target.unsqueeze(2).repeat(1,1,in_channels*ndims))
+    f_gradients.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels*ndims))
     
     return f_gradients.permute(0,2,1)
     
@@ -278,7 +278,7 @@ class PCNO(nn.Module):
             Parameters: 
                 ndims : int 
                     Dimensionality of the problem
-                modes : float[nmodes, ndims]
+                modes : float[nmodes, ndims, nmeasures]
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
                     * We cannot have both k and -k
                 nmeasures : int

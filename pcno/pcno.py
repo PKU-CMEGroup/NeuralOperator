@@ -420,8 +420,8 @@ class PCNO(nn.Module):
 
         x = self.fc2(x)
 
-        # set values on padding nodes 0
-        return x * node_mask
+       
+        return x 
     
 
 
@@ -504,7 +504,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
-
+            out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
             loss.backward()
 
@@ -523,7 +523,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
-
+                out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 

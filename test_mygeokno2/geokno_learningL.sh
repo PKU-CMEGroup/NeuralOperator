@@ -9,4 +9,4 @@
 
 
 source activate o3d
-python geokno_learningL_car_test.py > log/test.log
+python car_test_learningL.py > log/test.log

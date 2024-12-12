@@ -157,8 +157,8 @@ def compute_Fourier_bases(nodes, modes, node_mask):
     # temp : float[batch_size, nnodes, nmodes]
     temp  = torch.einsum("bxd,kd->bxk", nodes, modes) 
     
-    bases_c = torch.cos(temp) * node_mask
-    bases_s = torch.sin(temp) * node_mask
+    bases_c = torch.cos(temp) * node_mask * nodes[:,:,0].unsqueeze(-1)
+    bases_s = torch.sin(temp) * node_mask * nodes[:,:,0].unsqueeze(-1)
     bases_0 = node_mask
     return bases_c, bases_s, bases_0
 
@@ -304,7 +304,7 @@ class GeoKNO_learningL(nn.Module):
         """
         # self.modes = nn.Parameter(modes)
         self.modes = modes
-        self.L = nn.Parameter(torch.tensor([[3.0,3.0,6.0]],device = modes.device))
+        self.L = nn.Parameter(torch.tensor([[2.0,2.0,5.0]],device = modes.device))
         self.scaled_modes = self.modes/self.L
         
         self.layers = layers

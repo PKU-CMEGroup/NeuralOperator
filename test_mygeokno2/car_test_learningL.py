@@ -1,4 +1,4 @@
-import open3d as o3d
+
 import os
 import glob
 import random
@@ -28,6 +28,7 @@ def read_mesh_indices(file_path):
     return [int(index) - 1 for index in indices]
 
 def load_data(data_path = "../data/car"):
+    import open3d as o3d
     dataset_folder_mesh = data_path+"/data/mesh/"
     dataset_folder_pressure = data_path+"/data/press/"
     valid_indices = read_mesh_indices(data_path+"/watertight_meshes.txt")
@@ -69,6 +70,7 @@ if CONVERT_DATA:
     exit()
 else:
     data = np.load("../data/car_pressure/geokno_triangle_data.npz")
+    # data = np.load("../data/car_pressure/geokno_triangle_equal_weight_data.npz")
     nnodes, node_mask, nodes, node_weights, features, directed_edges, edge_gradient_weights = data["nnodes"], data["node_mask"], data["nodes"], data["node_weights"], data["features"], data["directed_edges"], data["edge_gradient_weights"]
     
 
@@ -109,7 +111,7 @@ epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size=8
+batch_size = 8
 
 normalization_x = True
 normalization_y = True
@@ -118,7 +120,7 @@ x_aux_dim = 0
 y_aux_dim = 0
 
 
-config = {"train" : {"base_lr": base_lr,'lr_ratio':50, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr,'lr_ratio': 10, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, "normalization_dim": normalization_dim, 
                      "x_aux_dim": x_aux_dim, "y_aux_dim": y_aux_dim},
         'plot': {'plot_hidden_layers_num': 0, 'save_figure_hidden': 'figure/car_pressure/test/'}

@@ -257,7 +257,7 @@ class PCNO(nn.Module):
         ndims,
         modes,
         nmeasures,
-        train_L,
+        train_sp_L,
         layers,
         fc_dim=128,
         in_dim=3,
@@ -285,6 +285,11 @@ class PCNO(nn.Module):
                 nmeasures : int
                     Number of measures
                     There might be different integrals with different measures
+                train_sp_L: bool or str
+                    The way to train sp_L.
+                    False: means we dont train sp_L
+                    'together': means sp_L will be trained with other params together.
+                    'independently' : means sp_L will be trained in another optimizer independently.
                 layers : list of int
                     number of channels of each layer
                     The lifting layer first lifts to layers[0]
@@ -327,8 +332,8 @@ class PCNO(nn.Module):
                 )
             ]
         )
-        self.train_L = train_L
-        self.sp_length_scale = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad = bool(train_L))
+        self.train_sp_L = train_sp_L
+        self.sp_L = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad = bool(train_sp_L))
 
         self.ws = nn.ModuleList(
             [
@@ -353,13 +358,21 @@ class PCNO(nn.Module):
         self.act = _get_act(act)
         self.softsign = F.softsign
 
-        self.normal_params = []
-        self.L_params = []
+        self.normal_params = []  #  group of params which will be trained normally
+        self.sp_L_params = []    #  group of params which may be trained specially
         for _, param in self.named_parameters():
-            if param is not self.sp_length_scale or train_L == 'together':
+            if param is not self.sp_L :
                 self.normal_params.append(param)
             else:
-                self.L_params.append(param)
+                if self.train_sp_L == 'together':
+                    self.normal_params.append(param)
+                elif self.train_sp_L == 'independently':
+                    self.sp_L_params.append(param)
+                elif self.train_sp_L == False:
+                    continue
+                else:
+                    raise ValueError(f"{self.train_sp_L} is not supported")
+        
 
     def forward(self, x, aux):
         """
@@ -403,7 +416,7 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_length_scale)
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_L)
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
@@ -438,8 +451,12 @@ class PCNO(nn.Module):
     
 
 class CombinedOptimizer:
+    '''
+    CombinedOptimizer.
+    train two param groups independently.
+    the learning rates of two optimizers are lr, lr_ratio*lr respectively
+    '''
     def __init__(self, params1, params2, betas, lr, lr_ratio, weight_decay):
-
         self.optimizer1 = Adam(
         params1,
         betas=betas,
@@ -468,6 +485,10 @@ class CombinedOptimizer:
 
 
 class Combinedscheduler_OneCycleLR:
+    '''
+    Combinedscheduler.
+    scheduler two optimizers independently.
+    '''
     def __init__(self, Combinedoptimizer,  max_lr, lr_ratio,
             div_factor, final_div_factor, pct_start,
             steps_per_epoch, epochs):
@@ -546,7 +567,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     #         steps_per_epoch=1, epochs=config['train']['epochs'])
     # else:
     #     print("Scheduler ", config['train']['scheduler'], " has not implemented.")
-    optimizer = CombinedOptimizer(model.normal_params,model.L_params,
+    optimizer = CombinedOptimizer(model.normal_params,model.sp_L_params,
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],
@@ -617,7 +638,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              ' 1/L: ',[round(float(x), 3) for x in model.sp_length_scale.cpu().tolist()[0]],
+              ' 1/sp_L: ',[round(float(x), 3) for x in model.sp_L.cpu().tolist()[0]],
                   flush=True)
         
         if (ep %100 == 99) or (ep == epochs -1):    

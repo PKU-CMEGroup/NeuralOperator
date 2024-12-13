@@ -9,12 +9,12 @@ Name: adv_diff_bvp.zip
 File Location: AnyShare://Neural-Operator-Data/adv_diff_bvp.zip
 
 # tips for training L
-### Select 'train_L' from  False , 'together' and 'independent':
+### Select 'train_L' from  False , 'together' and 'independently':
 
 ### False
 means that L will not be trained;  
 ### 'together' 
 means that L will be trained with other params in the same optimizer;  
-### 'independent' 
+### 'independently' 
 means that L will be trained independently in another optimizer with a new learning rate, which is determined by lr_ratio;     
 

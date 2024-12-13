@@ -107,10 +107,11 @@ ndim = 1
 train_sp_L = 'independently'  # False , 'together' or 'independently'
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1, train_sp_L = train_sp_L,
+model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=4, out_dim=y_train.shape[-1],
+               train_sp_L = train_sp_L,
                act='gelu').to(device)
 
 

@@ -257,11 +257,11 @@ class PCNO(nn.Module):
         ndims,
         modes,
         nmeasures,
-        train_sp_L,
         layers,
         fc_dim=128,
         in_dim=3,
         out_dim=1,
+        train_sp_L = 'independently',
         act="gelu",
     ):
         super(PCNO, self).__init__()

@@ -104,13 +104,14 @@ y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
 
 k_max = 32
 ndim = 1
-train_L = False  # False , 'together' or 'independent'
+train_sp_L = 'independently'  # False , 'together' or 'independently'
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1, train_L = train_L,
+model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=4, out_dim=y_train.shape[-1],
+               train_sp_L = train_sp_L,
                act='gelu').to(device)
 
 
@@ -135,7 +136,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }
-print(f'Start training , train_L = {train_L}, lr_ratio = {lr_ratio}')
+print(f'Start training , train_sp_L = {train_sp_L}, lr_ratio = {lr_ratio}')
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_adv_diff_bvp_model"

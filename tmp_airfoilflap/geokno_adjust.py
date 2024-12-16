@@ -379,12 +379,14 @@ class GeoKNO(nn.Module):
         x = x.permute(0, 2, 1)
 
         for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+            x1 = speconv(x, bases_c, bases_s, bases_0,
+                         wbases_c, wbases_s, wbases_0)
             x2 = w(x)
-            x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
+            x3 = gw(self.softsign(compute_gradient(
+                x, directed_edges, edge_gradient_weights)))
             x = x1 + x2 + x3
             if self.act is not None and i != length - 1:
-                x = self.act(x) 
+                x = self.act(x)
 
         x = x.permute(0, 2, 1)
 
@@ -534,6 +536,7 @@ def GeoKNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
 
+
 def GeoKNO_train_surface(x_train, aux_train, y_train, s_train, x_test, aux_test, y_test, s_test, config, model,
                          save_model_name=False, should_print_L=False):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
@@ -646,8 +649,8 @@ def GeoKNO_train_surface(x_train, aux_train, y_train, s_train, x_test, aux_test,
 
                 y_s = y.view(batch_size_, -1).clone()
                 out = out.view(batch_size_, -1)
-                y_s[s!=1] = 0
-                out[s!=1] = 0
+                y_s[s != 1] = 0
+                out[s != 1] = 0
                 test_rel_s_l2 += myloss(out, y_s).item()
 
         time_end = time.time()
@@ -676,6 +679,176 @@ def GeoKNO_train_surface(x_train, aux_train, y_train, s_train, x_test, aux_test,
             if save_model_name:
                 torch.save(model, save_model_name)
 
-
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
 
+
+def GeoKNO_train_surface_separate(x_train, aux_train, y_train, s_train, x_test, aux_test, y_test, s_test, config, model,
+                                  save_model_name=False, should_print_L=False):
+    n_train, n_test = x_train.shape[0], x_test.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    normalization_x, normalization_y, normalization_dim = config["train"][
+        "normalization_x"], config["train"]["normalization_y"], config["train"]["normalization_dim"]
+    x_aux_dim, y_aux_dim = config["train"]["x_aux_dim"], config["train"]["y_aux_dim"]
+
+    ndims = model.ndims  # n_train, size, n_channel
+    print("In GeoKNO_train, ndims = ", ndims)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(
+            x_train, aux_dim=x_aux_dim, normalization_dim=normalization_dim, )
+        x_train = x_normalizer.encode(x_train)
+        x_test = x_normalizer.encode(x_test)
+        x_normalizer.to(device)
+
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(
+            y_train, aux_dim=y_aux_dim, normalization_dim=normalization_dim)
+        y_train = y_normalizer.encode(y_train)
+        y_test = y_normalizer.encode(y_test)
+        y_normalizer.to(device)
+
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train),
+                                               batch_size=config['train']['batch_size'], shuffle=True)
+
+    nn_test = n_test // 2
+    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test[:nn_test, ...], x_test[-nn_test:, ...],
+                                                                             y_test[:nn_test, ...], y_test[-nn_test:, ...],
+                                                                             s_test[:nn_test, ...], s_test[-nn_test:, ...],
+                                                                             node_mask_test[:nn_test, ...], node_mask_test[-nn_test:, ...],
+                                                                             nodes_test[:nn_test, ...], nodes_test[-nn_test:, ...],
+                                                                             node_weights_test[:nn_test, ...], node_weights_test[-nn_test:, ...],
+                                                                             directed_edges_test[
+                                                                                 :nn_test, ...], directed_edges_test[-nn_test:, ...],
+                                                                             edge_gradient_weights_test[:nn_test, ...], edge_gradient_weights_test[-nn_test:, ...]),
+                                              batch_size=config['train']['batch_size'], shuffle=False)
+
+    # Load from checkpoint
+    optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
+                     lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
+
+    if config['train']['scheduler'] == "MultiStepLR":
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                         milestones=config['train']['milestones'],
+                                                         gamma=config['train']['scheduler_gamma'])
+    elif config['train']['scheduler'] == "CosineAnnealingLR":
+        T_max = (config['train']['epochs'] // 10) * \
+            (n_train // config['train']['batch_size'])
+        eta_min = 0.0
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=T_max, eta_min=eta_min)
+    elif config["train"]["scheduler"] == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=config['train']['base_lr'],
+            div_factor=2, final_div_factor=100, pct_start=0.2,
+            steps_per_epoch=1, epochs=config['train']['epochs'])
+    else:
+        print("Scheduler ", config['train']
+              ['scheduler'], " has not implemented.")
+
+    model.train()
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
+    epochs = config['train']['epochs']
+
+    for ep in range(epochs):
+        time_start = time.time()
+        train_rel_l2 = 0
+
+        model.train()
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(
+                device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+
+            batch_size_ = x.shape[0]
+            optimizer.zero_grad()
+            out = model(x, (node_mask, nodes, node_weights, directed_edges,
+                        edge_gradient_weights))  # .reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+
+            loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1))
+            loss.backward()
+
+            optimizer.step()
+            train_rel_l2 += loss.item()
+
+        test1_rel_l2 = 0
+        test1_rel_s_l2 = 0
+        test2_rel_l2 = 0
+        test2_rel_s_l2 = 0
+        with torch.no_grad():
+            for x1, x2, y1, y2, s1, s2, node_mask1, node_mask2, nodes1, nodes2, node_weights1, node_weights2, directed_edges1, directed_edges2, edge_gradient_weights1, edge_gradient_weights2 in test_loader:
+                x1, y1, s1, node_mask1, nodes1, node_weights1, directed_edges1, edge_gradient_weights1 = x1.to(device), y1.to(device), s1.to(device), node_mask1.to(
+                    device), nodes1.to(device), node_weights1.to(device), directed_edges1.to(device), edge_gradient_weights1.to(device)
+                x2, y2, s2, node_mask2, nodes2, node_weights2, directed_edges2, edge_gradient_weights2 = x2.to(device), y2.to(device), s2.to(device), node_mask2.to(
+                    device), nodes2.to(device), node_weights2.to(device), directed_edges2.to(device), edge_gradient_weights2.to(device)
+
+                batch_size_ = x1.shape[0]
+
+                # test 1
+                out1 = model(x1, (node_mask1, nodes1, node_weights1,
+                             directed_edges1, edge_gradient_weights1))
+                if normalization_y:
+                    out1 = y_normalizer.decode(out1)
+                    y1 = y_normalizer.decode(y1)
+                test1_rel_l2 += myloss(out1.view(batch_size_, -1),
+                                       y1.view(batch_size_, -1)).item()
+
+                y1_s = y1.view(batch_size_, -1).clone()
+                out1 = out1.view(batch_size_, -1)
+                y1_s[s1 != 1] = 0
+                out1[s1 != 1] = 0
+                test1_rel_s_l2 += myloss(out1, y1_s).item()
+
+                # test 2
+                out2 = model(x2, (node_mask2, nodes2, node_weights2,
+                             directed_edges2, edge_gradient_weights2))
+                if normalization_y:
+                    out2 = y_normalizer.decode(out2)
+                    y2 = y_normalizer.decode(y2)
+                test2_rel_l2 += myloss(out2.view(batch_size_, -1),
+                                       y2.view(batch_size_, -1)).item()
+
+                y2_s = y2.view(batch_size_, -1).clone()
+                out2 = out2.view(batch_size_, -1)
+                y2_s[s2 != 1] = 0
+                out2[s2 != 1] = 0
+                test2_rel_s_l2 += myloss(out2, y2_s).item()
+
+        time_end = time.time()
+
+        scheduler.step()
+
+        train_rel_l2 /= n_train
+        test1_rel_l2 /= nn_test
+        test1_rel_s_l2 /= nn_test
+        test2_rel_l2 /= nn_test
+        test2_rel_s_l2 /= nn_test
+
+        if should_print_L:
+            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " L adjust:", [
+                f"{l.item():.6f}" for l in model.Ls_adjust],
+                " time : ", time_end - time_start, flush=True)
+            print(f"Test1: total{test1_rel_l2}, surface{test1_rel_s_l2}")
+            print(f"Test2: total{test2_rel_l2}, surface{
+                  test2_rel_s_l2}", flush=True)
+        else:
+            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2,
+                  " time : ", time_end - time_start, flush=True)
+            print(f"Test1: total{test1_rel_l2}, surface{
+                  test1_rel_s_l2}", flush=True)
+            print(f"Test2: total{test2_rel_l2}, surface{
+                  test2_rel_s_l2}", flush=True)
+
+        if (ep % 10 == 0) or (ep == epochs - 1):
+            if save_model_name:
+                torch.save(model, save_model_name)
+
+    return train_rel_l2_losses, test_rel_l2_losses

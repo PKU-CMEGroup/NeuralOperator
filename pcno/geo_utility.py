@@ -72,7 +72,7 @@ def compute_node_measures(nodes, elems):
             
     '''
     nnodes, ndims = nodes.shape
-    measures = np.full((nnodes, ndims), np.NaN)
+    measures = np.full((nnodes, ndims), np.nan)
     measure_types = [False] * ndims
     for elem in elems:
         elem_dim, e = elem[0], elem[1:]
@@ -296,7 +296,7 @@ def preprocess_data(nodes_list, elems_list, features_list):
     # The mesh might have elements with different dimensionalities (e.g., 1D edges, 2D faces, 3D volumes).
     # If any mesh includes both 1D and 2D elements, it is assumed that all meshes in the dataset will also include both types of elements.
     # This ensures uniformity in processing and avoids inconsistencies in element handling.
-    node_measures = np.full((ndata, max_nnodes, ndims), np.NaN)
+    node_measures = np.full((ndata, max_nnodes, ndims), np.nan)
     nmeasures = 0
     for i in tqdm(range(ndata)):
         measures = compute_node_measures(nodes_list[i], elems_list[i])

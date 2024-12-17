@@ -96,7 +96,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
 
 def compute_Fourier_modes(ndims, nks, Ls):
     '''
-    Compute `nmesareus` sets of Fourier modes number k
+    Compute `nmeasures` sets of Fourier modes number k
     Fourier bases are cos(kx), sin(kx), 1
     * We cannot have both k and -k
 
@@ -638,7 +638,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              ' 1/sp_L: ',[round(float(x), 3) for x in model.sp_L.cpu().tolist()],
+              ' 1/sp_L: ',[round(float(x[0]), 3) for x in model.sp_L.cpu().tolist()],
                   flush=True)
         
         if (ep %100 == 99) or (ep == epochs -1):    

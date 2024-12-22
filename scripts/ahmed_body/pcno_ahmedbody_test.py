@@ -53,6 +53,7 @@ if PREPROCESS_DATA:
         nnodes, node_measures_raw, equal_measure=True)
     np.savez_compressed(data_path + "pcno_triangle_data.npz",
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes,
+                        node_measures_raw = node_measures_raw, \
                         node_measures=node_measures, node_weights=node_weights,
                         node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights,
                         features=features,
@@ -68,6 +69,11 @@ else:
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
+
+    node_measures_raw = data["node_measures_raw"]
+    indices = np.isfinite(node_measures_raw)
+    node_rhos = np.copy(node_weights)
+    node_rhos[indices] = node_rhos[indices]/node_measures[indices]
 
 
 ###################################

@@ -642,7 +642,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
                   flush=True)
         
         if (ep %100 == 99) or (ep == epochs -1):    
-            torch.save(model, save_model_name)
+            torch.save(model.state_dict(), save_model_name + ".pth")
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

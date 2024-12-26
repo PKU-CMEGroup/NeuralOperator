@@ -79,14 +79,15 @@ else:
     data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
+    node_measures = data["node_measures"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
 
-    node_measures = data["node_measures"]
     node_measures_raw = data["node_measures_raw"]
     indices = np.isfinite(node_measures_raw)
     node_rhos = np.copy(node_weights)
     node_rhos[indices] = node_rhos[indices]/node_measures[indices]
+
 
 
 
@@ -113,6 +114,8 @@ indices_dict = {'uniform': np.arange(nodes.shape[0]) % 3 == 0,
               "linear": np.arange(nodes.shape[0]) % 3 == 2,
               'mixed': np.arange(nodes.shape[0])}
 
+# normalize features
+features /= np.array([1.0, 1.0, 0.01, 1.0])
 nnodes = torch.from_numpy(nnodes[indices_dict[train_type]])
 node_mask = torch.from_numpy(node_mask[indices_dict[train_type]])
 nodes = torch.from_numpy(nodes[indices_dict[train_type]].astype(np.float32))
@@ -125,6 +128,7 @@ edge_gradient_weights = torch.from_numpy(edge_gradient_weights[indices_dict[trai
 print('train_type: ',train_type,'nodes.shape: ',nodes.shape,' feature.shape: ',features.shape)
 n_test = 200
 
+
 nodes_input = nodes.clone()
 
 x_train, x_test = torch.cat((features[:n_train,:,[0,2,3]], nodes_input[:n_train,...], node_rhos[:n_train, ...]), -1), torch.cat((features[-n_test:,:,[0,2,3]],nodes_input[-n_test:,...], node_rhos[-n_test:, ...]), -1)
@@ -133,9 +137,11 @@ aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[
 
 y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
 
+
 print(f'x_train.shape: {x_train.shape}, y_train.shape: {y_train.shape}')
-k_max = 32
+k_max = 64
 ndim = 1
+
 
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
@@ -155,11 +161,11 @@ scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = 8
 
-normalization_x = False
-normalization_y = False
+normalization_x = True
+normalization_y = True
 normalization_dim_x = []
 normalization_dim_y = []
-non_normalized_dim_x = 0
+non_normalized_dim_x = 2
 non_normalized_dim_y = 0
 
 

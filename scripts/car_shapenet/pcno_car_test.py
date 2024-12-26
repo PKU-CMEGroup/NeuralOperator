@@ -85,7 +85,7 @@ edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32
 
 nodes_input = nodes.clone()
 
-n_train, n_test = 500, 100
+n_train, n_test = 500, 111
 
 OUTPUT = "pressure" # "normal"  or "pressure"
 

@@ -7,7 +7,6 @@ import numpy as np
 import math
 from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-import argparse
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
@@ -74,7 +73,7 @@ if PREPROCESS_DATA:
     exit()
 else:
     # load data 
-    equal_weights = False
+    equal_weights = True
 
     data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -87,7 +86,7 @@ else:
     indices = np.isfinite(node_measures_raw)
     node_rhos = np.copy(node_weights)
     node_rhos[indices] = node_rhos[indices]/node_measures[indices]
-
+import argparse
 
 
 parser = argparse.ArgumentParser(description='Train model with different types.')
@@ -107,7 +106,7 @@ train_sp_L = args.train_sp_L
 print(f'train_type = {train_type}, n_train = {n_train}, train_sp_L = {train_sp_L}')
 
 print("Casting to tensor")
-
+# train_type = 'mixed'  # uniform or exponential or linear or mixed
 indices_dict = {'uniform': np.arange(nodes.shape[0]) % 3 == 0,
             'exponential': np.arange(nodes.shape[0]) % 3 == 1,
               "linear": np.arange(nodes.shape[0]) % 3 == 2,
@@ -136,7 +135,7 @@ y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
 print(f'x_train.shape: {x_train.shape}, y_train.shape: {y_train.shape}')
 k_max = 32
 ndim = 1
-
+# train_sp_L = False  # False , 'together' or 'independently'
 modes = compute_Fourier_modes(ndim, [k_max], [15.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
@@ -171,7 +170,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
 print(f'Start training , train_sp_L = {train_sp_L}, lr_ratio = {lr_ratio}')
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}_{train_type}_{train_sp_L}.pth"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}_equal_weight/{train_type}_{train_sp_L}_.pth"
 )
 
 

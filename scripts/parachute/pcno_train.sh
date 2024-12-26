@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -o PCNO_train.out
 #SBATCH --qos=low
-#SBATCH -J PCNO_train
+#SBATCH -J Parachute
 #SBATCH -p GPU80G
 #SBATCH --nodes=1 
 #SBATCH --ntasks=6

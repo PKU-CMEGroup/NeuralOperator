@@ -68,13 +68,19 @@ if PREPROCESS_DATA:
     exit()
 else:
     # load data 
-    equal_weights = True
+    equal_weights = False
 
     data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
+    node_measures = data["node_measures"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
+
+    node_measures_raw = data["node_measures_raw"]
+    indices = np.isfinite(node_measures_raw)
+    node_rhos = np.copy(node_weights)
+    node_rhos[indices] = node_rhos[indices]/node_measures[indices]
 
 
 print("Casting to tensor")
@@ -82,48 +88,63 @@ nnodes = torch.from_numpy(nnodes)
 node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
+node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
+#!! compress measures
+# node_weights = torch.sum(node_weights, dim=-1).unsqueeze(-1)
+
 features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
-nodes_input = nodes.clone()
+L_ref = 10.0
+nodes_input = nodes.clone()/L_ref  # scale length input
 
 n_train, n_test = 1000, 200
 
 
-x_train, x_test = torch.cat((nodes_input[:n_train, ...], features[:n_train, :, [0]]), -1), torch.cat((nodes_input[-n_test:, ...], features[-n_test:, :, [0]]),-1)
+x_train, x_test = torch.cat((features[:n_train, :, [0]], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1), torch.cat((features[-n_test:, :, [0]], nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]),-1)
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 y_train, y_test = features[:n_train, :, 1:],     features[-n_test:, :, 1:]
 
+
 k_max = 12
 ndim = 3
+
+
+#!! compress measures
 modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max, k_max,k_max,k_max], [9.0,9.0,12.0, 9.0,9.0,12.0])
+# modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [9.0,9.0,12.0])
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
+
+#!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
+# model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
-               in_dim=3+1, out_dim=y_train.shape[-1],
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
+               train_sp_L="together",
                act='gelu').to(device)
 
 
 
 epochs = 500
-base_lr = 0.001
+base_lr = 5e-4 #0.001
+lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size = 8
+batch_size = 4
 
-normalization_x = False
-normalization_y = False
+normalization_x = False 
+normalization_y = True 
 normalization_dim_x = []
 normalization_dim_y = []
-non_normalized_dim_x = 1
+non_normalized_dim_x = 4
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}

@@ -1,7 +1,6 @@
 data/
-notes/
+model/
 test_burgers/model/
-scripts/adv_diff_bvp/notes.txt
 pcno/__pycache__/
 utility/__pycache__/
 .DS_Store

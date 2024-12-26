@@ -60,7 +60,7 @@ def gradient_test(ndims = 2):
     # (nedges, 2), (nedges, ndims)
     directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, rcond=1e-3)
     nedges = directed_edges.shape[0]
-    directed_edges = torch.from_numpy(directed_edges)
+    directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
 
     ################################
@@ -136,7 +136,7 @@ def batch_gradient_test(ndims = 2):
     # batch_size by ndims by max_nnodes 
     grids = torch.from_numpy(grids)
     # batch_size by max_edges by 2
-    directed_edges = torch.from_numpy(directed_edges)
+    directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
     # batch_size by max_edges by ndims
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
 
@@ -231,7 +231,7 @@ def test_preprocess_data():
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
 
     # compute_gradient require features = float[batch_size, in_channels, nnodes]
-    features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges), torch.from_numpy(edge_gradient_weights))
+    features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges.astype(np.int64)), torch.from_numpy(edge_gradient_weights))
 
     
 

@@ -69,7 +69,8 @@ else:
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
-
+    
+    node_measures = data["node_measures"]
     node_measures_raw = data["node_measures_raw"]
     indices = np.isfinite(node_measures_raw)
     node_rhos = np.copy(node_weights)

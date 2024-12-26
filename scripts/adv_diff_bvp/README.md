@@ -23,3 +23,7 @@ usually, training process will be more stable with a fixed L , but it will have 
 
 I recommend setting train_sp_L to 'independently' with an appropriate lr_ratio (a ratio of 10 might be suitable). 
 When significant fluctuations occur and the model performance consistently worsens, you'd better decrease the lr_ratio or reconsider the type of train_sp_L.
+
+
+# example
+`python pcno_adv_test.py  --train_type 'mixed' --n_train 1000 --train_sp_L 'False'`

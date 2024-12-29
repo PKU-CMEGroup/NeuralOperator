@@ -108,14 +108,14 @@ model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               train_sp_L="together",
+               train_sp_L="independently",
                act='gelu').to(device)
 
 
 
 epochs = 5000
 base_lr = 2e-4 #0.001
-lr_ratio = 10
+lr_ratio = 0.1
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size= 8

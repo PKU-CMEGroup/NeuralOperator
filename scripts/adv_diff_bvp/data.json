@@ -1,0 +1,511 @@
+{
+    "False": {
+        "average": {
+            "500": {
+                "uniform": {
+                    "False": {
+                        "uniform": 0.00686,
+                        "exponential": 0.02454,
+                        "linear": 0.00703,
+                        "mixed": 0.01281
+                    },
+                    "together": {
+                        "uniform": 0.00646,
+                        "exponential": 0.02589,
+                        "linear": 0.00749,
+                        "mixed": 0.01328
+                    },
+                    "independently": {
+                        "uniform": 0.00608,
+                        "exponential": 0.03372,
+                        "linear": 0.0065,
+                        "mixed": 0.01543
+                    }
+                },
+                "exponential": {
+                    "False": {
+                        "uniform": 0.00841,
+                        "exponential": 0.00547,
+                        "linear": 0.00551,
+                        "mixed": 0.00646
+                    },
+                    "together": {
+                        "uniform": 0.0079,
+                        "exponential": 0.00464,
+                        "linear": 0.0045,
+                        "mixed": 0.00568
+                    },
+                    "independently": {
+                        "uniform": 0.0079,
+                        "exponential": 0.00394,
+                        "linear": 0.00409,
+                        "mixed": 0.00531
+                    }
+                },
+                "linear": {
+                    "False": {
+                        "uniform": 0.00795,
+                        "exponential": 0.02684,
+                        "linear": 0.00586,
+                        "mixed": 0.01355
+                    },
+                    "together": {
+                        "uniform": 0.00667,
+                        "exponential": 0.02975,
+                        "linear": 0.005,
+                        "mixed": 0.01381
+                    },
+                    "independently": {
+                        "uniform": 0.00665,
+                        "exponential": 0.02946,
+                        "linear": 0.00459,
+                        "mixed": 0.01357
+                    }
+                },
+                "mixed": {
+                    "False": {
+                        "uniform": 0.00759,
+                        "exponential": 0.0074,
+                        "linear": 0.00628,
+                        "mixed": 0.00709
+                    },
+                    "together": {
+                        "uniform": 0.00725,
+                        "exponential": 0.00661,
+                        "linear": 0.00569,
+                        "mixed": 0.00652
+                    },
+                    "independently": {
+                        "uniform": 0.00602,
+                        "exponential": 0.0054,
+                        "linear": 0.00505,
+                        "mixed": 0.00549
+                    }
+                }
+            },
+            "1000": {
+                "uniform": {
+                    "False": {
+                        "uniform": 0.00305,
+                        "exponential": 0.04068,
+                        "linear": 0.00337,
+                        "mixed": 0.0157
+                    },
+                    "together": {
+                        "uniform": 0.00266,
+                        "exponential": 0.02324,
+                        "linear": 0.003,
+                        "mixed": 0.00963
+                    },
+                    "independently": {
+                        "uniform": 0.00252,
+                        "exponential": 0.0323,
+                        "linear": 0.00249,
+                        "mixed": 0.01244
+                    }
+                },
+                "exponential": {
+                    "False": {
+                        "uniform": 0.00537,
+                        "exponential": 0.00308,
+                        "linear": 0.00274,
+                        "mixed": 0.00373
+                    },
+                    "together": {
+                        "uniform": 0.00609,
+                        "exponential": 0.00247,
+                        "linear": 0.00263,
+                        "mixed": 0.00373
+                    },
+                    "independently": {
+                        "uniform": 0.00541,
+                        "exponential": 0.00218,
+                        "linear": 0.00245,
+                        "mixed": 0.00335
+                    }
+                },
+                "linear": {
+                    "False": {
+                        "uniform": 0.00471,
+                        "exponential": 0.02244,
+                        "linear": 0.00288,
+                        "mixed": 0.01001
+                    },
+                    "together": {
+                        "uniform": 0.00413,
+                        "exponential": 0.0145,
+                        "linear": 0.0026,
+                        "mixed": 0.00708
+                    },
+                    "independently": {
+                        "uniform": 0.00367,
+                        "exponential": 0.02899,
+                        "linear": 0.00225,
+                        "mixed": 0.01163
+                    }
+                },
+                "mixed": {
+                    "False": {
+                        "uniform": 0.00377,
+                        "exponential": 0.00387,
+                        "linear": 0.00316,
+                        "mixed": 0.0036
+                    },
+                    "together": {
+                        "uniform": 0.00323,
+                        "exponential": 0.00333,
+                        "linear": 0.00284,
+                        "mixed": 0.00313
+                    },
+                    "independently": {
+                        "uniform": 0.00326,
+                        "exponential": 0.00303,
+                        "linear": 0.00236,
+                        "mixed": 0.00288
+                    }
+                }
+            },
+            "1500": {
+                "uniform": {
+                    "False": {
+                        "uniform": 0.00221,
+                        "exponential": 0.02937,
+                        "linear": 0.00243,
+                        "mixed": 0.01133
+                    },
+                    "together": {
+                        "uniform": 0.0019,
+                        "exponential": 0.02964,
+                        "linear": 0.00218,
+                        "mixed": 0.01124
+                    },
+                    "independently": {
+                        "uniform": 0.0018,
+                        "exponential": 0.02697,
+                        "linear": 0.00198,
+                        "mixed": 0.01025
+                    }
+                },
+                "exponential": {
+                    "False": {
+                        "uniform": 0.00467,
+                        "exponential": 0.00211,
+                        "linear": 0.0022,
+                        "mixed": 0.00299
+                    },
+                    "together": {
+                        "uniform": 0.00539,
+                        "exponential": 0.00198,
+                        "linear": 0.00229,
+                        "mixed": 0.00322
+                    },
+                    "independently": {
+                        "uniform": 0.00307,
+                        "exponential": 0.0015,
+                        "linear": 0.00182,
+                        "mixed": 0.00213
+                    }
+                },
+                "linear": {
+                    "False": {
+                        "uniform": 0.0026,
+                        "exponential": 0.01928,
+                        "linear": 0.00173,
+                        "mixed": 0.00787
+                    },
+                    "together": {
+                        "uniform": 0.0026,
+                        "exponential": 0.01909,
+                        "linear": 0.00167,
+                        "mixed": 0.00778
+                    },
+                    "independently": {
+                        "uniform": 0.00237,
+                        "exponential": 0.02427,
+                        "linear": 0.00143,
+                        "mixed": 0.00936
+                    }
+                },
+                "mixed": {
+                    "False": {
+                        "uniform": 0.00303,
+                        "exponential": 0.00275,
+                        "linear": 0.00219,
+                        "mixed": 0.00266
+                    },
+                    "together": {
+                        "uniform": 0.00278,
+                        "exponential": 0.00243,
+                        "linear": 0.00188,
+                        "mixed": 0.00236
+                    },
+                    "independently": {
+                        "uniform": 0.0026,
+                        "exponential": 0.00225,
+                        "linear": 0.0018,
+                        "mixed": 0.00221
+                    }
+                }
+            }
+        },
+        "worst": {
+            "500": {
+                "uniform": {
+                    "False": {
+                        "uniform": 0.09975,
+                        "exponential": 0.17351,
+                        "linear": 0.08151
+                    },
+                    "together": {
+                        "uniform": 0.09926,
+                        "exponential": 0.14463,
+                        "linear": 0.08582
+                    },
+                    "independently": {
+                        "uniform": 0.09791,
+                        "exponential": 0.16759,
+                        "linear": 0.06312
+                    }
+                },
+                "exponential": {
+                    "False": {
+                        "uniform": 0.15599,
+                        "exponential": 0.17029,
+                        "linear": 0.0581
+                    },
+                    "together": {
+                        "uniform": 0.17048,
+                        "exponential": 0.16757,
+                        "linear": 0.04095
+                    },
+                    "independently": {
+                        "uniform": 0.12369,
+                        "exponential": 0.13563,
+                        "linear": 0.05267
+                    }
+                },
+                "linear": {
+                    "False": {
+                        "uniform": 0.13764,
+                        "exponential": 0.14445,
+                        "linear": 0.06091
+                    },
+                    "together": {
+                        "uniform": 0.10169,
+                        "exponential": 0.13225,
+                        "linear": 0.04379
+                    },
+                    "independently": {
+                        "uniform": 0.13671,
+                        "exponential": 0.14997,
+                        "linear": 0.04822
+                    }
+                },
+                "mixed": {
+                    "False": {
+                        "uniform": 0.10649,
+                        "exponential": 0.25832,
+                        "linear": 0.07707
+                    },
+                    "together": {
+                        "uniform": 0.10163,
+                        "exponential": 0.23566,
+                        "linear": 0.07441
+                    },
+                    "independently": {
+                        "uniform": 0.09552,
+                        "exponential": 0.18723,
+                        "linear": 0.05859
+                    }
+                }
+            },
+            "1000": {
+                "uniform": {
+                    "False": {
+                        "uniform": 0.03132,
+                        "exponential": 0.0665,
+                        "linear": 0.01944
+                    },
+                    "together": {
+                        "uniform": 0.03161,
+                        "exponential": 0.05703,
+                        "linear": 0.02168
+                    },
+                    "independently": {
+                        "uniform": 0.03529,
+                        "exponential": 0.08425,
+                        "linear": 0.01082
+                    }
+                },
+                "exponential": {
+                    "False": {
+                        "uniform": 0.0614,
+                        "exponential": 0.05937,
+                        "linear": 0.02331
+                    },
+                    "together": {
+                        "uniform": 0.052,
+                        "exponential": 0.06449,
+                        "linear": 0.02188
+                    },
+                    "independently": {
+                        "uniform": 0.05097,
+                        "exponential": 0.05781,
+                        "linear": 0.0242
+                    }
+                },
+                "linear": {
+                    "False": {
+                        "uniform": 0.07685,
+                        "exponential": 0.10985,
+                        "linear": 0.01627
+                    },
+                    "together": {
+                        "uniform": 0.06971,
+                        "exponential": 0.08923,
+                        "linear": 0.02687
+                    },
+                    "independently": {
+                        "uniform": 0.07431,
+                        "exponential": 0.10325,
+                        "linear": 0.02514
+                    }
+                },
+                "mixed": {
+                    "False": {
+                        "uniform": 0.05569,
+                        "exponential": 0.08806,
+                        "linear": 0.01942
+                    },
+                    "together": {
+                        "uniform": 0.0529,
+                        "exponential": 0.10957,
+                        "linear": 0.02713
+                    },
+                    "independently": {
+                        "uniform": 0.05696,
+                        "exponential": 0.09082,
+                        "linear": 0.0183
+                    }
+                }
+            },
+            "1500": {
+                "uniform": {
+                    "False": {
+                        "uniform": 0.02895,
+                        "exponential": 0.08625,
+                        "linear": 0.01413
+                    },
+                    "together": {
+                        "uniform": 0.02874,
+                        "exponential": 0.06585,
+                        "linear": 0.01166
+                    },
+                    "independently": {
+                        "uniform": 0.02734,
+                        "exponential": 0.0554,
+                        "linear": 0.01062
+                    }
+                },
+                "exponential": {
+                    "False": {
+                        "uniform": 0.05582,
+                        "exponential": 0.03588,
+                        "linear": 0.01734
+                    },
+                    "together": {
+                        "uniform": 0.03156,
+                        "exponential": 0.04504,
+                        "linear": 0.02699
+                    },
+                    "independently": {
+                        "uniform": 0.02775,
+                        "exponential": 0.03058,
+                        "linear": 0.02505
+                    }
+                },
+                "linear": {
+                    "False": {
+                        "uniform": 0.02461,
+                        "exponential": 0.05228,
+                        "linear": 0.01675
+                    },
+                    "together": {
+                        "uniform": 0.02445,
+                        "exponential": 0.05215,
+                        "linear": 0.02053
+                    },
+                    "independently": {
+                        "uniform": 0.04537,
+                        "exponential": 0.05606,
+                        "linear": 0.02271
+                    }
+                },
+                "mixed": {
+                    "False": {
+                        "uniform": 0.05207,
+                        "exponential": 0.07783,
+                        "linear": 0.02215
+                    },
+                    "together": {
+                        "uniform": 0.05688,
+                        "exponential": 0.05825,
+                        "linear": 0.01332
+                    },
+                    "independently": {
+                        "uniform": 0.05738,
+                        "exponential": 0.06552,
+                        "linear": 0.01771
+                    }
+                }
+            }
+        }
+    },
+    "True": {
+        "average": {
+            "1000": {
+                "mixed": {
+                    "False": {
+                        "uniform": 0.0051,
+                        "exponential": 0.00493,
+                        "linear": 0.00521,
+                        "mixed": 0.00508
+                    },
+                    "together": {
+                        "uniform": 0.00485,
+                        "exponential": 0.00486,
+                        "linear": 0.00496,
+                        "mixed": 0.00489
+                    },
+                    "independently": {
+                        "uniform": 0.00466,
+                        "exponential": 0.00422,
+                        "linear": 0.00434,
+                        "mixed": 0.00441
+                    }
+                }
+            }
+        },
+        "worst": {
+            "1000": {
+                "mixed": {
+                    "False": {
+                        "uniform": 0.08056,
+                        "exponential": 0.10114,
+                        "linear": 0.04184
+                    },
+                    "together": {
+                        "uniform": 0.05583,
+                        "exponential": 0.09249,
+                        "linear": 0.04173
+                    },
+                    "independently": {
+                        "uniform": 0.08183,
+                        "exponential": 0.104,
+                        "linear": 0.03042
+                    }
+                }
+            }
+        }
+    }
+}

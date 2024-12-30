@@ -79,6 +79,7 @@ nnodes = torch.from_numpy(nnodes)
 node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
+node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
 features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges)
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
@@ -114,7 +115,7 @@ model = PCNO(ndim, modes, nmeasures=1,
 
 
 epochs = 500
-base_lr = 0.001
+base_lr = 5e-4 #0.001
 lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4

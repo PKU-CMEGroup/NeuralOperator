@@ -67,10 +67,11 @@ else:
     data = np.load(data_path + "pcno_triangle_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
+    node_measures = data["node_measures"]
+    
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
-    
-    node_measures = data["node_measures"]
+
     node_measures_raw = data["node_measures_raw"]
     indices = np.isfinite(node_measures_raw)
     node_rhos = np.copy(node_weights)
@@ -85,21 +86,33 @@ nnodes = torch.from_numpy(nnodes)
 node_mask = torch.from_numpy(node_mask)
 nodes = torch.from_numpy(nodes.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
+node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
+# # Normalize the infos to the range [0,1]
+# normalization_infos = True
+# if normalization_infos:
+#     eps = 1e-06
+#     with open(data_path + "info_bounds.txt", "r") as fp:
+#         min_bounds = fp.readline().split(" ")
+#         max_bounds = fp.readline().split(" ")
 
-# Normalize the infos to the range [0,1]
-normalization_infos = True
-if normalization_infos:
-    eps = 1e-06
-    with open(data_path + "info_bounds.txt", "r") as fp:
-        min_bounds = fp.readline().split(" ")
-        max_bounds = fp.readline().split(" ")
+#         min_bounds = [float(a) - eps for a in min_bounds]
+#         max_bounds = [float(a) + eps for a in max_bounds]
 
-        min_bounds = [float(a) - eps for a in min_bounds]
-        max_bounds = [float(a) + eps for a in max_bounds]
+#     for i in range(8):
+#         features[..., i + 1] = (features[..., i + 1]
+#                                 - min_bounds[i]) / (max_bounds[i] - min_bounds[i])
 
-    for i in range(8):
-        features[..., i + 1] = (features[..., i + 1]
-                                - min_bounds[i]) / (max_bounds[i] - min_bounds[i])
+# features are :
+# pressure (~10^3 Pa) 
+# length (644mm-1444mm), width (239mm-539mm), height (208mm-368mm), ground clearance (30mm-90mm), slant angle (0degree-40degree)
+# front radius (80mm-120mm), velocity (10m/s-70m/s), reynolds number (4.35e5 - 6.82e6)
+# We normalize 
+# length, width, height ground clearance, front radius with unit m , 1/100
+# slant angle     pi/180
+# velocity        1/100
+# Reynolds number 1e6
+features /= np.array([1.0, 100.0, 100.0, 100.0, 100.0, 180.0/np.pi, 100.0, 100.0, 1E6])
+# keep only the pressure and Reynolds number
 features = torch.from_numpy(features.astype(np.float32))
 
 directed_edges = torch.from_numpy(directed_edges)
@@ -110,9 +123,9 @@ edge_gradient_weights = torch.from_numpy(
 nodes_input = nodes.clone()
 
 data_in, data_out = torch.cat(
-    [nodes_input, features[..., 1:]], dim=-1), features[..., :1]
+    [features[..., 1:], nodes_input, node_rhos], dim=-1), features[..., :1]
 print(f"data in:{data_in.shape}, data out:{data_out.shape}")
-n_train, n_test = 250, 50
+n_train, n_test = 500, 51
 
 
 x_train, x_test = data_in[:n_train, ...], data_in[-n_test:, ...]
@@ -130,7 +143,7 @@ print(f"x train:{x_train.shape}, y train:{y_train.shape}", flush=True)
 ###################################
 k_max = 8
 ndim = 3
-train_sp_L = False
+train_sp_L = "together"
 
 Lx = 0.0004795 - (-1.34399998)
 Ly = 0.25450477 - 0
@@ -144,22 +157,22 @@ modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
              layers=[128, 128, 128, 128, 128],
              fc_dim=128,
-             in_dim=11, out_dim=1,
+             in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
              train_sp_L=train_sp_L,
              act='gelu').to(device)
 
 epochs = 500
-base_lr = 0.001
+base_lr = 5e-4 #0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size = 5
+batch_size = 4
 lr_ratio = 10
 
-normalization_x = False
-normalization_y = False
+normalization_x = True
+normalization_y = True
 normalization_dim_x = []
 normalization_dim_y = []
-non_normalized_dim_x = 0
+non_normalized_dim_x = 4
 non_normalized_dim_y = 0
 
 

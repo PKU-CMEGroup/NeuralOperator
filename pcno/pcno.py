@@ -450,6 +450,11 @@ class PCNO(nn.Module):
         return x 
     
 
+
+################################################################
+# Training (Optimization)
+################################################################
+
 class CombinedOptimizer:
     '''
     CombinedOptimizer.
@@ -462,7 +467,7 @@ class CombinedOptimizer:
         betas=betas,
         lr=lr,
         weight_decay=weight_decay,
-    )
+        )
         if params2 == []:
             self.optimizer2 = None
         else:
@@ -482,6 +487,25 @@ class CombinedOptimizer:
         self.optimizer1.zero_grad()
         if self.optimizer2:
             self.optimizer2.zero_grad()
+
+    def state_dict(self):
+        # Initialize an empty dictionary to store the state
+        state = {}
+        # Save the state of the first optimizer
+        state['optimizer1'] = self.optimizer1.state_dict()
+        if self.optimizer2:
+            # Save the state of the second optimizer
+            state['optimizer2'] = self.optimizer2.state_dict()
+        return state
+
+    def load_state_dict(self, state_dict):
+        # Load the state of the first optimizer
+        self.optimizer1.load_state_dict(state_dict['optimizer1'])
+        if self.optimizer2:
+            # Load the state of the second optimizer
+            self.optimizer2.load_state_dict(state_dict['optimizer2'])
+
+        
 
 
 class Combinedscheduler_OneCycleLR:
@@ -510,9 +534,32 @@ class Combinedscheduler_OneCycleLR:
         if self.scheduler2:
             self.scheduler2.step()
 
+    def state_dict(self):
+        # Initialize an empty dictionary to store the state
+        state = {}
+
+        # Save the state of the first scheduler
+        state['scheduler1'] = self.scheduler1.state_dict()
+        if self.scheduler2:
+            # Save the state of the second scheduler
+            state['scheduler2'] = self.scheduler2.state_dict()
+
+        return state
+
+    def load_state_dict(self, state_dict):
+        # Load the state of the first scheduler
+        self.scheduler1.load_state_dict(state_dict['scheduler1'])
+        if self.scheduler2:
+            # Load the state of the second scheduler
+            self.scheduler2.load_state_dict(state_dict['scheduler2'])
+
+        
+
+
+
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_model"):
+def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_model", checkpoint_path=None):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -547,26 +594,8 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
-    
-    # Load from checkpoint
-    # optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
-    #                  lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
-    
-    # if config['train']['scheduler'] == "MultiStepLR":
-    #     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-    #                                                  milestones=config['train']['milestones'],
-    #                                                  gamma=config['train']['scheduler_gamma'])
-    # elif config['train']['scheduler'] == "CosineAnnealingLR":
-    #     T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
-    #     eta_min  = 0.0
-    #     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
-    # elif config["train"]["scheduler"] == "OneCycleLR":
-    #     scheduler = torch.optim.lr_scheduler.OneCycleLR(
-    #         optimizer, max_lr=config['train']['base_lr'], 
-    #         div_factor=2, final_div_factor=100,pct_start=0.2,
-    #         steps_per_epoch=1, epochs=config['train']['epochs'])
-    # else:
-    #     print("Scheduler ", config['train']['scheduler'], " has not implemented.")
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
     optimizer = CombinedOptimizer(model.normal_params,model.sp_L_params,
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
@@ -579,13 +608,21 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         div_factor=2, final_div_factor=100,pct_start=0.2,
         steps_per_epoch=1, epochs=config['train']['epochs'])
     
-    model.train()
-    myloss = LpLoss(d=1, p=2, size_average=False)
+    current_epoch, epochs = 0, config['train']['epochs']
+    
+    if checkpoint_path:
+        checkpoint = torch.load(checkpoint_path, weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        # retrieve epoch and loss
+        current_epoch = checkpoint['current_epoch'] + 1
+        print("resetart from epoch : ", current_epoch)
 
-    epochs = config['train']['epochs']
 
 
-    for ep in range(epochs):
+
+    for ep in range(current_epoch, epochs):
         t1 = default_timer()
         train_rel_l2 = 0
 
@@ -608,6 +645,9 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         test_l2 = 0
         test_rel_l2 = 0
+
+
+        model.eval()
         with torch.no_grad():
             for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
                 x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
@@ -630,7 +670,6 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         train_rel_l2/= n_train
         test_l2 /= n_test
         test_rel_l2/= n_test
-        
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
@@ -640,9 +679,17 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
               ' 1/sp_L: ',[round(float(x[0]), 3) for x in model.sp_L.cpu().tolist()],
                   flush=True)
-        
         if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model.state_dict(), save_model_name + ".pth")
+
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'current_epoch': ep,  # optional: to track training progress
+            }, "checkpoint.pth")
+
+            
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

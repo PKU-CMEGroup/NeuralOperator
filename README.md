@@ -19,8 +19,7 @@ enabling researchers to quickly and easily develop and test novel surrogate mode
 * Test scripts are in the *scripts* folder. Each subfolder contains scripts for various neural operators applied to a specific dataset, with the folder name matching the corresponding dataset subfolder in the *data* folder.
 
 <pre style="white-space: pre-wrap;">
-<code>
-NeuralOperator/
+<code>NeuralOperator/
 
 ├── utility/
 │   ├── adam.py
@@ -43,9 +42,6 @@ NeuralOperator/
 
 ├── scripts/
 │   ├── (various test script folders, such as darcy_square)
-
-
-
 </code>
 </pre>
 
@@ -61,14 +57,14 @@ Let's start! (⚠️ under construction)
     * [Fourier Neural Operator](docs/fno.ipynb)
     * [Point Cloud Neural Operator](docs/pcno.ipynb)
 * Example
-      * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)
-      * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)
-      * [Darcy Flow Problem on Deformed Domain](scripts/darcy_deformed_domain/README.md)
-      * [Airfoil](scripts/airfoil/README.md)
-      * [Airfoil with flap](scripts/airfoil_flap/README.md)
-      * [ShapeNet Car](scripts/car_shapenet/README.md)
-      * [Ahmed Body](scripts/ahmed_body/README.md)
-      * [Parachute Dynamics](scripts/parachute/README.md)
+    * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)
+    * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)
+    * [Darcy Flow Problem on Deformed Domain](scripts/darcy_deformed_domain/README.md)
+    * [Airfoil](scripts/airfoil/README.md)
+    * [Airfoil with flap](scripts/airfoil_flap/README.md)
+    * [ShapeNet Car](scripts/car_shapenet/README.md)
+    * [Ahmed Body](scripts/ahmed_body/README.md)
+    * [Parachute Dynamics](scripts/parachute/README.md)
       
 
 

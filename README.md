@@ -18,8 +18,7 @@ enabling researchers to quickly and easily develop and test novel surrogate mode
 * Datasets should be downloaded into the *data* folder. Each subfolder contains one dataset, such as `darcy_square` for the Darcy flow problem in the unit square.
 * Test scripts are in the *scripts* folder. Each subfolder contains scripts for various neural operators applied to a specific dataset, with the folder name matching the corresponding dataset subfolder in the *data* folder.
 
-<pre style="white-space: pre-wrap;">
-<code>NeuralOperator/
+<pre style="white-space: pre-wrap;"><code>NeuralOperator/
 
 ├── utility/
 │   ├── adam.py
@@ -41,9 +40,7 @@ enabling researchers to quickly and easily develop and test novel surrogate mode
 │   ├── (various data folders, such as darcy_square)
 
 ├── scripts/
-│   ├── (various test script folders, such as darcy_square)
-</code>
-</pre>
+│   ├── (various test script folders, such as darcy_square)</code></pre>
 
 
 ## Tutorial
@@ -52,7 +49,8 @@ Let's start! (⚠️ under construction)
 
 
 * Overview
-    * [Surrogate Modeling](docs/surrogate_modeling.ipynb) 
+    * [Surrogate Modeling](docs/surrogate_modeling.ipynb)
+    * [Python Naming Conventions](https://peps.python.org/pep-0008/#naming-conventions)
 * Neural operator
     * [Fourier Neural Operator](docs/fno.ipynb)
     * [Point Cloud Neural Operator](docs/pcno.ipynb)

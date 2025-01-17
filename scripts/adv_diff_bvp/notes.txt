@@ -1,5 +1,0 @@
-画equal weight
-画1000 datasize三个图： uniform , linear , exponential对应的四种train分布
-画loss随epochs变化图 
-画1000 datasize的test loss分布图
-1000 datasize上的truth, prediction, error函数图

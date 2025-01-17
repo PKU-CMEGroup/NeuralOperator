@@ -49,7 +49,7 @@ Let's start! (⚠️ under construction)
 
 
 * Overview
-    * [Surrogate Modeling](docs/surrogate_modeling.pptx)
+    * [Surrogate Modeling](docs/surrogate_modeling.pdf)
     * [Python Naming Conventions](https://peps.python.org/pep-0008/#naming-conventions)
 * Neural operator
     * [Fourier Neural Operator](docs/fno.ipynb)

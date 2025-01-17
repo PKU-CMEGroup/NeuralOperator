@@ -6,19 +6,16 @@ import sys
 import numpy as np
 import math
 from timeit import default_timer
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import argparse
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
 
 torch.set_printoptions(precision=16)
-
-
 torch.manual_seed(0)
 np.random.seed(0)
-
-
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def load_data(data_path):
@@ -43,6 +40,7 @@ def load_data(data_path):
             elems_list.append(elems)
             features_list.append(data[:,1:])
     return nodes_list, elems_list, features_list 
+    
 ###################################
 # load data
 ###################################
@@ -92,8 +90,8 @@ else:
 
 
 parser = argparse.ArgumentParser(description='Train model with different types.')
-parser.add_argument('--train_type', type=str, default='uniform', choices=['uniform', 'exponential', 'linear', 'mixed'],
-                    help='Type of training (uniform, exponential, linear, all)')
+parser.add_argument('--train_distribution', type=str, default='uniform', choices=['uniform', 'exponential', 'linear', 'mixed'],
+                    help='distribution of training dataset (uniform, exponential, linear, mixed)')
 parser.add_argument('--n_train', type=int, default=1000, choices=[500, 1000, 1500],
                     help='training datasize (500,1000,1500)')
 parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
@@ -101,14 +99,13 @@ parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' 
 args = parser.parse_args()
 if args.train_sp_L == 'False':
     args.train_sp_L = False
-
-train_type = args.train_type
+train_distribution = args.train_distribution
 n_train = args.n_train
 train_sp_L = args.train_sp_L
-print(f'train_type = {train_type}, n_train = {n_train}, train_sp_L = {train_sp_L}')
+print(f'train_distribution = {train_distribution}, n_train = {n_train}, train_sp_L = {train_sp_L}')
+
 
 print("Casting to tensor")
-
 indices_dict = {'uniform': np.arange(nodes.shape[0]) % 3 == 0,
             'exponential': np.arange(nodes.shape[0]) % 3 == 1,
               "linear": np.arange(nodes.shape[0]) % 3 == 2,
@@ -116,18 +113,18 @@ indices_dict = {'uniform': np.arange(nodes.shape[0]) % 3 == 0,
 
 # normalize features
 features /= np.array([1.0, 1.0, 0.01, 1.0])
-nnodes = torch.from_numpy(nnodes[indices_dict[train_type]])
-node_mask = torch.from_numpy(node_mask[indices_dict[train_type]])
-nodes = torch.from_numpy(nodes[indices_dict[train_type]].astype(np.float32))
-node_weights = torch.from_numpy(node_weights[indices_dict[train_type]].astype(np.float32))
+nnodes = torch.from_numpy(nnodes[indices_dict[train_distribution]])
+node_mask = torch.from_numpy(node_mask[indices_dict[train_distribution]])
+nodes = torch.from_numpy(nodes[indices_dict[train_distribution]].astype(np.float32))
+node_weights = torch.from_numpy(node_weights[indices_dict[train_distribution]].astype(np.float32))
 node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
-features = torch.from_numpy(features[indices_dict[train_type]].astype(np.float32))
-directed_edges = torch.from_numpy(directed_edges[indices_dict[train_type]].astype(np.int64))
-edge_gradient_weights = torch.from_numpy(edge_gradient_weights[indices_dict[train_type]].astype(np.float32))
+features = torch.from_numpy(features[indices_dict[train_distribution]].astype(np.float32))
+directed_edges = torch.from_numpy(directed_edges[indices_dict[train_distribution]].astype(np.int64))
+edge_gradient_weights = torch.from_numpy(edge_gradient_weights[indices_dict[train_distribution]].astype(np.float32))
 
-print('train_type: ',train_type,'nodes.shape: ',nodes.shape,' feature.shape: ',features.shape)
+print(f'nodes.shape: {nodes.shape}, feature.shape: {features.shape}')
+
 n_test = 200
-
 
 nodes_input = nodes.clone()
 
@@ -161,8 +158,8 @@ scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = 8
 
-normalization_x = True
-normalization_y = True
+normalization_x = False
+normalization_y = False
 normalization_dim_x = []
 normalization_dim_y = []
 non_normalized_dim_x = 2
@@ -177,7 +174,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
 print(f'Start training , train_sp_L = {train_sp_L}, lr_ratio = {lr_ratio}')
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}/{train_type}_{train_sp_L}"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}/{train_distribution}_{train_sp_L}"
 )
 
 

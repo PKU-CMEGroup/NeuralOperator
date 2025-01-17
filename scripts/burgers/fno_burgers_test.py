@@ -68,7 +68,7 @@ model = FNO1d(modes=[k_max,k_max,k_max,k_max],
 
 
 
-epochs = 1000
+epochs = 5000
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4

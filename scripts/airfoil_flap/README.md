@@ -98,8 +98,8 @@ python pcno_airfoilflap_test.py --train_type flap --feature_type pressure --n_tr
 | `--batch_size`     | `int` | `8`          |                                      | Batch size. |
 ---
 
-The output file names will include the parameter values for traceability. For example:
+The output file names will include some parameter values for traceability. For example:
 
 ```bash
-PCNO_airfoilplap_mixed_mach_n1000_Lx1.0_Ly0.5_20250101_123030.pth
+PCNO_airfoil_flap_mixed_n1000_20250101_123030.pth
 ```

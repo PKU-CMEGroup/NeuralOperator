@@ -7,6 +7,5 @@
 #SBATCH --time=100:00:00
 
 module load conda
-source ~/.bashrc
 conda activate pytorch 
 python darcy_train.py --preprocess_data True

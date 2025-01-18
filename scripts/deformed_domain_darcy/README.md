@@ -23,24 +23,27 @@ This dataset contains samples for four types of deformed domain darcy flow simul
   Stores 2000 solutions at the smooth coefficient and the small grid scale
 
 
-├── deformed_domain_darcy/   
-│&emsp;&emsp;├── sharp_large_scale/  
-│&emsp;&emsp;&emsp;&emsp;├── elements_00000.npy  
-│&emsp;&emsp;&emsp;&emsp;├── elements_00001.npy  
-│&emsp;&emsp;&emsp;&emsp;├── ......  
-│&emsp;&emsp;&emsp;&emsp;├── features_00000.npy  
-│&emsp;&emsp;&emsp;&emsp;├── features_00001.npy  
-│&emsp;&emsp;&emsp;&emsp;├── ......  
-│&emsp;&emsp;&emsp;&emsp;├── nodes_00000.npy  
-│&emsp;&emsp;&emsp;&emsp;├── nodes_00001.npy  
-│&emsp;&emsp;&emsp;&emsp;├── ......  
-│&emsp;&emsp;├── sharp_small_scale/  
-│&emsp;&emsp;&emsp;&emsp;├── ......  
-│&emsp;&emsp;├── smooth_large_scale/  
-│&emsp;&emsp;&emsp;&emsp;├── ......  
-│&emsp;&emsp;├── smooth_large_scale/  
-│&emsp;&emsp;&emsp;&emsp;├── ......  
-|&emsp;&emsp;├── Data.ipynb
+<pre style="white-space: pre-wrap;"><code>
+
+├── deformed_domain_darcy/
+│   ├── sharp_large_scale/
+│       ├── elems_00000.npy
+│       ├── elems_00001.npy
+│       ├── ......
+│       ├── features_00000.npy
+│       ├── features_00001.npy
+│       ├── ......
+│       ├── nodes_00000.npy
+│       ├── nodes_00001.npy
+│       ├── ......
+│   ├── sharp_small_scale/
+│       ├── ......
+│   ├── smooth_large_scale/
+│       ├── ......
+│   ├── smooth_small_scale/
+│       ├── ......
+
+├── Data.ipynb
 </code></pre>
 
 - **`nodes_xxxxx.npy`**: These files contain the coordinates of the mesh nodes. The nodes represent the discretized points in the airfoil or airfoil-flap geometry. The shape is **(nnodes, 2)** 

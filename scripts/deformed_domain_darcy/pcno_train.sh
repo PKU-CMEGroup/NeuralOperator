@@ -9,5 +9,6 @@
 #SBATCH --time=24:00:00
 
 module load conda
+source ~/.bashrc
 conda activate pytorch 
-python pcno_deformed_darcy.py > log/test.log
+python pcno_deformed_darcy.py --train_type mixed  --n_train 500 --Lx 2.0 --Ly 2.0 --lr_ratio 5 > log/test.log

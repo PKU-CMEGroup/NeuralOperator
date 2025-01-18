@@ -7,6 +7,7 @@ import math
 import matplotlib.pyplot as plt
 from timeit import default_timer
 from scipy.io import loadmat
+import argparse
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 
@@ -25,12 +26,37 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 
-try:
-    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
-except IndexError:
-    PREPROCESS_DATA = False
+parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
+
+parser.add_argument('--preprocess_data', type=str, default='False', help='Whether to preprocess the data before training (True/False)')
 
 
+parser.add_argument('--n_train', type=int, default=1000, help='Number of training samples')
+parser.add_argument('--n_test', type=int, default=200, help='Number of testing samples')
+parser.add_argument('--train_type', type=str, default='mixed', choices=['fine', 'coarse', 'mixed'], help='Type of training data')
+parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
+
+
+parser.add_argument('--Lx', type=float, default=2.0, help='Initial value for the length of the x dimension')
+parser.add_argument('--Ly', type=float, default=2.0, help='Initial value for the length of the y dimension')
+parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'], help='type of train_sp_L (False, together, independently)')
+
+parser.add_argument('--normalization_x', type=str, default='False', help='Whether to normalize the x dimension (True/False)')
+parser.add_argument('--normalization_y', type=str, default='False', help='Whether to normalize the y dimension (True/False)')
+
+
+parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`')
+parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
+
+
+args = parser.parse_args()
+PREPROCESS_DATA = args.preprocess_data.lower() == "true"
+
+save_model_name = f"PCNO_darcy_{args.train_type}_n{args.n_train}"
+print(save_model_name)
+args_dict = vars(args)
+for i, (key, value) in enumerate(args_dict.items()):
+    print(f"{key}: {value}")
 
 data_path = "/lustre/home/2401110057/PCNO/data/"
 
@@ -84,7 +110,7 @@ if PREPROCESS_DATA:
     exit()
 else:
     # load data 
-    equal_weights = False
+    equal_weights = args.equal_weight.lower() == "true"
 
     data = np.load("pcno_darcy_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -115,13 +141,20 @@ edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32
 
 
 nodes_input = nodes.clone()
-n_train = 500
-n_test = 200
-print("ok")
+n_train = args.n_train
+n_test = args.n_test
+
 
 #rows_train=np.concatenate((np.arange(0,n_train),np.arange(2000,2000+n_train)))#mixed data
 #rows_train = np.arange(2000,2000+n_train) #coarse data
-rows_train = np.arange(0,n_train) #fine data
+#rows_train = np.arange(0,n_train) #fine data
+train_type = args.train_type
+if train_type == "fine":
+    rows_train = np.arange(0,n_train) #fine data
+elif train_type == "coarse":
+    rows_train = np.arange(2000,2000+n_train) #coarse data
+elif train_type == "mixed":
+    rows_train=np.concatenate((np.arange(0,n_train/2),np.arange(2000,2000+n_train/2)))#mixed data
 
 rows_test_fine   = np.arange(2000-n_test,2000) # fine test
 rows_test_coarse = np.arange(4000-n_test,4000) # coarse test
@@ -145,11 +178,17 @@ y_train, y_test = features[rows_train, :, 1:2],       features[rows_test_fine, :
 
 k_max = 16
 ndim = 2
-modes = compute_Fourier_modes(ndim, [k_max,k_max], [2,2])
+if args.train_sp_L == 'False':
+    args.train_sp_L = False
+train_sp_L = args.train_sp_L
+Lx, Ly = args.Lx, args.Ly
+
+modes = compute_Fourier_modes(ndim, [k_max,k_max], [Lx,Ly])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
+               train_sp_L=train_sp_L,
                in_dim=4, out_dim=1,
                act='gelu').to(device)
 
@@ -159,11 +198,11 @@ epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size = 10
-lr_ratio = 5
+batch_size = args.batch_size
+lr_ratio = args.lr_ratio
 
-normalization_x = False
-normalization_y = False
+normalization_x = args.normalization_x.lower() == "true"
+normalization_y = args.normalization_y.lower() == "true"
 normalization_dim_x = []
 normalization_dim_y = []
 non_normalized_dim_x = 2
@@ -177,7 +216,7 @@ config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs":
                      }
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_darcy_test"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="save_model_name"
 )
 
 

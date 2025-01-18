@@ -27,8 +27,8 @@ This dataset contains samples for four types of deformed domain darcy flow simul
 
 ├── deformed_domain_darcy/
 │   ├── sharp_large_scale/
-│       ├── elems_00000.npy
-│       ├── elems_00001.npy
+│       ├── elements_00000.npy
+│       ├── elements_00001.npy
 │       ├── ......
 │       ├── features_00000.npy
 │       ├── features_00001.npy
@@ -47,7 +47,7 @@ This dataset contains samples for four types of deformed domain darcy flow simul
 </code></pre>
 
 - **`nodes_xxxxx.npy`**: These files contain the coordinates of the mesh nodes. The nodes represent the discretized points in the airfoil or airfoil-flap geometry. The shape is **(nnodes, 2)** 
-- **`elems_xxxxx.npy`**: These files define the connectivity between the nodes, specifying which nodes form the triangle elements of the mesh. The shape is **(nelems, 4)** Contains the array `[elem_dim, e1, e2, e3]`, where:  
+- **`elements_xxxxx.npy`**: These files define the connectivity between the nodes, specifying which nodes form the triangle elements of the mesh. The shape is **(nelems, 4)** Contains the array `[elem_dim, e1, e2, e3]`, where:  
     - `elem_dim` specifies the dimensionality of the element:  
     - `2`: A triangle (surface element).  
     - `1`: A segment (line element).   

@@ -63,7 +63,7 @@ For instance, visualizations of the permeability field and reference solution ar
 # Running the Script
 To preprocess the data before training, run the script with the preprocess_data argument:
 ```bash
-python pcno_deformed_darcy.py  "preprocess_data"
+python pcno_deformed_darcy.py  --preprocess_data True
 ```
 
 You can run the script with customized parameters. For example:

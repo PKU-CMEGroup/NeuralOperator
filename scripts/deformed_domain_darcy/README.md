@@ -63,7 +63,7 @@ For instance, visualizations of the permeability field and reference solution ar
 # Running the Script
 To preprocess the data before training, run the script with the preprocess_data argument:
 ```bash
-python pcno_deformed_darcy.py  --preprocess_data True
+python pcno_deformed_darcy.py  "preprocess_data"
 ```
 
 You can run the script with customized parameters. For example:
@@ -81,9 +81,7 @@ python pcno_deformed_darcy.py --train_type mixed  --n_train 1000 --Lx 2.0 --Ly 2
 | `--n_test`       | `int`   | `200`         |              | Number of testing samples to use|
 | `--train_sp_L`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies whether the spatial length scales (`Lx`, `Ly`) are trained:  - `False`: Do not train the spatial length scales. - `together`: Train `Lx` and `Ly`  - `independently`: Train `Lx` and `Ly` independently. |
 | `--Lx`           | `float` | `2.0`         |                                      | Initial value of the spatial length scale Lx.                                                                                                                                                                      |
-| `--Ly`           | `float` | `2.0`         |                                      | Initial value of the spatial length scale Ly.                                                                                                                                                                      |
-| `--normalization_x`           | `str` | `False`         |        `True`  ,`False`                           | Whether to normalize the x dimension                                                                                                                                                                    |
-| `--normalization_y`           | `str` | `False`         |        `True`  ,`False`                            | Whether to normalize the y dimension                                                                                                                                          |
+| `--Ly`           | `float` | `2.0`         |                                      | Initial value of the spatial length scale Ly.                                           
 | `--lr_ratio`     | `float` | `5`          |                                      | Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`. |
 | `--batch_size`     | `int` | `8`          |                                      | Batch size. |
 ---

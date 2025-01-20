@@ -23,12 +23,13 @@ np.random.seed(0)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-
+try:
+    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
+except IndexError:
+    PREPROCESS_DATA = False
 
 
 parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
-
-parser.add_argument('--preprocess_data', type=str, default='False', help='Whether to preprocess the data before training (True/False)')
 
 
 parser.add_argument('--n_train', type=int, default=1000, help='Number of training samples')
@@ -50,7 +51,6 @@ parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
 
 
 args = parser.parse_args()
-PREPROCESS_DATA = args.preprocess_data.lower() == "true"
 
 save_model_name = f"PCNO_darcy_{args.train_type}_n{args.n_train}"
 print(save_model_name)

@@ -74,7 +74,7 @@ python pcno_deformed_darcy.py --train_type mixed  --n_train 1000 --Lx 2.0 --Ly 2
 # Parameters
 
 | Name             | Type    | Default Value | Choices                              | Description                                                                                                                                                                                                        |
-| ---------------- | ------- | ------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ----------------- | ------- | ------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--train_type`   | `str`   | `mixed`       | `fine`, `coarse`, `mixed`          | Specifies the type of training data:   - `standard`: Data with fine meshes.  - `flap`: Data with coarse meshes- `mixed`: A balanced combination of fine and coarse data.                    |
 | `--equal_weight` | `str`   |  `False`        | `True`, `False`           | Specify whether to use equal weight   - `True`: Point cloud density - `False`: Uniform density|
 | `--n_train`      | `int`   | `1000`        | `500`, `1000`, `1500`                | Number of training samples to use|

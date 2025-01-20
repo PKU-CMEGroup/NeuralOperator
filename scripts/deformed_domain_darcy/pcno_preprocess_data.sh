@@ -8,4 +8,4 @@
 
 module load conda
 conda activate pytorch 
-python darcy_train.py --preprocess_data True
+python darcy_train.py "preprocess_data"

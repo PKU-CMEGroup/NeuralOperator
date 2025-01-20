@@ -61,9 +61,9 @@ Each data folder contains 2000 parachutes(from 0 to 1999).
   - An indicator array, where a value of `1` marks a node as being on a line, and `0` otherwise.  
 
 For instance, visualizations of the parachute are shown below.(From top to bottom are DGB, Arc and Robbin)
-![DGB](./pic/DGB_sample.png)
-![Arc](./pic/Arc_sample.png)
-![Robbin](./pic/Robbin_sample.png)
+![DGB](./readme_fig/DGB_sample.png)
+![Arc](./readme_fig/Arc_sample.png)
+![Robbin](./readme_fig/Robbin_sample.png)
 
 # Running the Script
 To preprocess the data before training, run the script with the preprocess_data argument:

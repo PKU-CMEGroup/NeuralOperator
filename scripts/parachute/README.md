@@ -68,7 +68,7 @@ For instance, visualizations of the parachute are shown below.(From top to botto
 # Running the Script
 To preprocess the data before training, run the script with the preprocess_data argument:
 ```bash
-python pcno_parachute_test.py  --preprocess_data True
+python pcno_parachute_test.py  "preprocess_data"
 ```
 
 You can run the script with customized parameters. For example:

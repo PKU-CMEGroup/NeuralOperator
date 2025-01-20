@@ -10,4 +10,5 @@
 
 module load conda
 source activate pytorch 
-python pcno_parachute_test.py > PCNO_parachute.log
+python pcno_parachute_test.py --train_sp_L 'together'> PCNO_parachute_test.log
+

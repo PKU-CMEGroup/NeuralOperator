@@ -55,6 +55,7 @@ parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' 
 parser.add_argument('--lr_ratio', type=float, default=10, help='lr ratio for independent training for L')
 parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
 args = parser.parse_args()
+args_dict = vars(args)
 for i, (key, value) in enumerate(args_dict.items()):
     print(f"{key}: {value}")
 ###################################

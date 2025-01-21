@@ -5,6 +5,7 @@ Download the advection diffusion boundary value problem data from:
   - Name of the data file: adv_diff_bvp.zip
 - File Location: AnyShare://Neural-Operator-Data/adv_diff_bvp.zip
 
+In the downloaded folder, there is a `Data.ipynb` file which contains more detailed introduction to the data.
 
 
 # Training Tips for Parameter sp_L
@@ -24,7 +25,7 @@ Before running the training or other code, it's necessary to preprocess the data
 
 Once the data preprocessing is completed successfully, you can proceed with the subsequent steps and run the training or other related code as described below.
 
-## training
+## Training
 To run a training example, you can use the following command in the terminal:
 
 `python pcno_adv_test.py  --train_distribution 'mixed' --n_train 1000 --train_sp_L 'False'`

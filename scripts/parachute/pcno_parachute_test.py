@@ -6,11 +6,12 @@ import sys
 import numpy as np
 import math
 from timeit import default_timer
+import argparse
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
-from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.pcno_test import compute_Fourier_modes, PCNO, PCNO_train
 
 torch.set_printoptions(precision=16)
 
@@ -45,10 +46,25 @@ try:
 except IndexError:
     PREPROCESS_DATA = False
 
+
+parser = argparse.ArgumentParser(description='Train model with different types.')
+parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
+parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
+                    help='type of train_sp_L (False, together, independently )')
+
+parser.add_argument('--lr_ratio', type=float, default=10, help='lr ratio for independent training for L')
+parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
+args = parser.parse_args()
+args_dict = vars(args)
+for i, (key, value) in enumerate(args_dict.items()):
+    print(f"{key}: {value}")
 ###################################
 # load data
 ###################################
-data_path = "../../data/parachute/"
+data_path = "../../data/parachute/parachute/"
+
+
+
 
 if PREPROCESS_DATA:
     print("Loading data")
@@ -68,7 +84,8 @@ if PREPROCESS_DATA:
     exit()
 else:
     # load data 
-    equal_weights = False
+    
+    equal_weights = args.equal_weight.lower() == "true"
 
     data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -118,23 +135,26 @@ modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max, k_max,k_max,k_max], [9.0
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
+if args.train_sp_L == 'False':
+    args.train_sp_L = False
+train_sp_L = args.train_sp_L
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
 # model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
-               train_sp_L="together",
+               train_sp_L = train_sp_L,
                act='gelu').to(device)
 
 
 
 epochs = 500
 base_lr = 5e-4 #0.001
-lr_ratio = 10
+lr_ratio = args.lr_ratio
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size = 4
+batch_size = args.batch_size
 
 normalization_x = False 
 normalization_y = True 
@@ -154,8 +174,3 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_parachute_model"
 )
-
-
-
-
-

@@ -5,6 +5,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedLocator, FixedFormatter
+plt.rcParams['font.family'] = 'Times New Roman'
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from utility.normalizer import UnitGaussianNormalizer
@@ -35,47 +37,6 @@ def get_median_index(arr):
 
 
 
-def error_plot(filename):
-    data = np.genfromtxt(filename, skip_header = 6)
-    iterations, training_error, test_error = data[:,2] , data[:, 10], data[:, 16]
-    # 创建图形和轴对象
-    fig, ax = plt.subplots(figsize=(6,6))
-
-    # 绘制曲线
-    ax.plot(iterations, training_error, label='Train')
-    ax.plot(iterations, test_error, label='Test')
-    ax.grid("on")
-    # 设置标题和坐标轴标签
-    # ax.set_title('Sine and Cosine Curves', fontsize=16)  # 标题字体大小
-    ax.set_xlabel('Epochs', fontsize=FONTSIZE)          # x 轴标签字体大小
-    ax.set_ylabel(r'$\mathrm{Relative\ L_2\ Error}$', fontsize=FONTSIZE)          # y 轴标签字体大小
-
-    # 定义 0 到 0.1 之间的额外刻度位置
-    extra_ticks = np.arange(0, 0.1, 0.025)  # 从 0 到 0.1，步长为 0.01
-
-    # 获取默认的 y 轴刻度位置，并将新的刻度位置添加到它们之中
-    default_ticks = ax.get_yticks()
-    all_ticks = np.sort(np.unique(np.concatenate((default_ticks, extra_ticks))))
-
-    # 设置 y 轴刻度位置
-    ax.yaxis.set_major_locator(FixedLocator(all_ticks))
-
-    # 可选：设置 y 轴刻度标签（如果不设置，将会自动使用刻度位置作为标签）
-    ax.yaxis.set_major_formatter(FixedFormatter([f'{tick:.2f}' for tick in all_ticks]))
-
-
-    # 调整刻度标签字体大小
-    for tick in ax.get_xticklabels():
-        tick.set_fontsize(FONTSIZE)  # x 轴刻度标签字体大小
-    for tick in ax.get_yticklabels():
-        tick.set_fontsize(FONTSIZE)  # y 轴刻度标签字体大小
-
-    # 添加图例并调整其字体大小
-    legend = ax.legend(fontsize=FONTSIZE)  # 图例字体大小
-
-    # 显示图形
-    plt.tight_layout()
-    plt.savefig("ahmedbody_loss.pdf")
 
 
 
@@ -187,22 +148,7 @@ def predict_error():
         out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
         test_rel_l2[i] = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
     
-    ############################################################################
-    fig, ax = plt.subplots(figsize=(6,6))
-    ax.hist(test_rel_l2, bins=len(test_rel_l2)//2, alpha=0.7, color='C0', edgecolor='black')
-    ax.set_xlabel(r'$\mathrm{Relative\ L_2\ Error}$', fontsize=FONTSIZE)    
-    # ax.set_ylabel('Density', fontsize=FONTSIZE)          # y 轴标签字体大小
-    # 调整刻度标签字体大小
-    for tick in ax.get_xticklabels():
-        tick.set_fontsize(FONTSIZE)  # x 轴刻度标签字体大小
-    for tick in ax.get_yticklabels():
-        tick.set_fontsize(FONTSIZE)  # y 轴刻度标签字体大小
-
-    # 添加图例并调整其字体大小
-    # legend = ax.legend(fontsize=FONTSIZE)  # 图例字体大小
-    # 显示图形
-    plt.tight_layout()
-    plt.savefig("ahmedbody_loss_distribution.pdf")
+    np.save('test_rel_l2.npy', test_rel_l2)
     ############################################################################
     
 
@@ -256,5 +202,73 @@ def predict_error():
         meshio.write("ahmedbody_"+str(i)+".vtk", mesh)
 
 
-error_plot("PCNO_ahmedbody.log")
-predict_error()
+
+
+
+def error_plot():
+    data = np.genfromtxt("PCNO_ahmedbody.log", skip_header = 6)
+    iterations, training_error, test_error = data[:,2] , data[:, 10], data[:, 16]
+    # 创建图形和轴对象
+    fig, ax = plt.subplots(figsize=(6,6))
+
+    # 绘制曲线
+    ax.plot(iterations, training_error, label='Train')
+    ax.plot(iterations, test_error, label='Test')
+    ax.grid("on")
+    # 设置标题和坐标轴标签
+    # ax.set_title('Sine and Cosine Curves', fontsize=16)  # 标题字体大小
+    ax.set_xlabel('Epochs', fontsize=FONTSIZE)          # x 轴标签字体大小
+    ax.set_ylabel('Relative $L_2$ Error', fontsize=FONTSIZE)          # y 轴标签字体大小
+
+    # 定义 0 到 0.1 之间的额外刻度位置
+    extra_ticks = np.arange(0, 0.1, 0.025)  # 从 0 到 0.1，步长为 0.01
+
+    # 获取默认的 y 轴刻度位置，并将新的刻度位置添加到它们之中
+    default_ticks = ax.get_yticks()
+    all_ticks = np.sort(np.unique(np.concatenate((default_ticks, extra_ticks))))
+
+    # 设置 y 轴刻度位置
+    ax.yaxis.set_major_locator(FixedLocator(all_ticks))
+
+    # 可选：设置 y 轴刻度标签（如果不设置，将会自动使用刻度位置作为标签）
+    ax.yaxis.set_major_formatter(FixedFormatter([f'{tick:.2f}' for tick in all_ticks]))
+
+
+    # 调整刻度标签字体大小
+    for tick in ax.get_xticklabels():
+        tick.set_fontsize(FONTSIZE)  # x 轴刻度标签字体大小
+    for tick in ax.get_yticklabels():
+        tick.set_fontsize(FONTSIZE)  # y 轴刻度标签字体大小
+        
+    # 添加图例并调整其字体大小
+    legend = ax.legend(prop={'size': FONTSIZE})  # 图例字体大小
+
+    # 显示图形
+    plt.tight_layout()
+    plt.savefig("ahmedbody_loss.pdf")
+
+
+
+    ############################################################################
+    test_rel_l2 = np.load('test_rel_l2.npy')
+    fig, ax = plt.subplots(figsize=(6,6))
+    ax.hist(test_rel_l2, bins=len(test_rel_l2)//2, density=True, alpha=0.7, color='C0', edgecolor='black')
+    ax.set_xlabel('Relative $L_2$ Error', fontsize=FONTSIZE)    
+    # ax.set_ylabel('Density', fontsize=FONTSIZE)          # y 轴标签字体大小
+    # 调整刻度标签字体大小
+    for tick in ax.get_xticklabels():
+        tick.set_fontsize(FONTSIZE)  # x 轴刻度标签字体大小
+    for tick in ax.get_yticklabels():
+        tick.set_fontsize(FONTSIZE)  # y 轴刻度标签字体大小
+
+    # 添加图例并调整其字体大小
+    # legend = ax.legend(fontsize=FONTSIZE)  # 图例字体大小
+    # 显示图形
+    plt.tight_layout()
+    plt.savefig("ahmedbody_loss_distribution.pdf")
+
+
+
+
+# predict_error()
+error_plot()

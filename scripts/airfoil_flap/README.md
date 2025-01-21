@@ -69,7 +69,7 @@ For instance, visualizations of the pressure are shown below.
 # Running the Script
 To preprocess the data before training, run the script with the preprocess_data argument:
 ```bash
-python pcno_airfoilflap_test.py --preprocess_data True
+python pcno_airfoilflap_test.py preprocess_data
 ```
 
 You can run the script with customized parameters. For example:
@@ -84,18 +84,10 @@ python pcno_airfoilflap_test.py --train_type flap --feature_type pressure --n_tr
 | ---------------- | ------- | ------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--train_type`   | `str`   | `mixed`       | `standard`, `flap`, `mixed`          | Specifies the type of training data:   - `standard`: Data from the airfoil without a flap.  - `flap`: Data from the airfoil with a - `mixed`: A balanced combination of standard and flap data.                    |
 | `--feature_type` | `str`   | `pressure`        | `pressure`, `mach`         | Determines the feature type used as the output:      - `pressure`: Outputs the pressure field.     - `mach`: Outputs the Mach number|
-| `--equal_weight` | `str`   | `True`, `False`        | `True`, `False`           | Specify whether to use equal weight   - `True`: Point cloud density - `False`: Uniform density|
-| `--rho` | `str`   | `True`        | `True`, `False`           | Specify whether to include rho in the input|
 | `--n_train`      | `int`   | `1000`        | `500`, `1000`, `1500`                | Number of training samples to use|
 | `--n_test`       | `int`   | `400`         |              | Number of testing samples to use|
 | `--train_sp_L`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies whether the spatial length scales (`Lx`, `Ly`) are trained:  - `False`: Do not train the spatial length scales. - `together`: Train `Lx` and `Ly`  - `independently`: Train `Lx` and `Ly` independently. |
-| `--Lx`           | `float` | `1.0`         |                                      | Initial value of the spatial length scale Lx.                                                                                                                                                                      |
-| `--Ly`           | `float` | `0.5`         |                                      | Initial value of the spatial length scale Ly.                                                                                                                                                                      |
-| `--normalization_x`           | `str` | `False`         |        `True`  ,`False`                           | Whether to normalize the x dimension                                                                                                                                                                    |
-| `--normalization_y`           | `str` | `True`         |        `True`  ,`False`                            | Whether to normalize the y dimension                                                                                                                                                                    |
-| --non_normalized_dim_x   | `int`  | `0`           |`0`, `1`                         | Specifies the dimension of x that should not be normalized. When `rho` is set to `True`, you can set `non_normalized_dim_x` to `1` to avoid normalizing rho|
 | `--lr_ratio`     | `float` | `10`          |                                      | Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`. |
-| `--batch_size`     | `int` | `8`          |                                      | Batch size. |
 ---
 
 The output file names will include some parameter values for traceability. For example:

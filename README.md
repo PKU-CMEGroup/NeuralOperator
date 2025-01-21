@@ -56,21 +56,21 @@ Let's start! (⚠️ under construction)
     * [Point Cloud Neural Operator](docs/pcno.ipynb)
 * Example
     * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)
-      Focus: Adaptive meshing, Boundary layers, Different meshing stratagies
+    Focus: Adaptive meshing, Boundary layers, Different meshing stratagies
     * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)
-      Focus: Benchmark and restart
-    * [Darcy Flow Problem on Deformed Domain](scripts/darcy_deformed_domain/README.md)
-      Focus: Different mesh resolutions, Variable geometries
+    Focus: Benchmark and restart
+    * [Darcy Flow Problem on Deformed Domain](scripts/deformed_domain_darcy/README.md)
+    Focus: Different mesh resolutions, Variable geometries
     * [Airfoil](scripts/airfoil/README.md)
-      Focus: Benchmark, Discontiunities (Shock wave)
+    Focus: Benchmark, Discontiunities (Shock wave)
     * [Airfoil with Flap](scripts/airfoil_flap/README.md)
-      Focus: Adaptive meshing, Topology variations, Discontiunities (Shock wave)
+    Focus: Adaptive meshing, Topology variations, Discontiunities (Shock wave)
     * [ShapeNet Car](scripts/car_shapenet/README.md)
-      Focus: Three-dimensional
+    Focus: Benchmark, Three-dimensional
     * [Ahmed Body](scripts/ahmed_body/README.md)
-      Focus: Three-dimensional, Large-scale
+    Focus: Benchmark, Three-dimensional, Large-scale
     * [Parachute Dynamics](scripts/parachute/README.md)
-      Focus: Three-dimensional, Unsteady problem
+    Focus: Three-dimensional, Unsteady problem
       
 
 
@@ -78,7 +78,7 @@ Let's start! (⚠️ under construction)
 You are welcome to submit an issue for any questions related to NeuralOperator. 
 
 ## Here are some research papers using NeuralOperator
-1. Chenyu Zeng$^*$, Yanshu Zhang$^*$, Jiayi Zhou$^*$, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang$^\dagger$ "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](https://arxiv.org/pdf/XXX.pdf)." 
+1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](https://arxiv.org/pdf/XXX.pdf)." 
 
 
 

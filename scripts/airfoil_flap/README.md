@@ -74,7 +74,7 @@ python pcno_airfoilflap_test.py preprocess_data
 
 You can run the script with customized parameters. For example:
 ```
-python pcno_airfoilflap_test.py --train_type flap --feature_type pressure --n_train 500 --Lx 1.5 --Ly 0.7 --lr_ratio 5
+python pcno_airfoilflap_test.py --train_type flap --feature_type pressure --n_train 500 --lr_ratio 5
 ```
 
 

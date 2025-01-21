@@ -8,7 +8,7 @@ NeuralOperator is
 The goal is to provide students with a light-weighted code to explore this area 
 and interactive lectures with amazing [Jupyter Notebook](https://jupyter.org/).
 * A benchmark repository originally designed to test point cloud neural operator (PCNO) and other **neural operators**. 
-The goal is to provide reseachers with access to various parametric partial differential equations and associated datasets, 
+The goal is to provide researchers with access to various parametric partial differential equations and associated datasets, 
 enabling researchers to quickly and easily develop and test novel surrogate models.
 
 ## Code Structure
@@ -55,22 +55,30 @@ Let's start! (⚠️ under construction)
     * [Fourier Neural Operator](docs/fno.ipynb)
     * [Point Cloud Neural Operator](docs/pcno.ipynb)
 * Example
-    * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)
-    * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)
-    * [Darcy Flow Problem on Deformed Domain](scripts/darcy_deformed_domain/README.md)
-    * [Airfoil](scripts/airfoil/README.md)
-    * [Airfoil with Flap](scripts/airfoil_flap/README.md)
-    * [ShapeNet Car](scripts/car_shapenet/README.md)
-    * [Ahmed Body](scripts/ahmed_body/README.md)
-    * [Parachute Dynamics](scripts/parachute/README.md)
+    * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)  
+        **Focus:** Adaptive meshing, Boundary layers, Different meshing strategies
+    * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)  
+        **Focus:** Benchmark, Different mesh resolutions, Restart training
+    * [Darcy Flow Problem on Deformed Domain](scripts/deformed_domain_darcy/README.md)  
+        **Focus:** Different mesh resolutions, Variable geometries
+    * [Airfoil](scripts/airfoil/README.md)  
+        **Focus:** Benchmark, Discontinuities (Shock wave)
+    * [Airfoil with Flap](scripts/airfoil_flap/README.md)  
+        **Focus:** Adaptive meshing, Topology variations, Discontinuities (Shock wave)  
+    * [ShapeNet Car](scripts/car_shapenet/README.md)  
+        **Focus:** Benchmark, Three-dimensional
+    * [Ahmed Body](scripts/ahmed_body/README.md)  
+        **Focus:** Benchmark, Three-dimensional, Large-scale
+    * [Parachute Dynamics](scripts/parachute/README.md)  
+        **Focus:** Three-dimensional, Unsteady problem
       
 
 
 ## Submit an issue
 You are welcome to submit an issue for any questions related to NeuralOperator. 
 
-<!-- ## Here are some research papers using NeuralOperator
-1. Daniel Zhengyu Huang "[Iterated Kalman Methodology For Inverse Problems / Unscented Kalman Inversion](https://arxiv.org/pdf/2102.01580.pdf)." -->
+## Here are some research papers using NeuralOperator
+1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](https://arxiv.org/pdf/XXX.pdf)." 
 
 
 

@@ -137,7 +137,7 @@ def compute_edge_gradient_weights_helper(nodes, node_dims, adj_list, rcond = 1e-
        :                                :
     xj - x                        f(xj) - f(x)
     
-    in matrix form   dx  nable f(x)   = df.
+    in matrix form   dx  nabla f(x)   = df.
     
     The pseudo-inverse of dx is pinvdx.
     Then gradient f(x) for any function f, is pinvdx * df

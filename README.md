@@ -77,8 +77,8 @@ Let's start! (⚠️ under construction)
 ## Submit an issue
 You are welcome to submit an issue for any questions related to NeuralOperator. 
 
-<!-- ## Here are some research papers using NeuralOperator
-1. Daniel Zhengyu Huang "[Iterated Kalman Methodology For Inverse Problems / Unscented Kalman Inversion](https://arxiv.org/pdf/2102.01580.pdf)." -->
+## Here are some research papers using NeuralOperator
+1. Chenyu Zeng$^*$, Yanshu Zhang$^*$, Jiayi Zhou$^*$, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang$^\dagger$ "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](https://arxiv.org/pdf/XXX.pdf)." 
 
 
 

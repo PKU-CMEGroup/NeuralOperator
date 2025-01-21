@@ -20,15 +20,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def load_data(data_path):
-    """
-    Load the airfoil flap data including nodes, elements, and features from the specified path.
-    
-    Args:
-        data_path (str): The base path where data is stored.
-        
-    Returns:
-        tuple: A tuple containing three lists (nodes, elements, features) for all data samples.
-    """
+
     path1 = os.path.join(data_path, "Airfoil_flap_data/fluid_mesh")
     path2 = os.path.join(data_path, "Airfoil_data/fluid_mesh")
 
@@ -54,37 +46,11 @@ def load_data(data_path):
 
     return nodes_list, elems_list, features_list
 
-parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
-
-parser.add_argument('--preprocess_data', type=str, default='False', help='Whether to preprocess the data before training (True/False)')
-
-parser.add_argument('--n_train', type=int, default=1000, help='Number of training samples')
-parser.add_argument('--n_test', type=int, default=400, help='Number of testing samples')
-parser.add_argument('--train_type', type=str, default='mixed', choices=['standard', 'flap', 'mixed'], help='Type of training data')
-parser.add_argument('--feature_type', type=str, default='pressure', choices=['pressure', 'mach'], help='Type of feature to use')
-parser.add_argument('--equal_weight', type=str, default='True', help='Specify whether to use equal weight')
-parser.add_argument('--rho', type=str, default='True', help='Specify whether to include rho in the input')
-
-parser.add_argument('--Lx', type=float, default=1.0, help='Initial value for the length of the x dimension')
-parser.add_argument('--Ly', type=float, default=0.5, help='Initial value for the length of the y dimension')
-parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'], help='type of train_sp_L (False, together, independently)')
-
-parser.add_argument('--normalization_x', type=str, default='False', help='Whether to normalize the x dimension (True/False)')
-parser.add_argument('--normalization_y', type=str, default='True', help='Whether to normalize the y dimension (True/False)')
-parser.add_argument('--non_normalized_dim_x', type=int, default=0, choices=[0, 1], help='Specifies the dimension of x that should not be normalized')
-parser.add_argument('--non_normalized_dim_y', type=int, default=0, choices=[0], help='Specifies the dimension of y that should not be normalized')
-
-parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`')
-parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
-
-
-args = parser.parse_args()
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-save_model_name = f"PCNO_airfoil_flap_{args.train_type}_n{args.n_train}_{current_time}"
-print(save_model_name)
-args_dict = vars(args)
-for i, (key, value) in enumerate(args_dict.items()):
-    print(f"{key}: {value}")
+try:
+    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(
+        sys.argv) > 1 else False
+except IndexError:
+    PREPROCESS_DATA = False
 
 
 ###################################
@@ -92,7 +58,7 @@ for i, (key, value) in enumerate(args_dict.items()):
 ###################################
 data_path = "../../data/airfoil_flap/"
 
-if args.preprocess_data.lower() == "true":
+if PREPROCESS_DATA:
     print("Loading data")
     nodes_list, elems_list, feats_list = load_data(data_path)
     nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(
@@ -110,7 +76,7 @@ if args.preprocess_data.lower() == "true":
     exit()
 else:
     print("Loading data")
-    equal_weights = args.equal_weight.lower() == "true"
+    equal_weights = True
 
     data = np.load(data_path + "pcno_triangle_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -125,6 +91,24 @@ else:
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
 
+
+
+parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
+parser.add_argument('--n_train', type=int, default=1000, help='Number of training samples')
+parser.add_argument('--n_test', type=int, default=400, help='Number of testing samples')
+parser.add_argument('--train_type', type=str, default='mixed', choices=['standard', 'flap', 'mixed'], help='Type of training data')
+parser.add_argument('--feature_type', type=str, default='pressure', choices=['pressure', 'mach'], help='Type of feature to use')
+parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'], help='type of train_sp_L (False, together, independently)')
+parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`')
+
+
+args = parser.parse_args()
+current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+save_model_name = f"PCNO_airfoil_flap_{args.train_type}_n{args.n_train}_{current_time}"
+print(save_model_name)
+args_dict = vars(args)
+for i, (key, value) in enumerate(args_dict.items()):
+    print(f"{key}: {value}")
 
 ###################################
 # prepare data
@@ -142,10 +126,7 @@ edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32
 # This is important
 nodes_input = nodes.clone()
 
-in_dim = 2
-if args.rho == "True":
-    nodes_input = torch.cat([nodes_input, node_rhos], dim=-1)
-    in_dim = 3
+nodes_input = torch.cat([nodes_input, node_rhos], dim=-1)
 
 ndata = nodes_input.shape[0]
 ndata1 = 1931
@@ -204,14 +185,14 @@ ndim = 2
 if args.train_sp_L == 'False':
     args.train_sp_L = False
 train_sp_L = args.train_sp_L
-Lx, Ly = args.Lx, args.Ly
+Lx, Ly = 1, 0.5
 print("Lx, Ly = ", Lx, Ly)
 modes = compute_Fourier_modes(ndim, [kx_max, ky_max], [Lx, Ly])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
              layers=[128, 128, 128, 128, 128],
              fc_dim=128,
-             in_dim=in_dim, out_dim=1,
+             in_dim=3, out_dim=1,
              train_sp_L=train_sp_L,
              act='gelu').to(device)
 
@@ -219,15 +200,15 @@ epochs = 500
 base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size = args.batch_size
+batch_size = 8
 lr_ratio = args.lr_ratio
 
-normalization_x = args.normalization_x.lower() == "true"
-normalization_y = args.normalization_y.lower() == "true"
+normalization_x = False
+normalization_y = True
 normalization_dim_x = []
 normalization_dim_y = []
-non_normalized_dim_x = args.non_normalized_dim_x
-non_normalized_dim_y = args.non_normalized_dim_y
+non_normalized_dim_x = 0
+non_normalized_dim_y = 0
 
 
 config = {"train": {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler, "batch_size": batch_size,

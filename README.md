@@ -8,7 +8,7 @@ NeuralOperator is
 The goal is to provide students with a light-weighted code to explore this area 
 and interactive lectures with amazing [Jupyter Notebook](https://jupyter.org/).
 * A benchmark repository originally designed to test point cloud neural operator (PCNO) and other **neural operators**. 
-The goal is to provide reseachers with access to various parametric partial differential equations and associated datasets, 
+The goal is to provide researchers with access to various parametric partial differential equations and associated datasets, 
 enabling researchers to quickly and easily develop and test novel surrogate models.
 
 ## Code Structure
@@ -56,21 +56,21 @@ Let's start! (⚠️ under construction)
     * [Point Cloud Neural Operator](docs/pcno.ipynb)
 * Example
     * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)  
-        Focus: Adaptive meshing, Boundary layers, Different meshing strategies
+        **Focus:** Adaptive meshing, Boundary layers, Different meshing strategies
     * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)  
-        Focus: Benchmark and restart
+        **Focus:** Benchmark, Different mesh resolutions, Restart training
     * [Darcy Flow Problem on Deformed Domain](scripts/deformed_domain_darcy/README.md)  
-        Focus: Different mesh resolutions, Variable geometries
+        **Focus:** Different mesh resolutions, Variable geometries
     * [Airfoil](scripts/airfoil/README.md)  
-        Focus: Benchmark, Discontiunities (Shock wave)
+        **Focus:** Benchmark, Discontinuities (Shock wave)
     * [Airfoil with Flap](scripts/airfoil_flap/README.md)  
-        Focus: Adaptive meshing, Topology variations, Discontiunities (Shock wave)  
+        **Focus:** Adaptive meshing, Topology variations, Discontinuities (Shock wave)  
     * [ShapeNet Car](scripts/car_shapenet/README.md)  
-        Focus: Benchmark, Three-dimensional
+        **Focus:** Benchmark, Three-dimensional
     * [Ahmed Body](scripts/ahmed_body/README.md)  
-        Focus: Benchmark, Three-dimensional, Large-scale
+        **Focus:** Benchmark, Three-dimensional, Large-scale
     * [Parachute Dynamics](scripts/parachute/README.md)  
-        Focus: Three-dimensional, Unsteady problem
+        **Focus:** Three-dimensional, Unsteady problem
       
 
 

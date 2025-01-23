@@ -8,4 +8,4 @@
 
 module load conda
 source activate pytorch 
-python pcno_airfoilflap_test.py --preprocess_data True
+python pcno_airfoilflap_test.py preprocess_data

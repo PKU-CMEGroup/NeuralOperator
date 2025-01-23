@@ -98,8 +98,8 @@ parser.add_argument('--n_train', type=int, default=1000, help='Number of trainin
 parser.add_argument('--n_test', type=int, default=400, help='Number of testing samples')
 parser.add_argument('--train_type', type=str, default='mixed', choices=['standard', 'flap', 'mixed'], help='Type of training data')
 parser.add_argument('--feature_type', type=str, default='pressure', choices=['pressure', 'mach'], help='Type of feature to use')
-parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'], help='type of train_sp_L (False, together, independently)')
-parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`')
+parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'], help='Type of train_sp_L')
+parser.add_argument('--lr_ratio', type=float, default=10.0, help='Learning rate ratio of L-parameters to main parameters')
 
 
 args = parser.parse_args()

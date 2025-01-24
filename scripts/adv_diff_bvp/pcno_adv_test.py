@@ -50,6 +50,23 @@ try:
 except IndexError:
     PREPROCESS_DATA = False
 
+parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
+
+parser.add_argument('--train_distribution', type=str, default='uniform', choices=['uniform', 'exponential', 'linear', 'mixed'],
+                    help='distribution of training dataset (uniform, exponential, linear, mixed)')
+
+parser.add_argument('--n_train', type=int, default=1000, choices=[500, 1000, 1500],
+                    help='training datasize (500,1000,1500)')
+parser.add_argument('--n_test', type=int, default=200, help='Number of testing samples')
+parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
+
+parser.add_argument('--sp_L', type=float, default=15.0, help='Initial value for the sp_L')
+parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
+                    help='type of train_sp_L (False, together, independently )')
+
+parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`')
+parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
+
 
 data_path = "../../data/adv_diff_bvp/"
 
@@ -72,7 +89,8 @@ if PREPROCESS_DATA:
     exit()
 else:
     # load data 
-    equal_weights = False
+    args = parser.parse_args()
+    equal_weights = args.equal_weight.lower() == "true"
 
     data = np.load(data_path+"pcno_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -89,18 +107,13 @@ else:
 
 
 
-parser = argparse.ArgumentParser(description='Train model with different types.')
-parser.add_argument('--train_distribution', type=str, default='uniform', choices=['uniform', 'exponential', 'linear', 'mixed'],
-                    help='distribution of training dataset (uniform, exponential, linear, mixed)')
-parser.add_argument('--n_train', type=int, default=1000, choices=[500, 1000, 1500],
-                    help='training datasize (500,1000,1500)')
-parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
-                    help='type of train_sp_L (False, together, independently )')
-args = parser.parse_args()
+
+
 if args.train_sp_L == 'False':
     args.train_sp_L = False
 train_distribution = args.train_distribution
 n_train = args.n_train
+n_test = args.n_test
 train_sp_L = args.train_sp_L
 print(f'train_distribution = {train_distribution}, n_train = {n_train}, train_sp_L = {train_sp_L}')
 
@@ -124,7 +137,6 @@ edge_gradient_weights = torch.from_numpy(edge_gradient_weights[indices_dict[trai
 
 print(f'nodes.shape: {nodes.shape}, feature.shape: {features.shape}')
 
-n_test = 200
 
 nodes_input = nodes.clone()
 
@@ -140,7 +152,7 @@ k_max = 64
 ndim = 1
 
 
-modes = compute_Fourier_modes(ndim, [k_max], [15.0])
+modes = compute_Fourier_modes(ndim, [k_max], [args.sp_L])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
@@ -153,10 +165,10 @@ model = PCNO(ndim, modes, nmeasures=1,
 
 epochs = 500
 base_lr = 0.001
-lr_ratio = 10
+lr_ratio = args.lr_ratio
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size = 8
+batch_size = args.batch_size
 
 normalization_x = False
 normalization_y = False

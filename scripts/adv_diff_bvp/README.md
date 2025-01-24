@@ -31,3 +31,18 @@ To run a training example, you can use the following command in the terminal:
 `python pcno_adv_test.py  --train_distribution 'mixed' --n_train 1000 --train_sp_L 'False'`
 
 Replace the values of `--train_distribution`, `--n_train`, and `--train_sp_L` according to your specific requirements.
+
+
+
+# Parameters
+
+| Name             | Type    | Default Value | Choices                              | Description                                                                                                                                                                                                        |
+| ----------------- | ------- | ------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--train_distribution`   | `str`   | `mixed`       | `uniform, exponential, linear, mixed`        | Specifies the distribution of training data           |
+| `--equal_weight` | `str`   |  `False`        | `True`, `False`           | Specify whether to use equal weight   - `True`: Point cloud density - `False`: Uniform density|
+| `--n_train`      | `int`   | `1000`        | `500`, `1000`, `1500`                | Number of training samples to use|
+| `--n_test`       | `int`   | `200`         |              | Number of testing samples to use|
+| `--train_sp_L`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies whether the spatial length scale is trained.|
+| `--sp_L`           | `float` | `15.0`         |                                      | Initial value of the spatial length scale Ly.          |
+| `--lr_ratio`     | `float` | `10`          |                                      | Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`. |
+| `--batch_size`     | `int` | `8`          |                                      | Batch size. |

@@ -4,5 +4,5 @@ pcno/__pycache__/
 utility/__pycache__/
 .DS_Store
 models/__pycache__/
-scripts/adv_diff_bvp/figure/
-
+mytest/__pycache__/
+baselines/__pycache__/

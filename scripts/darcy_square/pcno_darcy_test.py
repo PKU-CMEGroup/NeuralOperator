@@ -38,7 +38,13 @@ if PREPROCESS_DATA:
     ###################################
     data1 = loadmat(data_path+"piececonst_r421_N1024_smooth1")
     data2 = loadmat(data_path+"piececonst_r421_N1024_smooth2")
-    
+
+    """
+    indices = np.concatenate((np.arange(0, 1000), np.arange(2048 - 200, 2048)))
+    data_in = np.vstack((data1["coeff"], data2["coeff"]))[indices, 0::downsample_ratio, 0::downsample_ratio]  # shape: 1200,421,421
+    data_out = np.vstack((data1["sol"], data2["sol"]))[indices, 0::downsample_ratio, 0::downsample_ratio]     # shape: 1200,421,421
+    """
+
     data_in = np.vstack((data1["coeff"], data2["coeff"]))[:, 0::downsample_ratio, 0::downsample_ratio]  # shape: 2048,421,421
     data_out = np.vstack((data1["sol"], data2["sol"]))[:, 0::downsample_ratio, 0::downsample_ratio]     # shape: 2048,421,421
     features = np.stack((data_in, data_out), axis=3)
@@ -110,7 +116,7 @@ model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               train_sp_L="independently",
+               train_sp_L="independently", #"together" if downsample_ratio = 1
                act='gelu').to(device)
 
 
@@ -120,7 +126,7 @@ base_lr = 5e-4 #0.001
 lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size=8
+batch_size = 8 # 4 if downsample_ratio = 1
 
 normalization_x = True
 normalization_y = True
@@ -140,7 +146,10 @@ train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_darcy_model"
 )
 
-
-
+"""
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_darcy_model", checkpoint_path="./checkpoint.pth"
+)
+"""
 
 

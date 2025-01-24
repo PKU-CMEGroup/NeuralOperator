@@ -1,6 +1,5 @@
 data/
 model/
-test_burgers/model/
 pcno/__pycache__/
 utility/__pycache__/
 .DS_Store

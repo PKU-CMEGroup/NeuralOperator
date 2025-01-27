@@ -78,7 +78,7 @@ Let's start! (⚠️ under construction)
 You are welcome to submit an issue for any questions related to NeuralOperator. 
 
 ## Here are some research papers using NeuralOperator
-1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](https://arxiv.org/pdf/XXX.pdf)." 
+1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](http://arxiv.org/abs/2501.14475)." 
 
 
 

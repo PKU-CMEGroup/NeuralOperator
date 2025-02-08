@@ -1,9 +1,8 @@
 # Data Information
 ## Data Download
 Download the advection diffusion boundary value problem data from:
-- PKU drive: https://disk.pku.edu.cn/link/AR082433050E2C4D4E9B31E54728B02B4A
-  - Name of the data file: adv_diff_bvp.zip
-- File Location: AnyShare://Neural-Operator-Data/adv_diff_bvp.zip
+- PKU drive: https://disk.pku.edu.cn/link/AA03F972E9AEE6477790DBC9C21C5FA3B1
+- Name of the data file: adv_diff_bvp.zip
 
 In the downloaded folder, there is a `Data.ipynb` file which contains more detailed introduction to the data.
 

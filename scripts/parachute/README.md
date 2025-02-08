@@ -1,14 +1,12 @@
 # Data Information
 
-Download advection diffusion boundary value problem  data from 
+## Data Download
+Download parachute problem data from 
+- PKU drive: https://disk.pku.edu.cn/link/AA34CF034A452D4DEE9CEB7671567C4E62
+- Name of the data file: parachute.zip
 
-PKU drive
-https://disk.pku.edu.cn/link/AR0633E6BF0DFC425CBD53856232081985
-Name: parachute.zip
 
-File Location: AnyShare://Neural-Operator-Data/parachute.zip
-
-# Flies in the data
+## Flies in the data
 This dataset includes information for three types of parachutes:  
 
 1. **DGB (Disk-Gap-Band)**:  
@@ -77,7 +75,7 @@ python pcno_parachute_test.py  --train_sp_L together
 ```
 
 
-# Parameters
+## Parameters
 
 | Name             | Type    | Default Value | Choices                              | Description                                                                                                                                                                                                        |
 | ------------------ | ------- | ------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

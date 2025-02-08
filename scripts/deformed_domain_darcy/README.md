@@ -1,14 +1,15 @@
 # Data Information
 
+
+## Data Download
 Download deformed domain darcy flow data  from 
+- PKU drive: https://disk.pku.edu.cn/link/AAB53388BC78DF445ABAB035728A525A0A
+- Name of the data file: deformed_domain_darcy.zip
 
-PKU drive
-https://disk.pku.edu.cn/link/AR1BA915DB5EC744EBAE9A0FDA531ADC87
-Name: deformed_domain_darcy.zip
 
-File Location: AnyShare://Neural-Operator-Data/deformed_domain_darcy.zip
 
-# Flies in the data
+
+## Flies in the data
 This dataset contains samples for four types of deformed domain darcy flow simulations: 
 - **`sharp_large_scale`**:  
   Stores 1000 solutions at the sharp coefficient and the large grid scale
@@ -71,7 +72,7 @@ You can run the script with customized parameters. For example:
 python pcno_deformed_darcy.py --train_type mixed  --n_train 1000 --Lx 2.0 --Ly 2.0 --lr_ratio 5
 ```
 
-# Parameters
+## Parameters
 
 | Name             | Type    | Default Value | Choices                              | Description                                                                                                                                                                                                        |
 | ----------------- | ------- | ------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

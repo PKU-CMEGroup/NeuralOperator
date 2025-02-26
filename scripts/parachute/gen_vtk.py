@@ -23,6 +23,7 @@ out, y = out.reshape(14474,12), y.reshape(14474,12)
 elems = np.load("data/"+file+"elem.npy")
 elems_num = elems.shape[0]
 num = np.count_nonzero(node_mask)
+
 print(np.linalg.norm(out.reshape(-1)-y.reshape(-1),2))
 print(np.linalg.norm(out-y,np.inf))
 points = points[:num,:]
@@ -79,7 +80,6 @@ for l in range(4):
     predict_displacements = out[:num,3*l:3*l+3]
     true_displacements = y[:num, 3*l:3*l+3]
 
-    ##导入格点数据
     vtk_points = vtk.vtkPoints()
     points0 = points + true_displacements
     for i in range(num):
@@ -99,7 +99,7 @@ for l in range(4):
         cell_index = elems[j,1:]
 
         if cell_dim == 1:
-            #线
+            #line
             line = vtk.vtkLine()
             line.GetPointIds().SetNumberOfIds(2)
             line.GetPointIds().SetId(0, cell_index[1])
@@ -108,6 +108,7 @@ for l in range(4):
 
         
         if cell_dim == 2:
+            #triangle
             triangle = vtk.vtkTriangle()
             triangle.GetPointIds().SetNumberOfIds(3)
             triangle.GetPointIds().SetId(0, cell_index[0])
@@ -122,14 +123,13 @@ for l in range(4):
 
     #error
     displacements = vtk.vtkFloatArray()
-    displacements.SetName("Displacements error")  # 设置属性名称
-    displacements.SetNumberOfComponents(3)  # 设置分量数为3
-    displacements.SetNumberOfTuples(num) # 设置数组长度
+    displacements.SetName("Displacements error")  # Set name.
+    displacements.SetNumberOfComponents(3)  # Set the number of components to 3.
+    displacements.SetNumberOfTuples(num) # Set array length.
     for i in range(num):
         displacements.SetTuple(i, abs(true_displacements[i,:]-predict_displacements[i,:]))
     polydata.GetPointData().AddArray(displacements)
 
-     #生成数据
     writer = vtk.vtkPolyDataWriter()
     writer.SetFileName("data_vtk/Ribbon/displacements_"+file+str(10*(l+1))+".vtk")
     writer.SetInputData(polydata)

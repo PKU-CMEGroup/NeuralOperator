@@ -136,7 +136,7 @@ node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
 # node_weights = torch.sum(node_weights, dim=-1).unsqueeze(-1)
 
 features = torch.from_numpy(features.astype(np.float32))
-directed_edges = torch.from_numpy(directed_edges)
+directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
 

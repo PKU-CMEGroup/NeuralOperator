@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
-from pcno.pcno_test import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
 
 torch.set_printoptions(precision=16)
 
@@ -110,7 +110,7 @@ node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
 # node_weights = torch.sum(node_weights, dim=-1).unsqueeze(-1)
 
 features = torch.from_numpy(features.astype(np.float32))
-directed_edges = torch.from_numpy(directed_edges)
+directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
 L_ref = 10.0

@@ -134,7 +134,7 @@ def compute_Fourier_bases(nodes, modes):
     bases_c = torch.cos(temp) 
     bases_s = torch.sin(temp) 
     batch_size, nnodes, _, nmeasures = temp.shape
-    bases_0 = torch.zeros(batch_size, nnodes, 1, nmeasures, dtype=temp.dtype, device=temp.device)
+    bases_0 = torch.ones(batch_size, nnodes, 1, nmeasures, dtype=temp.dtype, device=temp.device)
     return bases_c, bases_s, bases_0
 
 ################################################################

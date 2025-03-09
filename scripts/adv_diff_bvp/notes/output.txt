@@ -1,741 +1,608 @@
 
 
-New model : n_train = 500 , equal_weight = False , train_type = uniform , train_sp_L = False
-average_rel_l2_of uniform :   0.00686
-average_rel_l2_of exponential :   0.02454
-average_rel_l2_of linear :   0.00703
-average_rel_l2_of mixed :   0.01281
+New model : n_train = 500 , equal_weight = False , train_distribution = uniform , train_sp_L = independently
+average_rel_l2_of uniform :   0.00256
+average_rel_l2_of exponential :   0.05576
+average_rel_l2_of linear :   0.0029
+average_rel_l2_of mixed :   0.02041
 
-1th_worst_rel_l2_of uniform :   0.09975  index :  7293
-1th_worst_rel_l2_of exponential :   0.17351  index :  7111
-1th_worst_rel_l2_of linear :   0.08151  index :  7268
+1th_worst_rel_l2_of uniform :   0.03977  index :  7293
+1th_worst_rel_l2_of exponential :   0.10616  index :  7171
+1th_worst_rel_l2_of linear :   0.0131  index :  7049
 
-medium_rel_l2_of uniform :  0.00332  index :  7491
-medium_rel_l2_of exponential :  0.02263  index :  7129
-medium_rel_l2_of linear :  0.00538  index :  7115
+medium_rel_l2_of uniform :  0.00157  index :  7314
+medium_rel_l2_of exponential :  0.05429  index :  6982
+medium_rel_l2_of linear :  0.00242  index :  7130
 
-1th_best_rel_l2_of uniform :   0.00112  index :  7035
-1th_best_rel_l2_of exponential :   0.01113  index :  7423
-1th_best_rel_l2_of linear :   0.0017  index :  7043
-
-
-New model : n_train = 500 , equal_weight = False , train_type = uniform , train_sp_L = together
-average_rel_l2_of uniform :   0.00646
-average_rel_l2_of exponential :   0.02589
-average_rel_l2_of linear :   0.00749
-average_rel_l2_of mixed :   0.01328
-
-1th_worst_rel_l2_of uniform :   0.09926  index :  7293
-1th_worst_rel_l2_of exponential :   0.14463  index :  7111
-1th_worst_rel_l2_of linear :   0.08582  index :  7268
-
-medium_rel_l2_of uniform :  0.00321  index :  7266
-medium_rel_l2_of exponential :  0.02379  index :  7327
-medium_rel_l2_of linear :  0.00581  index :  7409
-
-1th_best_rel_l2_of uniform :   0.00084  index :  7497
-1th_best_rel_l2_of exponential :   0.01293  index :  7453
-1th_best_rel_l2_of linear :   0.00162  index :  7256
+1th_best_rel_l2_of uniform :   0.00048  index :  6939
+1th_best_rel_l2_of exponential :   0.03062  index :  7159
+1th_best_rel_l2_of linear :   0.00115  index :  7283
 
 
-New model : n_train = 500 , equal_weight = False , train_type = uniform , train_sp_L = independently
-average_rel_l2_of uniform :   0.00608
-average_rel_l2_of exponential :   0.03372
-average_rel_l2_of linear :   0.0065
-average_rel_l2_of mixed :   0.01543
+New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_sp_L = False
+average_rel_l2_of uniform :   0.00163
+average_rel_l2_of exponential :   0.03473
+average_rel_l2_of linear :   0.00201
+average_rel_l2_of mixed :   0.01279
 
-1th_worst_rel_l2_of uniform :   0.09791  index :  7293
-1th_worst_rel_l2_of exponential :   0.16759  index :  7111
-1th_worst_rel_l2_of linear :   0.06312  index :  7268
+1th_worst_rel_l2_of uniform :   0.01154  index :  7293
+1th_worst_rel_l2_of exponential :   0.0761  index :  7366
+1th_worst_rel_l2_of linear :   0.00925  index :  7376
 
-medium_rel_l2_of uniform :  0.00292  index :  7230
-medium_rel_l2_of exponential :  0.03182  index :  6973
-medium_rel_l2_of linear :  0.00494  index :  6962
+medium_rel_l2_of uniform :  0.00105  index :  6906
+medium_rel_l2_of exponential :  0.03176  index :  7498
+medium_rel_l2_of linear :  0.00173  index :  7367
 
-1th_best_rel_l2_of uniform :   0.00087  index :  7113
-1th_best_rel_l2_of exponential :   0.01913  index :  6970
-1th_best_rel_l2_of linear :   0.00151  index :  6923
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = uniform , train_sp_L = False
-average_rel_l2_of uniform :   0.00305
-average_rel_l2_of exponential :   0.04068
-average_rel_l2_of linear :   0.00337
-average_rel_l2_of mixed :   0.0157
-
-1th_worst_rel_l2_of uniform :   0.03132  index :  7299
-1th_worst_rel_l2_of exponential :   0.0665  index :  7399
-1th_worst_rel_l2_of linear :   0.01944  index :  7268
-
-medium_rel_l2_of uniform :  0.00185  index :  6933
-medium_rel_l2_of exponential :  0.03962  index :  7066
-medium_rel_l2_of linear :  0.00248  index :  7193
-
-1th_best_rel_l2_of uniform :   0.00056  index :  6963
-1th_best_rel_l2_of exponential :   0.0201  index :  7006
-1th_best_rel_l2_of linear :   0.00087  index :  6914
+1th_best_rel_l2_of uniform :   0.00049  index :  7476
+1th_best_rel_l2_of exponential :   0.01416  index :  6970
+1th_best_rel_l2_of linear :   0.00083  index :  7082
 
 
-New model : n_train = 1000 , equal_weight = False , train_type = uniform , train_sp_L = together
-average_rel_l2_of uniform :   0.00266
-average_rel_l2_of exponential :   0.02324
-average_rel_l2_of linear :   0.003
-average_rel_l2_of mixed :   0.00963
+New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_sp_L = together
+average_rel_l2_of uniform :   0.00137
+average_rel_l2_of exponential :   0.02927
+average_rel_l2_of linear :   0.00162
+average_rel_l2_of mixed :   0.01075
 
-1th_worst_rel_l2_of uniform :   0.03161  index :  7299
-1th_worst_rel_l2_of exponential :   0.05703  index :  6946
-1th_worst_rel_l2_of linear :   0.02168  index :  7268
+1th_worst_rel_l2_of uniform :   0.00975  index :  7071
+1th_worst_rel_l2_of exponential :   0.06423  index :  6946
+1th_worst_rel_l2_of linear :   0.00633  index :  7439
 
-medium_rel_l2_of uniform :  0.00171  index :  7425
-medium_rel_l2_of exponential :  0.01989  index :  7402
-medium_rel_l2_of linear :  0.0022  index :  7310
-
-1th_best_rel_l2_of uniform :   0.00047  index :  6939
-1th_best_rel_l2_of exponential :   0.01038  index :  7423
-1th_best_rel_l2_of linear :   0.00106  index :  7424
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = uniform , train_sp_L = independently
-average_rel_l2_of uniform :   0.00252
-average_rel_l2_of exponential :   0.0323
-average_rel_l2_of linear :   0.00249
-average_rel_l2_of mixed :   0.01244
-
-1th_worst_rel_l2_of uniform :   0.03529  index :  7299
-1th_worst_rel_l2_of exponential :   0.08425  index :  7111
-1th_worst_rel_l2_of linear :   0.01082  index :  7352
-
-medium_rel_l2_of uniform :  0.00135  index :  7056
-medium_rel_l2_of exponential :  0.02947  index :  7468
-medium_rel_l2_of linear :  0.00184  index :  7430
-
-1th_best_rel_l2_of uniform :   0.00048  index :  7011
-1th_best_rel_l2_of exponential :   0.0131  index :  7441
-1th_best_rel_l2_of linear :   0.00087  index :  7175
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = uniform , train_sp_L = False
-average_rel_l2_of uniform :   0.00221
-average_rel_l2_of exponential :   0.02937
-average_rel_l2_of linear :   0.00243
-average_rel_l2_of mixed :   0.01133
-
-1th_worst_rel_l2_of uniform :   0.02895  index :  7299
-1th_worst_rel_l2_of exponential :   0.08625  index :  7111
-1th_worst_rel_l2_of linear :   0.01413  index :  7352
-
-medium_rel_l2_of uniform :  0.00128  index :  7365
-medium_rel_l2_of exponential :  0.02538  index :  7327
-medium_rel_l2_of linear :  0.00196  index :  6962
-
-1th_best_rel_l2_of uniform :   0.00046  index :  7149
-1th_best_rel_l2_of exponential :   0.01394  index :  6970
-1th_best_rel_l2_of linear :   0.0009  index :  7175
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = uniform , train_sp_L = together
-average_rel_l2_of uniform :   0.0019
-average_rel_l2_of exponential :   0.02964
-average_rel_l2_of linear :   0.00218
-average_rel_l2_of mixed :   0.01124
-
-1th_worst_rel_l2_of uniform :   0.02874  index :  7299
-1th_worst_rel_l2_of exponential :   0.06585  index :  6946
-1th_worst_rel_l2_of linear :   0.01166  index :  7376
-
-medium_rel_l2_of uniform :  0.00112  index :  7176
-medium_rel_l2_of exponential :  0.02683  index :  6949
-medium_rel_l2_of linear :  0.00165  index :  7217
+medium_rel_l2_of uniform :  0.00085  index :  7125
+medium_rel_l2_of exponential :  0.02622  index :  7408
+medium_rel_l2_of linear :  0.00139  index :  6974
 
 1th_best_rel_l2_of uniform :   0.00041  index :  7179
-1th_best_rel_l2_of exponential :   0.01412  index :  6952
-1th_best_rel_l2_of linear :   0.00088  index :  7289
+1th_best_rel_l2_of exponential :   0.01353  index :  7369
+1th_best_rel_l2_of linear :   0.00068  index :  7367
 
 
-New model : n_train = 1500 , equal_weight = False , train_type = uniform , train_sp_L = independently
-average_rel_l2_of uniform :   0.0018
-average_rel_l2_of exponential :   0.02697
+New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_sp_L = independently
+average_rel_l2_of uniform :   0.00126
+average_rel_l2_of exponential :   0.03613
+average_rel_l2_of linear :   0.00186
+average_rel_l2_of mixed :   0.01308
+
+1th_worst_rel_l2_of uniform :   0.00894  index :  7293
+1th_worst_rel_l2_of exponential :   0.06956  index :  6946
+1th_worst_rel_l2_of linear :   0.01029  index :  7376
+
+medium_rel_l2_of uniform :  0.00079  index :  7284
+medium_rel_l2_of exponential :  0.03336  index :  7129
+medium_rel_l2_of linear :  0.00157  index :  7304
+
+1th_best_rel_l2_of uniform :   0.00034  index :  6963
+1th_best_rel_l2_of exponential :   0.01949  index :  7441
+1th_best_rel_l2_of linear :   0.00092  index :  7196
+
+
+New model : n_train = 1500 , equal_weight = False , train_distribution = uniform , train_sp_L = independently
+average_rel_l2_of uniform :   0.00102
+average_rel_l2_of exponential :   0.05604
+average_rel_l2_of linear :   0.00192
+average_rel_l2_of mixed :   0.01966
+
+1th_worst_rel_l2_of uniform :   0.00942  index :  7293
+1th_worst_rel_l2_of exponential :   0.0998  index :  7171
+1th_worst_rel_l2_of linear :   0.0078  index :  7376
+
+medium_rel_l2_of uniform :  0.0007  index :  7362
+medium_rel_l2_of exponential :  0.05658  index :  7426
+medium_rel_l2_of linear :  0.00168  index :  7043
+
+1th_best_rel_l2_of uniform :   0.00028  index :  7110
+1th_best_rel_l2_of exponential :   0.02669  index :  7441
+1th_best_rel_l2_of linear :   0.00097  index :  7007
+
+
+New model : n_train = 500 , equal_weight = False , train_distribution = exponential , train_sp_L = independently
+average_rel_l2_of uniform :   0.00481
+average_rel_l2_of exponential :   0.00325
+average_rel_l2_of linear :   0.00321
+average_rel_l2_of mixed :   0.00376
+
+1th_worst_rel_l2_of uniform :   0.08608  index :  7068
+1th_worst_rel_l2_of exponential :   0.08695  index :  7111
+1th_worst_rel_l2_of linear :   0.0351  index :  7376
+
+medium_rel_l2_of uniform :  0.0028  index :  7143
+medium_rel_l2_of exponential :  0.00214  index :  7165
+medium_rel_l2_of linear :  0.00197  index :  7073
+
+1th_best_rel_l2_of uniform :   0.00111  index :  7038
+1th_best_rel_l2_of exponential :   0.00078  index :  7108
+1th_best_rel_l2_of linear :   0.00071  index :  6947
+
+
+New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_sp_L = False
+average_rel_l2_of uniform :   0.00371
+average_rel_l2_of exponential :   0.00224
+average_rel_l2_of linear :   0.00233
+average_rel_l2_of mixed :   0.00276
+
+1th_worst_rel_l2_of uniform :   0.03326  index :  7068
+1th_worst_rel_l2_of exponential :   0.03443  index :  7111
+1th_worst_rel_l2_of linear :   0.01391  index :  7439
+
+medium_rel_l2_of uniform :  0.00283  index :  7176
+medium_rel_l2_of exponential :  0.00151  index :  7066
+medium_rel_l2_of linear :  0.00175  index :  7427
+
+1th_best_rel_l2_of uniform :   0.00093  index :  7134
+1th_best_rel_l2_of exponential :   0.00064  index :  7246
+1th_best_rel_l2_of linear :   0.00069  index :  6914
+
+
+New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_sp_L = together
+average_rel_l2_of uniform :   0.00318
+average_rel_l2_of exponential :   0.00196
 average_rel_l2_of linear :   0.00198
-average_rel_l2_of mixed :   0.01025
+average_rel_l2_of mixed :   0.00237
 
-1th_worst_rel_l2_of uniform :   0.02734  index :  7068
-1th_worst_rel_l2_of exponential :   0.0554  index :  6946
-1th_worst_rel_l2_of linear :   0.01062  index :  7475
+1th_worst_rel_l2_of uniform :   0.0235  index :  7068
+1th_worst_rel_l2_of exponential :   0.02032  index :  7111
+1th_worst_rel_l2_of linear :   0.01705  index :  7439
 
-medium_rel_l2_of uniform :  0.00105  index :  7194
-medium_rel_l2_of exponential :  0.02487  index :  7210
-medium_rel_l2_of linear :  0.00151  index :  7184
+medium_rel_l2_of uniform :  0.00232  index :  7392
+medium_rel_l2_of exponential :  0.00144  index :  7378
+medium_rel_l2_of linear :  0.00139  index :  7301
 
-1th_best_rel_l2_of uniform :   0.00036  index :  7476
-1th_best_rel_l2_of exponential :   0.01375  index :  7384
-1th_best_rel_l2_of linear :   0.00081  index :  7346
+1th_best_rel_l2_of uniform :   0.00076  index :  7134
+1th_best_rel_l2_of exponential :   0.00065  index :  7429
+1th_best_rel_l2_of linear :   0.00062  index :  7169
 
 
-New model : n_train = 500 , equal_weight = False , train_type = exponential , train_sp_L = False
-average_rel_l2_of uniform :   0.00841
-average_rel_l2_of exponential :   0.00547
-average_rel_l2_of linear :   0.00551
-average_rel_l2_of mixed :   0.00646
+New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_sp_L = independently
+average_rel_l2_of uniform :   0.00288
+average_rel_l2_of exponential :   0.0018
+average_rel_l2_of linear :   0.0019
+average_rel_l2_of mixed :   0.00219
 
-1th_worst_rel_l2_of uniform :   0.15599  index :  7068
-1th_worst_rel_l2_of exponential :   0.17029  index :  7111
-1th_worst_rel_l2_of linear :   0.0581  index :  7361
+1th_worst_rel_l2_of uniform :   0.02505  index :  7293
+1th_worst_rel_l2_of exponential :   0.02051  index :  7111
+1th_worst_rel_l2_of linear :   0.01364  index :  7049
 
-medium_rel_l2_of uniform :  0.00464  index :  7410
-medium_rel_l2_of exponential :  0.00331  index :  7351
-medium_rel_l2_of linear :  0.0032  index :  7244
+medium_rel_l2_of uniform :  0.00209  index :  7140
+medium_rel_l2_of exponential :  0.00133  index :  7318
+medium_rel_l2_of linear :  0.00131  index :  7454
 
-1th_best_rel_l2_of uniform :   0.00167  index :  7134
-1th_best_rel_l2_of exponential :   0.00118  index :  7246
-1th_best_rel_l2_of linear :   0.00114  index :  7169
+1th_best_rel_l2_of uniform :   0.0008  index :  6951
+1th_best_rel_l2_of exponential :   0.00054  index :  7363
+1th_best_rel_l2_of linear :   0.00053  index :  6947
 
 
-New model : n_train = 500 , equal_weight = False , train_type = exponential , train_sp_L = together
-average_rel_l2_of uniform :   0.0079
-average_rel_l2_of exponential :   0.00464
-average_rel_l2_of linear :   0.0045
-average_rel_l2_of mixed :   0.00568
+New model : n_train = 1500 , equal_weight = False , train_distribution = exponential , train_sp_L = independently
+average_rel_l2_of uniform :   0.00211
+average_rel_l2_of exponential :   0.00118
+average_rel_l2_of linear :   0.00128
+average_rel_l2_of mixed :   0.00152
 
-1th_worst_rel_l2_of uniform :   0.17048  index :  7068
-1th_worst_rel_l2_of exponential :   0.16757  index :  7111
-1th_worst_rel_l2_of linear :   0.04095  index :  7376
+1th_worst_rel_l2_of uniform :   0.01318  index :  7068
+1th_worst_rel_l2_of exponential :   0.00907  index :  7111
+1th_worst_rel_l2_of linear :   0.00779  index :  7079
 
-medium_rel_l2_of uniform :  0.00429  index :  7410
-medium_rel_l2_of exponential :  0.00272  index :  7432
-medium_rel_l2_of linear :  0.00293  index :  6917
+medium_rel_l2_of uniform :  0.00156  index :  7155
+medium_rel_l2_of exponential :  0.00099  index :  7120
+medium_rel_l2_of linear :  0.00092  index :  6941
 
-1th_best_rel_l2_of uniform :   0.00175  index :  7242
-1th_best_rel_l2_of exponential :   0.00099  index :  7069
-1th_best_rel_l2_of linear :   0.0009  index :  7046
-
-
-New model : n_train = 500 , equal_weight = False , train_type = exponential , train_sp_L = independently
-average_rel_l2_of uniform :   0.0079
-average_rel_l2_of exponential :   0.00394
-average_rel_l2_of linear :   0.00409
-average_rel_l2_of mixed :   0.00531
-
-1th_worst_rel_l2_of uniform :   0.12369  index :  7068
-1th_worst_rel_l2_of exponential :   0.13563  index :  7111
-1th_worst_rel_l2_of linear :   0.05267  index :  7376
-
-medium_rel_l2_of uniform :  0.0054  index :  7239
-medium_rel_l2_of exponential :  0.00256  index :  7498
-medium_rel_l2_of linear :  0.00255  index :  7091
-
-1th_best_rel_l2_of uniform :   0.00227  index :  7134
-1th_best_rel_l2_of exponential :   0.00105  index :  7219
-1th_best_rel_l2_of linear :   0.00097  index :  7283
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = exponential , train_sp_L = False
-average_rel_l2_of uniform :   0.00537
-average_rel_l2_of exponential :   0.00308
-average_rel_l2_of linear :   0.00274
-average_rel_l2_of mixed :   0.00373
-
-1th_worst_rel_l2_of uniform :   0.0614  index :  7068
-1th_worst_rel_l2_of exponential :   0.05937  index :  7111
-1th_worst_rel_l2_of linear :   0.02331  index :  7439
-
-medium_rel_l2_of uniform :  0.00364  index :  7140
-medium_rel_l2_of exponential :  0.00208  index :  7087
-medium_rel_l2_of linear :  0.00182  index :  7457
-
-1th_best_rel_l2_of uniform :   0.00171  index :  7242
-1th_best_rel_l2_of exponential :   0.00075  index :  7072
-1th_best_rel_l2_of linear :   0.0008  index :  7346
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = exponential , train_sp_L = together
-average_rel_l2_of uniform :   0.00609
-average_rel_l2_of exponential :   0.00247
-average_rel_l2_of linear :   0.00263
-average_rel_l2_of mixed :   0.00373
-
-1th_worst_rel_l2_of uniform :   0.052  index :  7068
-1th_worst_rel_l2_of exponential :   0.06449  index :  7111
-1th_worst_rel_l2_of linear :   0.02188  index :  7376
-
-medium_rel_l2_of uniform :  0.00471  index :  7182
-medium_rel_l2_of exponential :  0.00175  index :  7489
-medium_rel_l2_of linear :  0.00183  index :  7406
-
-1th_best_rel_l2_of uniform :   0.00227  index :  7134
-1th_best_rel_l2_of exponential :   0.00068  index :  7312
-1th_best_rel_l2_of linear :   0.00078  index :  7175
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = exponential , train_sp_L = independently
-average_rel_l2_of uniform :   0.00541
-average_rel_l2_of exponential :   0.00218
-average_rel_l2_of linear :   0.00245
-average_rel_l2_of mixed :   0.00335
-
-1th_worst_rel_l2_of uniform :   0.05097  index :  7068
-1th_worst_rel_l2_of exponential :   0.05781  index :  7111
-1th_worst_rel_l2_of linear :   0.0242  index :  7439
-
-medium_rel_l2_of uniform :  0.00435  index :  7224
-medium_rel_l2_of exponential :  0.00161  index :  7204
-medium_rel_l2_of linear :  0.00171  index :  7481
-
-1th_best_rel_l2_of uniform :   0.00155  index :  6984
-1th_best_rel_l2_of exponential :   0.00073  index :  7369
-1th_best_rel_l2_of linear :   0.0008  index :  7007
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = exponential , train_sp_L = False
-average_rel_l2_of uniform :   0.00467
-average_rel_l2_of exponential :   0.00211
-average_rel_l2_of linear :   0.0022
-average_rel_l2_of mixed :   0.00299
-
-1th_worst_rel_l2_of uniform :   0.05582  index :  6912
-1th_worst_rel_l2_of exponential :   0.03588  index :  7111
-1th_worst_rel_l2_of linear :   0.01734  index :  7439
-
-medium_rel_l2_of uniform :  0.00369  index :  7176
-medium_rel_l2_of exponential :  0.00155  index :  7042
-medium_rel_l2_of linear :  0.00157  index :  7112
-
-1th_best_rel_l2_of uniform :   0.00164  index :  7134
-1th_best_rel_l2_of exponential :   0.00063  index :  7369
-1th_best_rel_l2_of linear :   0.00061  index :  6914
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = exponential , train_sp_L = together
-average_rel_l2_of uniform :   0.00539
-average_rel_l2_of exponential :   0.00198
-average_rel_l2_of linear :   0.00229
-average_rel_l2_of mixed :   0.00322
-
-1th_worst_rel_l2_of uniform :   0.03156  index :  7068
-1th_worst_rel_l2_of exponential :   0.04504  index :  7111
-1th_worst_rel_l2_of linear :   0.02699  index :  7439
-
-medium_rel_l2_of uniform :  0.0045  index :  7374
-medium_rel_l2_of exponential :  0.00147  index :  7435
-medium_rel_l2_of linear :  0.00167  index :  7223
-
-1th_best_rel_l2_of uniform :   0.00203  index :  7023
-1th_best_rel_l2_of exponential :   0.00071  index :  7219
-1th_best_rel_l2_of linear :   0.00085  index :  7292
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = exponential , train_sp_L = independently
-average_rel_l2_of uniform :   0.00307
-average_rel_l2_of exponential :   0.0015
-average_rel_l2_of linear :   0.00182
-average_rel_l2_of mixed :   0.00213
-
-1th_worst_rel_l2_of uniform :   0.02775  index :  7071
-1th_worst_rel_l2_of exponential :   0.03058  index :  7111
-1th_worst_rel_l2_of linear :   0.02505  index :  7439
-
-medium_rel_l2_of uniform :  0.00244  index :  7194
-medium_rel_l2_of exponential :  0.00109  index :  7465
-medium_rel_l2_of linear :  0.00123  index :  7223
-
-1th_best_rel_l2_of uniform :   0.00125  index :  7017
-1th_best_rel_l2_of exponential :   0.00054  index :  7291
-1th_best_rel_l2_of linear :   0.00059  index :  7007
-
-
-New model : n_train = 500 , equal_weight = False , train_type = linear , train_sp_L = False
-average_rel_l2_of uniform :   0.00795
-average_rel_l2_of exponential :   0.02684
-average_rel_l2_of linear :   0.00586
-average_rel_l2_of mixed :   0.01355
-
-1th_worst_rel_l2_of uniform :   0.13764  index :  7293
-1th_worst_rel_l2_of exponential :   0.14445  index :  7111
-1th_worst_rel_l2_of linear :   0.06091  index :  7352
-
-medium_rel_l2_of uniform :  0.00383  index :  7416
-medium_rel_l2_of exponential :  0.02497  index :  6925
-medium_rel_l2_of linear :  0.00347  index :  6986
-
-1th_best_rel_l2_of uniform :   0.0013  index :  7497
-1th_best_rel_l2_of exponential :   0.01288  index :  7120
-1th_best_rel_l2_of linear :   0.00097  index :  7241
-
-
-New model : n_train = 500 , equal_weight = False , train_type = linear , train_sp_L = together
-average_rel_l2_of uniform :   0.00667
-average_rel_l2_of exponential :   0.02975
-average_rel_l2_of linear :   0.005
-average_rel_l2_of mixed :   0.01381
-
-1th_worst_rel_l2_of uniform :   0.10169  index :  7293
-1th_worst_rel_l2_of exponential :   0.13225  index :  7111
-1th_worst_rel_l2_of linear :   0.04379  index :  7352
-
-medium_rel_l2_of uniform :  0.00341  index :  7011
-medium_rel_l2_of exponential :  0.02857  index :  7315
-medium_rel_l2_of linear :  0.0028  index :  7232
-
-1th_best_rel_l2_of uniform :   0.00142  index :  7038
-1th_best_rel_l2_of exponential :   0.01669  index :  7381
-1th_best_rel_l2_of linear :   0.00068  index :  7046
-
-
-New model : n_train = 500 , equal_weight = False , train_type = linear , train_sp_L = independently
-average_rel_l2_of uniform :   0.00665
-average_rel_l2_of exponential :   0.02946
-average_rel_l2_of linear :   0.00459
-average_rel_l2_of mixed :   0.01357
-
-1th_worst_rel_l2_of uniform :   0.13671  index :  7293
-1th_worst_rel_l2_of exponential :   0.14997  index :  7111
-1th_worst_rel_l2_of linear :   0.04822  index :  7352
-
-medium_rel_l2_of uniform :  0.00286  index :  7011
-medium_rel_l2_of exponential :  0.02827  index :  7162
-medium_rel_l2_of linear :  0.00238  index :  7382
-
-1th_best_rel_l2_of uniform :   0.00118  index :  7035
-1th_best_rel_l2_of exponential :   0.01716  index :  7120
-1th_best_rel_l2_of linear :   0.00063  index :  7241
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = linear , train_sp_L = False
-average_rel_l2_of uniform :   0.00471
-average_rel_l2_of exponential :   0.02244
-average_rel_l2_of linear :   0.00288
-average_rel_l2_of mixed :   0.01001
-
-1th_worst_rel_l2_of uniform :   0.07685  index :  7293
-1th_worst_rel_l2_of exponential :   0.10985  index :  7111
-1th_worst_rel_l2_of linear :   0.01627  index :  7415
-
-medium_rel_l2_of uniform :  0.0031  index :  7428
-medium_rel_l2_of exponential :  0.02101  index :  7375
-medium_rel_l2_of linear :  0.00186  index :  7073
-
-1th_best_rel_l2_of uniform :   0.00131  index :  7035
-1th_best_rel_l2_of exponential :   0.00975  index :  7195
-1th_best_rel_l2_of linear :   0.00063  index :  7256
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = linear , train_sp_L = together
-average_rel_l2_of uniform :   0.00413
-average_rel_l2_of exponential :   0.0145
-average_rel_l2_of linear :   0.0026
-average_rel_l2_of mixed :   0.00708
-
-1th_worst_rel_l2_of uniform :   0.06971  index :  7293
-1th_worst_rel_l2_of exponential :   0.08923  index :  7111
-1th_worst_rel_l2_of linear :   0.02687  index :  7415
-
-medium_rel_l2_of uniform :  0.00241  index :  7428
-medium_rel_l2_of exponential :  0.01237  index :  7135
-medium_rel_l2_of linear :  0.00165  index :  7310
-
-1th_best_rel_l2_of uniform :   0.00112  index :  7038
-1th_best_rel_l2_of exponential :   0.00617  index :  7291
-1th_best_rel_l2_of linear :   0.00044  index :  7046
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = linear , train_sp_L = independently
-average_rel_l2_of uniform :   0.00367
-average_rel_l2_of exponential :   0.02899
-average_rel_l2_of linear :   0.00225
-average_rel_l2_of mixed :   0.01163
-
-1th_worst_rel_l2_of uniform :   0.07431  index :  7068
-1th_worst_rel_l2_of exponential :   0.10325  index :  7111
-1th_worst_rel_l2_of linear :   0.02514  index :  7415
-
-medium_rel_l2_of uniform :  0.00181  index :  7281
-medium_rel_l2_of exponential :  0.02837  index :  7162
-medium_rel_l2_of linear :  0.00131  index :  7445
-
-1th_best_rel_l2_of uniform :   0.00086  index :  6960
-1th_best_rel_l2_of exponential :   0.01129  index :  7441
+1th_best_rel_l2_of uniform :   0.00054  index :  7134
+1th_best_rel_l2_of exponential :   0.00042  index :  7429
 1th_best_rel_l2_of linear :   0.00048  index :  7265
 
 
-New model : n_train = 1500 , equal_weight = False , train_type = linear , train_sp_L = False
-average_rel_l2_of uniform :   0.0026
-average_rel_l2_of exponential :   0.01928
-average_rel_l2_of linear :   0.00173
-average_rel_l2_of mixed :   0.00787
+New model : n_train = 500 , equal_weight = False , train_distribution = linear , train_sp_L = independently
+average_rel_l2_of uniform :   0.0044
+average_rel_l2_of exponential :   0.03805
+average_rel_l2_of linear :   0.00288
+average_rel_l2_of mixed :   0.01511
 
-1th_worst_rel_l2_of uniform :   0.02461  index :  7068
-1th_worst_rel_l2_of exponential :   0.05228  index :  7111
-1th_worst_rel_l2_of linear :   0.01675  index :  7439
+1th_worst_rel_l2_of uniform :   0.07505  index :  7293
+1th_worst_rel_l2_of exponential :   0.07446  index :  7111
+1th_worst_rel_l2_of linear :   0.03336  index :  7376
 
-medium_rel_l2_of uniform :  0.00176  index :  7356
-medium_rel_l2_of exponential :  0.0175  index :  7102
-medium_rel_l2_of linear :  0.00112  index :  6989
+medium_rel_l2_of uniform :  0.00259  index :  7143
+medium_rel_l2_of exponential :  0.03732  index :  7468
+medium_rel_l2_of linear :  0.00181  index :  7364
 
-1th_best_rel_l2_of uniform :   0.00086  index :  7290
-1th_best_rel_l2_of exponential :   0.00948  index :  6970
-1th_best_rel_l2_of linear :   0.00042  index :  7214
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = linear , train_sp_L = together
-average_rel_l2_of uniform :   0.0026
-average_rel_l2_of exponential :   0.01909
-average_rel_l2_of linear :   0.00167
-average_rel_l2_of mixed :   0.00778
-
-1th_worst_rel_l2_of uniform :   0.02445  index :  7299
-1th_worst_rel_l2_of exponential :   0.05215  index :  7111
-1th_worst_rel_l2_of linear :   0.02053  index :  7376
-
-medium_rel_l2_of uniform :  0.00171  index :  7410
-medium_rel_l2_of exponential :  0.01764  index :  7129
-medium_rel_l2_of linear :  0.00106  index :  7262
-
-1th_best_rel_l2_of uniform :   0.00076  index :  7134
-1th_best_rel_l2_of exponential :   0.00962  index :  6970
-1th_best_rel_l2_of linear :   0.00042  index :  7214
+1th_best_rel_l2_of uniform :   0.00101  index :  7497
+1th_best_rel_l2_of exponential :   0.01407  index :  7414
+1th_best_rel_l2_of linear :   0.00065  index :  6968
 
 
-New model : n_train = 1500 , equal_weight = False , train_type = linear , train_sp_L = independently
-average_rel_l2_of uniform :   0.00237
-average_rel_l2_of exponential :   0.02427
-average_rel_l2_of linear :   0.00143
-average_rel_l2_of mixed :   0.00936
+New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_sp_L = False
+average_rel_l2_of uniform :   0.00252
+average_rel_l2_of exponential :   0.02777
+average_rel_l2_of linear :   0.00175
+average_rel_l2_of mixed :   0.01068
 
-1th_worst_rel_l2_of uniform :   0.04537  index :  7299
-1th_worst_rel_l2_of exponential :   0.05606  index :  7111
-1th_worst_rel_l2_of linear :   0.02271  index :  7439
+1th_worst_rel_l2_of uniform :   0.02324  index :  7293
+1th_worst_rel_l2_of exponential :   0.06686  index :  7366
+1th_worst_rel_l2_of linear :   0.01162  index :  7352
 
-medium_rel_l2_of uniform :  0.0014  index :  7140
-medium_rel_l2_of exponential :  0.02278  index :  7264
-medium_rel_l2_of linear :  0.00093  index :  7364
+medium_rel_l2_of uniform :  0.00162  index :  7047
+medium_rel_l2_of exponential :  0.0254  index :  7084
+medium_rel_l2_of linear :  0.00128  index :  7199
 
-1th_best_rel_l2_of uniform :   0.00068  index :  7035
-1th_best_rel_l2_of exponential :   0.01169  index :  7360
-1th_best_rel_l2_of linear :   0.00034  index :  6923
-
-
-New model : n_train = 500 , equal_weight = False , train_type = mixed , train_sp_L = False
-average_rel_l2_of uniform :   0.00759
-average_rel_l2_of exponential :   0.0074
-average_rel_l2_of linear :   0.00628
-average_rel_l2_of mixed :   0.00709
-
-1th_worst_rel_l2_of uniform :   0.10649  index :  7293
-1th_worst_rel_l2_of exponential :   0.25832  index :  7111
-1th_worst_rel_l2_of linear :   0.07707  index :  7268
-
-medium_rel_l2_of uniform :  0.00323  index :  6960
-medium_rel_l2_of exponential :  0.00423  index :  7222
-medium_rel_l2_of linear :  0.00338  index :  7100
-
-1th_best_rel_l2_of uniform :   0.00109  index :  6909
-1th_best_rel_l2_of exponential :   0.00139  index :  7276
-1th_best_rel_l2_of linear :   0.00105  index :  7169
+1th_best_rel_l2_of uniform :   0.00069  index :  7497
+1th_best_rel_l2_of exponential :   0.01044  index :  6970
+1th_best_rel_l2_of linear :   0.00046  index :  7151
 
 
-New model : n_train = 500 , equal_weight = False , train_type = mixed , train_sp_L = together
-average_rel_l2_of uniform :   0.00725
-average_rel_l2_of exponential :   0.00661
-average_rel_l2_of linear :   0.00569
-average_rel_l2_of mixed :   0.00652
+New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_sp_L = together
+average_rel_l2_of uniform :   0.00217
+average_rel_l2_of exponential :   0.03189
+average_rel_l2_of linear :   0.00145
+average_rel_l2_of mixed :   0.01184
 
-1th_worst_rel_l2_of uniform :   0.10163  index :  7293
-1th_worst_rel_l2_of exponential :   0.23566  index :  7111
-1th_worst_rel_l2_of linear :   0.07441  index :  7268
+1th_worst_rel_l2_of uniform :   0.02617  index :  7293
+1th_worst_rel_l2_of exponential :   0.06384  index :  6946
+1th_worst_rel_l2_of linear :   0.01208  index :  7352
 
-medium_rel_l2_of uniform :  0.00326  index :  7272
-medium_rel_l2_of exponential :  0.00382  index :  6916
-medium_rel_l2_of linear :  0.00307  index :  6908
+medium_rel_l2_of uniform :  0.00147  index :  7170
+medium_rel_l2_of exponential :  0.02966  index :  7498
+medium_rel_l2_of linear :  0.00103  index :  6956
 
-1th_best_rel_l2_of uniform :   0.00105  index :  7257
-1th_best_rel_l2_of exponential :   0.0013  index :  6901
-1th_best_rel_l2_of linear :   0.00098  index :  7046
-
-
-New model : n_train = 500 , equal_weight = False , train_type = mixed , train_sp_L = independently
-average_rel_l2_of uniform :   0.00602
-average_rel_l2_of exponential :   0.0054
-average_rel_l2_of linear :   0.00505
-average_rel_l2_of mixed :   0.00549
-
-1th_worst_rel_l2_of uniform :   0.09552  index :  7068
-1th_worst_rel_l2_of exponential :   0.18723  index :  7111
-1th_worst_rel_l2_of linear :   0.05859  index :  7268
-
-medium_rel_l2_of uniform :  0.00283  index :  7137
-medium_rel_l2_of exponential :  0.0031  index :  7234
-medium_rel_l2_of linear :  0.00263  index :  7124
-
-1th_best_rel_l2_of uniform :   0.00091  index :  7113
-1th_best_rel_l2_of exponential :   0.00112  index :  7216
-1th_best_rel_l2_of linear :   0.00076  index :  7214
+1th_best_rel_l2_of uniform :   0.00066  index :  6999
+1th_best_rel_l2_of exponential :   0.01547  index :  7381
+1th_best_rel_l2_of linear :   0.0004  index :  7046
 
 
-New model : n_train = 1000 , equal_weight = False , train_type = mixed , train_sp_L = False
-average_rel_l2_of uniform :   0.00377
-average_rel_l2_of exponential :   0.00387
-average_rel_l2_of linear :   0.00316
-average_rel_l2_of mixed :   0.0036
+New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_sp_L = independently
+average_rel_l2_of uniform :   0.00229
+average_rel_l2_of exponential :   0.03154
+average_rel_l2_of linear :   0.00152
+average_rel_l2_of mixed :   0.01178
 
-1th_worst_rel_l2_of uniform :   0.05569  index :  7068
-1th_worst_rel_l2_of exponential :   0.08806  index :  7111
-1th_worst_rel_l2_of linear :   0.01942  index :  7163
+1th_worst_rel_l2_of uniform :   0.0196  index :  7293
+1th_worst_rel_l2_of exponential :   0.0673  index :  6946
+1th_worst_rel_l2_of linear :   0.01432  index :  7376
 
-medium_rel_l2_of uniform :  0.00212  index :  6921
-medium_rel_l2_of exponential :  0.00254  index :  7354
-medium_rel_l2_of linear :  0.00207  index :  7340
+medium_rel_l2_of uniform :  0.00157  index :  7170
+medium_rel_l2_of exponential :  0.0297  index :  7066
+medium_rel_l2_of linear :  0.00105  index :  7322
 
-1th_best_rel_l2_of uniform :   0.0008  index :  7110
-1th_best_rel_l2_of exponential :   0.00109  index :  7423
-1th_best_rel_l2_of linear :   0.00073  index :  7169
-
-
-New model : n_train = 1000 , equal_weight = False , train_type = mixed , train_sp_L = together
-average_rel_l2_of uniform :   0.00323
-average_rel_l2_of exponential :   0.00333
-average_rel_l2_of linear :   0.00284
-average_rel_l2_of mixed :   0.00313
-
-1th_worst_rel_l2_of uniform :   0.0529  index :  7293
-1th_worst_rel_l2_of exponential :   0.10957  index :  7111
-1th_worst_rel_l2_of linear :   0.02713  index :  7268
-
-medium_rel_l2_of uniform :  0.00176  index :  7467
-medium_rel_l2_of exponential :  0.00224  index :  7174
-medium_rel_l2_of linear :  0.00169  index :  7094
-
-1th_best_rel_l2_of uniform :   0.00065  index :  6963
-1th_best_rel_l2_of exponential :   0.00077  index :  7108
-1th_best_rel_l2_of linear :   0.00057  index :  6914
+1th_best_rel_l2_of uniform :   0.00067  index :  7089
+1th_best_rel_l2_of exponential :   0.01591  index :  6913
+1th_best_rel_l2_of linear :   0.00039  index :  7046
 
 
-New model : n_train = 1000 , equal_weight = False , train_type = mixed , train_sp_L = independently
-average_rel_l2_of uniform :   0.00326
-average_rel_l2_of exponential :   0.00303
-average_rel_l2_of linear :   0.00236
-average_rel_l2_of mixed :   0.00288
+New model : n_train = 1500 , equal_weight = False , train_distribution = linear , train_sp_L = independently
+average_rel_l2_of uniform :   0.00143
+average_rel_l2_of exponential :   0.02218
+average_rel_l2_of linear :   0.00105
+average_rel_l2_of mixed :   0.00822
 
-1th_worst_rel_l2_of uniform :   0.05696  index :  7293
-1th_worst_rel_l2_of exponential :   0.09082  index :  7111
-1th_worst_rel_l2_of linear :   0.0183  index :  6992
+1th_worst_rel_l2_of uniform :   0.00714  index :  7068
+1th_worst_rel_l2_of exponential :   0.05525  index :  7366
+1th_worst_rel_l2_of linear :   0.00621  index :  7376
 
-medium_rel_l2_of uniform :  0.00157  index :  7482
-medium_rel_l2_of exponential :  0.00202  index :  7243
-medium_rel_l2_of linear :  0.00153  index :  6941
+medium_rel_l2_of uniform :  0.00108  index :  7479
+medium_rel_l2_of exponential :  0.02005  index :  7468
+medium_rel_l2_of linear :  0.00077  index :  7262
 
-1th_best_rel_l2_of uniform :   0.00058  index :  6963
-1th_best_rel_l2_of exponential :   0.00086  index :  7387
-1th_best_rel_l2_of linear :   0.00058  index :  7175
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = mixed , train_sp_L = False
-average_rel_l2_of uniform :   0.00303
-average_rel_l2_of exponential :   0.00275
-average_rel_l2_of linear :   0.00219
-average_rel_l2_of mixed :   0.00266
-
-1th_worst_rel_l2_of uniform :   0.05207  index :  7071
-1th_worst_rel_l2_of exponential :   0.07783  index :  7111
-1th_worst_rel_l2_of linear :   0.02215  index :  7268
-
-medium_rel_l2_of uniform :  0.00151  index :  7323
-medium_rel_l2_of exponential :  0.00178  index :  7057
-medium_rel_l2_of linear :  0.00159  index :  6923
-
-1th_best_rel_l2_of uniform :   0.00054  index :  6963
-1th_best_rel_l2_of exponential :   0.00077  index :  7312
-1th_best_rel_l2_of linear :   0.00048  index :  7151
+1th_best_rel_l2_of uniform :   0.00048  index :  6960
+1th_best_rel_l2_of exponential :   0.01119  index :  7414
+1th_best_rel_l2_of linear :   0.00035  index :  7454
 
 
-New model : n_train = 1500 , equal_weight = False , train_type = mixed , train_sp_L = together
-average_rel_l2_of uniform :   0.00278
-average_rel_l2_of exponential :   0.00243
-average_rel_l2_of linear :   0.00188
+New model : n_train = 500 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00365
+average_rel_l2_of exponential :   0.00382
+average_rel_l2_of linear :   0.00292
+average_rel_l2_of mixed :   0.00346
+
+1th_worst_rel_l2_of uniform :   0.05327  index :  7293
+1th_worst_rel_l2_of exponential :   0.10021  index :  7111
+1th_worst_rel_l2_of linear :   0.02417  index :  7049
+
+medium_rel_l2_of uniform :  0.00189  index :  7191
+medium_rel_l2_of exponential :  0.0024  index :  7186
+medium_rel_l2_of linear :  0.00198  index :  7022
+
+1th_best_rel_l2_of uniform :   0.00059  index :  7497
+1th_best_rel_l2_of exponential :   0.00101  index :  7300
+1th_best_rel_l2_of linear :   0.00056  index :  7046
+
+
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = False
+average_rel_l2_of uniform :   0.00244
+average_rel_l2_of exponential :   0.00261
+average_rel_l2_of linear :   0.00204
 average_rel_l2_of mixed :   0.00236
 
-1th_worst_rel_l2_of uniform :   0.05688  index :  7068
-1th_worst_rel_l2_of exponential :   0.05825  index :  7111
-1th_worst_rel_l2_of linear :   0.01332  index :  7268
+1th_worst_rel_l2_of uniform :   0.02067  index :  6912
+1th_worst_rel_l2_of exponential :   0.02863  index :  7360
+1th_worst_rel_l2_of linear :   0.02019  index :  7361
 
-medium_rel_l2_of uniform :  0.00135  index :  7407
-medium_rel_l2_of exponential :  0.00173  index :  7042
-medium_rel_l2_of linear :  0.00135  index :  7160
+medium_rel_l2_of uniform :  0.00134  index :  7266
+medium_rel_l2_of exponential :  0.00182  index :  7483
+medium_rel_l2_of linear :  0.00139  index :  6986
 
-1th_best_rel_l2_of uniform :   0.00048  index :  6939
-1th_best_rel_l2_of exponential :   0.00071  index :  7219
-1th_best_rel_l2_of linear :   0.00043  index :  7052
-
-
-New model : n_train = 1500 , equal_weight = False , train_type = mixed , train_sp_L = independently
-average_rel_l2_of uniform :   0.0026
-average_rel_l2_of exponential :   0.00225
-average_rel_l2_of linear :   0.0018
-average_rel_l2_of mixed :   0.00221
-
-1th_worst_rel_l2_of uniform :   0.05738  index :  7068
-1th_worst_rel_l2_of exponential :   0.06552  index :  7111
-1th_worst_rel_l2_of linear :   0.01771  index :  7268
-
-medium_rel_l2_of uniform :  0.00125  index :  7080
-medium_rel_l2_of exponential :  0.00159  index :  7288
-medium_rel_l2_of linear :  0.00125  index :  7058
-
-1th_best_rel_l2_of uniform :   0.00051  index :  7059
-1th_best_rel_l2_of exponential :   0.00072  index :  6919
-1th_best_rel_l2_of linear :   0.00048  index :  6902
+1th_best_rel_l2_of uniform :   0.00053  index :  7215
+1th_best_rel_l2_of exponential :   0.00076  index :  7429
+1th_best_rel_l2_of linear :   0.00057  index :  7046
 
 
-New model : n_train = 1000 , equal_weight = True , train_type = mixed , train_sp_L = False
-average_rel_l2_of uniform :   0.0051
-average_rel_l2_of exponential :   0.00493
-average_rel_l2_of linear :   0.00521
-average_rel_l2_of mixed :   0.00508
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = together
+average_rel_l2_of uniform :   0.0018
+average_rel_l2_of exponential :   0.00211
+average_rel_l2_of linear :   0.00157
+average_rel_l2_of mixed :   0.00182
 
-1th_worst_rel_l2_of uniform :   0.08056  index :  7293
-1th_worst_rel_l2_of exponential :   0.10114  index :  7111
-1th_worst_rel_l2_of linear :   0.04184  index :  7376
+1th_worst_rel_l2_of uniform :   0.01825  index :  6912
+1th_worst_rel_l2_of exponential :   0.01952  index :  7111
+1th_worst_rel_l2_of linear :   0.01529  index :  7361
 
-medium_rel_l2_of uniform :  0.0031  index :  7404
-medium_rel_l2_of exponential :  0.00339  index :  7345
-medium_rel_l2_of linear :  0.00311  index :  6980
+medium_rel_l2_of uniform :  0.00109  index :  7128
+medium_rel_l2_of exponential :  0.00145  index :  7072
+medium_rel_l2_of linear :  0.00116  index :  6980
 
-1th_best_rel_l2_of uniform :   0.00105  index :  7269
-1th_best_rel_l2_of exponential :   0.00123  index :  7108
-1th_best_rel_l2_of linear :   0.00088  index :  7169
-
-
-New model : n_train = 1000 , equal_weight = True , train_type = mixed , train_sp_L = together
-average_rel_l2_of uniform :   0.00485
-average_rel_l2_of exponential :   0.00486
-average_rel_l2_of linear :   0.00496
-average_rel_l2_of mixed :   0.00489
-
-1th_worst_rel_l2_of uniform :   0.05583  index :  7293
-1th_worst_rel_l2_of exponential :   0.09249  index :  7111
-1th_worst_rel_l2_of linear :   0.04173  index :  7376
-
-medium_rel_l2_of uniform :  0.00289  index :  7230
-medium_rel_l2_of exponential :  0.00332  index :  6958
-medium_rel_l2_of linear :  0.00298  index :  7469
-
-1th_best_rel_l2_of uniform :   0.00079  index :  7392
-1th_best_rel_l2_of exponential :   0.00111  index :  7075
-1th_best_rel_l2_of linear :   0.00103  index :  7175
+1th_best_rel_l2_of uniform :   0.0004  index :  7110
+1th_best_rel_l2_of exponential :   0.00068  index :  6949
+1th_best_rel_l2_of linear :   0.00042  index :  7412
 
 
-New model : n_train = 1000 , equal_weight = True , train_type = mixed , train_sp_L = independently
-average_rel_l2_of uniform :   0.00466
-average_rel_l2_of exponential :   0.00422
-average_rel_l2_of linear :   0.00434
-average_rel_l2_of mixed :   0.00441
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00166
+average_rel_l2_of exponential :   0.00188
+average_rel_l2_of linear :   0.00148
+average_rel_l2_of mixed :   0.00167
 
-1th_worst_rel_l2_of uniform :   0.08183  index :  7068
-1th_worst_rel_l2_of exponential :   0.104  index :  7111
-1th_worst_rel_l2_of linear :   0.03042  index :  7376
+1th_worst_rel_l2_of uniform :   0.01249  index :  7071
+1th_worst_rel_l2_of exponential :   0.01173  index :  7111
+1th_worst_rel_l2_of linear :   0.00956  index :  7049
 
-medium_rel_l2_of uniform :  0.00263  index :  7218
-medium_rel_l2_of exponential :  0.00283  index :  7030
-medium_rel_l2_of linear :  0.0026  index :  7355
+medium_rel_l2_of uniform :  0.00108  index :  7116
+medium_rel_l2_of exponential :  0.00144  index :  7066
+medium_rel_l2_of linear :  0.00109  index :  7430
 
-1th_best_rel_l2_of uniform :   0.00093  index :  7062
-1th_best_rel_l2_of exponential :   0.00106  index :  7246
-1th_best_rel_l2_of linear :   0.00091  index :  7256
+1th_best_rel_l2_of uniform :   0.00043  index :  7179
+1th_best_rel_l2_of exponential :   0.00067  index :  7300
+1th_best_rel_l2_of linear :   0.00044  index :  7229
+
+
+New model : n_train = 1500 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00141
+average_rel_l2_of exponential :   0.00158
+average_rel_l2_of linear :   0.00123
+average_rel_l2_of mixed :   0.00141
+
+1th_worst_rel_l2_of uniform :   0.01459  index :  7071
+1th_worst_rel_l2_of exponential :   0.01943  index :  7111
+1th_worst_rel_l2_of linear :   0.00859  index :  7376
+
+medium_rel_l2_of uniform :  0.00093  index :  7227
+medium_rel_l2_of exponential :  0.00117  index :  7354
+medium_rel_l2_of linear :  0.00092  index :  7238
+
+1th_best_rel_l2_of uniform :   0.00037  index :  7008
+1th_best_rel_l2_of exponential :   0.00058  index :  7192
+1th_best_rel_l2_of linear :   0.0004  index :  7295
+
+
+New model : n_train = 500 , equal_weight = True , train_distribution = uniform , train_sp_L = independently
+average_rel_l2_of uniform :   0.00606
+average_rel_l2_of exponential :   0.12682
+average_rel_l2_of linear :   0.54803
+average_rel_l2_of mixed :   0.22697
+
+1th_worst_rel_l2_of uniform :   0.04425  index :  7293
+1th_worst_rel_l2_of exponential :   0.18132  index :  7111
+1th_worst_rel_l2_of linear :   0.61317  index :  7247
+
+medium_rel_l2_of uniform :  0.00476  index :  7263
+medium_rel_l2_of exponential :  0.12847  index :  7036
+medium_rel_l2_of linear :  0.55466  index :  7454
+
+1th_best_rel_l2_of uniform :   0.00151  index :  7134
+1th_best_rel_l2_of exponential :   0.08844  index :  7393
+1th_best_rel_l2_of linear :   0.42646  index :  7376
+
+
+New model : n_train = 1000 , equal_weight = True , train_distribution = uniform , train_sp_L = independently
+average_rel_l2_of uniform :   0.00632
+average_rel_l2_of exponential :   0.08306
+average_rel_l2_of linear :   0.56761
+average_rel_l2_of mixed :   0.219
+
+1th_worst_rel_l2_of uniform :   0.01796  index :  7293
+1th_worst_rel_l2_of exponential :   0.11506  index :  6946
+1th_worst_rel_l2_of linear :   0.61775  index :  7121
+
+medium_rel_l2_of uniform :  0.00574  index :  7416
+medium_rel_l2_of exponential :  0.08261  index :  7096
+medium_rel_l2_of linear :  0.57208  index :  7214
+
+1th_best_rel_l2_of uniform :   0.00206  index :  7134
+1th_best_rel_l2_of exponential :   0.05999  index :  7021
+1th_best_rel_l2_of linear :   0.45432  index :  7049
+
+
+New model : n_train = 1500 , equal_weight = True , train_distribution = uniform , train_sp_L = independently
+average_rel_l2_of uniform :   0.00518
+average_rel_l2_of exponential :   0.11172
+average_rel_l2_of linear :   0.53088
+average_rel_l2_of mixed :   0.21593
+
+1th_worst_rel_l2_of uniform :   0.02161  index :  7299
+1th_worst_rel_l2_of exponential :   0.1444  index :  6913
+1th_worst_rel_l2_of linear :   0.59492  index :  7238
+
+medium_rel_l2_of uniform :  0.00428  index :  7008
+medium_rel_l2_of exponential :  0.11353  index :  7384
+medium_rel_l2_of linear :  0.53588  index :  6968
+
+1th_best_rel_l2_of uniform :   0.00129  index :  7290
+1th_best_rel_l2_of exponential :   0.0797  index :  7393
+1th_best_rel_l2_of linear :   0.379  index :  7049
+
+
+New model : n_train = 500 , equal_weight = True , train_distribution = exponential , train_sp_L = independently
+average_rel_l2_of uniform :   0.08174
+average_rel_l2_of exponential :   0.00361
+average_rel_l2_of linear :   0.54443
+average_rel_l2_of mixed :   0.20993
+
+1th_worst_rel_l2_of uniform :   0.13482  index :  7254
+1th_worst_rel_l2_of exponential :   0.04042  index :  7111
+1th_worst_rel_l2_of linear :   0.62674  index :  7154
+
+medium_rel_l2_of uniform :  0.08123  index :  7050
+medium_rel_l2_of exponential :  0.00247  index :  7198
+medium_rel_l2_of linear :  0.5544  index :  7406
+
+1th_best_rel_l2_of uniform :   0.04298  index :  7377
+1th_best_rel_l2_of exponential :   0.00091  index :  7492
+1th_best_rel_l2_of linear :   0.38484  index :  7376
+
+
+New model : n_train = 1000 , equal_weight = True , train_distribution = exponential , train_sp_L = independently
+average_rel_l2_of uniform :   0.08729
+average_rel_l2_of exponential :   0.00181
+average_rel_l2_of linear :   0.54746
+average_rel_l2_of mixed :   0.21218
+
+1th_worst_rel_l2_of uniform :   0.13363  index :  7191
+1th_worst_rel_l2_of exponential :   0.01449  index :  7111
+1th_worst_rel_l2_of linear :   0.62504  index :  7154
+
+medium_rel_l2_of uniform :  0.08593  index :  7119
+medium_rel_l2_of exponential :  0.0014  index :  7402
+medium_rel_l2_of linear :  0.55556  index :  6977
+
+1th_best_rel_l2_of uniform :   0.04005  index :  7185
+1th_best_rel_l2_of exponential :   0.00066  index :  7210
+1th_best_rel_l2_of linear :   0.36643  index :  7049
+
+
+New model : n_train = 1500 , equal_weight = True , train_distribution = exponential , train_sp_L = independently
+average_rel_l2_of uniform :   0.08528
+average_rel_l2_of exponential :   0.00132
+average_rel_l2_of linear :   0.56758
+average_rel_l2_of mixed :   0.21806
+
+1th_worst_rel_l2_of uniform :   0.12565  index :  7080
+1th_worst_rel_l2_of exponential :   0.01342  index :  7111
+1th_worst_rel_l2_of linear :   0.63474  index :  7154
+
+medium_rel_l2_of uniform :  0.085  index :  6939
+medium_rel_l2_of exponential :  0.00102  index :  7147
+medium_rel_l2_of linear :  0.57914  index :  7265
+
+1th_best_rel_l2_of uniform :   0.02644  index :  7185
+1th_best_rel_l2_of exponential :   0.00048  index :  7369
+1th_best_rel_l2_of linear :   0.39866  index :  7049
+
+
+New model : n_train = 500 , equal_weight = True , train_distribution = linear , train_sp_L = independently
+average_rel_l2_of uniform :   0.78827
+average_rel_l2_of exponential :   0.80285
+average_rel_l2_of linear :   0.00572
+average_rel_l2_of mixed :   0.53228
+
+1th_worst_rel_l2_of uniform :   1.10424  index :  7272
+1th_worst_rel_l2_of exponential :   1.07282  index :  7282
+1th_worst_rel_l2_of linear :   0.03268  index :  7376
+
+medium_rel_l2_of uniform :  0.80149  index :  7413
+medium_rel_l2_of exponential :  0.79335  index :  7432
+medium_rel_l2_of linear :  0.00449  index :  7442
+
+1th_best_rel_l2_of uniform :   0.31472  index :  7071
+1th_best_rel_l2_of exponential :   0.49025  index :  7396
+1th_best_rel_l2_of linear :   0.00242  index :  7118
+
+
+New model : n_train = 1000 , equal_weight = True , train_distribution = linear , train_sp_L = independently
+average_rel_l2_of uniform :   0.8061
+average_rel_l2_of exponential :   0.83178
+average_rel_l2_of linear :   0.00184
+average_rel_l2_of mixed :   0.54657
+
+1th_worst_rel_l2_of uniform :   1.08634  index :  7272
+1th_worst_rel_l2_of exponential :   1.09186  index :  7282
+1th_worst_rel_l2_of linear :   0.0124  index :  7376
+
+medium_rel_l2_of uniform :  0.81701  index :  7209
+medium_rel_l2_of exponential :  0.82495  index :  7057
+medium_rel_l2_of linear :  0.00139  index :  7106
+
+1th_best_rel_l2_of uniform :   0.44223  index :  7071
+1th_best_rel_l2_of exponential :   0.54969  index :  7297
+1th_best_rel_l2_of linear :   0.0006  index :  7070
+
+
+New model : n_train = 1500 , equal_weight = True , train_distribution = linear , train_sp_L = independently
+average_rel_l2_of uniform :   0.7773
+average_rel_l2_of exponential :   0.82681
+average_rel_l2_of linear :   0.00351
+average_rel_l2_of mixed :   0.53588
+
+1th_worst_rel_l2_of uniform :   1.03241  index :  7272
+1th_worst_rel_l2_of exponential :   1.08171  index :  7282
+1th_worst_rel_l2_of linear :   0.01249  index :  7436
+
+medium_rel_l2_of uniform :  0.79009  index :  7452
+medium_rel_l2_of exponential :  0.82513  index :  7066
+medium_rel_l2_of linear :  0.00252  index :  6977
+
+1th_best_rel_l2_of uniform :   0.38111  index :  7071
+1th_best_rel_l2_of exponential :   0.52826  index :  7297
+1th_best_rel_l2_of linear :   0.00105  index :  7199
+
+
+New model : n_train = 500 , equal_weight = True , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00754
+average_rel_l2_of exponential :   0.00665
+average_rel_l2_of linear :   0.00696
+average_rel_l2_of mixed :   0.00705
+
+1th_worst_rel_l2_of uniform :   0.06503  index :  7299
+1th_worst_rel_l2_of exponential :   0.14073  index :  7111
+1th_worst_rel_l2_of linear :   0.07386  index :  7376
+
+medium_rel_l2_of uniform :  0.004  index :  7329
+medium_rel_l2_of exponential :  0.00456  index :  6925
+medium_rel_l2_of linear :  0.00456  index :  7346
+
+1th_best_rel_l2_of uniform :   0.00143  index :  7320
+1th_best_rel_l2_of exponential :   0.00149  index :  7291
+1th_best_rel_l2_of linear :   0.00086  index :  7088
+
+
+New model : n_train = 1000 , equal_weight = True , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00333
+average_rel_l2_of exponential :   0.00295
+average_rel_l2_of linear :   0.00306
+average_rel_l2_of mixed :   0.00311
+
+1th_worst_rel_l2_of uniform :   0.0249  index :  7299
+1th_worst_rel_l2_of exponential :   0.024  index :  7111
+1th_worst_rel_l2_of linear :   0.03238  index :  7376
+
+medium_rel_l2_of uniform :  0.00213  index :  7155
+medium_rel_l2_of exponential :  0.00227  index :  7123
+medium_rel_l2_of linear :  0.00209  index :  7310
+
+1th_best_rel_l2_of uniform :   0.0008  index :  6999
+1th_best_rel_l2_of exponential :   0.00091  index :  7492
+1th_best_rel_l2_of linear :   0.00085  index :  7226
+
+
+New model : n_train = 1500 , equal_weight = True , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00215
+average_rel_l2_of exponential :   0.00212
+average_rel_l2_of linear :   0.00255
+average_rel_l2_of mixed :   0.00227
+
+1th_worst_rel_l2_of uniform :   0.01572  index :  6927
+1th_worst_rel_l2_of exponential :   0.01981  index :  7111
+1th_worst_rel_l2_of linear :   0.02261  index :  7376
+
+medium_rel_l2_of uniform :  0.00159  index :  6978
+medium_rel_l2_of exponential :  0.00161  index :  7027
+medium_rel_l2_of linear :  0.00185  index :  7466
+
+1th_best_rel_l2_of uniform :   0.00062  index :  7290
+1th_best_rel_l2_of exponential :   0.00076  index :  7069
+1th_best_rel_l2_of linear :   0.0006  index :  6947

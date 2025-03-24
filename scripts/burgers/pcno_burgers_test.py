@@ -100,6 +100,9 @@ aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[
 
 y_train, y_test = features[:n_train, :, [1]],     features[-n_test:, :, [1]]
 
+print('x_train.shape: ',x_train.shape)
+print('y_train.shape: ',y_train.shape)
+
 k_max = 32
 ndim = 1
 modes = compute_Fourier_modes(ndim, [k_max], [1.0])
@@ -113,15 +116,15 @@ model = PCNO(ndim, modes, nmeasures=1,
 
 
 
-epochs = 5000
+epochs = 500
 base_lr = 2e-4 #0.001
-lr_ratio = 0.1
+lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size= 8
 
-normalization_x = True
-normalization_y = True
+normalization_x = False
+normalization_y = False
 normalization_dim_x = []
 normalization_dim_y = []
 non_normalized_dim_x = 2

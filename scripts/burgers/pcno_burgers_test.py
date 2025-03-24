@@ -116,7 +116,7 @@ model = PCNO(ndim, modes, nmeasures=1,
 
 
 
-epochs = 500
+epochs = 5000
 base_lr = 2e-4 #0.001
 lr_ratio = 10
 scheduler = "OneCycleLR"

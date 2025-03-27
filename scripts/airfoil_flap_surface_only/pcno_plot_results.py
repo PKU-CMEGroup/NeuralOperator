@@ -133,7 +133,7 @@ print(
 ###################################
 # train
 ###################################
-kx_max, ky_max = 32, 32
+kx_max, ky_max = 16, 16
 ndim = 2
 if args.train_sp_L == 'False':
     args.train_sp_L = False
@@ -163,7 +163,7 @@ normalization_dim_y = []
 non_normalized_dim_x = 0
 non_normalized_dim_y = 0
 
-model_name = "PCNO_airfoil_flap_mixed.pth"
+model_name = "PCNO_airfoil_flap_mixed_n1000_20250327_190444.pth"
 model.load_state_dict(torch.load(model_name, weights_only=True, map_location=device))
 model = model.to(device)
 

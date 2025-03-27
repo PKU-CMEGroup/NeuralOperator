@@ -190,10 +190,8 @@ print("Lx, Ly = ", Lx, Ly)
 modes = compute_Fourier_modes(ndim, [kx_max, ky_max], [Lx, Ly])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
-            #  layers=[128, 128, 128, 128, 128],
-            #  fc_dim=128,
-             layers=[64, 64, 64, 64, 64],
-             fc_dim=64,
+             layers=[128, 128, 128, 128, 128],
+             fc_dim=128,
              in_dim=3, out_dim=1,
              train_sp_L=train_sp_L,
              act='gelu').to(device)

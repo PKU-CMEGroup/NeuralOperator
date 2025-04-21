@@ -14,12 +14,8 @@ from pcno.geo_utility import preprocess_data, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
 
 torch.set_printoptions(precision=16)
-
-
 torch.manual_seed(0)
 np.random.seed(0)
-
-
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def load_data(data_path):
@@ -28,8 +24,10 @@ def load_data(data_path):
     all_simulation_parameters = np.load(data_path+"/all_simulation_parameters.npy") #id, pressure, c0, c1, c2
     for i in range(ndata):    
         
-        nodes = np.load(data_path+"/coordinates_%05d"%(i+1)+".npy")
-        nodes_list.append(nodes)
+        deformed_nodes = np.load(data_path+"/coordinates_%05d"%(i+1)+".npy")  # This is the deformed shape
+        nnodes = deformed_nodes.shape[0]
+        displacement = np.load(data_path+"/displacements_%05d"%(i+1)+".npy")
+        nodes_list.append(deformed_nodes - displacement)
 
         elems = np.load(data_path+"/quad_connectivity_%05d"%(i+1)+".npy")
         elems_list.append(np.concatenate((np.full((elems.shape[0], 1), elem_dim, dtype=int), elems), axis=1))
@@ -38,7 +36,7 @@ def load_data(data_path):
         displacement = np.load(data_path+"/displacements_%05d"%(i+1)+".npy")
         strain = np.load(data_path+"/lagrange_strain_%05d"%(i+1)+".npy")[:,[0,1,2,4,5,8]]  # xx xy xz ; yx yy yz ; zx zy zz
         stress = np.load(data_path+"/cauchy_stress_%05d"%(i+1)+".npy")[:,[0,1,2,4,5,8]]
-        nnodes = nodes.shape[0]
+        
         simulation_parameters = np.tile(all_simulation_parameters[i,1:], (nnodes, 1))
         features_list.append(np.hstack((simulation_parameters, displacement, stress, strain)))
 
@@ -58,10 +56,13 @@ parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' 
 
 parser.add_argument('--lr_ratio', type=float, default=10, help='lr ratio for independent training for L')
 parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
-args = parser.parse_args()
-args_dict = vars(args)
-for i, (key, value) in enumerate(args_dict.items()):
-    print(f"{key}: {value}")
+
+if not PREPROCESS_DATA:
+    args = parser.parse_args()
+    args_dict = vars(args)
+    for i, (key, value) in enumerate(args_dict.items()):
+        print(f"{key}: {value}")
+
 ###################################
 # load data
 ###################################

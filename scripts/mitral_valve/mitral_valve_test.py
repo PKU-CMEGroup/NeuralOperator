@@ -22,10 +22,13 @@ def load_data(data_path):
     ndata, elem_dim = 1211, 2
     nodes_list, elems_list, features_list = [], [], []
     all_simulation_parameters = np.load(data_path+"/all_simulation_parameters.npy") #id, pressure, c0, c1, c2
-    for i in range(ndata):    
+    NNODES = 11917
+    for i in range(ndata):      
         
         deformed_nodes = np.load(data_path+"/coordinates_%05d"%(i+1)+".npy")  # This is the deformed shape
         nnodes = deformed_nodes.shape[0]
+        if nnodes != NNODES:  # something wrong with i=331 mesh
+            continue
         displacement = np.load(data_path+"/displacements_%05d"%(i+1)+".npy")
         nodes_list.append(deformed_nodes - displacement)
 

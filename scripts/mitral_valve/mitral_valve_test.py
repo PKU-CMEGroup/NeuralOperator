@@ -115,10 +115,6 @@ nodes = torch.from_numpy(nodes.astype(np.float32))
 node_weights = torch.from_numpy(node_weights.astype(np.float32))
 node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
 
-features = torch.from_numpy(features.astype(np.float32))
-directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
-edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
-
 #stress and pressure have the same unit, range O(1)
 #strain does not have an unit, range O(0.01)
 #displacement and nodes have the same unit, range O(1)
@@ -126,10 +122,17 @@ L_ref, p_ref, c_ref, strain_ref = 1.0, 1.0, 100, 0.01
 nodes_input = nodes.clone()/L_ref  # scale length input
 #pressre, c, displacements, stress, strain
 features = features / np.array([p_ref] * 1 + [c_ref] * 3 + [L_ref] * 3 + [p_ref] * 6 + [strain_ref] * 6 )
+features = torch.from_numpy(features.astype(np.float32))
+
+directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
+edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
+
+
+
 n_train, n_test = 1000, 200
 
 
-x_train, x_test = torch.cat((features[:n_train, :, 0:4], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1), torch.cat((features[-n_test:, :, [0]], nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]),-1)
+x_train, x_test = torch.cat((features[:n_train, :, 0:4], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1), torch.cat((features[-n_test:, :, 0:4], nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]),-1)
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 #predict displacement, stress
@@ -139,7 +142,7 @@ y_train, y_test = features[:n_train, :, 4:4+3+6],     features[-n_test:, :, 4:4+
 k_max = 12
 ndim = 3
 
-print("Nodes range: ", [np.max(nodes[:,i]) - np.min(nodes[:,i]) for i in range(3)])
+print("Nodes range: ", [torch.max(nodes[:,i]) - torch.min(nodes[:,i]) for i in range(3)])
 
 modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [40.0,40.0,25.0])
 

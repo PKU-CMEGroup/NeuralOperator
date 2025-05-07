@@ -4,8 +4,8 @@
 #SBATCH -J PCNO_preprocess_data
 #SBATCH --nodes=1 
 #SBATCH --ntasks=12
-#SBATCH --time=100:00:00
+#SBATCH --time=10:00:00
 
 module load conda
 source activate pytorch 
-python pcno_parachute_test.py "preprocess_data"
+python mitral_valve_test.py "preprocess_data"

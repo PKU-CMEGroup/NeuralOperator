@@ -88,7 +88,7 @@ def write_polydata_vtk(points, elems):
     return polydata
 
 # visualize the 
-def write_vtk(data_path, i, pred, filename_pref=""): 
+def write_vtk(data_path, i, pred=None, filename_pref=""): 
     
     ##load displacement data 
     displacement = np.load(data_path+"/displacements_%05d"%(i+1)+".npy")
@@ -111,15 +111,18 @@ def write_vtk(data_path, i, pred, filename_pref=""):
     strain_array = add_array("Strain", strain, num_components=6)
     stress_array = add_array("Stress", stress, num_components=6)
 
-    pred_displacement_array = add_array("Displacement(Pred)", pred[:,0:3], num_components=3)
-    pred_stress_array = add_array("Stress(Pred)", pred[:,3:9], num_components=6)
+    
 
 
     polydata.GetPointData().AddArray(displacement_array)
     polydata.GetPointData().AddArray(strain_array)
     polydata.GetPointData().AddArray(stress_array)
-    polydata.GetPointData().AddArray(pred_displacement_array)
-    polydata.GetPointData().AddArray(pred_stress_array)
+
+    if pred is not None:
+        pred_displacement_array = add_array("Displacement(Pred)", pred[:,0:3], num_components=3)
+        pred_stress_array = add_array("Stress(Pred)", pred[:,3:9], num_components=6)
+        polydata.GetPointData().AddArray(pred_displacement_array)
+        polydata.GetPointData().AddArray(pred_stress_array)
 
 
 

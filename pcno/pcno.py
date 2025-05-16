@@ -408,7 +408,7 @@ class PCNO(nn.Module):
             
             Returns:
                 G(x) : Tensor float[batch_size, max_nnomdes, out_dim] 
-                       Input data
+                       Output data
 
         """
         length = len(self.ws)

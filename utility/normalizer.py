@@ -36,7 +36,7 @@ class UnitGaussianNormalizer(object):
     
     
     def to(self, device):
-        if device == torch.device('cuda:0'):
+        if device == torch.device('cuda'):
             self.mean = self.mean.cuda()
             self.std = self.std.cuda()
         else:

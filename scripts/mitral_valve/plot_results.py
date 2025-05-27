@@ -89,19 +89,20 @@ def write_polydata_vtk(points, elems):
 
 # visualize the 
 def write_vtk(data_path, i, pred=None, filename_pref=""): 
-    
-    ##load displacement data 
-    displacement = np.load(data_path+"/displacements_%05d"%(i+1)+".npy")
-    strain = np.load(data_path+"/lagrange_strain_%05d"%(i+1)+".npy")[:,[0,1,2,4,5,8]]  # xx xy xz ; yx yy yz ; zx zy zz
-    stress = np.load(data_path+"/cauchy_stress_%05d"%(i+1)+".npy")[:,[0,1,2,4,5,8]]
 
-    deformed_points = np.load(data_path+"/coordinates_%05d"%(i+1)+".npy") 
+    myloss = LpLoss(d=1, p=2, size_average=False)
+    ##load displacement data 
+    displacement = np.load(data_path+"/displacements_%05d"%(1211-199+i)+".npy")
+    strain = np.load(data_path+"/lagrange_strain_%05d"%(1211-199+i)+".npy")[:,[0,1,2,4,5,8]]  # xx xy xz ; yx yy yz ; zx zy zz
+    stress = np.load(data_path+"/cauchy_stress_%05d"%(1211-199+i)+".npy")[:,[0,1,2,4,5,8]]
+
+    deformed_points = np.load(data_path+"/coordinates_%05d"%(1211-199+i)+".npy") 
     points = deformed_points - displacement
     points_num = points.shape[0]
 
     ##vtk needs element data
     elem_dim = 2
-    elems = np.load(data_path+"/quad_connectivity_%05d"%(i+1)+".npy")
+    elems = np.load(data_path+"/quad_connectivity_%05d"%(1211-199+i)+".npy")
     elems = np.concatenate((np.full((elems.shape[0], 1), elem_dim, dtype=int), elems), axis=1)     
     elems_num = elems.shape[0]
 
@@ -111,8 +112,6 @@ def write_vtk(data_path, i, pred=None, filename_pref=""):
     strain_array = add_array("Strain", strain, num_components=6)
     stress_array = add_array("Stress", stress, num_components=6)
 
-    
-
 
     polydata.GetPointData().AddArray(displacement_array)
     polydata.GetPointData().AddArray(strain_array)
@@ -121,6 +120,13 @@ def write_vtk(data_path, i, pred=None, filename_pref=""):
     if pred is not None:
         pred_displacement_array = add_array("Displacement(Pred)", pred[:,0:3], num_components=3)
         pred_stress_array = add_array("Stress(Pred)", pred[:,3:9], num_components=6)
+
+        rel_l2_displacement = myloss(torch.from_numpy(pred[:,0:3]).reshape(1,-1), torch.from_numpy(displacement).reshape(1,-1)).item()
+        rel_l2_Stress = myloss(torch.from_numpy(pred[:,3:9]).reshape(1,-1), torch.from_numpy(stress).reshape(1,-1)).item()
+
+        print("relative test error of displacement ", i, " = ", rel_l2_displacement)
+        print("relative test error of stress ", i, " = ", rel_l2_Stress)
+
         polydata.GetPointData().AddArray(pred_displacement_array)
         polydata.GetPointData().AddArray(pred_stress_array)
 
@@ -228,7 +234,8 @@ def predict_error(data_path):
     test_rel_l2 = np.zeros(n_test)
     myloss = LpLoss(d=1, p=2, size_average=False)
     for i in range(n_test):
-        x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x_test[[i],...], y_test[[i],...], aux_test[0][[i],...], aux_test[1][[i],...], aux_test[2][[i],...], aux_test[3][[i],...], aux_test[4][[i],...]
+        x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x_test[[i],...].clone(), y_test[[i],...].clone(), aux_test[0][[i],...].clone(),\
+        aux_test[1][[i],...].clone(), aux_test[2][[i],...].clone(), aux_test[3][[i],...].clone(), aux_test[4][[i],...].clone()
         x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
         batch_size_ = x.shape[0]
@@ -253,7 +260,8 @@ def predict_error(data_path):
     
     for i in [largest_error_ind, median_error_ind]:
         
-        x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x_test[[i],...], y_test[[i],...], aux_test[0][[i],...], aux_test[1][[i],...], aux_test[2][[i],...], aux_test[3][[i],...], aux_test[4][[i],...]
+        x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x_test[[i],...].clone(), y_test[[i],...].clone(), aux_test[0][[i],...].clone(),\
+        aux_test[1][[i],...].clone(), aux_test[2][[i],...].clone(), aux_test[3][[i],...].clone(), aux_test[4][[i],...].clone()
         x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
         batch_size_ = x.shape[0]
@@ -262,6 +270,10 @@ def predict_error(data_path):
         if normalization_y:
             out = y_normalizer.decode(out)
             y = y_normalizer.decode(y)
+
+        out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+        rel_l2 = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+        print("relative test error ", i, " = ", rel_l2)
 
         out = out.cpu().detach().numpy()[0,:,:]
 

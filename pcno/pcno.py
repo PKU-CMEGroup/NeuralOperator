@@ -780,7 +780,7 @@ class TD_PCNO(nn.Module):
                     raise ValueError(f"{self.train_sp_L} is not supported")
         
 
-   def forward(self, x, t, aux):
+    def forward(self, x, t, aux):
         """
         Forward evaluation. 
         1. Lift the input to the desire channel dimension by self.fc0 .

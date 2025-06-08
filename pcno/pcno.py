@@ -994,7 +994,7 @@ def TD_PCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test
                     temp_out = y_normalizer.decode(temp_out)
                 temp_out = temp_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
                 
-                temp_x = torch.cat((temp_out ,x[:,:,1:]),-1)
+                temp_x = torch.cat((temp_out ,x[:,:,ndims:]),-1)
                 if normalization_x:
                     temp_x = x_normalizer.encode(temp_x)
                 final_out = model(temp_x, (1-eps)*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint final variables

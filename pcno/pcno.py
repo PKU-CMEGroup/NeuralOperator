@@ -953,6 +953,7 @@ def TD_PCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test
             
 
             eps = torch.rand(1)# random time step
+            eps = eps.to(device)
             temp_out = model(x, eps*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1), Semigroup constraint intermediate variables
             if normalization_y:
                 temp_out = y_normalizer.decode(temp_out)
@@ -989,6 +990,7 @@ def TD_PCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test
                 out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
 
                 eps = torch.rand(1) #random time step
+                eps = eps.to(device)
                 temp_out = model(x, eps*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint intermediate variables
                 if normalization_y:
                     temp_out = y_normalizer.decode(temp_out)

@@ -709,7 +709,7 @@ class TD_PCNO(nn.Module):
         train_sp_L = 'independently',
         act="gelu",
     ):
-        super(PCNO, self).__init__()
+        super(TD_PCNO, self).__init__()
 
         """
             Compared to sdandard PCNO, we have incorporated temporal variables into the framework.

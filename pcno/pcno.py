@@ -832,7 +832,7 @@ class TD_PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
-        x_value = x[:,:,[:self.ndims]] 
+        x_value = x[:,:,:self.ndims] 
         x = torch.cat((x,t),-1)
 
         x = self.fc0(x)

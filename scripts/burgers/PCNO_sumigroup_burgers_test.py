@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
-from pcno.pcno import compute_Fourier_modes, TD_PCNO, TD_PCNO_train
+from pcno.pcno import compute_Fourier_modes
+from pcno.tpcno import TPCNO, TPCNO_train
 
 torch.set_printoptions(precision=16)
 

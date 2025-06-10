@@ -9,7 +9,7 @@ from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
 from pcno.geo_utility import compute_edge_gradient_weights
-from pcno.pcno import _get_act, compute_Fourier_bases, SpectralConv, compute_gradient, CombinedOptimizer
+from pcno.pcno import _get_act, compute_Fourier_bases, SpectralConv, compute_gradient, CombinedOptimizer, Combinedscheduler_OneCycleLR
 
 
 

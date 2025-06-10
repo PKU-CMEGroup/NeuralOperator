@@ -181,7 +181,7 @@ class TPCNO(nn.Module):
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def TD_PCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, y_test, config, model, save_model_name="./PCNO_model"):
+def TPCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, y_test, config, model, save_model_name="./PCNO_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []

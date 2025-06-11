@@ -37,43 +37,43 @@ except IndexError:
 
 
 
-data_path = "data_uniform/"
+data_path = "../../data/burgers/"
 
 if PREPROCESS_DATA:
     print("Loading data")
     nodes_list, elems_list, features_list = [], [], []
     ndata, nt = 30, 100
     for i in range(ndata):    
-       data = np.load(data_path+"/data_%05d"%(i)+".npy")
-       ndata, nnodes = data.shape
-       nodes = np.linspace(-1, 1, nnodes, endpoint=False)
-       nodes = nodes[:,np.newaxis]
-       elems = np.vstack((np.full(nnodes - 1, 1), np.arange(0, nnodes - 1), np.arange(1, nnodes))).T
-       elems = np.append(elems,np.array([1,nnodes - 1,0]).reshape(1,3),axis=0)
-       for l in range(nt):
+        data = np.load(data_path + "data_uniform/data_%05d"%(i) + ".npy")
+        ndata, nnodes = data.shape
+        nodes = np.linspace(-1, 1, nnodes, endpoint=False)
+        nodes = nodes[:,np.newaxis]
+        elems = np.vstack((np.full(nnodes - 1, 1), np.arange(0, nnodes - 1), np.arange(1, nnodes))).T
+        elems = np.append(elems, np.array([1, nnodes - 1, 0]).reshape(1, 3), axis=0)
+        for l in range(nt):
             nodes_list.append(nodes)
             elems_list.append(elems)
-            t1 = np.random.randint(1, np.min((7,101-l)))
+            t1 = np.random.randint(1, np.min((7, 101-l)))
             #t1 = 1
             #L = data[l,:]+0.001*np.random.normal(loc=0.0, scale=1.0, size=(1, nnodes))
-            L1 = data[l,:]
-            L2 = data[l+t1,:]
+            L1 = data[l, :]
+            L2 = data[l + t1, :]
             #features_list.append(np.vstack((L1, L2)).T)
             #features_list.append(np.vstack((L, (data[l+1,:]-L)*100)).T)
-            features_list.append(np.vstack((L1, t1*np.ones((1,nnodes))/100, L2)).T)
+            features_list.append(np.vstack((L1, t1 * np.ones((1, nnodes))/100, L2)).T)
 
     #data = loadmat(data_path+"burgers_data_R10.mat")
     #ndata, nnodes_ref = data["a"].shape
     #grid = np.linspace(0, 1, nnodes_ref)
     print()
-  
+
 
     nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
     node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
     edge_gradient_weights[:,0,:] = np.full((3000,1),512)
     edge_gradient_weights[:,1,:] = np.full((3000,1),-512)
-    np.savez_compressed("pcno_burgers_uniform_group_full_data.npz", \
+    np.savez_compressed(data_path + "pcno_burgers_uniform_group_full_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures_raw = node_measures_raw, \
                         node_measures=node_measures, node_weights=node_weights, \
@@ -92,12 +92,12 @@ else:
     args = parser.parse_args()
     args_dict = vars(args)
     for i, (key, value) in enumerate(args_dict.items()):
-       print(f"{key}: {value}")
+        print(f"{key}: {value}")
     
 
     equal_weights = args.equal_weight.lower() == "true"
     # load data 
-    data = np.load("pcno_burgers_uniform_group_full_data.npz")
+    data = np.load(data_path + "pcno_burgers_uniform_group_full_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     node_measures = data["node_measures"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
@@ -169,7 +169,7 @@ if args.train_sp_L == 'False':
     args.train_sp_L = False
 train_sp_L = args.train_sp_L
 #!! compress measures
-model = TD_PCNO(ndim, modes, nmeasures=2,
+model = TPCNO(ndim, modes, nmeasures=2,
 # model = PCNO(ndim, modes, nmeasures=1,
                layers=[96,96,96,96,96],
                fc_dim=96,
@@ -184,7 +184,7 @@ base_lr = 0.001
 lr_ratio = args.lr_ratio
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
-batch_size= 10
+batch_size = args.batch_size
 
 normalization_x = False
 normalization_y = False
@@ -202,8 +202,8 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
                      }
 
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = TD_PCNO_train(
-    x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, y_test, config, model, save_model_name="./PCNO_burgers_model"
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = TPCNO_train(
+    x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, y_test, config, model, save_model_name="./Semigroup_PCNO_burgers_model"
 )
 
 

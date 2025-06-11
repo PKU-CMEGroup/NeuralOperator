@@ -1,6 +1,11 @@
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import os
+
+data_path = "../../data/burgers/"
+if not os.path.exists(data_path):
+    os.makedirs(data_path)
 
 nu = 0.001
 
@@ -51,7 +56,7 @@ for index in range(1000):
             data.append(u)
     
     data = np.array(data)
-    np.save("data_uniform/data_"+str(index).zfill(5),data)
+    np.save(data_path + "data_uniform/data_" + str(index).zfill(5), data)
 
 
 

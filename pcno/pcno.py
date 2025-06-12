@@ -306,7 +306,7 @@ class PCNO(nn.Module):
                     k = k * inv_L_scale (where each spatial direction or measure may be scaled differently).
                     since k = 2pi K /L0, inv_L_scale is the inverse scale, 1/L = inv_L_scale * 1/L0 
                     Hyperparameters: 
-                        train_inv_L_scale (bool or str): Update policy for sp_L:
+                        train_inv_L_scale (bool or str): Update policy for inv_L_scale:
                             False: Disable training (fixed scaling).
                             'together': Train jointly with other parameters (shared optimizer).
                             'independently': Train with a separate optimizer.

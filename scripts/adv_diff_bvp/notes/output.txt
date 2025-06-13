@@ -1,6 +1,6 @@
 
 
-New model : n_train = 500 , equal_weight = False , train_distribution = uniform , train_sp_L = independently
+New model : n_train = 500 , equal_weight = False , train_distribution = uniform , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00256
 average_rel_l2_of exponential :   0.05576
 average_rel_l2_of linear :   0.0029
@@ -19,7 +19,7 @@ medium_rel_l2_of linear :  0.00242  index :  7130
 1th_best_rel_l2_of linear :   0.00115  index :  7283
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_sp_L = False
+New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_inv_L_scale = False
 average_rel_l2_of uniform :   0.00163
 average_rel_l2_of exponential :   0.03473
 average_rel_l2_of linear :   0.00201
@@ -38,7 +38,7 @@ medium_rel_l2_of linear :  0.00173  index :  7367
 1th_best_rel_l2_of linear :   0.00083  index :  7082
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_sp_L = together
+New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_inv_L_scale = together
 average_rel_l2_of uniform :   0.00137
 average_rel_l2_of exponential :   0.02927
 average_rel_l2_of linear :   0.00162
@@ -57,7 +57,7 @@ medium_rel_l2_of linear :  0.00139  index :  6974
 1th_best_rel_l2_of linear :   0.00068  index :  7367
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = False , train_distribution = uniform , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00126
 average_rel_l2_of exponential :   0.03613
 average_rel_l2_of linear :   0.00186
@@ -76,7 +76,7 @@ medium_rel_l2_of linear :  0.00157  index :  7304
 1th_best_rel_l2_of linear :   0.00092  index :  7196
 
 
-New model : n_train = 1500 , equal_weight = False , train_distribution = uniform , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = False , train_distribution = uniform , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00102
 average_rel_l2_of exponential :   0.05604
 average_rel_l2_of linear :   0.00192
@@ -95,7 +95,7 @@ medium_rel_l2_of linear :  0.00168  index :  7043
 1th_best_rel_l2_of linear :   0.00097  index :  7007
 
 
-New model : n_train = 500 , equal_weight = False , train_distribution = exponential , train_sp_L = independently
+New model : n_train = 500 , equal_weight = False , train_distribution = exponential , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00481
 average_rel_l2_of exponential :   0.00325
 average_rel_l2_of linear :   0.00321
@@ -114,7 +114,7 @@ medium_rel_l2_of linear :  0.00197  index :  7073
 1th_best_rel_l2_of linear :   0.00071  index :  6947
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_sp_L = False
+New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_inv_L_scale = False
 average_rel_l2_of uniform :   0.00371
 average_rel_l2_of exponential :   0.00224
 average_rel_l2_of linear :   0.00233
@@ -133,7 +133,7 @@ medium_rel_l2_of linear :  0.00175  index :  7427
 1th_best_rel_l2_of linear :   0.00069  index :  6914
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_sp_L = together
+New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_inv_L_scale = together
 average_rel_l2_of uniform :   0.00318
 average_rel_l2_of exponential :   0.00196
 average_rel_l2_of linear :   0.00198
@@ -152,7 +152,7 @@ medium_rel_l2_of linear :  0.00139  index :  7301
 1th_best_rel_l2_of linear :   0.00062  index :  7169
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = False , train_distribution = exponential , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00288
 average_rel_l2_of exponential :   0.0018
 average_rel_l2_of linear :   0.0019
@@ -171,7 +171,7 @@ medium_rel_l2_of linear :  0.00131  index :  7454
 1th_best_rel_l2_of linear :   0.00053  index :  6947
 
 
-New model : n_train = 1500 , equal_weight = False , train_distribution = exponential , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = False , train_distribution = exponential , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00211
 average_rel_l2_of exponential :   0.00118
 average_rel_l2_of linear :   0.00128
@@ -190,7 +190,7 @@ medium_rel_l2_of linear :  0.00092  index :  6941
 1th_best_rel_l2_of linear :   0.00048  index :  7265
 
 
-New model : n_train = 500 , equal_weight = False , train_distribution = linear , train_sp_L = independently
+New model : n_train = 500 , equal_weight = False , train_distribution = linear , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.0044
 average_rel_l2_of exponential :   0.03805
 average_rel_l2_of linear :   0.00288
@@ -209,7 +209,7 @@ medium_rel_l2_of linear :  0.00181  index :  7364
 1th_best_rel_l2_of linear :   0.00065  index :  6968
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_sp_L = False
+New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_inv_L_scale = False
 average_rel_l2_of uniform :   0.00252
 average_rel_l2_of exponential :   0.02777
 average_rel_l2_of linear :   0.00175
@@ -228,7 +228,7 @@ medium_rel_l2_of linear :  0.00128  index :  7199
 1th_best_rel_l2_of linear :   0.00046  index :  7151
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_sp_L = together
+New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_inv_L_scale = together
 average_rel_l2_of uniform :   0.00217
 average_rel_l2_of exponential :   0.03189
 average_rel_l2_of linear :   0.00145
@@ -247,7 +247,7 @@ medium_rel_l2_of linear :  0.00103  index :  6956
 1th_best_rel_l2_of linear :   0.0004  index :  7046
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = False , train_distribution = linear , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00229
 average_rel_l2_of exponential :   0.03154
 average_rel_l2_of linear :   0.00152
@@ -266,7 +266,7 @@ medium_rel_l2_of linear :  0.00105  index :  7322
 1th_best_rel_l2_of linear :   0.00039  index :  7046
 
 
-New model : n_train = 1500 , equal_weight = False , train_distribution = linear , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = False , train_distribution = linear , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00143
 average_rel_l2_of exponential :   0.02218
 average_rel_l2_of linear :   0.00105
@@ -285,7 +285,7 @@ medium_rel_l2_of linear :  0.00077  index :  7262
 1th_best_rel_l2_of linear :   0.00035  index :  7454
 
 
-New model : n_train = 500 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 500 , equal_weight = False , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00365
 average_rel_l2_of exponential :   0.00382
 average_rel_l2_of linear :   0.00292
@@ -304,7 +304,7 @@ medium_rel_l2_of linear :  0.00198  index :  7022
 1th_best_rel_l2_of linear :   0.00056  index :  7046
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = False
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_inv_L_scale = False
 average_rel_l2_of uniform :   0.00244
 average_rel_l2_of exponential :   0.00261
 average_rel_l2_of linear :   0.00204
@@ -323,7 +323,7 @@ medium_rel_l2_of linear :  0.00139  index :  6986
 1th_best_rel_l2_of linear :   0.00057  index :  7046
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = together
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_inv_L_scale = together
 average_rel_l2_of uniform :   0.0018
 average_rel_l2_of exponential :   0.00211
 average_rel_l2_of linear :   0.00157
@@ -342,7 +342,7 @@ medium_rel_l2_of linear :  0.00116  index :  6980
 1th_best_rel_l2_of linear :   0.00042  index :  7412
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00166
 average_rel_l2_of exponential :   0.00188
 average_rel_l2_of linear :   0.00148
@@ -361,7 +361,7 @@ medium_rel_l2_of linear :  0.00109  index :  7430
 1th_best_rel_l2_of linear :   0.00044  index :  7229
 
 
-New model : n_train = 1500 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = False , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00141
 average_rel_l2_of exponential :   0.00158
 average_rel_l2_of linear :   0.00123
@@ -380,7 +380,7 @@ medium_rel_l2_of linear :  0.00092  index :  7238
 1th_best_rel_l2_of linear :   0.0004  index :  7295
 
 
-New model : n_train = 500 , equal_weight = True , train_distribution = uniform , train_sp_L = independently
+New model : n_train = 500 , equal_weight = True , train_distribution = uniform , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00606
 average_rel_l2_of exponential :   0.12682
 average_rel_l2_of linear :   0.54803
@@ -399,7 +399,7 @@ medium_rel_l2_of linear :  0.55466  index :  7454
 1th_best_rel_l2_of linear :   0.42646  index :  7376
 
 
-New model : n_train = 1000 , equal_weight = True , train_distribution = uniform , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = True , train_distribution = uniform , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00632
 average_rel_l2_of exponential :   0.08306
 average_rel_l2_of linear :   0.56761
@@ -418,7 +418,7 @@ medium_rel_l2_of linear :  0.57208  index :  7214
 1th_best_rel_l2_of linear :   0.45432  index :  7049
 
 
-New model : n_train = 1500 , equal_weight = True , train_distribution = uniform , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = True , train_distribution = uniform , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00518
 average_rel_l2_of exponential :   0.11172
 average_rel_l2_of linear :   0.53088
@@ -437,7 +437,7 @@ medium_rel_l2_of linear :  0.53588  index :  6968
 1th_best_rel_l2_of linear :   0.379  index :  7049
 
 
-New model : n_train = 500 , equal_weight = True , train_distribution = exponential , train_sp_L = independently
+New model : n_train = 500 , equal_weight = True , train_distribution = exponential , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.08174
 average_rel_l2_of exponential :   0.00361
 average_rel_l2_of linear :   0.54443
@@ -456,7 +456,7 @@ medium_rel_l2_of linear :  0.5544  index :  7406
 1th_best_rel_l2_of linear :   0.38484  index :  7376
 
 
-New model : n_train = 1000 , equal_weight = True , train_distribution = exponential , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = True , train_distribution = exponential , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.08729
 average_rel_l2_of exponential :   0.00181
 average_rel_l2_of linear :   0.54746
@@ -475,7 +475,7 @@ medium_rel_l2_of linear :  0.55556  index :  6977
 1th_best_rel_l2_of linear :   0.36643  index :  7049
 
 
-New model : n_train = 1500 , equal_weight = True , train_distribution = exponential , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = True , train_distribution = exponential , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.08528
 average_rel_l2_of exponential :   0.00132
 average_rel_l2_of linear :   0.56758
@@ -494,7 +494,7 @@ medium_rel_l2_of linear :  0.57914  index :  7265
 1th_best_rel_l2_of linear :   0.39866  index :  7049
 
 
-New model : n_train = 500 , equal_weight = True , train_distribution = linear , train_sp_L = independently
+New model : n_train = 500 , equal_weight = True , train_distribution = linear , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.78827
 average_rel_l2_of exponential :   0.80285
 average_rel_l2_of linear :   0.00572
@@ -513,7 +513,7 @@ medium_rel_l2_of linear :  0.00449  index :  7442
 1th_best_rel_l2_of linear :   0.00242  index :  7118
 
 
-New model : n_train = 1000 , equal_weight = True , train_distribution = linear , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = True , train_distribution = linear , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.8061
 average_rel_l2_of exponential :   0.83178
 average_rel_l2_of linear :   0.00184
@@ -532,7 +532,7 @@ medium_rel_l2_of linear :  0.00139  index :  7106
 1th_best_rel_l2_of linear :   0.0006  index :  7070
 
 
-New model : n_train = 1500 , equal_weight = True , train_distribution = linear , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = True , train_distribution = linear , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.7773
 average_rel_l2_of exponential :   0.82681
 average_rel_l2_of linear :   0.00351
@@ -551,7 +551,7 @@ medium_rel_l2_of linear :  0.00252  index :  6977
 1th_best_rel_l2_of linear :   0.00105  index :  7199
 
 
-New model : n_train = 500 , equal_weight = True , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 500 , equal_weight = True , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00754
 average_rel_l2_of exponential :   0.00665
 average_rel_l2_of linear :   0.00696
@@ -570,7 +570,7 @@ medium_rel_l2_of linear :  0.00456  index :  7346
 1th_best_rel_l2_of linear :   0.00086  index :  7088
 
 
-New model : n_train = 1000 , equal_weight = True , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = True , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00333
 average_rel_l2_of exponential :   0.00295
 average_rel_l2_of linear :   0.00306
@@ -589,7 +589,7 @@ medium_rel_l2_of linear :  0.00209  index :  7310
 1th_best_rel_l2_of linear :   0.00085  index :  7226
 
 
-New model : n_train = 1500 , equal_weight = True , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 1500 , equal_weight = True , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00215
 average_rel_l2_of exponential :   0.00212
 average_rel_l2_of linear :   0.00255

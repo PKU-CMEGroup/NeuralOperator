@@ -10,5 +10,5 @@
 
 module load conda
 source activate pytorch 
-python mitral_valve_test.py --train_sp_L 'together'> PCNO_mitral_valve_test.log
+python mitral_valve_test.py --train_inv_L_scale 'together'> PCNO_mitral_valve_test.log
 

@@ -40,7 +40,7 @@ parser.add_argument('--ky_max', type=int, default=16)
 parser.add_argument('--normalization_x', type=str, default='True')
 parser.add_argument('--normalization_y', type=str, default='True')
 parser.add_argument('--normalization_out', type=str, default='True')
-parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'])
+parser.add_argument('--train_inv_L_scale', type=str, default='independently', choices=['False', 'together', 'independently'])
 parser.add_argument('--lr_ratio', type=float, default=10)
 parser.add_argument('--checkpoint_path', type=str, default="None")
 parser.add_argument('--save_model_ID', type=str, default="None")
@@ -147,7 +147,7 @@ print(f"u test:{x_test.shape}, v test:{y_test.shape}, truth test:{truth_test.sha
 ######################################################################
 kx_max, ky_max = args.kx_max, args.ky_max
 ndims = 2
-train_sp_L = args.train_sp_L
+train_inv_L_scale = args.train_inv_L_scale
 Lx, Ly = args.Lx, args.Ly
 modes = compute_Fourier_modes(ndims, [kx_max, ky_max], [Lx, Ly])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
@@ -158,7 +158,7 @@ model = ExtGNOBNO(ndims, modes, nmeasures=1,
                   in_dim_x=in_dim_x,
                   in_dim_y=4,
                   out_dim=1,
-                  train_sp_L=train_sp_L,
+                  inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                   act="gelu").to(device)
 
 

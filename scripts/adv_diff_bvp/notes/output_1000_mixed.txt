@@ -1,6 +1,6 @@
 
 
-New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_inv_L_scale = independently
 average_rel_l2_of uniform :   0.00166
 average_rel_l2_of exponential :   0.00188
 average_rel_l2_of linear :   0.00148

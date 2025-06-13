@@ -15,7 +15,7 @@ python pcno_mitral_valve_test.py  "preprocess_data"
 
 You can run the script with customized parameters. For example:
 ```bash
-python pcno_mitral_valve_test.py  --train_sp_L together 
+python pcno_mitral_valve_test.py  --train_inv_L_scale together 
 ```
 
 

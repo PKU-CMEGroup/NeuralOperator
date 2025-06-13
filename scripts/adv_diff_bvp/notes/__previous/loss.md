@@ -1,5 +1,5 @@
 # average loss of datasize 500, equal_weight = False
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | exponential | False | 0.00841 | 0.00547 | 0.00551 | 0.00646 |
 | exponential | independently | 0.0079 | 0.00394 | 0.00409 | 0.00531 |
@@ -15,7 +15,7 @@
 | uniform | together | 0.00646 | 0.02589 | 0.00749 | 0.01328 |
 
 # average loss of datasize 1000, equal_weight = False
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | exponential | False | 0.00537 | 0.00308 | 0.00274 | 0.00373 |
 | exponential | independently | 0.00541 | 0.00218 | 0.00245 | 0.00335 |
@@ -31,7 +31,7 @@
 | uniform | together | 0.00266 | 0.02324 | 0.003 | 0.00963 |
 
 # average loss of datasize 1500, equal_weight = False
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | exponential | False | 0.00467 | 0.00211 | 0.0022 | 0.00299 |
 | exponential | independently | 0.00307 | 0.0015 | 0.00182 | 0.00213 |
@@ -47,7 +47,7 @@
 | uniform | together | 0.0019 | 0.02964 | 0.00218 | 0.01124 |
 
 # biggest loss of datasize 500, equal_weight = False
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | exponential | False | 0.15599 | 0.17029 | 0.0581 | - |
 | exponential | independently | 0.12369 | 0.13563 | 0.05267 | - |
@@ -63,7 +63,7 @@
 | uniform | together | 0.09926 | 0.14463 | 0.08582 | - |
 
 # biggest loss of datasize 1000, equal_weight = False
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | exponential | False | 0.0614 | 0.05937 | 0.02331 | - |
 | exponential | independently | 0.05097 | 0.05781 | 0.0242 | - |
@@ -79,7 +79,7 @@
 | uniform | together | 0.03161 | 0.05703 | 0.02168 | - |
 
 # biggest loss of datasize 1500, equal_weight = False
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | exponential | False | 0.05582 | 0.03588 | 0.01734 | - |
 | exponential | independently | 0.02775 | 0.03058 | 0.02505 | - |
@@ -95,14 +95,14 @@
 | uniform | together | 0.02874 | 0.06585 | 0.01166 | - |
 
 # average loss of datasize 1000, equal_weight = True
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | mixed | False | 0.0051 | 0.00493 | 0.00521 | 0.00508 |
 | mixed | independently | 0.00466 | 0.00422 | 0.00434 | 0.00441 |
 | mixed | together | 0.00485 | 0.00486 | 0.00496 | 0.00489 |
 
 # biggest loss of datasize 1000, equal_weight = True
-| train_type | train_sp_L | uniform | exponential | linear | mixed |
+| train_type | train_inv_L_scale | uniform | exponential | linear | mixed |
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | mixed | False | 0.08056 | 0.10114 | 0.04184 | - |
 | mixed | independently | 0.08183 | 0.104 | 0.03042 | - |

@@ -80,10 +80,10 @@ python pcno_deformed_darcy.py --train_type mixed  --n_train 1000 --Lx 2.0 --Ly 2
 | `--equal_weight` | `str`   |  `False`        | `True`, `False`           | Specify whether to use equal weight   - `True`: Point cloud density - `False`: Uniform density|
 | `--n_train`      | `int`   | `1000`        | `500`, `1000`, `1500`                | Number of training samples to use|
 | `--n_test`       | `int`   | `200`         |              | Number of testing samples to use|
-| `--train_sp_L`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies whether the spatial length scales (`Lx`, `Ly`) are trained:  - `False`: Do not train the spatial length scales. - `together`: Train `Lx` and `Ly`  - `independently`: Train `Lx` and `Ly` independently. |
+| `--train_inv_L_scale`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies whether the spatial length scales (`Lx`, `Ly`) are trained:  - `False`: Do not train the spatial length scales. - `together`: Train `Lx` and `Ly`  - `independently`: Train `Lx` and `Ly` independently. |
 | `--Lx`           | `float` | `2.0`         |                                      | Initial value of the spatial length scale Lx.                                                                                                                                                                      |
 | `--Ly`           | `float` | `2.0`         |                                      | Initial value of the spatial length scale Ly.                                           
-| `--lr_ratio`     | `float` | `10`          |                                      | Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`. |
+| `--lr_ratio`     | `float` | `10`          |                                      | Learning rate ratio of main parameters and L parameters when train_inv_L_scale is set to `independently`. |
 | `--batch_size`     | `int` | `8`          |                                      | Batch size. |
 ---
 

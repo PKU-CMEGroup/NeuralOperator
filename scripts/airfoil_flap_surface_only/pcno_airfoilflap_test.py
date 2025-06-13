@@ -98,7 +98,7 @@ parser.add_argument('--n_train', type=int, default=1000, help='Number of trainin
 parser.add_argument('--n_test', type=int, default=400, help='Number of testing samples')
 parser.add_argument('--train_type', type=str, default='mixed', choices=['standard', 'flap', 'mixed'], help='Type of training data')
 parser.add_argument('--feature_type', type=str, default='pressure', choices=['pressure', 'mach'], help='Type of feature to use')
-parser.add_argument('--train_sp_L', type=str, default='independently', choices=['False', 'together', 'independently'], help='Type of train_sp_L')
+parser.add_argument('--train_inv_L_scale', type=str, default='independently', choices=['False', 'together', 'independently'], help='Type of train_inv_L_scale')
 parser.add_argument('--lr_ratio', type=float, default=10.0, help='Learning rate ratio of L-parameters to main parameters')
 
 
@@ -182,9 +182,9 @@ print(
 ###################################
 kx_max, ky_max = 16, 16
 ndim = 2
-if args.train_sp_L == 'False':
-    args.train_sp_L = False
-train_sp_L = args.train_sp_L
+if args.train_inv_L_scale == 'False':
+    args.train_inv_L_scale = False
+train_inv_L_scale = args.train_inv_L_scale
 Lx, Ly = 1, 0.5
 print("Lx, Ly = ", Lx, Ly)
 modes = compute_Fourier_modes(ndim, [kx_max, ky_max], [Lx, Ly])
@@ -193,7 +193,7 @@ model = PCNO(ndim, modes, nmeasures=1,
              layers=[128, 128, 128, 128, 128],
              fc_dim=128,
              in_dim=3, out_dim=1,
-             train_sp_L=train_sp_L,
+             inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
              act='gelu').to(device)
 
 epochs = 500

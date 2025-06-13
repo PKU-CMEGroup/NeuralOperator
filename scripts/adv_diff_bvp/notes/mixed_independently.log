@@ -1,8 +1,8 @@
-train_distribution = mixed, n_train = 1000, train_sp_L = independently
+train_distribution = mixed, n_train = 1000, train_inv_L_scale = independently
 Casting to tensor
 nodes.shape: torch.Size([7500, 7501, 1]), feature.shape: torch.Size([7500, 7501, 4])
 x_train.shape: torch.Size([1000, 7501, 5]), y_train.shape: torch.Size([1000, 7501, 1])
-Start training , train_sp_L = independently, lr_ratio = 10
+Start training , train_inv_L_scale = independently, lr_ratio = 10
 In PCNO_train, ndims =  1
 Epoch :  0  Time:  23.608  Rel. Train L2 Loss :  0.41601682257652284  Rel. Test L2 Loss :  0.3589145863056183  Test L2 Loss :  0.9196863889694213  1/sp_L:  [0.987]
 Epoch :  1  Time:  17.912  Rel. Train L2 Loss :  0.24580569982528686  Rel. Test L2 Loss :  0.10559922635555268  Test L2 Loss :  0.26274184286594393  1/sp_L:  [0.912]

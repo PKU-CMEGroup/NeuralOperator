@@ -17,7 +17,7 @@ class BNO(nn.Module):
                  in_dim_x=2,
                  in_dim_y=3,
                  out_dim=1,
-                 train_sp_L=False,
+                 inv_L_scale_hyper = ['independently', 0.5, 2.0],
                  act="gelu"
                  ):
         super(BNO, self).__init__()
@@ -65,8 +65,10 @@ class BNO(nn.Module):
                 )
             ]
         )
-        self.sp_L = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad=bool(train_sp_L))
-        self.train_sp_L = train_sp_L
+        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
+        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent)) 
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
+
 
         self.ws_x = nn.ModuleList(
             [
@@ -89,20 +91,20 @@ class BNO(nn.Module):
 
         self.act = _get_act(act)
 
-        self.normal_params = []  # group of params which will be trained normally
-        self.sp_L_params = []  # group of params which may be trained specially
+        self.normal_params = []  #  group of params which will be trained normally
+        self.inv_L_scale_params = []    #  group of params which may be trained specially
         for _, param in self.named_parameters():
-            if param is not self.sp_L:
+            if param is not self.inv_L_scale_latent :
                 self.normal_params.append(param)
             else:
-                if self.train_sp_L == 'together':
+                if self.train_inv_L_scale == 'together':
                     self.normal_params.append(param)
-                elif self.train_sp_L == 'independently':
-                    self.sp_L_params.append(param)
-                elif self.train_sp_L == False:
+                elif self.train_inv_L_scale == 'independently':
+                    self.inv_L_scale_params.append(param)
+                elif self.train_inv_L_scale == False:
                     continue
                 else:
-                    raise ValueError(f"{self.train_sp_L} is not supported")
+                    raise ValueError(f"{self.train_inv_L_scale} is not supported")
 
     def forward(self, x, y, aux):
         """
@@ -144,8 +146,8 @@ class BNO(nn.Module):
         length = len(self.ws_x)
         node_mask_x, nodes_x, nodes_y, node_weights_x, node_weights_y = aux
 
-        bases_c_x, bases_s_x, bases_0_x = compute_Fourier_bases(nodes_x, self.modes * self.sp_L)
-        bases_c_y, bases_s_y, bases_0_y = compute_Fourier_bases(nodes_y, self.modes * self.sp_L)
+        bases_c_x, bases_s_x, bases_0_x = compute_Fourier_bases(nodes_x, self.modes * (self.inv_L_scale_min + (self.inv_L_scale_max - self.inv_L_scale_min)/(1.0 + torch.exp(self.inv_L_scale_latent))))
+        bases_c_y, bases_s_y, bases_0_y = compute_Fourier_bases(nodes_y, self.modes * (self.inv_L_scale_min + (self.inv_L_scale_max - self.inv_L_scale_min)/(1.0 + torch.exp(self.inv_L_scale_latent))))
 
         wbases_c_x = torch.einsum("bxkw,bxw->bxkw", bases_c_x, node_weights_x)
         wbases_s_x = torch.einsum("bxkw,bxw->bxkw", bases_s_x, node_weights_x)
@@ -198,7 +200,7 @@ class ExtBNO(nn.Module):
                  in_dim_x=2,
                  in_dim_y=3,
                  out_dim=1,
-                 train_sp_L=False,
+                 inv_L_scale_hyper = ['independently', 0.5, 2.0],
                  act="gelu"
                  ):
         super(ExtBNO, self).__init__()
@@ -238,8 +240,10 @@ class ExtBNO(nn.Module):
                 )
             ]
         )
-        self.sp_L = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad=bool(train_sp_L))
-        self.train_sp_L = train_sp_L
+        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
+        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent)) 
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
+
 
         self.ws_x = nn.ModuleList(
             [
@@ -262,20 +266,20 @@ class ExtBNO(nn.Module):
 
         self.act = _get_act(act)
 
-        self.normal_params = []  # group of params which will be trained normally
-        self.sp_L_params = []  # group of params which may be trained specially
+        self.normal_params = []  #  group of params which will be trained normally
+        self.inv_L_scale_params = []    #  group of params which may be trained specially
         for _, param in self.named_parameters():
-            if param is not self.sp_L:
+            if param is not self.inv_L_scale_latent :
                 self.normal_params.append(param)
             else:
-                if self.train_sp_L == 'together':
+                if self.train_inv_L_scale == 'together':
                     self.normal_params.append(param)
-                elif self.train_sp_L == 'independently':
-                    self.sp_L_params.append(param)
-                elif self.train_sp_L == False:
+                elif self.train_inv_L_scale == 'independently':
+                    self.inv_L_scale_params.append(param)
+                elif self.train_inv_L_scale == False:
                     continue
                 else:
-                    raise ValueError(f"{self.train_sp_L} is not supported")
+                    raise ValueError(f"{self.train_inv_L_scale} is not supported")
 
     def forward(self, x, y, aux):
         """
@@ -315,8 +319,8 @@ class ExtBNO(nn.Module):
         length = len(self.ws_x)
         node_mask_x, nodes_x, nodes_y, node_weights_y = aux
 
-        bases_c_x, bases_s_x, bases_0_x = compute_Fourier_bases(nodes_x, self.modes * self.sp_L)
-        bases_c_y, bases_s_y, bases_0_y = compute_Fourier_bases(nodes_y, self.modes * self.sp_L)
+        bases_c_x, bases_s_x, bases_0_x = compute_Fourier_bases(nodes_x, self.modes * (self.inv_L_scale_min + (self.inv_L_scale_max - self.inv_L_scale_min)/(1.0 + torch.exp(self.inv_L_scale_latent))))
+        bases_c_y, bases_s_y, bases_0_y = compute_Fourier_bases(nodes_y, self.modes * (self.inv_L_scale_min + (self.inv_L_scale_max - self.inv_L_scale_min)/(1.0 + torch.exp(self.inv_L_scale_latent))))
 
         wbases_c_y = torch.einsum("bxkw,bxw->bxkw", bases_c_y, node_weights_y)
         wbases_s_y = torch.einsum("bxkw,bxw->bxkw", bases_s_y, node_weights_y)

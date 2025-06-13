@@ -83,8 +83,8 @@ python pcno_airfoilflap_test.py --train_type flap --feature_type pressure --n_tr
 | `--feature_type` | `str`   | `pressure`        | `pressure`, `mach`         | Determines the feature type used as the output:      - `pressure`: Outputs the pressure field.     - `mach`: Outputs the Mach number|
 | `--n_train`      | `int`   | `1000`        | `500`, `1000`, `1500`                | Number of training samples to use|
 | `--n_test`       | `int`   | `400`         |              | Number of testing samples to use|
-| `--train_sp_L`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies the training mode for the spatial length scales (Lx, Ly):  - `False`: Do not train the spatial length scales.  - `together`: Train (Lx, Ly) using the same learning rate as the main parameters.  - `independently`: Train (Lx, Ly) using an independent learning rate |
-| `--lr_ratio`     | `float` | `10`          |                                      | Learning rate ratio of L-parameters to main parameters when train_sp_L is set to `independently`. |
+| `--train_inv_L_scale`   | `str`   | `False`       | `False`, `together`, `independently` | Specifies the training mode for the spatial length scales (Lx, Ly):  - `False`: Do not train the spatial length scales.  - `together`: Train (Lx, Ly) using the same learning rate as the main parameters.  - `independently`: Train (Lx, Ly) using an independent learning rate |
+| `--lr_ratio`     | `float` | `10`          |                                      | Learning rate ratio of L-parameters to main parameters when train_inv_L_scale is set to `independently`. |
 ---
 
 The output file names will include some parameter values for traceability. For example:

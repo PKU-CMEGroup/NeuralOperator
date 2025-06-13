@@ -99,7 +99,7 @@ def predict_error():
                 layers=[128,128,128,128,128],
                 fc_dim=128,
                 in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-                train_sp_L="together",
+                train_inv_L_scale="together",
                 act='gelu')
     model.load_state_dict(torch.load("PCNO_ahmedbody_model.pth", weights_only=True))
     model = model.to(device)

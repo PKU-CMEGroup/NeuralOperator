@@ -92,7 +92,7 @@ def BNO_train(model,
     train_loader = torch.utils.data.DataLoader(BNOAuxedDataset(x_train, y_train, truth_train, aux_train), batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(BNOAuxedDataset(x_test, y_test, truth_test, aux_test), batch_size=batch_size, shuffle=False)
 
-    optimizer = CombinedOptimizer(model.normal_params, model.sp_L_params,
+    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
                                   betas=(0.9, 0.999), lr=config["train"]["base_lr"], lr_ratio=config["train"]["lr_ratio"],
                                   weight_decay=config["train"]["weight_decay"])
     scheduler = Combinedscheduler_OneCycleLR(optimizer,
@@ -187,7 +187,7 @@ def BNO_train(model,
             test_rel_l2_median_losses_dict[shape].append(median_loss_list[j])
             test_rel_l2_worst_losses_dict[shape].append(worst_loss_list[j])
 
-        print(f"[{ep:03d}] time={(t2 - t1):.02}  1/L={[round(float(x[0]), 3) for x in model.sp_L.cpu().tolist()]}", flush=True)
+        print(f"[{ep:03d}] time={(t2 - t1):.02}  1/L={[round(float(x[0]), 3) for x in (model.inv_L_scale_min + (model.inv_L_scale_max - model.inv_L_scale_min)/(1.0 + torch.exp(model.inv_L_scale_latent))).cpu().tolist()]}", flush=True)
         print(f"{' ' * 6}Train: rel.l2={train_rel_l2} abs.l2={train_l2}", flush=True)
         for shape in shape_types:
             print(f"{' ' * 6}{shape}: average={test_rel_l2_losses_dict[shape][-1]} median={test_rel_l2_median_losses_dict[shape][-1]} worst={test_rel_l2_worst_losses_dict[shape][-1]}", flush=True)

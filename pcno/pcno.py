@@ -261,7 +261,7 @@ class PCNO(nn.Module):
         fc_dim=128,
         in_dim=3,
         out_dim=1,
-        train_sp_L = 'independently',
+        inv_L_scale_hyper = ['independently', 0.5, 2.0],
         act="gelu",
     ):
         super(PCNO, self).__init__()
@@ -282,14 +282,10 @@ class PCNO(nn.Module):
                 modes : float[nmodes, ndims, nmeasures]
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
                     * We cannot have both k and -k
+                    * k is not integer, and it has the form 2pi*K/L0  (K in Z)
                 nmeasures : int
                     Number of measures
                     There might be different integrals with different measures
-                train_sp_L: bool or str
-                    The way to train sp_L.
-                    False: means we dont train sp_L
-                    'together': means sp_L will be trained with other params together.
-                    'independently' : means sp_L will be trained in another optimizer independently.
                 layers : list of int
                     number of channels of each layer
                     The lifting layer first lifts to layers[0]
@@ -304,6 +300,26 @@ class PCNO(nn.Module):
                     For example, when the coefficient function and locations (a(x, y), x, y) are inputs, in_dim = 3
                 out_dim : int 
                     The number of channels for the output function
+
+                inv_L_scale_hyper: 3 element hyperparameter list
+                    Controls the update behavior of the length scale (L) for Fourier modes. The modes are scaled elementwise as:
+                    k = k * inv_L_scale (where each spatial direction or measure may be scaled differently).
+                    since k = 2pi K /L0, inv_L_scale is the inverse scale, 1/L = inv_L_scale * 1/L0 
+                    Hyperparameters: 
+                        train_inv_L_scale (bool or str): Update policy for inv_L_scale:
+                            False: Disable training (fixed scaling).
+                            'together': Train jointly with other parameters (shared optimizer).
+                            'independently': Train with a separate optimizer.
+
+                        inv_L_scale_min (float): Lower bound for scaling factor.
+
+                        inv_L_scale_max (float): Upper bound for scaling factor.
+
+                    Implementation Notes:
+                        The effective scaling factor is computed via a sigmoid constraint:
+                        inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent))
+                        This ensures inv_L_scale stays within [inv_L_scale_min, inv_L_scale_max] during optimization.
+
                 act : string (default gelu)
                     The activation function
 
@@ -332,8 +348,9 @@ class PCNO(nn.Module):
                 )
             ]
         )
-        self.train_sp_L = train_sp_L
-        self.sp_L = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad = bool(train_sp_L))
+        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
+        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent)) 
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
 
         self.ws = nn.ModuleList(
             [
@@ -359,19 +376,19 @@ class PCNO(nn.Module):
         self.softsign = F.softsign
 
         self.normal_params = []  #  group of params which will be trained normally
-        self.sp_L_params = []    #  group of params which may be trained specially
+        self.inv_L_scale_params = []    #  group of params which may be trained specially
         for _, param in self.named_parameters():
-            if param is not self.sp_L :
+            if param is not self.inv_L_scale_latent :
                 self.normal_params.append(param)
             else:
-                if self.train_sp_L == 'together':
+                if self.train_inv_L_scale == 'together':
                     self.normal_params.append(param)
-                elif self.train_sp_L == 'independently':
-                    self.sp_L_params.append(param)
-                elif self.train_sp_L == False:
+                elif self.train_inv_L_scale == 'independently':
+                    self.inv_L_scale_params.append(param)
+                elif self.train_inv_L_scale == False:
                     continue
                 else:
-                    raise ValueError(f"{self.train_sp_L} is not supported")
+                    raise ValueError(f"{self.train_inv_L_scale} is not supported")
         
 
     def forward(self, x, aux):
@@ -416,7 +433,8 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_L)
+        # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(self.inv_L_scale_latent) ))
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (self.inv_L_scale_min + (self.inv_L_scale_max - self.inv_L_scale_min)/(1.0 + torch.exp(self.inv_L_scale_latent))) )
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
@@ -596,7 +614,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = CombinedOptimizer(model.normal_params,model.sp_L_params,
+    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],
@@ -677,8 +695,8 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              ' 1/sp_L: ',[round(float(x[0]), 3) for x in model.sp_L.cpu().tolist()],
-                  flush=True)
+              " inv_L_scale: ",[round(float(x[0]), 3) for x in (model.inv_L_scale_min + (model.inv_L_scale_max - model.inv_L_scale_min)/(1.0 + torch.exp(model.inv_L_scale_latent))).cpu().tolist()],
+              flush=True)
         if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model.state_dict(), save_model_name + ".pth")
 

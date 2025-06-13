@@ -143,7 +143,7 @@ print(f"x train:{x_train.shape}, y train:{y_train.shape}", flush=True)
 ###################################
 k_max = 8
 ndim = 3
-train_sp_L = "together"
+train_inv_L_scale = "together"
 
 Lx = 0.0004795 - (-1.34399998)
 Ly = 0.25450477 - 0
@@ -158,7 +158,7 @@ model = PCNO(ndim, modes, nmeasures=1,
              layers=[128, 128, 128, 128, 128],
              fc_dim=128,
              in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-             train_sp_L=train_sp_L,
+             inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
              act='gelu').to(device)
 
 epochs = 500

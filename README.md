@@ -1,33 +1,84 @@
 # NeuralOperator
 
-This repository explores the neural operator approach for creating surrogates for PDE solvers.
+<img src="docs/neural_operator.png" width="800" />
+
+NeuralOperator is
+
+* An educational **Neural Operator** library. 
+The goal is to provide students with a light-weighted code to explore this area 
+and interactive lectures with amazing [Jupyter Notebook](https://jupyter.org/).
+* A benchmark repository originally designed to test point cloud neural operator (PCNO) and other **neural operators**. 
+The goal is to provide researchers with access to various parametric partial differential equations and associated datasets, 
+enabling researchers to quickly and easily develop and test novel surrogate models.
+
+## Code Structure
+* Utilities for all neural networks, such as optimizers and normalizers are in the *utility* folder.
+* State-of-the-art neural operators, including `fno.py`, are in the *baselines* folder.
+* The Point Cloud Neural Operator (PCNO) and its related utility files are in the *pcno* folder. If you plan to design a new neural operator, consider starting a dedicated folder similar to *pcno*.
+* Datasets should be downloaded into the *data* folder. Each subfolder contains one dataset, such as `darcy_square` for the Darcy flow problem in the unit square.
+* Test scripts are in the *scripts* folder. Each subfolder contains scripts for various neural operators applied to a specific dataset, with the folder name matching the corresponding dataset subfolder in the *data* folder.
+
+<pre style="white-space: pre-wrap;"><code>NeuralOperator/
+
+├── utility/
+│   ├── adam.py
+│   ├── losses.py
+│   ├── normalizer.py
+
+├── baselines/
+│   ├── (various state-of-the-art neural operators, such as fno.py)
+
+├── pcno/
+│   ├── pcno.py
+│   ├── geo_utility.py
+
+├── tests/
+│   ├── __init__.py
+│   ├── (various test files, such as pcno_test.py)
+
+├── data/
+│   ├── (various data folders, such as darcy_square)
+
+├── scripts/
+│   ├── (various test script folders, such as darcy_square)</code></pre>
+
+
+## Tutorial
+Let's start! (⚠️ under construction)
 
 
 
-## Three steps to test GalerkinNO:
+* Overview
+    * [Surrogate Modeling](docs/surrogate_modeling.pdf)
+    * [Python Naming Conventions](https://peps.python.org/pep-0008/#naming-conventions)
+* Neural operator
+    * [Fourier Neural Operator](docs/fno.ipynb)
+    * [Point Cloud Neural Operator](docs/pcno.ipynb)
+* Example
+    * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)  
+        **Focus:** Adaptive meshing, Boundary layers, Different meshing strategies
+    * [Darcy Flow Problem on Square Domain](scripts/darcy_square/README.md)  
+        **Focus:** Benchmark, Different mesh resolutions, Restart training
+    * [Darcy Flow Problem on Deformed Domain](scripts/deformed_domain_darcy/README.md)  
+        **Focus:** Different mesh resolutions, Variable geometries
+    * [Airfoil](scripts/airfoil/README.md)  
+        **Focus:** Benchmark, Discontinuities (Shock wave)
+    * [Airfoil with Flap](scripts/airfoil_flap/README.md)  
+        **Focus:** Adaptive meshing, Topology variations, Discontinuities (Shock wave)  
+    * [ShapeNet Car](scripts/car_shapenet/README.md)  
+        **Focus:** Benchmark, Three-dimensional
+    * [Ahmed Body](scripts/ahmed_body/README.md)  
+        **Focus:** Benchmark, Three-dimensional, Large-scale
+    * [Parachute Dynamics](scripts/parachute/README.md)  
+        **Focus:** Three-dimensional, Unsteady problem
+      
 
-1. Create a folder 'data',which has two subfolders 'burgers_1d' and 'darcy_2d' containing the data files.
 
-2. Modify configs in the file 'config_1D.yml' or 'config_2D.yml'.
+## Submit an issue
+You are welcome to submit an issue for any questions related to NeuralOperator. 
 
-3. Run 'FFT_1D.py' or 'FFT_2D.py'.
+## Here are some research papers using NeuralOperator
+1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](http://arxiv.org/abs/2501.14475)." 
 
-## References
 
-1. [Li, Zongyi, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. "Fourier neural operator for parametric partial differential equations." arXiv preprint arXiv:2010.08895 (2020).](https://arxiv.org/abs/2010.08895)
 
-2. [Li, Zongyi, Daniel Zhengyu Huang, Burigede Liu, and Anima Anandkumar. "Fourier neural operator with learned deformations for pdes on general geometries." Journal of Machine Learning Research 24, no. 388 (2023): 1-26.](https://www.jmlr.org/papers/volume24/23-0064/23-0064.pdf)
-
-## Some tips:
-
-1. Request a peer review
-     - Modify the code
-     - Start a new branch `git checkout -b "your-branch-name"`.
-       Then you will be in your branch.
-     - Modify the code, `commit` and `push` ....... 
-       When you first `push`, it might give errors, try
-       `git push --set-upstream origin your-branch-name`
-     - When you are ready to merge, push the code. 
-       Then go to the GitHub webpage, switch to your branch, click **open pull request**. You will create a pull request. Describe your change and assign reviewers.
-     - When reviewers agree with your changes, you can push the code
-     

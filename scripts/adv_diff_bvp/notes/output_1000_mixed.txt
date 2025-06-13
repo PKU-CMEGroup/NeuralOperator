@@ -1,0 +1,19 @@
+
+
+New model : n_train = 1000 , equal_weight = False , train_distribution = mixed , train_sp_L = independently
+average_rel_l2_of uniform :   0.00166
+average_rel_l2_of exponential :   0.00188
+average_rel_l2_of linear :   0.00148
+average_rel_l2_of mixed :   0.00167
+
+1th_worst_rel_l2_of uniform :   0.01249  index :  7071
+1th_worst_rel_l2_of exponential :   0.01173  index :  7111
+1th_worst_rel_l2_of linear :   0.00956  index :  7049
+
+medium_rel_l2_of uniform :  0.00108  index :  7116
+medium_rel_l2_of exponential :  0.00144  index :  7066
+medium_rel_l2_of linear :  0.00109  index :  7430
+
+1th_best_rel_l2_of uniform :   0.00043  index :  7179
+1th_best_rel_l2_of exponential :   0.00067  index :  7300
+1th_best_rel_l2_of linear :   0.00044  index :  7229

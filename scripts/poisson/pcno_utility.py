@@ -66,11 +66,12 @@ def load_raw_data(data_path, ndata):
         # low freq boundary condition
         nodes_list.append(nodes) 
         elems_list.append(elems)   
-        features_list.append(np.hstack((features[:, [0,4,2]], bfeatures[:,[0,2,3]])))
+        features_list.append(np.hstack((features[:, [0,4,2]], bfeatures[:,[0,-2,-1]])))
         # high freq boundary condition
         nodes_list.append(nodes) 
         elems_list.append(elems)   
-        features_list.append(np.hstack((features[:, [1,5,2]], bfeatures[:,[1,2,3]])))
+        features_list.append(np.hstack((features[:, [1,5,2]], bfeatures[:,[1,-2,-1]])))
+        
     return nodes_list, elems_list, features_list
 
 

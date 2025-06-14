@@ -9,7 +9,7 @@ from timeit import default_timer
 from itertools import accumulate
 from scipy.spatial import cKDTree
 import argparse
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
@@ -22,65 +22,43 @@ torch.manual_seed(0)
 np.random.seed(0)
 
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-
-##########################################################################################################
-# 初始化问题
-##########################################################################################################
-PREPROCESS_DATA, PROBLEM_TYPE = False, None
-# 检查是否有足够的命令行参数
-if len(sys.argv) < 2:
-    raise ValueError("请提供一个命令行参数：'preprocess_data', 'Poisson' 或 'Laplace'")
-# 处理第一个命令行参数
-arg1 = sys.argv[1]
-if arg1 == "preprocess_data":
-    PREPROCESS_DATA = True
-elif arg1 == "Poisson":
-    PROBLEM_TYPE = "Poisson"
-elif arg1 == "Laplace":
-    PROBLEM_TYPE = "Laplace"
-else:
-    raise ValueError(f"无效的参数: {arg1}。请使用 'preprocess_data', 'Poisson' 或 'Laplace'")
-# 打印结果以供验证
-print(f"PREPROCESS_DATA: {PREPROCESS_DATA}")
-print(f"PROBLEM_TYPE: {PROBLEM_TYPE}")
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 
 ##########################################################################################################
 # parser
 ##########################################################################################################
-parser = argparse.ArgumentParser(description='Train model with different types.')
-parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
-parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
-                    help='type of train_sp_L (False, together, independently )')
-parser.add_argument('--feature_SDF', type=str, default='False', choices=['False', 'True'])
-parser.add_argument('--lr_ratio', type=float, default=10, help='lr ratio for independent training for L')
-parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
-if not PREPROCESS_DATA:
-    args = parser.parse_args()
-    args_dict = vars(args)
-    for i, (key, value) in enumerate(args_dict.items()):
-        print(f"{key}: {value}")
+parser = argparse.ArgumentParser(description="Train model with different types.")
+parser.add_argument("--problem_type", type=str, default="preprocess_data", choices=["preprocess_data" , "Poisson" , "Laplace"], help="Specify the problem type")
+parser.add_argument("--equal_weight", type=str, default="False", help="Specify whether to use equal weight")
+parser.add_argument("--train_sp_L", type=str, default="False", choices=["False" , "together" , "independently"],
+                    help="type of train_sp_L (False, together, independently )")
+parser.add_argument("--feature_SDF", type=str, default="False", choices=["False", "True"])
+parser.add_argument("--lr_ratio", type=float, default=10, help="lr ratio for independent training for L")
+parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
 
+args = parser.parse_args()
+
+args_dict = vars(args)
+for i, (key, value) in enumerate(args_dict.items()):
+    print(f"{key}: {value}")
 ###################################
 data_path_pref = "../../data/poisson/"
 ndata_list = [256, 256, 256, 256]
 ndata_list_prefix_sum = [0] + list(accumulate(ndata_list))
 ntrain_list, ntest_list = [200,200,200,200], [50,50,50,50]
 # features_list ：Laplace solution, Poisson solution, source term, boundary condition, boundary node indicator, SDF, 
-feature_in = [3,4] if PROBLEM_TYPE == "Laplace" else [2,3,4]
-feature_out = [0] if PROBLEM_TYPE == "Laplace" else [1]
-if args.feature_SDF == 'True':
+feature_in = [3,4] if args.problem_type == "Laplace" else [2,3,4]
+feature_out = [0] if args.problem_type == "Laplace" else [1]
+if args.feature_SDF == "True":
     feature_in += [5] 
 ###################################
 # 前处理
 ###################################
-if PREPROCESS_DATA:
-    print(f"{'%' * 40} Preprocess Raw Data {'%' * 40}", flush=True)
-    shapes_list = ['lowfreq', 'highfreq', 'double', 'hole']
+if args.problem_type == "preprocess_data":
+    print(f"{"%" * 40} Preprocess Raw Data {"%" * 40}", flush=True)
+    shapes_list = ["lowfreq", "highfreq", "double", "hole"]
     # ndata_list = [1024, 1024, 1024, 1024]
     nodes_all_list, elems_all_list, features_all_list = [],[],[]
     for i, (ndata, shape) in enumerate(zip(ndata_list, shapes_list)):
@@ -153,14 +131,14 @@ modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [3.0,3.0, 3.0,3.
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
 
-train_sp_L = False if args.train_sp_L == 'False' else True
+train_sp_L = False if args.train_sp_L == "False" else True
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
                train_sp_L = train_sp_L,
-               act='gelu').to(device)
+               act="gelu").to(device)
 
 
 
@@ -179,13 +157,15 @@ non_normalized_dim_x = 0
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "lr_ratio": lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }
 
 
+
+
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_" + PROBLEM_TYPE + "_"+str(ndata_list[0])+"_model"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_" + args.problem_type + "_"+str(ndata_list[0])+"_model"
 )

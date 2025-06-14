@@ -11,7 +11,7 @@ from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import argparse
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from utility.normalizer import UnitGaussianNormalizer
 from utility.losses import LpLoss
 from pcno_utility import plot_solution, get_median_index
@@ -28,36 +28,18 @@ np.random.seed(0)
 
     
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-##########################################################################################################
-# 初始化问题
-##########################################################################################################
-PROBLEM_TYPE = None
-# 检查是否有足够的命令行参数
-if len(sys.argv) < 2:
-    raise ValueError("请提供一个命令行参数：'Poisson' 或 'Laplace'")
-# 处理第一个命令行参数
-arg1 = sys.argv[1]
-if arg1 == "Poisson":
-    PROBLEM_TYPE = "Poisson"
-elif arg1 == "Laplace":
-    PROBLEM_TYPE = "Laplace"
-else:
-    raise ValueError(f"无效的参数: {arg1}。请使用 'Poisson' 或 'Laplace'")
-# 打印结果以供验证
-print(f"PROBLEM_TYPE: {PROBLEM_TYPE}")
-
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 ##########################################################################################################
 # parser
 ##########################################################################################################
-parser = argparse.ArgumentParser(description='Train model with different types.')
-parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
-parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
-                    help='type of train_sp_L (False, together, independently )')
-parser.add_argument('--feature_SDF', type=str, default='False', choices=['False', 'True'])
-parser.add_argument('--lr_ratio', type=float, default=10, help='lr ratio for independent training for L')
-parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
+parser = argparse.ArgumentParser(description="Train model with different types.")
+parser.add_argument("--problem_type", type=str, default="Laplace", choices=["Poisson" , "Laplace"], help="Specify the problem type")
+parser.add_argument("--equal_weight", type=str, default="False", help="Specify whether to use equal weight")
+parser.add_argument("--train_sp_L", type=str, default="False", choices=["False" , "together" , "independently"],
+                    help="type of train_sp_L (False, together, independently )")
+parser.add_argument("--feature_SDF", type=str, default="False", choices=["False", "True"])
+parser.add_argument("--lr_ratio", type=float, default=10, help="lr ratio for independent training for L")
+parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
 
 args = parser.parse_args()
 args_dict = vars(args)
@@ -71,9 +53,9 @@ ndata_list = [256, 256, 256, 256]
 ndata_list_prefix_sum = [0] + list(accumulate(ndata_list))
 ntrain_list, ntest_list = [200,200,200,200], [50,50,50,50]
 # features_list ：Laplace solution, Poisson solution, source term, boundary condition, boundary node indicator, SDF, 
-feature_in = [3,4] if PROBLEM_TYPE == "Laplace" else [2,3,4]
-feature_out = [0] if PROBLEM_TYPE == "Laplace" else [1]
-if args.feature_SDF == 'True':
+feature_in = [3,4] if args.problem_type == "Laplace" else [2,3,4]
+feature_out = [0] if args.problem_type == "Laplace" else [1]
+if args.feature_SDF == "True":
     feature_in += [5] 
 ###################################
 # load data
@@ -82,7 +64,7 @@ data_path_pref = "../../data/poisson/"
 
 ndata_list = [256, 256, 256, 256]
 ndata_list_prefix_sum = [0] + list(accumulate(ndata_list))
-shapes_list = ['lowfreq', 'highfreq', 'double', 'hole']
+shapes_list = ["lowfreq", "highfreq", "double", "hole"]
 ntrain_list, ntest_list = [200,200,200,200], [50,50,50,50]
 n_train, n_test = sum(ntrain_list), sum(ntest_list)
 ntest_list_prefix_sum = [0] + list(accumulate(ntest_list))
@@ -136,15 +118,15 @@ ndim = 2
 modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [3.0,3.0, 3.0,3.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
-train_sp_L = False if args.train_sp_L == 'False' else True
+train_sp_L = False if args.train_sp_L == "False" else True
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
                train_sp_L = train_sp_L,
-               act='gelu').to(device)
-model.load_state_dict(torch.load("PCNO_" + PROBLEM_TYPE + "_"+str(ndata_list[0])+"_model.pth", weights_only=True))
+               act="gelu").to(device)
+model.load_state_dict(torch.load("PCNO_" + args.problem_type + "_"+str(ndata_list[0])+"_model.pth", weights_only=True))
 model = model.to(device)
 
 
@@ -184,16 +166,16 @@ for i in range(n_test):
     out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
     test_rel_l2[i] = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 
-np.save('test_rel_l2.npy', test_rel_l2)
+np.save("test_rel_l2.npy", test_rel_l2)
 
 ############################################################################
 fig, ax = plt.subplots(figsize=(4, 4))
 ax.hist([test_rel_l2[ntest_list_prefix_sum[i]:ntest_list_prefix_sum[i+1]] for i in range(len(shapes_list))], bins=10, 
-         color=["C0", "C1", "C2", "C3"], label=shapes_list, edgecolor='black')
+         color=["C0", "C1", "C2", "C3"], label=shapes_list, edgecolor="black")
 # 添加标签和标题
-ax.set_xlabel('$L_2$ error')
+ax.set_xlabel("$L_2$ error")
 ax.legend()
-plt.savefig("pcno_" + PROBLEM_TYPE + "_error_distribution.pdf")
+plt.savefig("pcno_" + args.problem_type + "_error_distribution.pdf")
 ############################################################################
 fig, ax = plt.subplots(8, 5, figsize=(20, 20))
 for i, shape in enumerate(shapes_list):
@@ -215,11 +197,11 @@ for i, shape in enumerate(shapes_list):
         out = out.cpu().detach().numpy()[0,:,0]
         
         itest = ind + ndata_list[i] - ntest_list[i]
-        plot_solution(PROBLEM_TYPE, data_path_pref, shape, itest, out, ax[j+2*i,:], fig)
+        plot_solution(args.problem_type, data_path_pref, shape, itest, out, ax[j+2*i,:], fig)
 
 ax[0,0].set_title("Grid");ax[0,1].set_title("Boundary condition");ax[0,2].set_title("Reference");ax[0,3].set_title("Prediction");ax[0,4].set_title("error")
 plt.tight_layout()
-plt.savefig("pcno_" + PROBLEM_TYPE + "_results.pdf")
+plt.savefig("pcno_" + args.problem_type + "_results.pdf")
 
 
 

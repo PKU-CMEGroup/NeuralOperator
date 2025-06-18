@@ -10,5 +10,5 @@
 
 module load conda
 source activate pytorch 
-python pcno_test.py --problem_type "Poisson"  --train_sp_L "False" --feature_SDF "True"  > PCNO_poisson_test.log
+python pcno_test.py --problem_type "Poisson"  --train_sp_L "together" --feature_SDF "True"  > PCNO_poisson_test.log
 

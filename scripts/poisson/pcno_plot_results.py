@@ -61,10 +61,9 @@ if args.feature_SDF == "True":
 # load data
 ###################################
 data_path_pref = "../../data/poisson/"
-
+shapes_list = ["lowfreq", "highfreq", "double", "hole"]
 ndata_list = [256, 256, 256, 256]
 ndata_list_prefix_sum = [0] + list(accumulate(ndata_list))
-shapes_list = ["lowfreq", "highfreq", "double", "hole"]
 ntrain_list, ntest_list = [200,200,200,200], [50,50,50,50]
 n_train, n_test = sum(ntrain_list), sum(ntest_list)
 ntest_list_prefix_sum = [0] + list(accumulate(ntest_list))
@@ -115,10 +114,10 @@ ndim = 2
 
 
 #!! compress measures
-modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [3.0,3.0, 3.0,3.0])
+modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [4.0,4.0, 4.0,4.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
-train_sp_L = False if args.train_sp_L == "False" else True
+train_sp_L = False if args.train_sp_L == "False" else args.train_sp_L
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
                layers=[128,128,128,128,128],
@@ -177,7 +176,7 @@ ax.set_xlabel("$L_2$ error")
 ax.legend()
 plt.savefig("pcno_" + args.problem_type + "_error_distribution.pdf")
 ############################################################################
-fig, ax = plt.subplots(8, 5, figsize=(20, 20))
+fig, ax = plt.subplots(8, (5 if args.problem_type == "Laplace" else 6), figsize=(20, 20))
 for i, shape in enumerate(shapes_list):
     shape_test_rel_l2 = test_rel_l2[ntest_list_prefix_sum[i]:ntest_list_prefix_sum[i+1]]
     largest_error_ind = np.argmax(shape_test_rel_l2)
@@ -193,13 +192,21 @@ for i, shape in enumerate(shapes_list):
         out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
         if normalization_y:
             out = y_normalizer.decode(out)
-
-        out = out.cpu().detach().numpy()[0,:,0]
+        # 取出有信息的输出
+        out = out[node_mask.bool()]
+        out = out.cpu().detach().numpy().squeeze()
         
         itest = ind + ndata_list[i] - ntest_list[i]
         plot_solution(args.problem_type, data_path_pref, shape, itest, out, ax[j+2*i,:], fig)
+        ax[j+2*i,0].set_ylabel(("Median error (" if j%2 == 0 else "Worst error (") + shape + ")")
 
-ax[0,0].set_title("Grid");ax[0,1].set_title("Boundary condition");ax[0,2].set_title("Reference");ax[0,3].set_title("Prediction");ax[0,4].set_title("error")
+ax[0,0].set_title("Grid")
+ax[0,1].set_title("Boundary condition")
+if args.problem_type == "Poisson":
+    ax[0,2].set_title("Source")
+ax[0,-3].set_title("Reference")
+ax[0,-2].set_title("Prediction")
+ax[0,-1].set_title("Error")
 plt.tight_layout()
 plt.savefig("pcno_" + args.problem_type + "_results.pdf")
 

@@ -45,12 +45,17 @@ for i, (key, value) in enumerate(args_dict.items()):
     print(f"{key}: {value}")
 ###################################
 data_path_pref = "../../data/poisson/"
+shapes_list = ["lowfreq", "highfreq", "double", "hole"]
+# 前处理只处理了这么多数据， 前处理储存在  pcno_data"+str(ndata_list[0])+".npz"
 ndata_list = [256, 256, 256, 256]
 ndata_list_prefix_sum = [0] + list(accumulate(ndata_list))
 ntrain_list, ntest_list = [200,200,200,200], [50,50,50,50]
-# features_list ：Laplace solution, Poisson solution, source term, boundary condition, boundary node indicator, SDF, 
+# features_list ：0: Laplace solution, 1: Poisson solution, 2: source term, 3: boundary condition, 4: boundary node indicator, 5: SDF, 
+# 对于Laplacian方程，我们的输入包含：边界条件, 边界条件indicator （到边界的距离）, 输出包含：解
+# 对于Laplacian方程，我们的输入包含：边界条件, 边界条件indicator （到边界的距离）, 输出包含：解
 feature_in = [3,4] if args.problem_type == "Laplace" else [2,3,4]
 feature_out = [0] if args.problem_type == "Laplace" else [1]
+# 是否使用到边界的距离 （SDF），
 if args.feature_SDF == "True":
     feature_in += [5] 
 ###################################
@@ -58,8 +63,6 @@ if args.feature_SDF == "True":
 ###################################
 if args.problem_type == "preprocess_data":
     print(f"{"%" * 40} Preprocess Raw Data {"%" * 40}", flush=True)
-    shapes_list = ["lowfreq", "highfreq", "double", "hole"]
-    # ndata_list = [1024, 1024, 1024, 1024]
     nodes_all_list, elems_all_list, features_all_list = [],[],[]
     for i, (ndata, shape) in enumerate(zip(ndata_list, shapes_list)):
         nodes_list, elems_list, features_list  = load_raw_data(data_path=data_path_pref+shape, ndata=ndata)
@@ -109,7 +112,7 @@ features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
-nodes_input = nodes.clone() # scale length input
+nodes_input = nodes.clone() 
 
 
 train_indices = [idx for start, ntrain in zip(ndata_list_prefix_sum[0:-1], ntrain_list) for idx in range(start, start + ntrain)]
@@ -123,15 +126,15 @@ y_train, y_test = features[train_indices][:, :, feature_out],     features[test_
 
 k_max = 16
 ndim = 2
-
+print("Maximum Lx, Ly = ", torch.max(torch.max(nodes_input, dim=1).values - torch.min(nodes_input, dim=1).values, dim=0))
 
 #!! compress measures
-modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [3.0,3.0, 3.0,3.0])
+modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [4.0,4.0, 4.0,4.0])
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
 
-train_sp_L = False if args.train_sp_L == "False" else True
+train_sp_L = False if args.train_sp_L == "False" else args.train_sp_L
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
                layers=[128,128,128,128,128],

@@ -90,7 +90,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
     else:
         raise ValueError(f"{ndims} in compute_Fourier_modes is not supported")
     
-    k_pairs = k_pairs[np.argsort(k_pair_mag), :]
+    k_pairs = k_pairs[np.argsort(k_pair_mag, kind='stable'), :]
     return k_pairs
 
 
@@ -312,7 +312,8 @@ class PCNO(nn.Module):
                 Point cloud neural operator
 
         """
-        self.modes = modes
+        
+        self.register_buffer('modes', modes) 
         self.nmeasures = nmeasures
         
 

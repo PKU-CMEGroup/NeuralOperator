@@ -8,7 +8,6 @@ from timeit import default_timer
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
-from pcno.geo_utility import compute_edge_gradient_weights
 
     
 
@@ -30,11 +29,51 @@ def _get_act(act):
     return func
 
 
+def scaled_sigmoid(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    """
+    Applies a sigmoid function scaled to output values in the range [min_val, max_val].
+    This transformation maps any real-valued input to a specified bounded interval,
+    maintaining gradient flow for backpropagation. Useful for constraining network outputs.
+    
+    Math:
+        output = min_val + (max_val - min_val) * σ(x)
+        where σ(x) = 1/(1 + exp(-x)) is the standard sigmoid function
+    
+    Require:
+        max_val >= min_val
+    """
+    return min_val + (max_val - min_val) * torch.sigmoid(x)
+
+
+def scaled_logit(y: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    """
+    Inverse of scaled_sigmoid - maps values from [min_val, max_val] back to unbounded space.
+    
+    Also known as the generalized logit transform. Handles numerical stability at boundaries.
+    
+    Args:
+        y: Input tensor (values must be in (min_val, max_val) range)
+        min_val: Lower bound of input range (exclusive)
+        max_val: Upper bound of input range (exclusive)
+        
+    Returns:
+        Tensor of same shape as input with unbounded real values
+    
+    Math:
+        output = log( (y - min_val) / (max_val - y) )
+        This is the inverse operation of scaled_sigmoid()
+  
+    Require:
+        min_val < y <  max_val
+    """
+    return torch.log((y - min_val)/(max_val - y))
+
+
 def compute_Fourier_modes_helper(ndims, nks, Ls):
     '''
     Compute Fourier modes number k
     Fourier bases are cos(kx), sin(kx), 1
-    * We cannot have both k and -k
+    * We cannot have both k and -k, cannot have 0
 
         Parameters:  
             ndims : int
@@ -317,7 +356,7 @@ class PCNO(nn.Module):
 
                     Implementation Notes:
                         The effective scaling factor is computed via a sigmoid constraint:
-                        inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent))
+                        inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
                         This ensures inv_L_scale stays within [inv_L_scale_min, inv_L_scale_max] during optimization.
 
                 act : string (default gelu)
@@ -349,8 +388,8 @@ class PCNO(nn.Module):
             ]
         )
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
-        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent)) 
-        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
+        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
 
         self.ws = nn.ModuleList(
             [
@@ -433,8 +472,8 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(self.inv_L_scale_latent) ))
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (self.inv_L_scale_min + (self.inv_L_scale_max - self.inv_L_scale_min)/(1.0 + torch.exp(self.inv_L_scale_latent))) )
+        # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
@@ -676,7 +715,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
-                out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 
@@ -695,7 +734,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              " inv_L_scale: ",[round(float(x[0]), 3) for x in (model.inv_L_scale_min + (model.inv_L_scale_max - model.inv_L_scale_min)/(1.0 + torch.exp(model.inv_L_scale_latent))).cpu().tolist()],
+              " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
               flush=True)
         if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model.state_dict(), save_model_name + ".pth")

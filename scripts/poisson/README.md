@@ -36,18 +36,18 @@ Note: Adjust the number of preprocessing samples in `pcno_test.py` by modifying 
 
 To **training** for Laplacian equation, run the script `pcno_laplace_train.sh` with customized parameters. You can adjust the number of training and test samples in the python file. 
 ```bash
-python pcno_test.py --problem_type "Laplace"  --train_sp_L "together" --feature_SDF "True"  > PCNO_laplace_test.log
+python pcno_test.py --problem_type "Laplace"  --train_inv_L_scale "independently" --feature_SDF "True"  > PCNO_laplace_test.log
 ```
 
 For Poisson equation, you can run the script `pcno_poisson_train.sh` with customized parameters. 
 ```bash
-python pcno_test.py --problem_type "Poisson"  --train_sp_L "together" --feature_SDF "True"  > PCNO_poisson_test.log
+python pcno_test.py --problem_type "Poisson"  --train_inv_L_scale "independently" --feature_SDF "True"  > PCNO_poisson_test.log
 ```
 
 
 To **postprocess** the data, run `pcno_laplace_train.sh`. For example:
 ```bash
-python pcno_plot_results.py --problem_type "Laplace"  --train_sp_L "False" --feature_SDF "True"  > PCNO_plot_results.log
+python pcno_plot_results.py --problem_type "Laplace"  --train_inv_L_scale "independently" --feature_SDF "True"  > PCNO_plot_results.log
 ```
 
 ## BNO

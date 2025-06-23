@@ -50,13 +50,11 @@ parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ra
 parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
 
 
-args = parser.parse_args()
-
-save_model_name = f"PCNO_darcy_{args.train_type}_n{args.n_train}"
-print(save_model_name)
-args_dict = vars(args)
-for i, (key, value) in enumerate(args_dict.items()):
-    print(f"{key}: {value}")
+if not PREPROCESS_DATA:
+    args = parser.parse_args()
+    args_dict = vars(args)
+    for i, (key, value) in enumerate(args_dict.items()):
+        print(f"{key}: {value}")
 
 data_path = "/lustre/home/2401110057/PCNO/data/"
 

@@ -60,11 +60,11 @@ parser.add_argument('--n_train', type=int, default=1000, choices=[500, 1000, 150
 parser.add_argument('--n_test', type=int, default=200, help='Number of testing samples')
 parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
 
-parser.add_argument('--sp_L', type=float, default=15.0, help='Initial value for the sp_L')
-parser.add_argument('--train_sp_L', type=str, default='False', choices=['False' , 'together' , 'independently'],
-                    help='type of train_sp_L (False, together, independently )')
+parser.add_argument('--L', type=float, default=15.0, help='Initial value for the length scale parameter L')
+parser.add_argument('--train_inv_L_scale', type=str, default='False', choices=['False' , 'together' , 'independently'],
+                    help='type of train_inv_L_scale (False, together, independently )')
 
-parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_sp_L is set to `independently`')
+parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_inv_L_scale is set to `independently`')
 parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
 
 
@@ -109,13 +109,13 @@ else:
 
 
 
-if args.train_sp_L == 'False':
-    args.train_sp_L = False
+if args.train_inv_L_scale == 'False':
+    args.train_inv_L_scale = False
 train_distribution = args.train_distribution
 n_train = args.n_train
 n_test = args.n_test
-train_sp_L = args.train_sp_L
-print(f'train_distribution = {train_distribution}, n_train = {n_train}, train_sp_L = {train_sp_L}')
+train_inv_L_scale = args.train_inv_L_scale
+print(f'train_distribution = {train_distribution}, n_train = {n_train}, train_inv_L_scale = {train_inv_L_scale}')
 
 
 print("Casting to tensor")
@@ -152,13 +152,13 @@ k_max = 64
 ndim = 1
 
 
-modes = compute_Fourier_modes(ndim, [k_max], [args.sp_L])
+modes = compute_Fourier_modes(ndim, [k_max], [args.L])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               train_sp_L = train_sp_L,
+               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                act='gelu').to(device)
 
 
@@ -183,10 +183,10 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }
-print(f'Start training , train_sp_L = {train_sp_L}, lr_ratio = {lr_ratio}')
+print(f'Start training , train_inv_L_scale = {train_inv_L_scale}, lr_ratio = {lr_ratio}')
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}/{train_distribution}_{train_sp_L}_{equal_weights}"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}/{train_distribution}_{train_inv_L_scale}_{equal_weights}"
 )
 
 

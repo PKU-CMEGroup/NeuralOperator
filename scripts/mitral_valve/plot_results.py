@@ -198,13 +198,13 @@ def predict_error(data_path):
 
     modes = torch.tensor(modes, dtype=torch.float).to(device)
 
-    train_sp_L = 'together'
+    train_inv_L_scale = 'together'
 
     model = PCNO(ndim, modes, nmeasures=1,
                 layers=[128,128,128,128,128],
                 fc_dim=128,
                 in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
-                train_sp_L = train_sp_L,
+                train_inv_L_scale = train_inv_L_scale,
                 act='gelu').to(device)
     model.load_state_dict(torch.load("PCNO_mitral_valve_single_geometry_model.pth", weights_only=True, map_location=torch.device(device)))
     model = model.to(device)

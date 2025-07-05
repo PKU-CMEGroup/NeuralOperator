@@ -110,7 +110,7 @@ model = PCNO(ndim, modes, nmeasures=1,
                layers=[64,64,64,64,64],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               train_sp_L="together",
+               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                act='gelu').to(device)
 
 

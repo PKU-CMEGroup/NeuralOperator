@@ -1,0 +1,246 @@
+## reference
+pcno更大的modes和channel都跑不了
+k_max = 8
+ndim = 3
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
+modes = torch.tensor(modes, dtype=torch.float).to(device)
+model = PCNO(ndim, modes, nmeasures=1,
+               layers=[64,64,64,64,64],
+               fc_dim=128,
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+               train_sp_L="together",
+               act='gelu').to(device):
+
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  20.515  Rel. Train L2 Loss :  0.3367164587974548  Rel. Test L2 Loss :  0.18249833154248762  Test L2 Loss :  11.276237590892896  1/sp_L:  [0.994, 0.994, 0.99]
+Epoch :  1  Time:  20.833  Rel. Train L2 Loss :  0.1425821830034256  Rel. Test L2 Loss :  0.13612377965772474  Test L2 Loss :  8.378102345509571  1/sp_L:  [0.992, 0.992, 0.982]
+Epoch :  2  Time:  22.121  Rel. Train L2 Loss :  0.1076125437617302  Rel. Test L2 Loss :  0.1141780093983487  Test L2 Loss :  7.015619982470263  1/sp_L:  [0.992, 0.992, 0.975]
+Epoch :  3  Time:  22.51  Rel. Train L2 Loss :  0.08896648144721984  Rel. Test L2 Loss :  0.10493335745356104  Test L2 Loss :  6.44528239482158  1/sp_L:  [0.992, 0.993, 0.971]
+Epoch :  4  Time:  22.714  Rel. Train L2 Loss :  0.08026481175422669  Rel. Test L2 Loss :  0.1012587960775908  Test L2 Loss :  6.223559749019039  1/sp_L:  [0.992, 0.993, 0.969]
+Epoch :  5  Time:  23.314  Rel. Train L2 Loss :  0.07468132835626602  Rel. Test L2 Loss :  0.09776985000919651  Test L2 Loss :  6.000042889569257  1/sp_L:  [0.994, 0.995, 0.968]
+Epoch :  6  Time:  23.739  Rel. Train L2 Loss :  0.06721177142858505  Rel. Test L2 Loss :  0.09037839077614448  Test L2 Loss :  5.553581100326401  1/sp_L:  [0.994, 0.995, 0.967]
+Epoch :  7  Time:  23.718  Rel. Train L2 Loss :  0.0609371332526207  Rel. Test L2 Loss :  0.09027101703592248  Test L2 Loss :  5.54404827495953  1/sp_L:  [0.994, 0.996, 0.966]
+Epoch :  8  Time:  24.109  Rel. Train L2 Loss :  0.05804602721333504  Rel. Test L2 Loss :  0.08706863721211751  Test L2 Loss :  5.350984212514517  1/sp_L:  [0.995, 0.997, 0.966]
+Epoch :  9  Time:  24.723  Rel. Train L2 Loss :  0.05485660183429718  Rel. Test L2 Loss :  0.08773499834644902  Test L2 Loss :  5.387872816206099  1/sp_L:  [0.994, 0.997, 0.965]
+Epoch :  10  Time:  25.025  Rel. Train L2 Loss :  0.05400767475366593  Rel. Test L2 Loss :  0.08538484627062136  Test L2 Loss :  5.245224875372809  1/sp_L:  [0.995, 0.997, 0.965]
+Epoch :  11  Time:  25.072  Rel. Train L2 Loss :  0.051541255950927733  Rel. Test L2 Loss :  0.08432429330842989  Test L2 Loss :  5.177215558988554  1/sp_L:  [0.995, 0.998, 0.965]
+
+
+k_max = 8
+ndim = 3
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
+modes = torch.tensor(modes, dtype=torch.float).to(device)
+model = PCNO_EFF(ndim, modes, nmeasures=1,
+               layers=[128,128,128,128,128],
+               g_dim = 32,
+               fc_dim=128,
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+               train_sp_L="together",
+               act='gelu',
+               max_modes = 100).to(device)
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  57.989  Rel. Train L2 Loss :  0.3521886258125305  Rel. Test L2 Loss :  0.19974778579162047  Test L2 Loss :  12.321323635341885  1/sp_L:  [0.996, 0.999, 0.99]
+
+
+
+
+k_max = 8
+ndim = 3
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
+modes = torch.tensor(modes, dtype=torch.float).to(device)
+model = PCNO_EFF(ndim, modes, nmeasures=1,
+               layers=[64,64,64,64,64],
+               g_dim = 32,
+               fc_dim=128,
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+               train_sp_L="together",
+               act='gelu',
+               max_modes = 100).to(device)
+
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  7.187  Rel. Train L2 Loss :  0.43512873339653013  Rel. Test L2 Loss :  0.24110205646033758  Test L2 Loss :  14.879150459358284  1/sp_L:  [0.997, 0.997, 0.989]
+Epoch :  1  Time:  6.762  Rel. Train L2 Loss :  0.19413294482231142  Rel. Test L2 Loss :  0.17087356249491373  Test L2 Loss :  10.512814977147558  1/sp_L:  [0.993, 0.994, 0.981]
+Epoch :  2  Time:  6.59  Rel. Train L2 Loss :  0.1420528131723404  Rel. Test L2 Loss :  0.13416342047957686  Test L2 Loss :  8.246943877623961  1/sp_L:  [0.991, 0.992, 0.974]
+Epoch :  3  Time:  6.482  Rel. Train L2 Loss :  0.12197455668449401  Rel. Test L2 Loss :  0.1219282520783914  Test L2 Loss :  7.486519547196122  1/sp_L:  [0.989, 0.992, 0.971]
+Epoch :  4  Time:  6.503  Rel. Train L2 Loss :  0.110818128824234  Rel. Test L2 Loss :  0.11326193057738983  Test L2 Loss :  6.95197344255877  1/sp_L:  [0.988, 0.991, 0.97]
+Epoch :  5  Time:  6.483  Rel. Train L2 Loss :  0.10314116024971008  Rel. Test L2 Loss :  0.1083156901436883  Test L2 Loss :  6.643952653214738  1/sp_L:  [0.987, 0.991, 0.968]
+Epoch :  6  Time:  6.573  Rel. Train L2 Loss :  0.09842217594385147  Rel. Test L2 Loss :  0.10809604326883952  Test L2 Loss :  6.633478113122888  1/sp_L:  [0.986, 0.991, 0.966]
+Epoch :  7  Time:  6.566  Rel. Train L2 Loss :  0.0951020655632019  Rel. Test L2 Loss :  0.10139142983668559  Test L2 Loss :  6.219466510119739  1/sp_L:  [0.984, 0.991, 0.965]
+Epoch :  8  Time:  6.583  Rel. Train L2 Loss :  0.09143083781003952  Rel. Test L2 Loss :  0.0980231262542106  Test L2 Loss :  6.013560217780036  1/sp_L:  [0.983, 0.991, 0.964]
+Epoch :  9  Time:  6.642  Rel. Train L2 Loss :  0.08841959285736084  Rel. Test L2 Loss :  0.09846110225797773  Test L2 Loss :  6.03797503634616  1/sp_L:  [0.982, 0.991, 0.964]
+Epoch :  10  Time:  6.759  Rel. Train L2 Loss :  0.08666771394014358  Rel. Test L2 Loss :  0.09464653440423913  Test L2 Loss :  5.808397516473994  1/sp_L:  [0.982, 0.992, 0.962]
+Epoch :  11  Time:  6.623  Rel. Train L2 Loss :  0.08357061398029328  Rel. Test L2 Loss :  0.09252655130248887  Test L2 Loss :  5.6713296701242255  1/sp_L:  [0.981, 0.992, 0.962]
+Epoch :  12  Time:  6.647  Rel. Train L2 Loss :  0.08272422969341278  Rel. Test L2 Loss :  0.09446715986406481  Test L2 Loss :  5.79195414362727  1/sp_L:  [0.98, 0.992, 0.961]
+Epoch :  13  Time:  7.067  Rel. Train L2 Loss :  0.08021782755851746  Rel. Test L2 Loss :  0.09339464731044597  Test L2 Loss :  5.725163434002851  1/sp_L:  [0.979, 0.993, 0.96]
+
+
+
+
+k_max = 8
+ndim = 3
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
+modes = torch.tensor(modes, dtype=torch.float).to(device)
+model = PCNO_EFF(ndim, modes, nmeasures=1,
+               layers=[64,64,64,64,64],
+               g_dim = 32,
+               fc_dim=128,
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+               train_sp_L="together",
+               act='gelu',
+               max_modes = 200).to(device)
+
+
+PS E:\codes\mygithub2\scripts\car_shapenet> cd "e:\codes\mygithub2\scripts\car_shapenet"
+PS E:\codes\mygithub2\scripts\car_shapenet> python -u "e:\codes\mygithub2\scripts\car_shapenet\pcno_car_test_eff.py"
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  7.92  Rel. Train L2 Loss :  0.3926713345050812  Rel. Test L2 Loss :  0.21703426580171328  Test L2 Loss :  13.389258857245919  1/sp_L:  [0.996, 0.996, 0.989]
+Epoch :  1  Time:  7.267  Rel. Train L2 Loss :  0.17413347065448762  Rel. Test L2 Loss :  0.15097659396695662  Test L2 Loss :  9.299821698987806  1/sp_L:  [0.993, 0.993, 0.981]
+Epoch :  2  Time:  7.315  Rel. Train L2 Loss :  0.1301650288105011  Rel. Test L2 Loss :  0.12413516828605721  Test L2 Loss :  7.628217679960233  1/sp_L:  [0.991, 0.991, 0.974]
+Epoch :  3  Time:  7.705  Rel. Train L2 Loss :  0.11171395272016525  Rel. Test L2 Loss :  0.11203471121487317  Test L2 Loss :  6.87952979835304  1/sp_L:  [0.99, 0.99, 0.97]
+Epoch :  4  Time:  7.837  Rel. Train L2 Loss :  0.10097213739156723  Rel. Test L2 Loss :  0.10588447414002977  Test L2 Loss :  6.501217197727513  1/sp_L:  [0.989, 0.99, 0.969]
+Epoch :  5  Time:  7.67  Rel. Train L2 Loss :  0.09495271092653275  Rel. Test L2 Loss :  0.10043974771155967  Test L2 Loss :  6.164548684884836  1/sp_L:  [0.988, 0.99, 0.967]
+Epoch :  6  Time:  7.618  Rel. Train L2 Loss :  0.09037190294265747  Rel. Test L2 Loss :  0.1004747216765945  Test L2 Loss :  6.165547929368578  1/sp_L:  [0.988, 0.99, 0.966]
+Epoch :  7  Time:  7.676  Rel. Train L2 Loss :  0.08708306562900543  Rel. Test L2 Loss :  0.09606242072474849  Test L2 Loss :  5.894630466495548  1/sp_L:  [0.987, 0.99, 0.966]
+Epoch :  8  Time:  7.754  Rel. Train L2 Loss :  0.08305926543474197  Rel. Test L2 Loss :  0.09365001293989988  Test L2 Loss :  5.744790601300764  1/sp_L:  [0.986, 0.99, 0.965]
+Epoch :  9  Time:  7.626  Rel. Train L2 Loss :  0.07977723574638367  Rel. Test L2 Loss :  0.0918050564087189  Test L2 Loss :  5.627715239653716  1/sp_L:  [0.986, 0.99, 0.965]
+
+
+max_modes = 500
+PS E:\codes\mygithub2\scripts\car_shapenet> cd "e:\codes\mygithub2\scripts\car_shapenet"
+PS E:\codes\mygithub2\scripts\car_shapenet> python -u "e:\codes\mygithub2\scripts\car_shapenet\pcno_car_test_eff.py"
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  9.974  Rel. Train L2 Loss :  0.3627619718313217  Rel. Test L2 Loss :  0.20280017186929514  Test L2 Loss :  12.525231507447389  1/sp_L:  [0.994, 0.995, 0.99]
+Epoch :  1  Time:  9.799  Rel. Train L2 Loss :  0.15835589265823363  Rel. Test L2 Loss :  0.14404347082516095  Test L2 Loss :  8.871708637959248  1/sp_L:  [0.992, 0.993, 0.981]
+Epoch :  2  Time:  9.934  Rel. Train L2 Loss :  0.12067653131484986  Rel. Test L2 Loss :  0.11824678837716042  Test L2 Loss :  7.264909830179301  1/sp_L:  [0.991, 0.991, 0.974]
+Epoch :  3  Time:  10.364  Rel. Train L2 Loss :  0.1033586984872818  Rel. Test L2 Loss :  0.10472081104914348  Test L2 Loss :  6.428298709628819  1/sp_L:  [0.99, 0.99, 0.97]
+Epoch :  4  Time:  10.299  Rel. Train L2 Loss :  0.09185950469970704  Rel. Test L2 Loss :  0.10143122211232916  Test L2 Loss :  6.229097624082823  1/sp_L:  [0.989, 0.99, 0.969]
+
+
+
+标准PCNO mode = 4  (modes.shape = (364,3,1))
+Epoch :  0  Time:  7.094  Rel. Train L2 Loss :  0.39328689098358155  Rel. Test L2 Loss :  0.20891849951701122  Test L2 Loss :  12.893691535468575  1/sp_L:  [0.994, 0.993, 0.988]
+Epoch :  1  Time:  6.756  Rel. Train L2 Loss :  0.1667877789735794  Rel. Test L2 Loss :  0.1459175412719314  Test L2 Loss :  8.97457469905819  1/sp_L:  [0.992, 0.99, 0.979]
+Epoch :  2  Time:  6.915  Rel. Train L2 Loss :  0.1261586878299713  Rel. Test L2 Loss :  0.1232817774420386  Test L2 Loss :  7.577805974462011  1/sp_L:  [0.991, 0.989, 0.973]
+Epoch :  3  Time:  7.039  Rel. Train L2 Loss :  0.1071412810087204  Rel. Test L2 Loss :  0.1117394588015101  Test L2 Loss :  6.870118252865903  1/sp_L:  [0.991, 0.988, 0.971]
+Epoch :  4  Time:  7.136  Rel. Train L2 Loss :  0.09623676872253419  Rel. Test L2 Loss :  0.1045531813088838  Test L2 Loss :  6.425821699537672  1/sp_L:  [0.99, 0.988, 0.97]
+
+
+max_modes = 364
+前一半max_modes不变，后一半加权
+权重初始化：
+        weight0 = torch.randn(max_modes//2, modes.shape[0] - max_modes//2)/math.sqrt((modes.shape[0] - max_modes//2))
+        k = min(max_modes//2, modes.shape[0] - max_modes//2)
+        weight0[:k,:k] += torch.eye(k)
+        self.modes_weight = nn.Parameter(weight0)
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  11.559  Rel. Train L2 Loss :  0.37845541858673093  Rel. Test L2 Loss :  0.20872086555034192  Test L2 Loss :  12.895303262246621  1/sp_L:  [0.996, 0.995, 0.99]
+Epoch :  1  Time:  10.886  Rel. Train L2 Loss :  0.163928350687027  Rel. Test L2 Loss :  0.14577071677457104  Test L2 Loss :  8.975730586696315  1/sp_L:  [0.994, 0.993, 0.981]
+Epoch :  2  Time:  10.921  Rel. Train L2 Loss :  0.12102175933122634  Rel. Test L2 Loss :  0.12135560018522246  Test L2 Loss :  7.454443270021731  1/sp_L:  [0.994, 0.991, 0.975]
+Epoch :  3  Time:  11.029  Rel. Train L2 Loss :  0.10211556839942933  Rel. Test L2 Loss :  0.10868795712788899  Test L2 Loss :  6.679524945783186  1/sp_L:  [0.993, 0.991, 0.971]
+Epoch :  4  Time:  11.246  Rel. Train L2 Loss :  0.09039606672525406  Rel. Test L2 Loss :  0.10003679131602382  Test L2 Loss :  6.146390932100314  1/sp_L:  [0.993, 0.991, 0.97]
+Epoch :  5  Time:  11.664  Rel. Train L2 Loss :  0.08321615469455719  Rel. Test L2 Loss :  0.10010313665544665  Test L2 Loss :  6.147646311167124  1/sp_L:  [0.992, 0.991, 0.969]
+Epoch :  6  Time:  11.782  Rel. Train L2 Loss :  0.07812231588363648  Rel. Test L2 Loss :  0.09526336515271985  Test L2 Loss :  5.846935100383587  1/sp_L:  [0.992, 0.991, 0.969]
+
+
+权重初始化：
+        weight0 = torch.zeros(max_modes//2, modes.shape[0] - max_modes//2)
+        k = min(max_modes//2, modes.shape[0] - max_modes//2)
+        weight0[:k,:k] += torch.eye(k)
+        self.modes_weight = nn.Parameter(weight0)
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  11.272  Rel. Train L2 Loss :  0.36679834163188935  Rel. Test L2 Loss :  0.209021275107925  Test L2 Loss :  12.916329392441758  1/sp_L:  [0.996, 0.995, 0.99]
+Epoch :  1  Time:  11.233  Rel. Train L2 Loss :  0.1626960951089859  Rel. Test L2 Loss :  0.1426775444735278  Test L2 Loss :  8.78852672405071  1/sp_L:  [0.994, 0.993, 0.982]
+Epoch :  2  Time:  11.767  Rel. Train L2 Loss :  0.12162472641468049  Rel. Test L2 Loss :  0.11993122906298251  Test L2 Loss :  7.3687546532433315  1/sp_L:  [0.993, 0.992, 0.976]
+Epoch :  3  Time:  11.83  Rel. Train L2 Loss :  0.10254850548505783  Rel. Test L2 Loss :  0.10685825831181295  Test L2 Loss :  6.56726462561805  1/sp_L:  [0.993, 0.991, 0.973]
+Epoch :  4  Time:  12.404  Rel. Train L2 Loss :  0.09127287662029267  Rel. Test L2 Loss :  0.10086891350445447  Test L2 Loss :  6.196423401703706  1/sp_L:  [0.993, 0.991, 0.972]
+Epoch :  5  Time:  12.31  Rel. Train L2 Loss :  0.0837321720123291  Rel. Test L2 Loss :  0.09673658254984263  Test L2 Loss :  5.942627434257989  1/sp_L:  [0.992, 0.991, 0.971]
+Epoch :  6  Time:  12.31  Rel. Train L2 Loss :  0.07772317945957184  Rel. Test L2 Loss :  0.09282470823408247  Test L2 Loss :  5.698549837679477  1/sp_L:  [0.992, 0.992, 0.97]
+Epoch :  7  Time:  12.658  Rel. Train L2 Loss :  0.07348794865608216  Rel. Test L2 Loss :  0.09364472853170859  Test L2 Loss :  5.749400508296382  1/sp_L:  [0.992, 0.992, 0.97]
+Epoch :  8  Time:  12.483  Rel. Train L2 Loss :  0.07115137603878975  Rel. Test L2 Loss :  0.09084651437965599  Test L2 Loss :  5.575488803622959  1/sp_L:  [0.993, 0.993, 0.97]
+Epoch :  9  Time:  13.277  Rel. Train L2 Loss :  0.06852908772230148  Rel. Test L2 Loss :  0.08797466701215452  Test L2 Loss :  5.397001696062517  1/sp_L:  [0.993, 0.993, 0.969]
+Epoch :  10  Time:  13.179  Rel. Train L2 Loss :  0.06431903898715972  Rel. Test L2 Loss :  0.08722061563182522  Test L2 Loss :  5.356576489972639  1/sp_L:  [0.993, 0.993, 0.969]
+Epoch :  11  Time:  13.494  Rel. Train L2 Loss :  0.06148349660634995  Rel. Test L2 Loss :  0.08656147525117204  Test L2 Loss :  5.311800535734709  1/sp_L:  [0.993, 0.994, 0.968]
+Epoch :  12  Time:  12.919  Rel. Train L2 Loss :  0.05959425842761994  Rel. Test L2 Loss :  0.08803635191273045  Test L2 Loss :  5.401098715292441  1/sp_L:  [0.993, 0.994, 0.968]
+Epoch :  13  Time:  13.078  Rel. Train L2 Loss :  0.058671214401721954  Rel. Test L2 Loss :  0.08751887136751467  Test L2 Loss :  5.373886589531426  1/sp_L:  [0.993, 0.995, 0.968]
+Epoch :  14  Time:  14.014  Rel. Train L2 Loss :  0.0571497740149498  Rel. Test L2 Loss :  0.08484749052975629  Test L2 Loss :  5.209082904162708  1/sp_L:  [0.994, 0.995, 0.967]
+
+
+
+128 channel
+k_max = 8
+ndim = 3
+modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])
+modes = torch.tensor(modes, dtype=torch.float).to(device)
+model = PCNO_EFF(ndim, modes, nmeasures=1,
+               layers=[128,128,128,128,128],
+               g_dim = 32,
+               fc_dim=128,
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+               train_sp_L="together",
+               act='gelu',
+               max_modes = 364).to(device)
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  14.392  Rel. Train L2 Loss :  0.3103699412345886  Rel. Test L2 Loss :  0.1799467909443486  Test L2 Loss :  11.102879498455975  1/sp_L:  [0.999, 0.998, 0.992]
+Epoch :  1  Time:  14.71  Rel. Train L2 Loss :  0.14156225270032882  Rel. Test L2 Loss :  0.1257968308689358  Test L2 Loss :  7.736383145993894  1/sp_L:  [0.999, 0.997, 0.985]
+Epoch :  2  Time:  15.092  Rel. Train L2 Loss :  0.10816839265823364  Rel. Test L2 Loss :  0.11278484157613806  Test L2 Loss :  6.926465867875932  1/sp_L:  [0.999, 0.997, 0.982]
+Epoch :  3  Time:  15.977  Rel. Train L2 Loss :  0.09202084279060364  Rel. Test L2 Loss :  0.09896508047172616  Test L2 Loss :  6.074157955410244  1/sp_L:  [0.998, 0.997, 0.981]
+Epoch :  4  Time:  16.111  Rel. Train L2 Loss :  0.08248266983032226  Rel. Test L2 Loss :  0.09492472163191787  Test L2 Loss :  5.830689507561761  1/sp_L:  [0.998, 0.997, 0.98]
+Epoch :  5  Time:  16.899  Rel. Train L2 Loss :  0.07681776720285416  Rel. Test L2 Loss :  0.09489199062725445  Test L2 Loss :  5.822872608631581  1/sp_L:  [0.999, 0.998, 0.98]
+Epoch :  6  Time:  16.54  Rel. Train L2 Loss :  0.07376615577936173  Rel. Test L2 Loss :  0.09417118199236758  Test L2 Loss :  5.77544963252437  1/sp_L:  [0.998, 0.999, 0.979]
+Epoch :  7  Time:  16.538  Rel. Train L2 Loss :  0.07148406690359116  Rel. Test L2 Loss :  0.08908854035643844  Test L2 Loss :  5.4718464688137844  1/sp_L:  [0.999, 1.0, 0.979]
+Epoch :  8  Time:  16.541  Rel. Train L2 Loss :  0.0683399859070778  Rel. Test L2 Loss :  0.09078629811604817  Test L2 Loss :  5.572719230308189  1/sp_L:  [0.999, 1.0, 0.978]
+Epoch :  9  Time:  16.557  Rel. Train L2 Loss :  0.0641775309741497  Rel. Test L2 Loss :  0.08722328495334934  Test L2 Loss :  5.35615247434324  1/sp_L:  [0.999, 1.001, 0.978]
+Epoch :  10  Time:  17.701  Rel. Train L2 Loss :  0.06136306595802307  Rel. Test L2 Loss :  0.08667749864561064  Test L2 Loss :  5.317819715620161  1/sp_L:  [0.999, 1.002, 0.977]
+Epoch :  11  Time:  17.706  Rel. Train L2 Loss :  0.05991032427549362  Rel. Test L2 Loss :  0.08499569935841603  Test L2 Loss :  5.218584730818465  1/sp_L:  [1.0, 1.002, 0.977]
+Epoch :  12  Time:  17.236  Rel. Train L2 Loss :  0.05752244707942009  Rel. Test L2 Loss :  0.09019192543115702  Test L2 Loss :  5.531825984920467  1/sp_L:  [1.0, 1.003, 0.977]
+Epoch :  13  Time:  17.276  Rel. Train L2 Loss :  0.0572609726190567  Rel. Test L2 Loss :  0.08364056574331748  Test L2 Loss :  5.1370940509143175  1/sp_L:  [1.0, 1.003, 0.977]
+Epoch :  14  Time:  17.451  Rel. Train L2 Loss :  0.05457944548130035  Rel. Test L2 Loss :  0.08126444376266755  Test L2 Loss :  4.99105860735919  1/sp_L:  [1.0, 1.004, 0.977]
+Epoch :  15  Time:  17.32  Rel. Train L2 Loss :  0.05371744790673256  Rel. Test L2 Loss :  0.08492592863134436  Test L2 Loss :  5.209130227028787  1/sp_L:  [1.001, 1.005, 0.976]
+Epoch :  16  Time:  17.35  Rel. Train L2 Loss :  0.05254433843493462  Rel. Test L2 Loss :  0.08255753807119422  Test L2 Loss :  5.073947751844251  1/sp_L:  [1.001, 1.005, 0.976]
+Epoch :  17  Time:  17.356  Rel. Train L2 Loss :  0.05083685857057572  Rel. Test L2 Loss :  0.08045106723501876  Test L2 Loss :  4.942585403854783  1/sp_L:  [1.001, 1.005, 0.977]
+Epoch :  18  Time:  17.409  Rel. Train L2 Loss :  0.050300906181335446  Rel. Test L2 Loss :  0.08156580216175802  Test L2 Loss :  5.007602090234155  1/sp_L:  [1.002, 1.006, 0.976]
+Epoch :  19  Time:  17.693  Rel. Train L2 Loss :  0.04974431595206261  Rel. Test L2 Loss :  0.08305592096603669  Test L2 Loss :  5.101083875776411  1/sp_L:  [1.002, 1.006, 0.976]
+Epoch :  20  Time:  17.639  Rel. Train L2 Loss :  0.04866904199123383  Rel. Test L2 Loss :  0.08466964691608876  Test L2 Loss :  5.197488149007161  1/sp_L:  [1.002, 1.006, 0.975]
+
+
+k_max = 10
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  19.39  Rel. Train L2 Loss :  0.307289319396019  Rel. Test L2 Loss :  0.17983526796907992  Test L2 Loss :  11.09867150933893  1/sp_L:  [1.0, 0.998, 0.993]
+Epoch :  1  Time:  18.135  Rel. Train L2 Loss :  0.14074000614881516  Rel. Test L2 Loss :  0.12602661751412056  Test L2 Loss :  7.755077293327263  1/sp_L:  [0.999, 0.997, 0.986]
+Epoch :  2  Time:  18.823  Rel. Train L2 Loss :  0.10605523043870926  Rel. Test L2 Loss :  0.11278788570885186  Test L2 Loss :  6.928338746766786  1/sp_L:  [0.998, 0.997, 0.984]
+Epoch :  3  Time:  18.175  Rel. Train L2 Loss :  0.09005876839160919  Rel. Test L2 Loss :  0.10060018891686792  Test L2 Loss :  6.176068245827615  1/sp_L:  [0.998, 0.997, 0.982]
+Epoch :  4  Time:  18.629  Rel. Train L2 Loss :  0.08145699238777161  Rel. Test L2 Loss :  0.0964661117072578  Test L2 Loss :  5.928405624252182  1/sp_L:  [0.998, 0.998, 0.982]
+Epoch :  5  Time:  18.818  Rel. Train L2 Loss :  0.07453930503129959  Rel. Test L2 Loss :  0.09628585974375407  Test L2 Loss :  5.912402144423476  1/sp_L:  [0.999, 0.999, 0.981]
+Epoch :  6  Time:  19.403  Rel. Train L2 Loss :  0.07254131662845612  Rel. Test L2 Loss :  0.09455160514728443  Test L2 Loss :  5.802653888324359  1/sp_L:  [0.998, 0.999, 0.981]
+Epoch :  7  Time:  19.533  Rel. Train L2 Loss :  0.06928203040361404  Rel. Test L2 Loss :  0.0916232402260239  Test L2 Loss :  5.628371573783256  1/sp_L:  [0.999, 1.0, 0.98]
+Epoch :  8  Time:  19.553  Rel. Train L2 Loss :  0.06659327185153961  Rel. Test L2 Loss :  0.09071421784323615  Test L2 Loss :  5.570293237497141  1/sp_L:  [0.999, 1.0, 0.979]
+Epoch :  9  Time:  19.464  Rel. Train L2 Loss :  0.061397439002990724  Rel. Test L2 Loss :  0.09109473389548224  Test L2 Loss :  5.5947147747417825  1/sp_L:  [0.999, 1.001, 0.979]
+Epoch :  10  Time:  19.666  Rel. Train L2 Loss :  0.0581292527616024  Rel. Test L2 Loss :  0.09178979708267762  Test L2 Loss :  5.631901096653294  1/sp_L:  [0.999, 1.001, 0.979]
+Epoch :  11  Time:  19.756  Rel. Train L2 Loss :  0.05753415620326996  Rel. Test L2 Loss :  0.08853172289358603  Test L2 Loss :  5.439285725086659  1/sp_L:  [1.0, 1.002, 0.979]
+Epoch :  12  Time:  19.719  Rel. Train L2 Loss :  0.05571715214848518  Rel. Test L2 Loss :  0.08559273706900107  Test L2 Loss :  5.254841624079524  1/sp_L:  [1.0, 1.002, 0.979]
+Epoch :  13  Time:  19.94  Rel. Train L2 Loss :  0.05226635307073593  Rel. Test L2 Loss :  0.08653501938055227  Test L2 Loss :  5.314107070098052  1/sp_L:  [0.999, 1.002, 0.978]
+Epoch :  14  Time:  20.216  Rel. Train L2 Loss :  0.051295630156993864  Rel. Test L2 Loss :  0.08539193761241329  Test L2 Loss :  5.243560653549057  1/sp_L:  [1.0, 1.002, 0.978]
+Epoch :  15  Time:  20.589  Rel. Train L2 Loss :  0.04966598296165466  Rel. Test L2 Loss :  0.08684441581502692  Test L2 Loss :  5.328231897440043  1/sp_L:  [1.0, 1.003, 0.978]
+Epoch :  16  Time:  20.646  Rel. Train L2 Loss :  0.04915011242032051  Rel. Test L2 Loss :  0.08729081701587986  Test L2 Loss :  5.364847750277133  1/sp_L:  [1.0, 1.003, 0.978]
+Epoch :  17  Time:  20.552  Rel. Train L2 Loss :  0.04977145951986313  Rel. Test L2 Loss :  0.08912037514351509  Test L2 Loss :  5.471227869257197  1/sp_L:  [1.0, 1.003, 0.978]
+Epoch :  18  Time:  20.815  Rel. Train L2 Loss :  0.05140945768356323  Rel. Test L2 Loss :  0.0874804220758043  Test L2 Loss :  5.371306204581046  1/sp_L:  [1.0, 1.003, 0.977]
+Epoch :  19  Time:  20.854  Rel. Train L2 Loss :  0.04671286305785179  Rel. Test L2 Loss :  0.08549806180301013  Test L2 Loss :  5.246733759974574  1/sp_L:  [1.0, 1.003, 0.977]
+Epoch :  20  Time:  21.155  Rel. Train L2 Loss :  0.0448016704916954  Rel. Test L2 Loss :  0.08428677137907561  Test L2 Loss :  5.174020835945198  1/sp_L:  [1.0, 1.004, 0.977]
+Epoch :  21  Time:  21.606  Rel. Train L2 Loss :  0.042990882873535155  Rel. Test L2 Loss :  0.08244357667527757  Test L2 Loss :  5.060270928047799  1/sp_L:  [1.001, 1.004, 0.977]
+
+
+k_max = 12
+Casting to tensor
+In PCNO_train, ndims =  3
+Epoch :  0  Time:  171.476  Rel. Train L2 Loss :  0.30723161458969117  Rel. Test L2 Loss :  0.18094713838250787  Test L2 Loss :  11.167316746067357  1/sp_L:  [1.0, 0.998, 0.993]
+Epoch :  1  Time:  167.403  Rel. Train L2 Loss :  0.1408856136202812  Rel. Test L2 Loss :  0.1285765069025057  Test L2 Loss :  7.909797496623821  1/sp_L:  [0.999, 0.997, 0.986]
+

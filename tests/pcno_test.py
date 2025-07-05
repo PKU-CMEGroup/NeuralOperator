@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data, compute_node_measures
-from pcno.pcno import compute_edge_gradient_weights, compute_gradient
+from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data, compute_node_measures, compute_edge_gradient_weights
+from pcno.pcno import compute_gradient
 
 #####################################################################
 # PCNO CODE TESTS
@@ -11,12 +11,12 @@ from pcno.pcno import compute_edge_gradient_weights, compute_gradient
 
 
 def test_convert_structured_data():
+    # 2 dim test
     elem_dim=2
     Lx, Ly = 1.0, 2.0
     Npx, Npy = 2, 3
     grid_1d_x, grid_1d_y = np.linspace(0, Lx, Npx), np.linspace(0, Ly, Npy)
-    grid_x, grid_y = np.meshgrid(grid_1d_x, grid_1d_y)
-    grid_x, grid_y = grid_x.T, grid_y.T
+    grid_x, grid_y = np.meshgrid(grid_1d_x, grid_1d_y, indexing="ij")
     ndata = 2
     features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = True)
@@ -43,6 +43,39 @@ def test_convert_structured_data():
     assert(np.linalg.norm(features - np.concatenate((np.zeros((ndata, Npx*Npy, 1)), nodes), axis=2)) == 0)
 
 
+    # 3 dim test
+    elem_dim=3
+    Lx, Ly, Lz = 1.0, 2.0, 3.0
+    Npx, Npy, Npz = 2, 3, 2
+    grid_1d_x, grid_1d_y, grid_1d_z = np.linspace(0, Lx, Npx), np.linspace(0, Ly, Npy), np.linspace(0, Lz, Npz)
+    grid_x, grid_y, grid_z = np.meshgrid(grid_1d_x, grid_1d_y, grid_1d_z, indexing="ij")
+    ndata = 2
+    features = np.zeros((ndata, Npx, Npy, Npz, 1)) # all zeros data
+    nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata,1,1,1)), np.tile(grid_y, (ndata,1,1,1)), np.tile(grid_z, (ndata,1,1,1))], features, nnodes_per_elem = 8, feature_include_coords = True)
+    assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,6,8,2,1,7,9,3],[elem_dim,2,8,10,4,3,9,11,5]])) == 0)
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
+    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
+    assert(np.linalg.norm(nnodes - Npx * Npy * Npz) == 0)
+    assert(np.linalg.norm(node_mask - 1) == 0)
+    assert(np.linalg.norm(nodes - np.tile(np.array([[0,0,0],[0,0,3],[0,1,0],[0,1,3],[0,2,0],[0,2,3],[1,0,0],[1,0,3],[1,1,0],[1,1,3],[1,2,0],[1,2,3]]), (ndata,1,1,1))) == 0)
+    assert(np.all(np.isclose(node_measures - np.tile(np.array([3.0/8,3.0/8,6.0/8,6.0/8,3.0/8,3.0/8,3.0/8,3.0/8,6.0/8,6.0/8,3.0/8,3.0/8])[:,np.newaxis], (ndata,1,1,1)), 0)))
+    assert(np.all(np.isclose(node_equal_measures - np.tile(np.array([1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2,1.0/2])[:,np.newaxis], (ndata,1,1,1)), 0)))
+    assert(np.all(np.isclose(node_equal_weights - np.tile(np.array([1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12,1.0/12])[:,np.newaxis], (ndata,1,1,1)), 0.0)))
+    assert(np.linalg.norm(features - np.concatenate((np.zeros((ndata, Npx*Npy*Npz, 1)), nodes), axis=2)) == 0)
+
+
+    features = np.zeros((ndata, Npx, Npy, Npz, 1)) # all zeros data
+    nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata,1,1,1)), np.tile(grid_y, (ndata,1,1,1)), np.tile(grid_z, (ndata,1,1,1))], features, nnodes_per_elem = 4, feature_include_coords = True)
+    #                                                           0 1 2 3 4 5 6 7            0 1 2  3 4 5 6  7
+    # assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,6,8,2,1,7,9,3],[elem_dim,2,8,10,4,3,9,11,5]])) == 0)
+    assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,6,2,7],[elem_dim,0,2,7,3],[elem_dim,0,1,7,3],[elem_dim,6,8,2,7],[elem_dim,8,7,9,3],[elem_dim,8,2,7,3],
+                                                    [elem_dim,2,8,4,9],[elem_dim,2,4,9,5],[elem_dim,2,3,9,5],[elem_dim,8,10,4,9],[elem_dim,10,9,11,5],[elem_dim,10,4,9,5]])) == 0)
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
+    assert(np.linalg.norm(nnodes - Npx * Npy * Npz) == 0)
+    assert(np.linalg.norm(node_mask - 1) == 0)
+    assert(np.linalg.norm(nodes - np.tile(np.array([[0,0,0],[0,0,3],[0,1,0],[0,1,3],[0,2,0],[0,2,3],[1,0,0],[1,0,3],[1,1,0],[1,1,3],[1,2,0],[1,2,3]]), (ndata,1,1,1))) == 0)
+    assert(np.linalg.norm(node_measures - np.tile(np.array([3.0/8,1.0/8,7.0/8,5.0/8,1.0/2,1.0/2,1.0/4,3.0/4,5.0/8,7.0/8,3.0/8,1.0/8])[:,np.newaxis], (ndata,1,1))) == 0)
+    assert(np.linalg.norm(features - np.concatenate((np.zeros((ndata, Npx*Npy*Npz, 1)), nodes), axis=2)) == 0)
 
 
 def gradient_test(ndims = 2):
@@ -198,6 +231,13 @@ def test_node_measures():
     elems = np.array([[elem_dim,0,1,2,4],[elem_dim,0,2,3,4]])
     nodes = np.array([[0.0,0.0,0.0],[1.0,0.0,0.0],[1.0,1.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]]) 
     assert(np.all(np.isclose(compute_node_measures(nodes, elems) - np.array([[1.0/12.0], [1.0/24.0], [1.0/12.0], [1.0/24.0], [1.0/12.0]]), 0)))
+    
+    elem_dim = 3 
+    elems = np.array([[elem_dim,0,1,2,3,4,5,6,7],[elem_dim,4,5,6,7,8,9,10,11]])
+    nodes = np.array([[0.0,0.0,0.0],[1.0,0.0,0.0],[1.0,1.0,0.0],[0.0,1.0,0.0],
+                      [0.0,0.0,1.0],[1.0,0.0,1.0],[1.0,1.0,1.0],[0.0,1.0,1.0], 
+                      [0.0,0.0,2.0],[1.0,0.0,2.0],[1.0,1.0,2.0],[0.0,1.0,2.0]]) 
+    assert(np.all(np.isclose(compute_node_measures(nodes, elems) - np.array([[1.0/8.0], [1.0/8.0], [1.0/8.0], [1.0/8.0], [1.0/4.0], [1.0/4.0], [1.0/4.0], [1.0/4.0],[1.0/8.0], [1.0/8.0], [1.0/8.0], [1.0/8.0],]), 0)))
     
 
 

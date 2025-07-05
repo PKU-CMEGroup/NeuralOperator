@@ -31,7 +31,7 @@ except IndexError:
     PREPROCESS_DATA = False
 
 data_path = "../../data/darcy_square/"
-downsample_ratio = 2
+downsample_ratio = 14
 if PREPROCESS_DATA:
     ###################################
     # load data
@@ -121,7 +121,7 @@ model = PCNO(ndim, modes, nmeasures=1,
 
 
 
-epochs = 1000
+epochs = 500
 base_lr = 5e-4 #0.001
 lr_ratio = 10
 scheduler = "OneCycleLR"

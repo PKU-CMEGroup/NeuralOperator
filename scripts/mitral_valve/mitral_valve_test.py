@@ -16,7 +16,7 @@ from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
 torch.set_printoptions(precision=16)
 torch.manual_seed(0)
 np.random.seed(0)
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def load_data(data_path):
     ndata, elem_dim = 1211, 2
@@ -174,6 +174,9 @@ normalization_dim_x = []
 normalization_dim_y = []
 non_normalized_dim_x = 0
 non_normalized_dim_y = 0
+
+
+print('normalizer: ',f'{normalization_x},{normalization_y},{normalization_dim_x},{normalization_dim_y},{non_normalized_dim_x},{non_normalized_dim_y}')
 
 
 config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 

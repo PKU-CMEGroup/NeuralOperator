@@ -9,13 +9,13 @@ from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
 from pcno.geo_utility import compute_edge_gradient_weights
-from pcno.pcno import _get_act, compute_Fourier_bases, SpectralConv, compute_gradient, CombinedOptimizer, Combinedscheduler_OneCycleLR
+from pcno.pcno import PCNO, _get_act, compute_Fourier_bases, SpectralConv, compute_gradient, CombinedOptimizer, Combinedscheduler_OneCycleLR
 
 
 
 
 
-class TPCNO(nn.Module):
+class TPCNO(PCNO):
     def __init__(
         self,
         ndims,
@@ -25,79 +25,27 @@ class TPCNO(nn.Module):
         fc_dim=128,
         in_dim=3,
         out_dim=1,
-        train_sp_L = 'independently',
+        inv_L_scale_hyper = ['independently', 0.5, 2.0],
         act="gelu",
     ):
-        super(TPCNO, self).__init__()
-
         """
-            Compared to sdandard PCNO, we have incorporated temporal variables into the framework.
+            Compared to standard PCNO, we have incorporated temporal variables into the framework.
             
             Returns:
                 Time-dependent Point cloud neural operator
-
         """
-        self.modes = modes
-        self.nmeasures = nmeasures
-        
-
-        self.layers = layers
-        self.fc_dim = fc_dim
-
-        self.ndims = ndims
-        self.in_dim = in_dim
-
-        self.fc0 = nn.Linear(in_dim, layers[0])
-
-        self.sp_convs = nn.ModuleList(
-            [
-                SpectralConv(in_size, out_size, modes)
-                for in_size, out_size in zip(
-                    self.layers, self.layers[1:]
-                )
-            ]
+        # PCNO initialization
+        super().__init__(
+            ndims=ndims,
+            modes=modes,
+            nmeasures=nmeasures,
+            layers=layers,
+            fc_dim=fc_dim,
+            in_dim=in_dim, # origin + time
+            out_dim=out_dim,
+            inv_L_scale_hyper=inv_L_scale_hyper,
+            act=act
         )
-        self.train_sp_L = train_sp_L
-        self.sp_L = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad = bool(train_sp_L))
-
-        self.ws = nn.ModuleList(
-            [
-                nn.Conv1d(in_size, out_size, 1)
-                for in_size, out_size in zip(self.layers, self.layers[1:])
-            ]
-        )
-
-        self.gws = nn.ModuleList(
-            [
-                nn.Conv1d(ndims*in_size, out_size, 1)
-                for in_size, out_size in zip(self.layers, self.layers[1:])
-            ]
-        )
-
-        if fc_dim > 0:
-            self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim)
-        else:
-            self.fc2 = nn.Linear(layers[-1], out_dim)
-
-        self.act = _get_act(act)
-        self.softsign = F.softsign
-
-        self.normal_params = []  #  group of params which will be trained normally
-        self.sp_L_params = []    #  group of params which may be trained specially
-        for _, param in self.named_parameters():
-            if param is not self.sp_L :
-                self.normal_params.append(param)
-            else:
-                if self.train_sp_L == 'together':
-                    self.normal_params.append(param)
-                elif self.train_sp_L == 'independently':
-                    self.sp_L_params.append(param)
-                elif self.train_sp_L == False:
-                    continue
-                else:
-                    raise ValueError(f"{self.train_sp_L} is not supported")
-        
 
     def forward(self, x, t, aux):
         """
@@ -138,45 +86,12 @@ class TPCNO(nn.Module):
                        Input data
 
         """
-        length = len(self.ws)
+        # PCNO forward
+        x_with_time = torch.cat((x, t), -1)
+        x_value = x[..., :self.ndims]
+        output = super().forward(x_with_time, aux)
 
-        # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
-        # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_L)
-        # node_weights: float[batch_size, nnodes, nmeasures]
-        # wbases: float[batch_size, nnodes, nmodes, nmeasures]
-        # set nodes with zero measure to 0
-        wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
-        wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
-        wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
-        
-        x_value = x[:,:,:self.ndims] 
-        x = torch.cat((x,t),-1)
-
-        x = self.fc0(x)
-        x = x.permute(0, 2, 1)
-
-        for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-            x2 = w(x)
-            x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x = x1 + x2 + x3
-            #x = x1 + x2
-            if self.act is not None and i != length - 1:
-                x = self.act(x) 
-
-        x = x.permute(0, 2, 1)
-
-        if self.fc_dim > 0:
-            x = self.fc1(x)
-            if self.act is not None:
-                x = self.act(x)
-
-        x = self.fc2(x)
-
-       
-        return x_value + t*x
+        return x_value + t * output
 
 
 
@@ -236,7 +151,7 @@ def TPCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, 
     #         steps_per_epoch=1, epochs=config['train']['epochs'])
     # else:
     #     print("Scheduler ", config['train']['scheduler'], " has not implemented.")
-    optimizer = CombinedOptimizer(model.normal_params,model.sp_L_params,
+    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],
@@ -248,7 +163,6 @@ def TPCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, 
         div_factor=2, final_div_factor=100,pct_start=0.2,
         steps_per_epoch=1, epochs=config['train']['epochs'])
     
-    model.train()
     myloss = LpLoss(d=1, p=2, size_average=False)
 
     epochs = config['train']['epochs']
@@ -268,27 +182,26 @@ def TPCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, 
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
-            out = out * node_mask  #mask the padded value with 0,(1 for node, 0 for padding)
+            out = out * node_mask # mask the padded value with 0,(1 for node, 0 for padding)
             
 
-            eps = torch.rand(1)# random time step
+            eps = torch.rand(1)   # random time step
             eps = eps.to(device)
-            temp_out = model(x, eps*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1), Semigroup constraint intermediate variables
+            temp_out = model(x, eps * t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1), Semigroup constraint intermediate variables
             if normalization_y:
                 temp_out = y_normalizer.decode(temp_out)
-            temp_out = temp_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
-            temp_x = torch.cat((temp_out, x[:,:,ndims:]),-1)
+            temp_out = temp_out * node_mask # mask the padded value with 0,(1 for node, 0 for padding)
+            temp_x = torch.cat((temp_out, x[:, :, ndims:]), -1)
             if normalization_x:
                 temp_x = x_normalizer.encode(temp_x)
 
-            
-            final_out = model(temp_x, (1-eps)*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint final variables
+            final_out = model(temp_x, (1 - eps) * t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint final variables
             if normalization_y:
                 final_out = y_normalizer.decode(final_out)
             final_out = final_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
 
 
-            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)) + myloss(out.view(batch_size_,-1), final_out.view(batch_size_,-1))
+            loss = myloss(out.view(batch_size_, -1), y.view(batch_size_, -1)) + myloss(out.view(batch_size_, -1), final_out.view(batch_size_, -1))
             loss.backward()
 
             optimizer.step()
@@ -306,25 +219,25 @@ def TPCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
-                out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                out = out * node_mask # mask the padded value with 0,(1 for node, 0 for padding)
 
-                eps = torch.rand(1) #random time step
-                eps = eps.to(device)
-                temp_out = model(x, eps*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint intermediate variables
-                if normalization_y:
-                    temp_out = y_normalizer.decode(temp_out)
-                temp_out = temp_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                # eps = torch.rand(1) # random time step
+                # eps = eps.to(device)
+                # temp_out = model(x, eps * t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint intermediate variables
+                # if normalization_y:
+                #     temp_out = y_normalizer.decode(temp_out)
+                # temp_out = temp_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                # temp_x = torch.cat((temp_out, x[:, :, ndims:]), -1)
+                # if normalization_x:
+                #     temp_x = x_normalizer.encode(temp_x)
                 
-                temp_x = torch.cat((temp_out ,x[:,:,ndims:]),-1)
-                if normalization_x:
-                    temp_x = x_normalizer.encode(temp_x)
-                final_out = model(temp_x, (1-eps)*t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint final variables
-                if normalization_y:
-                    final_out = y_normalizer.decode(final_out)
-                final_out = final_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                # final_out = model(temp_x, (1 - eps) * t, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1),Semigroup constraint final variables
+                # if normalization_y:
+                #     final_out = y_normalizer.decode(final_out)
+                # final_out = final_out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
 
-                test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-                test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                test_rel_l2 += myloss(out.view(batch_size_, -1), y.view(batch_size_, -1)).item()
+                test_l2 += myloss.abs(out.view(batch_size_, -1), y.view(batch_size_, -1)).item()
 
 
 
@@ -342,8 +255,8 @@ def TPCNO_train(x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, 
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              ' 1/sp_L: ',[round(float(x[0]), 3) for x in model.sp_L.cpu().tolist()],
-                  flush=True)
+              ' inv_L_scale: ',[round(float(x[0]), 3) for x in (model.inv_L_scale_min + (model.inv_L_scale_max - model.inv_L_scale_min)/(1.0 + torch.exp(model.inv_L_scale_latent))).cpu().tolist()],
+              flush=True)
         
         if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model.state_dict(), save_model_name + ".pth")

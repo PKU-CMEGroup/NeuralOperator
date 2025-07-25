@@ -350,7 +350,7 @@ class PCNO(nn.Module):
         )
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent)) 
-        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1.0)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
 
         self.ws = nn.ModuleList(
             [

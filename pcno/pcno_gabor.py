@@ -5,10 +5,12 @@ import sys
 import torch.nn as nn
 import torch.nn.functional as F
 from timeit import default_timer
+import matplotlib.pyplot as plt
+from pathlib import Path
+
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
-from pcno.geo_utility import compute_edge_gradient_weights
 
     
 
@@ -30,11 +32,51 @@ def _get_act(act):
     return func
 
 
+def scaled_sigmoid(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    """
+    Applies a sigmoid function scaled to output values in the range [min_val, max_val].
+    This transformation maps any real-valued input to a specified bounded interval,
+    maintaining gradient flow for backpropagation. Useful for constraining network outputs.
+    
+    Math:
+        output = min_val + (max_val - min_val) * σ(x)
+        where σ(x) = 1/(1 + exp(-x)) is the standard sigmoid function
+    
+    Require:
+        max_val >= min_val
+    """
+    return min_val + (max_val - min_val) * torch.sigmoid(x)
+
+
+def scaled_logit(y: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    """
+    Inverse of scaled_sigmoid - maps values from [min_val, max_val] back to unbounded space.
+    
+    Also known as the generalized logit transform. Handles numerical stability at boundaries.
+    
+    Args:
+        y: Input tensor (values must be in (min_val, max_val) range)
+        min_val: Lower bound of input range (exclusive)
+        max_val: Upper bound of input range (exclusive)
+        
+    Returns:
+        Tensor of same shape as input with unbounded real values
+    
+    Math:
+        output = log( (y - min_val) / (max_val - y) )
+        This is the inverse operation of scaled_sigmoid()
+  
+    Require:
+        min_val < y <  max_val
+    """
+    return torch.log((y - min_val)/(max_val - y))
+
+
 def compute_Fourier_modes_helper(ndims, nks, Ls):
     '''
     Compute Fourier modes number k
     Fourier bases are cos(kx), sin(kx), 1
-    * We cannot have both k and -k
+    * We cannot have both k and -k, cannot have 0
 
         Parameters:  
             ndims : int
@@ -90,7 +132,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
     else:
         raise ValueError(f"{ndims} in compute_Fourier_modes is not supported")
     
-    k_pairs = k_pairs[np.argsort(k_pair_mag), :]
+    k_pairs = k_pairs[np.argsort(k_pair_mag, kind='stable'), :]
     return k_pairs
 
 
@@ -197,6 +239,74 @@ class SpectralConv(nn.Module):
         
         return x
     
+class GaborSpectralConv(nn.Module):
+    def __init__(self, in_channels, out_channels, modes):
+        super(GaborSpectralConv, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        nmodes, ndims, nmeasures = modes.shape
+        self.modes = modes
+        self.nmeasures = nmeasures
+        self.scale = 1 / (in_channels * out_channels)
+
+        self.weights_c = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, nmodes, nmeasures, dtype=torch.float
+            )
+        )
+        self.weights_s = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, nmodes, nmeasures, dtype=torch.float
+            )
+        )
+        self.weights_0 = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, 1, nmeasures, dtype=torch.float
+            )
+        )
+        self.centor = nn.Parameter(100*torch.randn(in_channels, ndims, nmeasures, dtype=torch.float))
+        self.inv_sigma = nn.Parameter(0.1*torch.rand(in_channels, ndims, nmeasures, dtype=torch.float))
+
+
+    def forward(self, x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0, modes, figure_path = None, figure_name = None):
+        '''
+        Compute Fourier neural layer
+            Parameters:  
+                x                   : float[batch_size, in_channels, nnodes]
+                bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
+                bases_0             : float[batch_size, nnodes, 1, nmeasures]
+                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes, nmeasures]
+                wbases_0            : float[batch_size, nnodes, 1, nmeasures]
+
+            Return :
+                x                   : float[batch_size, out_channels, nnodes]
+        '''    
+        if figure_path:
+            plot_freq(x, wbases_c, wbases_s, figure_path ,figure_name + 'before_freq')
+        x_c_hat =  torch.einsum("bix,bxkw->bikw", x, wbases_c)
+        x_s_hat = -torch.einsum("bix,bxkw->bikw", x, wbases_s)
+        x_0_hat =  torch.einsum("bix,bxkw->bikw", x, wbases_0)
+
+        gaborweight = torch.exp(
+            -torch.sum(
+                (modes.unsqueeze(0) - self.centor.unsqueeze(1))**2 * (self.inv_sigma.unsqueeze(1)**2),   # in_channels, nmodes, ndims, nmeasures
+                  dim = 2
+                )
+            ).unsqueeze(0) # in_channels, nmodes, nmeasures
+        weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
+        
+        f_c_hat = torch.einsum("bikw,iokw->bokw", x_c_hat, weights_c*gaborweight) - torch.einsum("bikw,iokw->bokw", x_s_hat, weights_s*gaborweight)
+        f_s_hat = torch.einsum("bikw,iokw->bokw", x_s_hat, weights_c*gaborweight) + torch.einsum("bikw,iokw->bokw", x_c_hat, weights_s*gaborweight)
+        f_0_hat = torch.einsum("bikw,iokw->bokw", x_0_hat, weights_0) 
+
+        x = torch.einsum("bokw,bxkw->box", f_0_hat, bases_0)  + 2*torch.einsum("bokw,bxkw->box", f_c_hat, bases_c) -  2*torch.einsum("bokw,bxkw->box", f_s_hat, bases_s) 
+        if figure_path:
+            plot_freq(x, wbases_c, wbases_s, figure_path , figure_name + 'after_freq')        
+        return x
+
 
 def compute_gradient(f, directed_edges, edge_gradient_weights):
     '''
@@ -261,7 +371,7 @@ class PCNO(nn.Module):
         fc_dim=128,
         in_dim=3,
         out_dim=1,
-        train_sp_L = 'independently',
+        inv_L_scale_hyper = ['independently', 0.5, 2.0],
         act="gelu",
     ):
         super(PCNO, self).__init__()
@@ -282,14 +392,10 @@ class PCNO(nn.Module):
                 modes : float[nmodes, ndims, nmeasures]
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
                     * We cannot have both k and -k
+                    * k is not integer, and it has the form 2pi*K/L0  (K in Z)
                 nmeasures : int
                     Number of measures
                     There might be different integrals with different measures
-                train_sp_L: bool or str
-                    The way to train sp_L.
-                    False: means we dont train sp_L
-                    'together': means sp_L will be trained with other params together.
-                    'independently' : means sp_L will be trained in another optimizer independently.
                 layers : list of int
                     number of channels of each layer
                     The lifting layer first lifts to layers[0]
@@ -304,6 +410,26 @@ class PCNO(nn.Module):
                     For example, when the coefficient function and locations (a(x, y), x, y) are inputs, in_dim = 3
                 out_dim : int 
                     The number of channels for the output function
+
+                inv_L_scale_hyper: 3 element hyperparameter list
+                    Controls the update behavior of the length scale (L) for Fourier modes. The modes are scaled elementwise as:
+                    k = k * inv_L_scale (where each spatial direction or measure may be scaled differently).
+                    since k = 2pi K /L0, inv_L_scale is the inverse scale, 1/L = inv_L_scale * 1/L0 
+                    Hyperparameters: 
+                        train_inv_L_scale (bool or str): Update policy for inv_L_scale:
+                            False: Disable training (fixed scaling).
+                            'together': Train jointly with other parameters (shared optimizer).
+                            'independently': Train with a separate optimizer.
+
+                        inv_L_scale_min (float): Lower bound for scaling factor.
+
+                        inv_L_scale_max (float): Upper bound for scaling factor.
+
+                    Implementation Notes:
+                        The effective scaling factor is computed via a sigmoid constraint:
+                        inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
+                        This ensures inv_L_scale stays within [inv_L_scale_min, inv_L_scale_max] during optimization.
+
                 act : string (default gelu)
                     The activation function
 
@@ -312,7 +438,8 @@ class PCNO(nn.Module):
                 Point cloud neural operator
 
         """
-        self.modes = modes
+        
+        self.register_buffer('modes', modes) 
         self.nmeasures = nmeasures
         
 
@@ -326,14 +453,15 @@ class PCNO(nn.Module):
 
         self.sp_convs = nn.ModuleList(
             [
-                SpectralConv(in_size, out_size, modes)
+                GaborSpectralConv(in_size, out_size, modes)
                 for in_size, out_size in zip(
                     self.layers, self.layers[1:]
                 )
             ]
         )
-        self.train_sp_L = train_sp_L
-        self.sp_L = nn.Parameter(torch.ones(ndims, nmeasures), requires_grad = bool(train_sp_L))
+        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
+        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
 
         self.ws = nn.ModuleList(
             [
@@ -359,22 +487,22 @@ class PCNO(nn.Module):
         self.softsign = F.softsign
 
         self.normal_params = []  #  group of params which will be trained normally
-        self.sp_L_params = []    #  group of params which may be trained specially
+        self.inv_L_scale_params = []    #  group of params which may be trained specially
         for _, param in self.named_parameters():
-            if param is not self.sp_L :
+            if param is not self.inv_L_scale_latent :
                 self.normal_params.append(param)
             else:
-                if self.train_sp_L == 'together':
+                if self.train_inv_L_scale == 'together':
                     self.normal_params.append(param)
-                elif self.train_sp_L == 'independently':
-                    self.sp_L_params.append(param)
-                elif self.train_sp_L == False:
+                elif self.train_inv_L_scale == 'independently':
+                    self.inv_L_scale_params.append(param)
+                elif self.train_inv_L_scale == False:
                     continue
                 else:
-                    raise ValueError(f"{self.train_sp_L} is not supported")
+                    raise ValueError(f"{self.train_inv_L_scale} is not supported")
         
 
-    def forward(self, x, aux):
+    def forward(self, x, aux, plot = False, plot_epoch = 0):
         """
         Forward evaluation. 
         1. Lift the input to the desire channel dimension by self.fc0 .
@@ -416,7 +544,9 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * self.sp_L)
+        # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
+        modes = self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, modes) 
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
@@ -430,7 +560,13 @@ class PCNO(nn.Module):
         x = x.permute(0, 2, 1)
 
         for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+
+            figure_path_x = f'epoch{plot_epoch}/x/' if plot else None
+            figure_path_freq = f'epoch{plot_epoch}/freq/' if plot else None
+            plot_x(x, nodes, figure_path_x , f'layer{i}_before_x')
+            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0, modes, figure_path_freq, f'layer{i}_')
+            plot_x(x, nodes, figure_path_x, f'layer{i}_after_x')
+
             x2 = w(x)
             x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
             x = x1 + x2 + x3
@@ -448,6 +584,52 @@ class PCNO(nn.Module):
 
        
         return x 
+    
+def plot_x(x, nodes, figure_path = '', figure_name = '', channels = [0,1,2]):
+    if not figure_path:
+        return
+    x = x.clone()
+    nodes = nodes.clone()
+    n_c = len(channels)
+    x_plot = x[0].permute(1,0).detach().to('cpu')  # N, all_channels
+    nodes = nodes[0].detach().to('cpu')   # N, 2
+    nx = round(math.sqrt(nodes.shape[0]))
+    fig, axs = plt.subplots(1, n_c, 
+                          figsize=(4*n_c, 8),
+                          gridspec_kw={'hspace': 0.4})
+    for i,c in enumerate(channels):
+
+        axs[i].pcolormesh(nodes[:,0].reshape(nx,nx), nodes[:,1].reshape(nx,nx), x_plot[:,c].reshape(nx,nx))
+        axs[i].set_title(f'channel{c}')
+        axs[i].axis("equal")
+    path_str = 'figure/' + figure_path
+    path = Path(path_str)
+    path.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path_str + figure_name + '.png', dpi=200)
+    plt.close(fig)
+
+
+def plot_freq(x, wbases_c, wbases_s, figure_path = '', figure_name = '', channels = [0,1,2]):
+    if not figure_path:
+        return
+    x = x.clone()
+    n_c = len(channels)
+    fig, axs = plt.subplots(2, n_c, 
+                          figsize=(4*n_c, 8),
+                          gridspec_kw={'hspace': 0.4})
+    for i,c in enumerate(channels):
+        x_c_hat =  torch.einsum("x,xkw->kw", x[0,c,:], wbases_c[0]).detach().to('cpu')
+        x_s_hat =  torch.einsum("x,xkw->kw", x[0,c,:], wbases_s[0]).detach().to('cpu')
+
+        axs[0,i].plot([i for i in range(len(x_c_hat))], x_c_hat[:,0])
+        axs[0,i].set_title(f'Cos coffes of channel{c}')
+        axs[1,i].plot([i for i in range(len(x_s_hat))], x_s_hat[:,0])
+        axs[1,i].set_title(f'Sin coffes of channel{c}')
+    path_str = 'figure/' + figure_path
+    path = Path(path_str)
+    path.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path_str + figure_name + '.png', dpi=200)
+    plt.close(fig)
     
 
 
@@ -596,7 +778,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = CombinedOptimizer(model.normal_params,model.sp_L_params,
+    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],
@@ -649,16 +831,18 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         model.eval()
         with torch.no_grad():
+            plot = True if ep%10 == 0 else False
             for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
                 x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
-
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights), plot, ep) #.reshape(batch_size_,  -1)
+                if plot == True:
+                    plot = False
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
-                out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 
@@ -677,8 +861,8 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              ' 1/sp_L: ',[round(float(x[0]), 3) for x in model.sp_L.cpu().tolist()],
-                  flush=True)
+              " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
+              flush=True)
         if (ep %100 == 99) or (ep == epochs -1):    
             torch.save(model.state_dict(), save_model_name + ".pth")
 

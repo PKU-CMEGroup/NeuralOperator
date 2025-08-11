@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 
 from pcno.geo_utility import preprocess_data, convert_structured_data, compute_node_weights
-from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.pcno_gabor import compute_Fourier_modes, PCNO, PCNO_train
 
 
 
@@ -31,7 +31,7 @@ except IndexError:
     PREPROCESS_DATA = False
 
 data_path = "../../data/darcy_square/"
-downsample_ratio = 5
+downsample_ratio = 14
 if PREPROCESS_DATA:
     ###################################
     # load data
@@ -108,9 +108,10 @@ aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[
 y_train, y_test = features[:n_train, :, [1]],       features[-n_test:, :, [1]]
 
 
-k_max = 16
+k_max = 8
 ndim = 2
 modes = compute_Fourier_modes(ndim, [k_max,k_max], [1.0,1.0])
+# print(modes)
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],

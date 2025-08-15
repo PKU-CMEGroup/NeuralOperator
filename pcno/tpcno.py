@@ -27,6 +27,7 @@ class TPCNO(PCNO):
         out_dim=1,
         inv_L_scale_hyper = ['independently', 0.5, 2.0],
         act="gelu",
+        grad=True
     ):
         """
             Compared to standard PCNO, we have incorporated temporal variables into the framework.
@@ -44,7 +45,8 @@ class TPCNO(PCNO):
             in_dim=in_dim, # origin + time
             out_dim=out_dim,
             inv_L_scale_hyper=inv_L_scale_hyper,
-            act=act
+            act=act,
+            grad=grad
         )
 
     def forward(self, x, t, aux):

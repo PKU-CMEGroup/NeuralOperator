@@ -10,7 +10,7 @@ from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
 from pcno.geo_utility import compute_edge_gradient_weights
 
-    
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def _get_act(act):
     if act == "tanh":
@@ -263,6 +263,7 @@ class PCNO(nn.Module):
         out_dim=1,
         inv_L_scale_hyper = ['independently', 0.5, 2.0],
         act="gelu",
+        grad=True
     ):
         super(PCNO, self).__init__()
 
@@ -350,7 +351,7 @@ class PCNO(nn.Module):
         )
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) / (1 + exp(inv_L_scale_latent)) 
-        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1.0)/(1.0 - self.inv_L_scale_min)), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), np.log((self.inv_L_scale_max - 1.0)/(1.0 - self.inv_L_scale_min)), device=device), requires_grad = bool(self.train_inv_L_scale))
 
         self.ws = nn.ModuleList(
             [
@@ -389,6 +390,8 @@ class PCNO(nn.Module):
                     continue
                 else:
                     raise ValueError(f"{self.train_inv_L_scale} is not supported")
+        
+        self.grad = grad
         
 
     def forward(self, x, aux):
@@ -451,7 +454,10 @@ class PCNO(nn.Module):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x = x1 + x2 + x3
+            if self.grad:
+                x = x1 + x2 + x3
+            else:
+                x = x1 + x2
             if self.act is not None and i != length - 1:
                 x = self.act(x) 
 

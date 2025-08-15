@@ -44,7 +44,7 @@ if PREPROCESS_DATA:
     nodes_list, elems_list, features_list = [], [], []
     ndata, nt = 30, 100
     for i in range(ndata):    
-        data = np.load(data_path + "data_uniform/data_%05d"%(i) + ".npy")
+        data = np.load(data_path + "data_uniform_2048/data_%05d"%(i) + ".npy")
         ndata, nnodes = data.shape
         nodes = np.linspace(-1, 1, nnodes, endpoint=False)
         nodes = nodes[:,np.newaxis]
@@ -73,7 +73,7 @@ if PREPROCESS_DATA:
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes, node_measures_raw, equal_measure = True)
     edge_gradient_weights[:, 0, :] = np.full((3000, 1), 512)
     edge_gradient_weights[:, 1, :] = np.full((3000, 1), -512)
-    np.savez_compressed(data_path + "pcno_burgers_uniform_group_full_data.npz", \
+    np.savez_compressed(data_path + "pcno_burgers_uniform_2048_full_data.npz", \
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
                         node_measures_raw = node_measures_raw, \
                         node_measures=node_measures, node_weights=node_weights, \
@@ -97,7 +97,7 @@ else:
 
     equal_weights = args.equal_weight.lower() == "true"
     # load data 
-    data = np.load(data_path + "pcno_burgers_uniform_group_full_data.npz")
+    data = np.load(data_path + "pcno_burgers_uniform_2048_full_data.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     node_measures = data["node_measures"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
@@ -187,7 +187,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
 
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = TPCNO_train(
-    x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, y_test, config, model, save_model_name=f"./models/Semigroup_PCNO_{train_inv_L_scale}"
+    x_train, t_train, aux_train, y_train, x_test, t_test, aux_test, y_test, config, model, save_model_name=f"./models/Semigroup_PCNO_2048_{train_inv_L_scale}"
 )
 
 

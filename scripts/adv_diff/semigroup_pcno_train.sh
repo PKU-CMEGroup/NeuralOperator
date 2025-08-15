@@ -10,4 +10,4 @@
 
 module load conda
 source activate pytorch 
-python semigroup_pcno_adv_test.py --train_inv_L_scale 'independently' > logs/semigroup_pcno_adv_indep.log
+python semigroup_pcno_adv_test.py --train_inv_L_scale 'independently' > logs/semigroup_pcno_adv_2048_indep.log

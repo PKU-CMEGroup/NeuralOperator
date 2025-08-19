@@ -101,6 +101,7 @@ if OUTPUT == "pressure":
 else:  #OUTPUT == "normal":
     y_train, y_test = features[:n_train, :, 1:],     features[-n_test:, :, 1:]
 
+train_inv_L_scale = "together"
 k_max = 16
 ndim = 3
 modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], [2.0,2.0,5.0])

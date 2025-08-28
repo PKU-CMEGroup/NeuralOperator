@@ -640,10 +640,13 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
 
 
 
-def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_include_coords = True):
+def convert_structured_data(coords_list:List[np.ndarray], features:np.ndarray, nnodes_per_elem:int = 3, feature_include_coords:bool = True):
     '''
-    Convert structured data, to unstructured data, support both 2d and 3d coordinates
-    coords_list stores x, y, (z) coordinates of each points in list of ndims float[nnodes, nx, ny, (nz)], coords_list[i] is as following
+    Convert structured data into unstructured, vertex centered data. 
+    Support both 2d and 3d coordinates
+    `coords_list` stores the x, y, (and optionally z) coordinates of the points in arrays of shape `[ndata, nx, ny, (nz)]`.  
+    For each dimension, `coords_list[i]` contains the coordinate values. The layout is as follows:
+
                     nz-1       ny-1                                                         
                     nz-2     ny-2                                                            
                     .       .                                                               
@@ -652,16 +655,24 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
                     1    .                                                                    
                     0   0                                                                    
                         0 - 1 - 2 - ... - nx-1   (x direction)
-    For example, it can be generated as
+
+    For example, it can be generated using
+
+    ```python
     grid_1d_x, grid_1d_y, grid_1d_z = np.linspace(0, Lx, nx), np.linspace(0, Ly, ny), np.linspace(0, Lz, nz)
     grid_x, grid_y, grid_z = np.meshgrid(grid_1d_x, grid_1d_y, grid_1d_z, indexing="ij")
     coords_list = [grid_x, grid_y, grid_z]
-    
-    Then we order the nodes by iterating z, then y, then x (reshape)
+    ```
+
+    Nodes are ordered by iterating first over z, then y, then x (i.e., reshape order)
+
+    ```python
     for i in range(nx-1): 
         for j in range(ny-1): 
             for k in range(nz-1): 
                 id = i*ny*nz + j*nz + k
+    ```
+
     For example when nx=ny=nz, the ordering is as following
           3 -------- 7
          /|         /|
@@ -673,12 +684,16 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
 
 
         Parameters:  
-            coords_list            :  list of ndims float[nnodes, nx, ny, (nz)], for each dimension coords_list[0], coords_list[1],... are x, y,... coordinates
-            features               :  float[nelems, nx, ny, (nz), nfeatures], features on each point
+            coords_list            :  list of ndims arrays, each of shape float[ndata, nx, ny, (nz)],
+                                      for each dimension coords_list[0], coords_list[1],... are x, y,... coordinates
+
+            features               :  float[ndata, nx, ny, (nz), nfeatures], features on each point
+
             nnodes_per_elem        :  int, describing element type
                                       nnodes_per_elem = 3: 2d triangle mesh; 
                                       nnodes_per_elem = 4: 2d quad mesh or 3d tetrahedron mesh
                                       nnodes_per_elem = 8: 3d hexahedron mesh
+
             feature_include_coords :  boolean, whether treating coordinates as features, if coordinates
                                       are treated as features, they are concatenated at the end
 
@@ -691,6 +706,7 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
                     -1 or any negative integers.
             features_list  : list of float[nnodes, nfeatures]
     '''
+
     ndims = len(coords_list)
     print("convert_structured_data for ", ndims, " problems")
     ndata, *dims = coords_list[0].shape
@@ -778,23 +794,23 @@ def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_me
     If there are several types of measures, compute weights for each type of measures, and normalize it by nmeasures
     node_weight = 1/nmeasures * node_measure / sum(node_measures)
 
-    Parameters:
-        nnodes int[ndata]: 
-            Number of nodes for each data instance.
-        
-        node_measures float[ndata, max_nnodes, nmeasures]: 
-            Each value corresponds to the measure of a node.
-            Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
+        Parameters:
+            nnodes: int[ndata] 
+                Number of nodes for each data instance.
+            
+            node_measures: float[ndata, max_nnodes, nmeasures] 
+                Each value corresponds to the measure of a node.
+                Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
 
-        equal_measure (bool, optional): 
-            If True, node measures are uniformly distributed as |Omega|/n. Default is False.
+            equal_measure: (bool, optional) 
+                If True, node measures are uniformly distributed as |Omega|/n. Default is False.
 
-    Returns:
-        node_measures float[ndata, max_nnodes, nmeasures]: 
-            Updated array of node measures with shape, maintaining the same padding structure (But with padding 0).
-            If equal_measure is False, the measures remains unchanged
-        node_weights float[ndata, max_nnodes, nmeasures]: 
-            Array of computed node weights, maintaining the same padding structure.
+        Returns:
+            node_measures: float[ndata, max_nnodes, nmeasures] 
+                Updated array of node measures with shape, maintaining the same padding structure (But with padding 0).
+                If equal_measure is False, the measures remains unchanged
+            node_weights: float[ndata, max_nnodes, nmeasures] 
+                Array of computed node weights, maintaining the same padding structure.
     '''
         
     ndata, max_nnodes, nmeasures = node_measures.shape

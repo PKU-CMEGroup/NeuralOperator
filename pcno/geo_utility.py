@@ -394,6 +394,8 @@ def compute_edge_gradient_weights_helper(nodes:np.ndarray, node_dims:np.ndarray,
     directed_edges = []
     edge_gradient_weights = [] 
     for a in range(nnodes):
+        if len(adj_list[a]) == 0:
+            continue
         dx = np.zeros((len(adj_list[a]), ndims))
         for i, b in enumerate(adj_list[a]):
             dx[i, :] = nodes[b,:] - nodes[a,:]
@@ -474,19 +476,21 @@ def compute_edge_gradient_weights(nodes:np.ndarray, elems:np.ndarray, mesh_type:
     # Initialize node_dims to store the (maximum) dimensionality at that node
     node_dims = np.zeros(nnodes, dtype=int)
     
-    # Compute node_dims, and construct adjacent list
+    # Compute node_dims, and construct adjacency list
     if mesh_type == "vertex_centered":
-        # Loop through each element and compute the maximum dimensionality at that node
+        adj_list = compute_node_adjacent_list(nodes, elems, adjacent_type)
+        # The dimensionality of each node (used to compute gradient), is defined as the max dimension among incident elements
         for elem in elems:
             elem_dim, e = elem[0], elem[1:]
             node_dims[e] = np.maximum(node_dims[e], elem_dim)
-        adj_list = compute_node_adjacent_list(nodes, elems, adjacent_type)
-
+        
     elif mesh_type == "cell_centered":
-        # Initialize node_dims to store the maximum dimensionality at that node
-        node_dims[:] = elems[:,0]
         adj_list = compute_elem_adjacent_list(elems, adjacent_type)
-    
+        # The dimensionality of each node/element (used to compute gradient), is defined as max(dim of itself, dim of adjacent elements)
+        for e in range(nnodes):
+            neigh = list(adj_list[e]) + [e]
+            node_dims[e] = np.max(elems[neigh,0])
+        
     else:
         raise ValueError(f"Unsupported mesh type: {mesh_type}. Use 'vertex_centered' or 'cell_centered'")
     
@@ -618,7 +622,7 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
     print("Preprocessing data : computing directed_edges and edge_gradient_weights")
     directed_edges_list, edge_gradient_weights_list = [], []
     for i in tqdm(range(ndata)):
-        directed_edges, edge_gradient_weights, edge_adj_list = compute_edge_gradient_weights(nodes[i, :nnodes[i], :], elems_list[i], mesh_type=mesh_type, adjacent_type=adjacent_type, rcond=rcond)
+        directed_edges, edge_gradient_weights, adj_list = compute_edge_gradient_weights(nodes[i, :nnodes[i], :], elems_list[i], mesh_type=mesh_type, adjacent_type=adjacent_type, rcond=rcond)
         directed_edges_list.append(directed_edges) 
         edge_gradient_weights_list.append(edge_gradient_weights)   
     

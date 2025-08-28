@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.pcno import compute_Fourier_modes
-from bno.geo_utility import preprocess_data, mix_data
+from bno.geo_utility import preprocess_data_mesh, mix_data
 from bno.bno import ExtBNO
 from bno.training import BNO_train
 
@@ -67,7 +67,7 @@ if PREPROCESS_DATA:
         print(f"\nPreprocess {shape} data: ndata={ndata}, radius={radius}", flush=True)
         data_path = folder + '/raw_data/' + shape
         save_path = folder + '/preprocessed_data/' + f"bno_{shape}_data.npz"
-        data_dict = preprocess_data(*load_raw_data(data_path), radius, should_find_index=False)
+        data_dict = preprocess_data_mesh(*load_raw_data(data_path), radius, should_find_index=False)
         np.savez(save_path, **data_dict)
 
     if should_mix:

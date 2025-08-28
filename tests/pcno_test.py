@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data, compute_node_measures, compute_edge_gradient_weights
+from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights
+from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list
 from pcno.pcno import compute_gradient
 
 #####################################################################
@@ -21,7 +22,7 @@ def test_convert_structured_data():
     features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 4, feature_include_coords = True)
     assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,1,4,3],[elem_dim,1,2,5,4]])) == 0)
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type='vertex_centered', adjacent_type='element')
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
     assert(np.linalg.norm(nnodes - Npx * Npy) == 0)
     assert(np.linalg.norm(node_mask - 1) == 0)
@@ -35,7 +36,7 @@ def test_convert_structured_data():
     features = np.zeros((ndata, Npx, Npy, 1)) # all zeros data
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata, 1, 1)), np.tile(grid_y, (ndata, 1, 1))], features, nnodes_per_elem = 3, feature_include_coords = True)
     assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,1,4],[elem_dim,0,4,3],[elem_dim,1,2,5],[elem_dim,1,5,4]])) == 0)
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type='vertex_centered', adjacent_type='element')
     assert(np.linalg.norm(nnodes - Npx * Npy) == 0)
     assert(np.linalg.norm(node_mask - 1) == 0)
     assert(np.linalg.norm(nodes - np.tile(np.array([[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]]), (ndata, 1, 1))) == 0)
@@ -53,7 +54,7 @@ def test_convert_structured_data():
     features = np.zeros((ndata, Npx, Npy, Npz, 1)) # all zeros data
     nodes_list, elems_list, features_list = convert_structured_data([np.tile(grid_x, (ndata,1,1,1)), np.tile(grid_y, (ndata,1,1,1)), np.tile(grid_z, (ndata,1,1,1))], features, nnodes_per_elem = 8, feature_include_coords = True)
     assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,6,8,2,1,7,9,3],[elem_dim,2,8,10,4,3,9,11,5]])) == 0)
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type='vertex_centered', adjacent_type='element')
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures,  equal_measure = True)
     assert(np.linalg.norm(nnodes - Npx * Npy * Npz) == 0)
     assert(np.linalg.norm(node_mask - 1) == 0)
@@ -70,14 +71,77 @@ def test_convert_structured_data():
     # assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,6,8,2,1,7,9,3],[elem_dim,2,8,10,4,3,9,11,5]])) == 0)
     assert(np.linalg.norm(elems_list[0] - np.array([[elem_dim,0,6,2,7],[elem_dim,0,2,7,3],[elem_dim,0,1,7,3],[elem_dim,6,8,2,7],[elem_dim,8,7,9,3],[elem_dim,8,2,7,3],
                                                     [elem_dim,2,8,4,9],[elem_dim,2,4,9,5],[elem_dim,2,3,9,5],[elem_dim,8,10,4,9],[elem_dim,10,9,11,5],[elem_dim,10,4,9,5]])) == 0)
-    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data(nodes_list, elems_list, features_list)
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights  = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type='vertex_centered', adjacent_type='element')
     assert(np.linalg.norm(nnodes - Npx * Npy * Npz) == 0)
     assert(np.linalg.norm(node_mask - 1) == 0)
     assert(np.linalg.norm(nodes - np.tile(np.array([[0,0,0],[0,0,3],[0,1,0],[0,1,3],[0,2,0],[0,2,3],[1,0,0],[1,0,3],[1,1,0],[1,1,3],[1,2,0],[1,2,3]]), (ndata,1,1,1))) == 0)
     assert(np.linalg.norm(node_measures - np.tile(np.array([3.0/8,1.0/8,7.0/8,5.0/8,1.0/2,1.0/2,1.0/4,3.0/4,5.0/8,7.0/8,3.0/8,1.0/8])[:,np.newaxis], (ndata,1,1))) == 0)
     assert(np.linalg.norm(features - np.concatenate((np.zeros((ndata, Npx*Npy*Npz, 1)), nodes), axis=2)) == 0)
 
+def adjacent_list_test():
+    """Test compute_node_adjacent_list and compute_elem_adjacent_list function with various mesh types"""
+    
+    # 4--a--5-----6
+    # |     |   e | \
+    # |b    |d    | f \ 
+    # 0--c--1-----2----3
+    nodes = np.array([[0.0,0.0], [1.0,0.0], [2.0,0.0], [3.0,0.0],[0.0,1.0], [1.0,1.0], [2.0,1.0]])
+    elems = np.array([
+        [1, -1, -1, 4, 5],  # line a
+        [1, -1, -1, 0, 4],  # line b
+        [1, -1, -1, 0, 1],  # line c
+        [1, -1, -1, 1, 5],  # line d
+        [2,  1, 2, 6, 5],   # quad e
+        [2, -1, 2, 3, 6],   # triangle f
+    ])
+    adjacent_list_vertex_centered = {'element': [set([1,4]), set([0, 2, 5, 6]), set([1, 3, 6, 5]), set([2, 6]), set([0, 5]), set([4, 1, 6, 2]), set([2, 3, 5, 1])],
+                                     'edge': [set([1,4]), set([0, 2, 5]), set([1, 3, 6]), set([2, 6]), set([0, 5]), set([4, 1, 6]), set([2, 3, 5])]}
+    adjacent_list_cell_centered = {'node': [set([1,3,4]), set([0, 2]), set([1, 3, 4]), set([0,2,4]), set([0,2,3,5]), set([4])],
+                                   'edge': [set(), set(), set(), set([4]), set([3, 5]), set([4])],
+                                   'face': [set([1,3,4]), set([0, 2]), set([1, 3, 4]), set([0,2,4]), set([3,5]), set([4])]}
+    
+    for adjacent_type in ['element', 'edge']:
+        adj_list = compute_node_adjacent_list(nodes, elems, adjacent_type)
+        assert adj_list == adjacent_list_vertex_centered[adjacent_type]
+    for adjacent_type in ['node', 'edge', 'face']:
+        adj_list = compute_elem_adjacent_list(elems, adjacent_type)
+        assert adj_list == adjacent_list_cell_centered[adjacent_type]
+    
+    
 
+    #     9 -------- 10 ------11
+    #    /|         /|        /|
+    #   6 -------- 7 ------- 8 |
+    #   | |        | |       | |
+    # z | 3 -------|-4 ------| 5 
+    #   |/y        |/        |/  \
+    #   0 ----x----1 --------2-----12       
+    # two cube and a triangle
+    nodes = np.array([[0.0,0.0,0.0], [1.0,0.0,0.0], [2.0,0.0,0.0], [0.0,1.0,0.0], [1.0,1.0,0.0], [2.0,1.0,0.0], 
+                      [0.0,0.0,1.0], [1.0,0.0,1.0], [2.0,0.0,1.0], [0.0,1.0,1.0], [1.0,1.0,1.0], [2.0,1.0,1.0], 
+                      [3.0,0.0,0.0]])
+    elems = np.array([[3, 0, 1,  4, 3, 6, 7, 10, 9],   # cube a
+                      [3, 1, 2,  5, 4, 7, 8, 11,10],  # cube b
+                      [2, 2, 12, 5,-1, -1,-1, -1,-1]])  # line c
+    adjacent_list_vertex_centered = {'element': [set([1,3,4,6,7,9,10]), set([0,2,3,4,5,6,7,8,9,10,11]), set([1,4,5,7,8,10,11,12]), 
+                                                 set([0,1,4,6,7,9,10]), set([0,1,2,3,5,6,7,8,9,10,11]), set([1,2,4,7,8,10,11,12]),
+                                                 set([0,1,3,4,7,9,10]), set([0,1,2,3,4,5,6,8,9,10,11]), set([1,2,4,5,7,10,11]),
+                                                 set([0,1,3,4,6,7,10]), set([0,1,2,3,4,5,6,7,8,9,11]), set([1,2,4,5,7,8,10]),
+                                                 set([2,5])],
+                                     'edge': [set([1,3,6]), set([0,2,4,7]), set([1,12,5,8]), set([0,4,9]), set([1,3,5,10]), set([2,4,11,12]), 
+                                              set([0,7,9]), set([1,6,8,10]), set([2,7,11]), set([3,6,10]), set([4,7,9,11]), set([5,8,10]), set([2,5])]}
+    adjacent_list_cell_centered = {'node': [set([1]), set([0, 2]), set([1])],
+                                   'edge': [set([1]), set([0, 2]), set([1])],
+                                   'face': [set([1]), set([0]), set([1])]}
+    
+    for adjacent_type in ['element', 'edge']:
+        adj_list = compute_node_adjacent_list(nodes, elems, adjacent_type)
+        assert adj_list == adjacent_list_vertex_centered[adjacent_type]
+    for adjacent_type in ['node', 'edge', 'face']:
+        adj_list = compute_elem_adjacent_list(elems, adjacent_type)
+        assert adj_list == adjacent_list_cell_centered[adjacent_type]
+    
+    
 def gradient_test(ndims = 2):
     ################################
     # Preprocess
@@ -91,7 +155,7 @@ def gradient_test(ndims = 2):
     elem_dim = 2
     elems = np.array([[elem_dim,0,1,4],[elem_dim,2,4,1],[elem_dim,2,3,4],[elem_dim,0,4,3]], dtype=np.int64)
     # (nedges, 2), (nedges, ndims)
-    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, rcond=1e-3)
+    directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes, elems, mesh_type='vertex_centered', adjacent_type='element', rcond=1e-3)
     nedges = directed_edges.shape[0]
     directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights)
@@ -155,7 +219,7 @@ def batch_gradient_test(ndims = 2):
 
     directed_edges_list, edge_weights_list = [], []
     for b in range(batch_size):
-        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b], rcond=1e-3)
+        directed_edges, edge_gradient_weights, _ = compute_edge_gradient_weights(nodes_list[b], elems_list[b], mesh_type='vertex_centered', adjacent_type='element', rcond=1e-3)
         directed_edges_list.append(directed_edges)
         edge_weights_list.append(edge_gradient_weights) 
     max_nedges = max([directed_edges.shape[0] for directed_edges in directed_edges_list])
@@ -210,11 +274,11 @@ def batch_gradient_test(ndims = 2):
 
 
 
-def test_node_measures():
+def node_measures_test():
     elem_dim = 2
     elems = np.array([[elem_dim, 0,1,2],[elem_dim, 0,2,3]])
     nodes = np.array([[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0]]) 
-    print(compute_node_measures(nodes, elems))
+    
     assert(np.all(np.isclose(compute_node_measures(nodes, elems) - np.array([[1.0/3], [1.0/6], [1.0/3], [1.0/6]]), 0)))
     
     elem_dim = 2
@@ -241,7 +305,7 @@ def test_node_measures():
     
 
 
-def test_preprocess_data():
+def preprocess_data_mesh_test():
     """
     Two meshes
     Mesh 1:
@@ -262,18 +326,24 @@ def test_preprocess_data():
                   np.array([[-1.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 1.0, 0.0],[1.0, 0.0, 0.0],[1.0, 1.0, 0.0]])]
     elems_list = [np.array([[1, -1, 0, 1],[1, -1, 1, 3],[2, 1, 3, 2]], dtype=int), 
                   np.array([[1, -1, 0, 1],[1, -1, 1, 3],[2, 1, 3, 2],[2, 2, 3, 4]], dtype=int)]
-    # features include coordinates
+    
+    ##########################################################
+    # mesh_type='vertex_centered'
+    ########################################################## 
+    mesh_type = 'vertex_centered'
+    # features are coordinates
     features_list = [np.array([[-1.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 1.0, 0.0],[1.0, 0.0, 0.0]]), 
                   np.array([[-1.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 1.0, 0.0],[1.0, 0.0, 0.0],[1.0, 1.0, 0.0]])]
     
-    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
+    ##########################################################
+    ##  adjacent_type='element'
+    ########################################################## 
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type=mesh_type, adjacent_type='element')
     node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
 
     # compute_gradient require features = float[batch_size, in_channels, nnodes]
     features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges.astype(np.int64)), torch.from_numpy(edge_gradient_weights))
-
-    
 
     assert(np.linalg.norm(nnodes - np.array([4, 5])) == 0)
     assert(np.all(np.isclose(node_mask - np.stack((np.array([[1],[1],[1],[1],[0]]), 
@@ -283,7 +353,7 @@ def test_preprocess_data():
     assert(np.all(np.isclose(features - np.stack((np.array([[-1.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 1.0, 0.0],[1.0, 0.0, 0.0],[0.0, 0.0, 0.0]]), 
                                                   np.array([[-1.0, 0.0, 0.0],[0.0, 0.0, 0.0],[0.0, 1.0, 0.0],[1.0, 0.0, 0.0],[1.0, 1.0, 0.0]])), axis=0), 0)))
     
-    # batch_size by nnodes by (nchannels * ndims) f1_x f1_y f2_x f2_y,.....
+    # batch_size by nnodes by (nchannels * ndims) f1_x f1_y f1_z f2_x f2_y,.....
     # the first node has dimension 1
     assert(np.all(np.isclose(features_gradients.permute(0,2,1) - np.stack((np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), 
                                                                            np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])), axis=0), 0)))
@@ -298,21 +368,95 @@ def test_preprocess_data():
     assert(np.all(np.isclose(node_equal_weights - np.stack((np.array([[1.0/3, 0],[1.0/3, 1.0/3],[0, 1.0/3],[1.0/3, 1.0/3],[0, 0]]), 
                                                        np.array([[1.0/3, 0],[1.0/3, 1.0/4],[0, 1.0/4],[1.0/3, 1.0/4],[0, 1.0/4]])), axis=0)/2.0, 0)))
     
+    ##########################################################
+    ##  adjacent_type='edge'
+    ########################################################## 
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type=mesh_type, adjacent_type='edge')
+    # compute_gradient require features = float[batch_size, in_channels, nnodes]
+    features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges.astype(np.int64)), torch.from_numpy(edge_gradient_weights))
+    # batch_size by nnodes by (nchannels * ndims) f1_x f1_y f1_z f2_x f2_y,.....
+    # the first node has dimension 1
+    assert(np.all(np.isclose(features_gradients.permute(0,2,1) - np.stack((np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), 
+                                                                           np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])), axis=0), 0)))
+    
+    
+    ##########################################################
+    # mesh_type='cell_centered'
+    ########################################################## 
+    mesh_type='cell_centered'
+    # features are coordinates
+    features_list = [np.array([[-0.5, 0.0, 0.0],[0.5, 0.0, 0.0],[1.0/3, 1.0/3, 0.0]]), 
+                     np.array([[-0.5, 0.0, 0.0],[0.5, 0.0, 0.0],[1.0/3, 1.0/3, 0.0],[2.0/3, 2.0/3, 0.0]])]
+    
+    ##########################################################
+    ## adjacent_type='node'
+    ########################################################## 
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type=mesh_type, adjacent_type='node')
+    node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
+    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
+
+    # compute_gradient require features = float[batch_size, in_channels, nnodes]
+    features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges.astype(np.int64)), torch.from_numpy(edge_gradient_weights))
+
+    assert(np.linalg.norm(nnodes - np.array([3, 4])) == 0)
+    assert(np.all(np.isclose(node_mask - np.stack((np.array([[1],[1],[1],[0]]), 
+                                                   np.array([[1],[1],[1],[1]])), axis=0), 0)))
+    assert(np.all(np.isclose(nodes - np.stack((np.array([[-0.5, 0.0, 0.0],[0.5, 0.0, 0.0],[1.0/3, 1.0/3, 0.0],[0.0, 0.0, 0.0]]), 
+                                               np.array([[-0.5, 0.0, 0.0],[0.5, 0.0, 0.0],[1.0/3, 1.0/3, 0.0],[2.0/3, 2.0/3, 0.0]])), axis=0), 0)))
+    assert(np.all(np.isclose(features - np.stack((np.array([[-0.5, 0.0, 0.0],[0.5, 0.0, 0.0],[1.0/3, 1.0/3, 0.0],[0.0, 0.0, 0.0]]), 
+                                                  np.array([[-0.5, 0.0, 0.0],[0.5, 0.0, 0.0],[1.0/3, 1.0/3, 0.0],[2.0/3, 2.0/3, 0.0]])), axis=0), 0)))
+    
+    # batch_size by nnodes by (nchannels * ndims) f1_x f1_y f1_z f2_x f2_y,.....
+    # the first node has dimension 1
+    print("features_gradients = ", features_gradients.permute(0,2,1))
+    assert(np.all(np.isclose(features_gradients.permute(0,2,1) - np.stack((np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), 
+                                                                           np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])), axis=0), 0)))
+    
+    assert(np.all(np.isclose(node_measures - np.stack((np.array([[1.0, 0],[1.0, 0.0],[0, 1.0/2],[0, 0]]), 
+                                                       np.array([[1.0, 0],[1.0, 0.0],[0, 1.0/2],[0, 1.0/2]])), axis=0), 0)))
+    assert(np.all(np.isclose(node_weights - np.stack((np.array([[1.0/4, 0],[1.0/4, 0.0],[0, 1.0/2], [0, 0]]), 
+                                                       np.array([[1.0/4, 0],[1.0/4, 1.0/6],[0, 1.0/4], [0, 1.0/4]])), axis=0)/2.0, 0)))
+    
+    assert(np.all(np.isclose(node_equal_measures - np.stack((np.array([[1.0, 0],[1.0, 0.0],[0, 1.0/2], [0, 0]]), 
+                                                       np.array([[1.0, 0],[1.0, 0.0],[0, 1.0/2],[0, 1.0/2]])), axis=0), 0)))
+    assert(np.all(np.isclose(node_equal_weights - np.stack((np.array([[1.0/4, 0],[1.0/4, 0.0],[0, 1.0/2], [0, 0]]), 
+                                                       np.array([[1.0/4, 0],[1.0/4, 1.0/6],[0, 1.0/4], [0, 1.0/4]])), axis=0)/2.0, 0)))
+    
+    ##########################################################
+    ## adjacent_type='edge'
+    ########################################################## 
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type=mesh_type, adjacent_type='edge')
+    # compute_gradient require features = float[batch_size, in_channels, nnodes]
+    features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges.astype(np.int64)), torch.from_numpy(edge_gradient_weights))
+
+    # batch_size by nnodes by (nchannels * ndims) f1_x f1_y f1_z f2_x f2_y,.....
+    # the first node has dimension 1
+    assert(np.all(np.isclose(features_gradients.permute(0,2,1) - np.stack((np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), 
+                                                                           np.array([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])), axis=0), 0)))
+    
+    ##########################################################
+    ## adjacent_type='face'
+    ########################################################## 
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type=mesh_type, adjacent_type='faces')
+    # compute_gradient require features = float[batch_size, in_channels, nnodes]
+    features_gradients = compute_gradient(torch.from_numpy(features).permute(0,2,1), torch.from_numpy(directed_edges.astype(np.int64)), torch.from_numpy(edge_gradient_weights))
 
 
 
 if __name__ == "__main__":
 
-    test_node_measures()
-    test_convert_structured_data()
+    # node_measures_test()
+    # adjacent_list_test()
+    
+    # test_convert_structured_data()
 
-    print("2d gradient test")
-    gradient_test(ndims = 2)
-    batch_gradient_test(ndims=2)
-    print("3d gradient test")
-    gradient_test(ndims = 3)
-    batch_gradient_test(ndims=3)
+    # print("2d gradient test")
+    # gradient_test(ndims = 2)
+    # batch_gradient_test(ndims=2)
+    # print("3d gradient test")
+    # gradient_test(ndims = 3)
+    # batch_gradient_test(ndims=3)
 
-    test_preprocess_data()
+    preprocess_data_mesh_test()
 
 

@@ -1,15 +1,16 @@
 import numpy as np
 from math import prod
 from tqdm import tqdm
+from typing import List, Set, Union
 
-def compute_triangle_area_(points):
+def compute_triangle_area_(points:np.ndarray) -> float:
     ab = points[1, :] - points[0,:]
     ac = points[2, :] - points[0,:]
     cross_product = np.cross(ab, ac)
     return 0.5 * np.linalg.norm(cross_product)
 
 
-def compute_tetrahedron_volume_(points):
+def compute_tetrahedron_volume_(points:np.ndarray) -> float:
     ab = points[1, :] - points[0,:]
     ac = points[2, :] - points[0,:]
     ad = points[3, :] - points[0,:]
@@ -17,7 +18,7 @@ def compute_tetrahedron_volume_(points):
     volume = abs(np.dot(np.cross(ab, ac), ad)) / 6
     return volume
 
-def compute_measure_per_elem_(points, elem_dim):
+def compute_measure_per_elem_(points:np.ndarray, elem_dim:int) -> float:
     '''
     Compute element measure (length, area or volume)
     for 2-point  element, compute its length
@@ -76,45 +77,7 @@ def compute_measure_per_elem_(points, elem_dim):
     return s
 
 
-def compute_node_measures(nodes, elems):
-    '''
-    Compute node measures  (separate length, area and volume ... for each node), 
-    For each element, compute its length, area or volume s, 
-    equally assign it to its ne nodes (measures[:] += s/ne).
-
-        Parameters:  
-            nodes : float[nnodes, ndims]
-            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
-                    The first entry is elem_dim, the dimensionality of the element.
-                    The elems array can have some padding numbers, for example, when
-                    we have both line segments and triangles, the padding values are
-                    -1 or any negative integers.
-            
-        Return :
-            measures : float[nnodes, nmeasures]
-                       padding NaN for nodes that do not have measures
-                       nmeasures >= 1: number of measures with different dimensionalities
-                       For example, if there are both lines and triangles, nmeasures = 2
-            
-    '''
-    nnodes, ndims = nodes.shape
-    measures = np.full((nnodes, ndims), np.nan)
-    measure_types = [False] * ndims
-    for elem in elems:
-        elem_dim, e = elem[0], elem[1:]
-        e = e[e >= 0]
-        ne = len(e)
-        # compute measure based on elem_dim
-        s = compute_measure_per_elem_(nodes[e, :], elem_dim)
-        # assign it to cooresponding measures
-        measures[e, elem_dim-1] = np.nan_to_num(measures[e, elem_dim-1], nan=0.0)
-        measures[e, elem_dim-1] += s/ne 
-        measure_types[elem_dim - 1] = True
-
-    # return only nonzero measures
-    return measures[:, measure_types]
-
-def pinv(a, rrank, rcond=1e-3):
+def pinv(a:np.ndarray, rrank:int, rcond:float = 1e-3) -> np.ndarray:
     """
     Compute the (Moore-Penrose) pseudo-inverse of a matrix.
 
@@ -151,7 +114,237 @@ def pinv(a, rrank, rcond=1e-3):
     return res
 
 
-def compute_edge_gradient_weights_helper(nodes, node_dims, adj_list, rcond = 1e-3):
+
+def compute_node_measures(nodes:np.ndarray, elems:np.ndarray) -> np.ndarray:
+    '''
+    For vertex-centered mesh.
+
+    Compute node measures  (separate length, area and volume ... for each node), 
+    For each element, compute its length, area or volume s, 
+    equally assign it to its ne nodes (measures[:] += s/ne).
+
+        Parameters:  
+            nodes : float[nnodes, ndims]
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
+            
+        Return :
+            measures : float[nnodes, nmeasures]
+                       padding NaN for nodes that do not have measures
+                       nmeasures >= 1: number of measures with different dimensionalities
+                       For example, if there are both lines and triangles, nmeasures = 2
+            
+    '''
+    nnodes, ndims = nodes.shape
+    measures = np.full((nnodes, ndims), np.nan)
+    measure_types = [False] * ndims
+    for elem in elems:
+        elem_dim, e = elem[0], elem[1:]
+        e = e[e >= 0]
+        ne = len(e)
+        # compute measure based on elem_dim
+        s = compute_measure_per_elem_(nodes[e, :], elem_dim)
+        # assign it to cooresponding measures
+        measures[e, elem_dim-1] = np.nan_to_num(measures[e, elem_dim-1], nan=0.0)
+        measures[e, elem_dim-1] += s/ne 
+        measure_types[elem_dim - 1] = True
+
+    # return only nonzero measures
+    return measures[:, measure_types]
+
+
+def compute_elem_measures(nodes:np.ndarray, elems:np.ndarray) -> np.ndarray:
+    '''
+    For cell-centered mesh.
+
+    Compute elem measures  (separate length, area and volume ... for each element), 
+    
+        Parameters:  
+            nodes : float[nnodes, ndims]
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
+            
+        Return :
+            measures : float[nelems, nmeasures]
+                       padding NaN for elements that do not have measures
+                       nmeasures >= 1: number of measures with different dimensionalities
+                       For example, if there are both lines and triangles, nmeasures = 2
+            
+    '''
+    nelems, ndims = elems.shape[0], nodes.shape[1]
+    measures = np.full((nelems, ndims), np.nan)
+    measure_types = [False] * ndims
+    for i, elem in enumerate(elems):
+        elem_dim, e = elem[0], elem[1:]
+        e = e[e >= 0]
+        # compute measure based on elem_dim
+        measures[i, elem_dim-1] = compute_measure_per_elem_(nodes[e, :], elem_dim)
+        measure_types[elem_dim - 1] = True
+
+    # return only nonzero measures
+    return measures[:, measure_types]
+
+
+
+def compute_node_adjacent_list(nodes:np.ndarray, elems:np.ndarray, adjacent_type:str = "element") -> List[Set[int]]:
+    """
+    Compute node adjacency list for a given mesh.
+    
+        Parameters:  
+            nodes : float[nnodes, ndims]
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
+            
+            adj_type: str
+                    'edge' : nodes share one edge
+                    'element' : nodes share one element
+    
+    
+        Returns:
+            adj_list: List[Set[int]]
+                      each set contains adjacency node indices for each node
+            
+        Raises:
+            ValueError: If unsupported adjacency type is specified
+            When the adjacency type is 'edge', element nodes must follow a specific ordering:
+            - For 2D elements, nodes should be listed in clockwise or counterclockwise order.
+            - For 3D elements, only 4-node tetrahedra and 8-node hexahedra are supported, and the nodes must be ordered as specified.
+    """
+    nnodes, ndims = nodes.shape
+    nelems, _ = elems.shape
+    # Initialize adjacency list as a list of sets
+    # Use a set to store unique directed edges
+    adj_list = [set() for _ in range(nnodes)]
+    
+    if adjacent_type == "element":
+        # Element-based adjacency: connect nodes that share elements
+        # Loop through each element and create directed edges
+        for elem in elems:
+            elem_dim, e = elem[0], elem[1:]
+            e = e[e >= 0]
+            ne = len(e)
+            for i in range(ne):
+                # Add each node's neighbors to its set
+                adj_list[e[i]].update([e[j] for j in range(ne) if j != i])
+    
+    elif adjacent_type == "edge":
+        # Edge-based adjacency: connect nodes that share edges
+        # Loop through each element and create directed edges
+        for elem in elems:
+            elem_dim, e = elem[0], elem[1:]
+            e = e[e >= 0]
+            ne = len(e)
+            if elem_dim == 1 or (elem_dim == 3 and ne == 4):
+                for i in range(ne):
+                    adj_list[e[i]].update([e[j] for j in range(ne) if j != i])
+            elif elem_dim == 2:
+                for i in range(ne):
+                    adj_list[e[i]].update([e[i-1],e[(i+1)%ne]])
+            elif (elem_dim == 3 and ne == 8):
+                # nodes are ordered as 
+                #   7 -------- 6
+                #  /|         /|
+                # 4 -------- 5 |
+                # | |        | |
+                # | 3 -------|-2
+                # |/         |/
+                # 0 -------- 1
+
+                adj_list[e[0]].update([e[1],e[3],e[4]])
+                adj_list[e[1]].update([e[0],e[2],e[5]])
+                adj_list[e[2]].update([e[1],e[3],e[6]])
+                adj_list[e[3]].update([e[0],e[2],e[7]])
+                adj_list[e[4]].update([e[0],e[5],e[7]])
+                adj_list[e[5]].update([e[1],e[4],e[6]])
+                adj_list[e[6]].update([e[2],e[5],e[7]])
+                adj_list[e[7]].update([e[3],e[4],e[6]])
+
+            else:
+                raise ValueError(f"Unsupported element: element dimensionality is {elem_dim}, number of nodes is {ne}.")
+    
+
+    else:
+        raise ValueError(f"Unsupported adjacency type: {adjacent_type}. Use 'edge' or 'element'")
+    
+    return adj_list
+
+
+def compute_elem_adjacent_list(elems:np.ndarray, adjacent_type:str = "node") -> List[Set[int]]:
+    """
+    Compute element adjacency list for a given mesh.
+
+            Parameters:  
+            elems : int[nelems, max_num_of_nodes_per_elem+1]. 
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
+            
+            adjacent_type: str
+                    'node' : elements share at least one node
+                    'edge' : elements share an edge (≥2 nodes in 2D/3D)
+                    'face' : elements share a face (≥1 nodes for 1D element, ≥2 nodes for 2D element, ≥3 nodes for 3D element)
+    
+        Returns:
+            adj_list: List[Set[int]]
+                      each set contains adjacent element indices for each element
+            
+    """
+    nelems, _ = elems.shape
+    adj_list = [set() for _ in range(nelems)]
+    
+    # Step 1: build initial adjacency based on shared nodes
+    node2elems = {}
+    for ie, elem in enumerate(elems):
+        e = elem[1:]
+        e = e[e >= 0]
+        for n in e:
+            node2elems.setdefault(n, []).append(ie)
+    # Populate adjacency list: elements sharing the same node are neighbors
+    for e_list in node2elems.values():
+        for i in range(len(e_list)):
+            ei = e_list[i]
+            adj_list[ei].update([ej for j, ej in enumerate(e_list) if j != i])
+
+    if adjacent_type == "node":
+        return adj_list
+
+    # Step 2: filter adjacency for edge or face connections
+    for ie1, e1_neigh in enumerate(adj_list):
+        e1_dim, e1 = elems[ie1, 0], elems[ie1, 1:]
+        e1 = e1[e1 >= 0]
+        for ie2 in list(e1_neigh):
+            e2 = elems[ie2, 1:]
+            e2 = e2[e2 >= 0]
+            common = len(set(e1) & set(e2))  # number of shared nodes
+
+            if adjacent_type == "edge":
+                # Edge adjacency: must share at least 2 nodes
+                if common < 2:
+                    e1_neigh.remove(ie2)
+
+            elif adjacent_type == "face":
+                # when e1 is 1d element, face means share 1 node
+                # when e1 is 2d element, face means share an edge (2 nodes)
+                # when e1 is 3d element, face means share an face (at least 3 nodes)
+                if common < 2 and e1_dim == 2:
+                    e1_neigh.remove(ie2)
+                elif common < 3 and e1_dim == 3:
+                    e1_neigh.remove(ie2)
+
+    return adj_list
+
+  
+def compute_edge_gradient_weights_helper(nodes:np.ndarray, node_dims:np.ndarray, adj_list:List[Set[int]], rcond:float = 1e-3):
     '''
     Compute weights for gradient computation  
     The gradient is computed by least square.
@@ -212,9 +405,18 @@ def compute_edge_gradient_weights_helper(nodes, node_dims, adj_list, rcond = 1e-
     return directed_edges, edge_gradient_weights, adj_list
 
 
-def compute_edge_gradient_weights(nodes, elems, rcond = 1e-3):
+def compute_edge_gradient_weights(nodes:np.ndarray, elems:np.ndarray, mesh_type:str, adjacent_type:str, rcond:float = 1e-3):
     '''
-    Compute weights for gradient computation  
+    Compute weights for gradient computation for quantities stored at each node
+
+    When mesh_type = "vertex_centered", nodes are element vertices; 
+    When mesh_type = "cell_centered", nodes are element centers.
+
+    The function first construct the node_dims to store the (maximum) dimensionality at that node, 
+    and the adjacent list for the nodes, then call compute_edge_gradient_weights_helper to compute 
+    weights, as following
+
+
     The gradient is computed by least square.
     Node x has neighbors x1, x2, ..., xj
 
@@ -235,97 +437,174 @@ def compute_edge_gradient_weights(nodes, elems, rcond = 1e-3):
     When these points are on a degerated plane or surface, the gradient towards the 
     normal direction is 0.
 
-
+    
         Parameters:  
             nodes : float[nnodes, ndims]
+
             elems : int[nelems, max_num_of_nodes_per_elem+1]. 
                     The first entry is elem_dim, the dimensionality of the element.
                     The elems array can have some padding numbers, for example, when
                     we have both line segments and triangles, the padding values are
                     -1 or any negative integers.
-            rcond : float, truncate the singular values in numpy.linalg.pinv at rcond*largest_singular_value
-            
 
+            mesh_type : str
+                    Specifies the type of mesh:
+                    - 'vertex_centered': nodes correspond to element vertices.
+                    - 'cell_centered': nodes correspond to element centers.
+
+            adjacent_type : str
+                    Determines how adjacency is computed:
+                    for 'vertex_centered' meshes: adjacency is based on nodes sharing an 'edge' or an 'element'.
+                    for 'cell_centered' meshes, adjacency is based on elements sharing a 'node', 'edge', or 'face'.
+            
+            rcond : float, 
+                    Truncate the singular values in numpy.linalg.pinv at rcond*largest_singular_value
+            
         Return :
 
             directed_edges : int[nedges,2]
+                All directed edges between adjacent nodes.
+
             edge_gradient_weights   : float[nedges, ndims]
+               Gradient weights for each directed edge.
 
-            * the directed_edges (and adjacent list) include all node pairs that share the element
-            
     '''
-
+  
     nnodes, ndims = nodes.shape
-    nelems, _ = elems.shape
-    # Initialize adjacency list as a list of sets
-    # Use a set to store unique directed edges
-    adj_list = [set() for _ in range(nnodes)]
-    
-    # Initialize node_dims to store the maximum dimensionality at that node
+    # Initialize node_dims to store the (maximum) dimensionality at that node
     node_dims = np.zeros(nnodes, dtype=int)
-    # Loop through each element and create directed edges
-    for elem in elems:
-        elem_dim, e = elem[0], elem[1:]
-        node_dims[e] = np.maximum(node_dims[e], elem_dim)
-        e = e[e >= 0]
-        nnodes_per_elem = len(e)
-        for i in range(nnodes_per_elem):
-            # Add each node's neighbors to its set
-            adj_list[e[i]].update([e[j] for j in range(nnodes_per_elem) if j != i])
     
+    # Compute node_dims, and construct adjacent list
+    if mesh_type == "vertex_centered":
+        # Loop through each element and compute the maximum dimensionality at that node
+        for elem in elems:
+            elem_dim, e = elem[0], elem[1:]
+            node_dims[e] = np.maximum(node_dims[e], elem_dim)
+        adj_list = compute_node_adjacent_list(nodes, elems, adjacent_type)
+
+    elif mesh_type == "cell_centered":
+        # Initialize node_dims to store the maximum dimensionality at that node
+        node_dims[:] = elems[:,0]
+        adj_list = compute_elem_adjacent_list(elems, adjacent_type)
+    
+    else:
+        raise ValueError(f"Unsupported mesh type: {mesh_type}. Use 'vertex_centered' or 'cell_centered'")
+    
+
     return compute_edge_gradient_weights_helper(nodes, node_dims, adj_list, rcond = rcond)
 
 
 
-
-def preprocess_data(nodes_list, elems_list, features_list):
+def preprocess_data_point_cloud(nodes_list:List[np.ndarray], features_list:List[np.ndarray], node_measures_list:List[np.ndarray], adjacent_list:List[List[Set]], rcond:float = 1e-3):
     '''
-    Compute node measures (length, area or volume for each node), 
-    for each element, compute its length, area or volume, 
-    equally assign it to its nodes.
+    Preprocesses raw point cloud data.
+    '''
+    raise NotImplementedError(
+        "Point cloud preprocessing not implemented. "
+    )
+    return
+
+
+def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndarray], features_list:List[np.ndarray], mesh_type: str, adjacent_type:str, rcond:float = 1e-3):
+    '''
+    Preprocesses a batch of meshes (vertex- or cell-centered). 
+    We have the vertex coordinates and element connectivity of each mesh.
+    For cell-centered meshes, features are stored on each element (or cell).
+    For vertex-centered meshes, features are stored on each node (or vertex).
+
+    This function converts list to numpy array and computes:
+    - Node (vertex or cell center) coordinates and measures (length, area, volume, equal to the cell size)
+    - Directed edges connecting nodes and gradient weights for finite difference operations
+    - Proper padding and masking for batched processing
+
 
         Parameters:  
-            nodes_list :  list of float[nnodes, ndims]
-            elems_list :  list of float[nelems, max_num_of_nodes_per_elem+1]. 
+            vertices_list :  list of float[nvertices, ndims]
+                    Original vertex coordinates for each mesh in the batch.
+            
+            elems_list :  list of int[nelems, max_num_of_nodes_per_elem+1]. 
+                    Element connectivity.
                     The first entry is elem_dim, the dimensionality of the element.
                     The elems array can have some padding numbers, for example, when
                     we have both line segments and triangles, the padding values are
                     -1 or any negative integers.
-            features_list  : list of float[nnodes, nfeatures]
+
+            features_list  : list of float[nelems, nfeatures]
+                    Node features (on vertices or cell centers) depending on mesh_type.
+
+            mesh_type : str
+                    Specifies the type of mesh:
+                    - 'vertex_centered': nodes correspond to element vertices.
+                    - 'cell_centered': nodes correspond to element centers.
+
+            adjacent_type : str
+                    Determines how adjacency is computed:
+                    for 'vertex_centered' meshes: adjacency is based on nodes sharing an 'edge' or an 'element'.
+                    for 'cell_centered' meshes, adjacency is based on elements sharing a 'node', 'edge', or 'face'.
+            
+            rcond : float
+                    Truncate the singular values in numpy.linalg.pinv at rcond*largest_singular_value
             
 
         Return :
-            nnodes         :  int
-            node_mask      :  int[ndata, max_nnodes, 1]               (1 for node, 0 for padding)
-            nodes          :  float[ndata, max_nnodes, ndims]      (padding 0)
-            node_measures  :  float[ndata, max_nnodes, 1]               (padding NaN)   
-            features       :  float[ndata, max_nnodes, nfeatures]  (padding 0)   
-            directed_edges :  float[ndata, max_nedges, 2]          (padding 0)   
-            edge_gradient_weights   :  float[ndata, max_nedges, ndims]      (padding 0)  
+            nnodes : int[ndata]
+                    Number of nodes per mesh.
+            node_mask : int[ndata, max_nnodes, 1]         
+                    Mask indicating valid nodes (1) vs padding (0).     
+            nodes : float[ndata, max_nnodes, ndims]     
+                    Node coordinates (vertex positions or cell centers). Padded with 0.
+            node_measures : float[ndata, max_nnodes, 1] 
+                    Node measures (length, area, volume). Padded with NaN.             
+            features : float[ndata, max_nnodes, nfeatures]  
+                    Node (on vertices or cell centers) features. Padded with 0.  
+            directed_edges :  float[ndata, max_nedges, 2]         
+                    Directed edges between nodes for gradient computation. Padded with 0.  
+            edge_gradient_weights   :  float[ndata, max_nedges, ndims]    
+                    Gradient weights for each direced edge. Padded with 0.
     '''
-    ndata = len(nodes_list)
-    ndims, nfeatures = nodes_list[0].shape[1], features_list[0].shape[1]
-    nnodes = np.array([nodes.shape[0] for nodes in nodes_list], dtype=int)
-    max_nnodes = max(nnodes)
+
+    ndata = len(vertices_list)
+    ndims, nfeatures = vertices_list[0].shape[1], features_list[0].shape[1]
+    
+    # Determine number of nodes per sample
+    if mesh_type == "vertex_centered":
+        nnodes = np.array([nodes.shape[0] for nodes in vertices_list], dtype=int)
+    elif mesh_type == "cell_centered":
+        nnodes = np.array([elems.shape[0] for elems in elems_list], dtype=int)
+    else:
+        raise ValueError(f"Unsupported mesh type: {mesh_type}")
+    max_nnodes = nnodes.max()
+
 
     print("Preprocessing data : computing node_mask")
     node_mask = np.zeros((ndata, max_nnodes, 1), dtype=int)
     for i in range(ndata):
         node_mask[i,:nnodes[i], :] = 1
 
-    print("Preprocessing data : computing nodes")
+
+    print("Preprocessing data : computing node coordinates")
     nodes = np.zeros((ndata, max_nnodes, ndims))
-    for i in range(ndata):
-        nodes[i,:nnodes[i], :] = nodes_list[i]
+    if mesh_type == "vertex_centered":
+        for i in range(ndata):
+            nodes[i, :nnodes[i], :] = vertices_list[i]
+    else:
+        for i in range(ndata):
+            for j in range(nnodes[i]):
+                e = elems_list[i][j,1:]
+                e = e[e >= 0]
+                nodes[i, j, :] = np.mean(vertices_list[i][e, :], axis=0)
     
-    print("Preprocessing data : computing node_measures")
+    print("Preprocessing data : computing node measures")
     # The mesh might have elements with different dimensionalities (e.g., 1D edges, 2D faces, 3D volumes).
     # If any mesh includes both 1D and 2D elements, it is assumed that all meshes in the dataset will also include both types of elements.
     # This ensures uniformity in processing and avoids inconsistencies in element handling.
     node_measures = np.full((ndata, max_nnodes, ndims), np.nan)
     nmeasures = 0
     for i in tqdm(range(ndata)):
-        measures = compute_node_measures(nodes_list[i], elems_list[i])
+        if mesh_type == "vertex_centered":
+            measures = compute_node_measures(vertices_list[i], elems_list[i]) 
+        else:
+            measures = compute_elem_measures(vertices_list[i], elems_list[i])
         if i == 0:
             nmeasures = measures.shape[1]
         node_measures[i,:nnodes[i], :nmeasures] = measures
@@ -339,9 +618,11 @@ def preprocess_data(nodes_list, elems_list, features_list):
     print("Preprocessing data : computing directed_edges and edge_gradient_weights")
     directed_edges_list, edge_gradient_weights_list = [], []
     for i in tqdm(range(ndata)):
-        directed_edges, edge_gradient_weights, edge_adj_list = compute_edge_gradient_weights(nodes_list[i], elems_list[i])
+        directed_edges, edge_gradient_weights, edge_adj_list = compute_edge_gradient_weights(nodes[i, :nnodes[i], :], elems_list[i], mesh_type=mesh_type, adjacent_type=adjacent_type, rcond=rcond)
         directed_edges_list.append(directed_edges) 
         edge_gradient_weights_list.append(edge_gradient_weights)   
+    
+    # Pad edges to max_nedges
     nedges = np.array([directed_edges.shape[0] for directed_edges in directed_edges_list])
     max_nedges = max(nedges)
     directed_edges, edge_gradient_weights = np.zeros((ndata, max_nedges, 2),dtype=int), np.zeros((ndata, max_nedges, ndims))
@@ -350,6 +631,7 @@ def preprocess_data(nodes_list, elems_list, features_list):
         edge_gradient_weights[i,:nedges[i],:] = edge_gradient_weights_list[i] 
 
     return nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights 
+
 
 
 
@@ -478,13 +760,14 @@ def convert_structured_data(coords_list, features, nnodes_per_elem = 3, feature_
 
 
 
-def compute_node_weights(nnodes,  node_measures,  equal_measure = False):
+def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_measure:bool = False):
     '''
     Compute node weights based on node measures (length, area, volume,......).
 
-    This function calculates weights for each node using its corresponding measures. 
+    This function calculates measures and weights (normalized measures) for each node using its corresponding measures. 
     If `equal_measure` is set to True, the node measures are recomputed as equal, |Omega|/n, 
     where `|Omega|` is the total measure and `n` is the number of nodes with nonzero measures.
+    
     Node weights are computed such that their sum equals 1, using the formula:
         node_weight = node_measure / sum(node_measures)
 

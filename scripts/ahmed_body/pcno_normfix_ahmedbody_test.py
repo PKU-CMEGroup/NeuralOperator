@@ -8,9 +8,8 @@ sys.path.insert(0, os.path.abspath(
 
 
 from pcno.geo_utility import preprocess_data, compute_node_weights
-from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
-
-
+# from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.pcno_normfix_res import compute_Fourier_modes, PCNO_NORMFIX, PCNO_NORMFIX_train
 
 torch.set_printoptions(precision=16)
 
@@ -31,7 +30,7 @@ def load_data_with_normal(data_path):
         # Create Open3D TriangleMesh
         mesh = o3d.geometry.TriangleMesh()
         mesh.vertices = o3d.utility.Vector3dVector(nodes)
-        mesh.triangles = o3d.utility.Vector3iVector(elems)
+        mesh.triangles = o3d.utility.Vector3iVector(elems[:,1:].astype(np.int32))
         mesh.compute_vertex_normals()
         normals = np.asarray(mesh.vertex_normals)  # shape (N, 3)
 
@@ -43,15 +42,15 @@ def load_data_with_normal(data_path):
         features_list.append(features_with_normal)
     return nodes_list, elems_list, features_list
 
-def load_data(data_path):
-    ndata = 551
-    nodes_list, elems_list, features_list = [], [], []
-    for i in range(ndata):
-        nodes_list.append(np.load(data_path + "/nodes_%05d" % (i) + ".npy"))
-        elems_list.append(np.load(data_path + "/elems_%05d" % (i) + ".npy"))
-        features_list.append(
-            np.load(data_path + "/features_%05d" % (i) + ".npy"))
-    return nodes_list, elems_list, features_list
+# def load_data(data_path):
+#     ndata = 551
+#     nodes_list, elems_list, features_list = [], [], []
+#     for i in range(ndata):
+#         nodes_list.append(np.load(data_path + "/nodes_%05d" % (i) + ".npy"))
+#         elems_list.append(np.load(data_path + "/elems_%05d" % (i) + ".npy"))
+#         features_list.append(
+#             np.load(data_path + "/features_%05d" % (i) + ".npy"))
+#     return nodes_list, elems_list, features_list
 
 
 try:
@@ -66,7 +65,7 @@ except IndexError:
 data_path = "../../data/ahmed_body/"
 if PREPROCESS_DATA:
     print("Loading data")
-    nodes_list, elems_list, features_list = load_data(data_path=data_path)
+    nodes_list, elems_list, features_list = load_data_with_normal(data_path=data_path)
 
     print("Preprocessing data")
     nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(
@@ -75,7 +74,7 @@ if PREPROCESS_DATA:
         nnodes, node_measures_raw, equal_measure=False)
     node_equal_measures, node_equal_weights = compute_node_weights(
         nnodes, node_measures_raw, equal_measure=True)
-    np.savez_compressed(data_path + "pcno_triangle_data.npz",
+    np.savez_compressed(data_path + "pcno_triangle_data_with_normal.npz",
                         nnodes=nnodes, node_mask=node_mask, nodes=nodes,
                         node_measures_raw = node_measures_raw, \
                         node_measures=node_measures, node_weights=node_weights,
@@ -88,7 +87,7 @@ else:
     # load data
     print("Loading data")
     equal_weights = False
-    data = np.load(data_path + "pcno_triangle_data.npz")
+    data = np.load(data_path + "pcno_triangle_data_with_normal.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     node_measures = data["node_measures"]
@@ -135,7 +134,7 @@ node_rhos = torch.from_numpy(node_rhos.astype(np.float32))
 # slant angle     pi/180
 # velocity        1/100
 # Reynolds number 1e6
-features /= np.array([1.0, 100.0, 100.0, 100.0, 100.0, 180.0/np.pi, 100.0, 100.0, 1E6])
+features /= np.array([1.0, 100.0, 100.0, 100.0, 100.0, 180.0/np.pi, 100.0, 100.0, 1E6, 1.0, 1.0, 1.0])
 # keep only the pressure and Reynolds number
 features = torch.from_numpy(features.astype(np.float32))
 
@@ -147,11 +146,15 @@ edge_gradient_weights = torch.from_numpy(
 nodes_input = nodes.clone()
 
 data_in, data_out = torch.cat(
-    [features[..., 1:], nodes_input, node_rhos], dim=-1), features[..., :1]
+    [features[..., [7,8]], nodes_input, node_rhos], dim=-1), features[..., :1]
+print('we use torch.cat([features[..., [7,8]], nodes_input, node_rhos], dim=-1) as input')
+
+
 print(f"data in:{data_in.shape}, data out:{data_out.shape}")
 n_train, n_test = 500, 51
 
-
+nx_train = features[:n_train, :, 9:]
+nx_test = features[-n_test:, :, 9:]
 x_train, x_test = data_in[:n_train, ...], data_in[-n_test:, ...]
 aux_train = (node_mask[0:n_train, ...], nodes[0:n_train, ...], node_weights[0:n_train, ...],
              directed_edges[0:n_train, ...], edge_gradient_weights[0:n_train, ...])
@@ -167,7 +170,8 @@ print(f"x train:{x_train.shape}, y train:{y_train.shape}", flush=True)
 ###################################
 k_max = 8
 ndim = 3
-train_inv_L_scale = "together"
+# train_sp_L = "together"
+train_sp_L = False
 
 Lx = 0.0004795 - (-1.34399998)
 Ly = 0.25450477 - 0
@@ -178,12 +182,17 @@ ndim = 3
 print("Lx, Ly, Lz = ", Lx, Ly, Lz)
 modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], [Lx, Ly, Lz])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1,
-             layers=[128, 128, 128, 128, 128],
-             fc_dim=128,
-             in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-             inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-             act='gelu').to(device)
+
+model = PCNO_NORMFIX(ndim, modes, nmeasures=1,
+               layers=[128,128,128,128,128],
+               fc_dim=128,
+               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+               train_sp_L=train_sp_L,
+               act='gelu',
+               sigma_list = [0.05,0.05,0.05,0.05],
+                k_list = [4,4,4,4]).to(device)
+
+print(f'k_max = {k_max}')
 
 epochs = 500
 base_lr = 5e-4 #0.001
@@ -206,6 +215,6 @@ config = {"train": {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": we
                     "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
           }
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_ahmedbody_model"
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_NORMFIX_train(
+    x_train, nx_train,  aux_train, y_train, x_test, nx_test,  aux_test, y_test, config, model, save_model_name="./PCNO_ahmedbody_model"
 )

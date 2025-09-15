@@ -1,0 +1,18 @@
+k_max = 50  # 增大k_max
+Lx = 0.0004795 - (-1.34399998)
+Ly = 0.25450477 - 0
+Lz = 0.43050185 - 0
+Ly = Ly*2
+L = [Lx, Ly, Lz]
+sigma_list = [0.1, 0.05]
+k_max_list = [k_max, k_max]
+
+loss(normfix multi):  0.1670032760727837
+loss(normfix single):  0.3196700744293095
+loss(direct):  0.33817173189152444
+
+
+time(normfix multi):  345.7319000999996
+time(normfix single):  147.202990400001
+time(direct):  83.03486630000043
+--------------------------------------------------------------

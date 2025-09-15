@@ -315,7 +315,7 @@ def truncate_onestep(x, nx, wbases_c_fix, wbases_s_fix, wbases_0_fix, bases_c, b
 
     x_trun = torch.einsum("bokw,bxkw->box", x_0_hat, bases_0)  + 2*torch.einsum("bokw,bxkw->box", x_c_hat, bases_c[:,:,:num_modes,:]) -  2*torch.einsum("bokw,bxkw->box", x_s_hat, bases_s[:,:,:num_modes,:]) 
 
-    coffe = torch.norm(x, dim = -1, keepdim = True)/torch.norm(x_trun, dim = -1, keepdim = True)
+    coffe = torch.norm(x, dim = -1, keepdim = True)/(torch.norm(x_trun, dim = -1, keepdim = True) + 1e-5)
     x_trun = x_trun * coffe
     return x_trun
 

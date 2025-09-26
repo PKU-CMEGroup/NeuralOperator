@@ -557,7 +557,7 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
                     Mask indicating valid nodes (1) vs padding (0).     
             nodes : float[ndata, max_nnodes, ndims]     
                     Node coordinates (vertex positions or cell centers). Padded with 0.
-            node_measures : float[ndata, max_nnodes, 1] 
+            node_measures : float[ndata, max_nnodes, nmeasures] 
                     Node measures (length, area, volume). Padded with NaN.             
             features : float[ndata, max_nnodes, nfeatures]  
                     Node (on vertices or cell centers) features. Padded with 0.  
@@ -783,8 +783,13 @@ def convert_structured_data(coords_list:List[np.ndarray], features:np.ndarray, n
 def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_measure:bool = False):
     '''
     Compute node weights based on node measures (length, area, volume,......).
-
+    
     This function calculates measures and weights (normalized measures) for each node using its corresponding measures. 
+    Specifically, to approximate an integral of the form
+            ∫ k(x, y) f(y) ρ(y) dy
+    The node weight is ρ(y) dy, the density ρ(y) is normalized satisfying ∫ ρ(y) dy = 1.
+    
+    And `dy` corresponds to the node measure, their sum is |Omega|, the total measure of the domain.
     If `equal_measure` is set to True, the node measures are recomputed as equal, |Omega|/n, 
     where `|Omega|` is the total measure and `n` is the number of nodes with nonzero measures.
     
@@ -794,6 +799,8 @@ def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_me
     If there are several types of measures, compute weights for each type of measures, and normalize it by nmeasures
     node_weight = 1/nmeasures * node_measure / sum(node_measures)
 
+    In summary, when  equal_measure = False,  node_weight = 1/nmeasures * dy_i/ |Omega|, otherwise node_weight = 1/nmeasures * 1/N
+    
         Parameters:
             nnodes: int[ndata] 
                 Number of nodes for each data instance.
@@ -836,67 +843,111 @@ def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_me
 
 
 
-def compute_scaled_node_measures(nodes, node_measures, L,  prob_dim, using_data = False):
+def compute_unnormalized_node_measures(nnodes:np.ndarray, node_measures:np.ndarray, measure_dims:np.ndarray, Ls:np.ndarray):
     '''
-    Scale node measures based on scale of the problem (i.e., the input parameter L).
+    Compute unnormalized node weights based on node measures (length, area, volume,......).
     
-    The normalized parameters are related to the dimension of the problem at hand. 
-    For example, the surface of a car in three-dimensional space is a two-dimensional problem.
-
-    Parameters:
-        nodes float[ndata, max_nnodes, ndims]:
-            It represents the coordinates of each point , used to determine the scale of the problem when there is no input parameter L.
-
-        node_measures float[ndata, max_nnodes, nmeasures]: 
-            Each value corresponds to the measure of a node.
-            Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
+    This function calculates measures and weights (unnormalized measures) for each node using its corresponding measures. 
+    Specifically, to approximate an integral of the form
+            ∫ k(x, y) f(y) ρ(y) dy,
+    The node weights represent ρ(y) dy, the density is unnormalized, ρ(y) = 1/C.
+    
+    And `dy` corresponds to the node measure, their sum is |Omega|, the total measure of the domain.
+    
+    Node weights are computed such that their sum equals |Omega|/C, corresponding to ρ(y) = 1/C, using the formula:
+        node_weight = node_measure / C
         
-        L float[ndims]:
-           Represents the scale of the problem in each dimension. 
+    C is computed based on the dimension of the measure and the physical dimension (ndims)
+    For 1D measure: 
+        - if ndims=1, then C = L[0]
+        - if ndims=2, then C = L[0]+L[1]
+        - if ndims=3, then C = L[0]+L[1]+L[2] 
+    For 2D measure: 
+        - if ndims=2, then C = L[0]*L[1]
+        - if ndims=3, then C = L[0]*L[1]+L[1]*L[2]+L[2]*L[0]
+    For 3D measure: 
+        - if ndims=3, then C = L[0]*L[1]*L[2]
+    
+    If there are several types of measures, compute weights for each type of measures, and normalize it by nmeasures
+    node_weight = 1/nmeasures * dy_i / C
 
-        prob_dim int:
-            Dimension of the problem.
-
-        using_data (bool, optional): 
-            If True, using nodes to compute the scale of samples.  Default is False.
-
-    Returns:
-        scaled_node_measures float[ndata, max_nnodes, nmeasures]: 
+        Parameters:
+            nnodes: int[ndata] 
+                Number of nodes for each data instance.
             
+            node_measures: float[ndata, max_nnodes, nmeasures] 
+                Each value corresponds to the measure of a node.
+                Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
+
+            measure_dims : int[nmeasures], with values in (1,2,3)
+                The dimensionality of each measure, the measures are computed from compute_node_measures
+                the measure dims are in ascending order
+
+            Ls: float[ndims * nmeasures] 
+                The length scale for each dimension and each measure 
+            
+        Returns:
+            node_measures: float[ndata, max_nnodes, nmeasures] 
+                Updated array of node measures with shape, maintaining the same padding structure (But with padding 0).
+                If equal_measure is False, the measures remains unchanged
+            scale_node_weights: float[ndata, max_nnodes, nmeasures] 
+                Array of computed node weights, maintaining the same padding structure.
     '''
         
-    #ndata, max_nnodes, nmeasures = node_measures.shape
-    ndata, max_nnodes, n_dims = nodes.shape
-    if using_data :
-        max_vals = np.amax(nodes,axis=(0, 1))  #shape : [ndims]
-        min_vals = np.amin(nodes,axis=(0, 1))  #shape : [ndims]
-        L_scale = max_vals - min_vals  # shape: [ndims]
-    else:
-        L_scale = L
-    
-    #C_scaled : normalized parameter
-    if n_dims == 1:
-        C_scaled = L_scale[0]
-    if n_dims == 2:
-        if prob_dim == 1:
-            C_scaled = L_scale[0] + L_scale[1]
-        if prob_dim == 2:
-            C_scaled = L_scale[0] * L_scale[1]
-    if n_dims == 3:
-        if prob_dim == 1:
-            C_scaled = L_scale[0] + L_scale[1] + L_scale[2]
-        if prob_dim == 2:
-            C_scaled = L_scale[0]*L_scale[1] + L_scale[1]*L_scale[2] + L_scale[2]*L_scale[0]
-        if prob_dim == 3:
-            C_scaled = L_scale[0]*L_scale[1]*L_scale[2]
+    ndata, max_nnodes, nmeasures = node_measures.shape
+    # replace all NaN value to 0
+    node_measures_new = np.nan_to_num(node_measures, nan=0.0)
 
-    scaled_node_measures = node_measures/C_scaled
+    # node weight is the normalization of node measure
+    ndims = len(Ls) // nmeasures
+    Cs = np.zeros(nmeasures)
+        #C_scaled : normalized parameter
+    for i,measure_dim in enumerate(measure_dims):
+        L = Ls[i*ndims:(i+1)*ndims]
+        if measure_dim == 1:
+            # L[0,:] + L[1,:] + L[2,:]
+            Cs[i] = np.sum(L)
+        elif measure_dim == 2:
+            # L[0,:]*L[1,:] + L[1,:]*L[2,:] + L[2,:]*L[0,:]
+            Cs[i] = (L.sum()**2 - (L**2).sum()) / 2
+        elif measure_dim == 3:
+            # L[0,:]*L[1,:]*L[2,:]
+            Cs[i] = np.product(L)
+        else:
+            raise ValueError(f"measure_dim : {measure_dim} is not supported")
+        
 
+    scaled_node_weights = node_measures_new / Cs / nmeasures
 
     
-    return scaled_node_measures
+    return node_measures_new, scaled_node_weights
 
 
 
 
+def compute_length_scales(nnodes:np.ndarray, nodes: np.ndarray) -> np.ndarray:
+    """
+    Compute the length scales for a given set of nodes, defined as the 
+    difference between the maximum and minimum values along each dimension.
 
+    
+        Parameters:
+            nnodes: int[ndata] 
+                Number of nodes for each data instance.
+            
+            nodes: float[ndata, max_nnodes, ndims]
+                Node coordinates with padding 0
+
+        Returns:
+            Ls:float[ndims] 
+                The length scale for each dimension (upper bound).
+    """
+    
+    ndata = nodes.shape[0]
+    Ls = np.zeros((ndata, 3))  # Shape: (ndata, 3)
+
+    for i in range(ndata):
+        node_slice = nodes[i, :nnodes[i], :]
+        Ls[i, :] = np.amax(node_slice, axis=0) - np.amin(node_slice, axis=0)
+
+    return np.max(Ls, axis=0) 

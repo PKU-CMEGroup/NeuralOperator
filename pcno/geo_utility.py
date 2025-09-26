@@ -836,6 +836,66 @@ def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_me
 
 
 
+def compute_scaled_node_measures(nodes, node_measures, L,  prob_dim, using_data = False):
+    '''
+    Scale node measures based on scale of the problem (i.e., the input parameter L).
+    
+    The normalized parameters are related to the dimension of the problem at hand. 
+    For example, the surface of a car in three-dimensional space is a two-dimensional problem.
+
+    Parameters:
+        nodes float[ndata, max_nnodes, ndims]:
+            It represents the coordinates of each point , used to determine the scale of the problem when there is no input parameter L.
+
+        node_measures float[ndata, max_nnodes, nmeasures]: 
+            Each value corresponds to the measure of a node.
+            Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
+        
+        L float[ndims]:
+           Represents the scale of the problem in each dimension. 
+
+        prob_dim int:
+            Dimension of the problem.
+
+        using_data (bool, optional): 
+            If True, using nodes to compute the scale of samples.  Default is False.
+
+    Returns:
+        scaled_node_measures float[ndata, max_nnodes, nmeasures]: 
+            
+    '''
+        
+    #ndata, max_nnodes, nmeasures = node_measures.shape
+    ndata, max_nnodes, n_dims = nodes.shape
+    if using_data :
+        max_vals = np.amax(nodes,axis=(0, 1))  #shape : [ndims]
+        min_vals = np.amin(nodes,axis=(0, 1))  #shape : [ndims]
+        L_scale = max_vals - min_vals  # shape: [ndims]
+    else:
+        L_scale = L
+    
+    #C_scaled : normalized parameter
+    if n_dims == 1:
+        C_scaled = L_scale[0]
+    if n_dims == 2:
+        if prob_dim == 1:
+            C_scaled = L_scale[0] + L_scale[1]
+        if prob_dim == 2:
+            C_scaled = L_scale[0] * L_scale[1]
+    if n_dims == 3:
+        if prob_dim == 1:
+            C_scaled = L_scale[0] + L_scale[1] + L_scale[2]
+        if prob_dim == 2:
+            C_scaled = L_scale[0]*L_scale[1] + L_scale[1]*L_scale[2] + L_scale[2]*L_scale[0]
+        if prob_dim == 3:
+            C_scaled = L_scale[0]*L_scale[1]*L_scale[2]
+
+    scaled_node_measures = node_measures/C_scaled
+
+
+    
+    return scaled_node_measures
+
 
 
 

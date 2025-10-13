@@ -909,7 +909,7 @@ def compute_unnormalized_node_measures(nnodes:np.ndarray, node_measures:np.ndarr
             Cs[i] = np.sum(L)
         elif measure_dim == 2:
             # L[0,:]*L[1,:] + L[1,:]*L[2,:] + L[2,:]*L[0,:]
-            Cs[i] = (L.sum()**2 - (L**2).sum()) / 2
+            Cs[i] = (np.sum(L)**2 - np.dot(L,L)) / 2
         elif measure_dim == 3:
             # L[0,:]*L[1,:]*L[2,:]
             Cs[i] = np.product(L)

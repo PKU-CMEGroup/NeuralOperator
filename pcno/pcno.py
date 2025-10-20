@@ -237,68 +237,6 @@ class SpectralConv(nn.Module):
         return x
     
 
-################################################################
-# Fourier layer with normal
-################################################################
-class SpectralNormalConv(nn.Module):
-    def __init__(self, in_channels, out_channels, modes):
-        super(SpectralNormalConv, self).__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.modes = modes
-        nmodes, ndims, nmeasures = modes.shape
-        self.nmeasures = nmeasures
-        self.scale = 1 / (in_channels * out_channels)
-
-        self.weights_c = nn.Parameter(
-            self.scale
-            * torch.rand(
-                in_channels, out_channels, nmodes, ndims, nmeasures, dtype=torch.float
-            )
-        )
-        self.weights_s = nn.Parameter(
-            self.scale
-            * torch.rand(
-                in_channels, out_channels, nmodes, ndims, nmeasures, dtype=torch.float
-            )
-        )
-        self.weights_0 = nn.Parameter(
-            self.scale
-            * torch.rand(
-                in_channels, out_channels, 1, ndims, nmeasures,  dtype=torch.float
-            )
-        )
-
-
-    def forward(self, x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0, normals):
-        '''
-        Compute Fourier neural layer
-            Parameters:  
-                x                   : float[batch_size, in_channels, nnodes]
-                bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
-                bases_0             : float[batch_size, nnodes, 1, nmeasures]
-                wbases_c, wbases_s  : float[batch_size, nnodes, nmodes, nmeasures]
-                wbases_0            : float[batch_size, nnodes, 1, nmeasures]
-                normals             : float[batch_size, nnodes, ndims, nmeasures]
-            Return :
-                x                   : float[batch_size, out_channels, nnodes]
-        '''    
-        
-        x_c_hat =  torch.einsum("bix, bxdw, bxkw->bikdw", x, normals, wbases_c)
-        x_s_hat = -torch.einsum("bix, bxdw, bxkw->bikdw", x, normals, wbases_s)
-        x_0_hat =  torch.einsum("bix, bxdw, bxkw->bikdw", x, normals, wbases_0)
-
-        weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
-        
-        f_c_hat = torch.einsum("bikdw,iokdw->bokw", x_c_hat, weights_c) - torch.einsum("bikdw,iokdw->bokw", x_s_hat, weights_s)
-        f_s_hat = torch.einsum("bikdw,iokdw->bokw", x_s_hat, weights_c) + torch.einsum("bikdw,iokdw->bokw", x_c_hat, weights_s)
-        f_0_hat = torch.einsum("bikdw,iokdw->bokw", x_0_hat, weights_0) 
-
-        x = torch.einsum("bokw,bxkw->box", f_0_hat, bases_0)  + 2*torch.einsum("bokw,bxkw->box", f_c_hat, bases_c) -  2*torch.einsum("bokw,bxkw->box", f_s_hat, bases_s) 
-        
-        return x
-    
-    
 def compute_gradient(f, directed_edges, edge_gradient_weights):
     '''
     Compute gradient of field f at each node
@@ -350,6 +288,67 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     return f_gradients.permute(0,2,1)
     
 
+class KernelMessagePassing(nn.Module):
+    def __init__(self, in_channels, out_channels, ndims, nmeasures):
+        super(KernelMessagePassing, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.ndims = ndims
+        self.nmeasures = nmeasures
+        self.lin = nn.Linear(3*ndims, 1)
+        self.w = nn.Conv1d(in_channels, out_channels, 1)
+        
+        
+    def compute_edge_local_weights(self, edge_infos):
+        '''
+        compute local weight for each edge (kernel), based 
+            Parameters:
+                edge_infos : float[batch_size, max_nedges, 3ndims+1, nmeasures] 
+        
+            Returns:
+                edge_local_weights : float[batch_size, max_nedges, nmeasures]
+                TODO float[batch_size, max_nedges, in_channels, nmeasures]
+        '''
+        ndims = self.ndims
+        batch_size, max_nedges, _, nmeasures = edge_infos.shape
+        # local_weights =  (self.lin(edge_infos.permute(0, 1, 3, 2)).squeeze(-1))/edge_infos[:,:,0,:] 
+        local_weights = torch.einsum('bekm,bekm->bem', edge_infos[:,:,1:1+ndims,:], edge_infos[:,:,1+ndims:1+2*ndims,:])*(1.0/edge_infos[:,:,0,:] - 1.0/0.05) 
+        local_weights = torch.nan_to_num(local_weights, nan=0.0, posinf=0.0, neginf=0.0)
+        return local_weights
+    
+    def forward(self, f, node_weights, directed_edges, edge_infos):
+        '''
+        assemble local force f at each node
+        directed_edges stores directed edges (x, x1), (x, x2), ..., (x, xj)
+        send from x to xj:
+            f(x) * nw(x) * ew(x, xj)
+        the weight ew depends on edge_infos, including x, xj, and possibly normal information
+            
+            Parameters: 
+                f : float[batch_size, in_channels, nnodes]
+                node_weights : float[batch_size, nnodes, nmeasures]
+                directed_edges : int[batch_size, max_nedges, 2] 
+                edge_infos : float[batch_size, max_nedges, ndims]
+                
+            Returns:
+                x_local_force : float[batch_size, out_channels, max_nnodes]
+        '''
+
+        f = f.permute(0,2,1)
+        batch_size, max_nnodes, in_channels = f.shape
+        edge_local_weights = self.compute_edge_local_weights(edge_infos)
+        # Message passing : compute message = edge_gradient_weights * (f_source - f_target) for each edge
+        # target\source : int Tensor[batch_size, max_nedges]
+        # message : float Tensor[batch_size, max_nedges, in_channels*ndims]
+
+        source, target = directed_edges[...,0], directed_edges[...,1]  # source and target nodes of edges
+        message = torch.einsum('bem, bei, bem->bei', edge_local_weights, f[torch.arange(batch_size).unsqueeze(1),source], node_weights[torch.arange(batch_size).unsqueeze(1),source])
+        
+        # f_gradients : float Tensor[batch_size, max_nnodes, in_channels]
+        f_out = torch.zeros(batch_size, max_nnodes, in_channels, dtype=message.dtype, device=message.device)
+        f_out.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels))
+        
+        return self.w(f_out.permute(0,2,1))
 
 
 class PCNO(nn.Module):
@@ -450,18 +449,18 @@ class PCNO(nn.Module):
                 )
             ]
         )
-        self.sp_normal_convs = nn.ModuleList(
-            [
-                SpectralNormalConv(in_size, out_size, modes)
-                for in_size, out_size in zip(
-                    self.layers, self.layers[1:]
-                )
-            ]
-        )
+
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
         self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
 
+        self.local_kernels = nn.ModuleList(
+            KernelMessagePassing(in_size, out_size, ndims, nmeasures)
+                for in_size, out_size in zip(
+                    self.layers, self.layers[1:]
+                )
+        )
+        
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
@@ -541,7 +540,7 @@ class PCNO(nn.Module):
         length = len(self.ws)
 
         # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals = aux
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos = aux
         # bases: float[batch_size, nnodes, nmodes, nmeasures]
         # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
@@ -556,16 +555,18 @@ class PCNO(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, spenconv, w, gw) in enumerate(zip(self.sp_convs, self.sp_normal_convs, self.ws, self.gws)):
+        for i, (speconv, lockernel, w, gw) in enumerate(zip(self.sp_convs, self.local_kernels, self.ws, self.gws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-            # x11 = spenconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0, normals)
             x2 = w(x)
-            # x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            # x = x1 + x11 + x2 + x3
-            x = x1 + x2 
+            x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
+            x4 = lockernel(x, node_weights, close_directed_edges, close_edge_infos)
+            
             if self.act is not None and i != length - 1:
-                x = self.act(x) 
-
+                x = x + self.act(x1 + x2 + x3 + x4) 
+                # x = x + self.act(x1 + x2) 
+            else:
+                x = x1 + x2 + x3 + x4
+                # x = x1 + x2
         x = x.permute(0, 2, 1)
 
         if self.fc_dim > 0:
@@ -715,12 +716,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         y_normalizer.to(device)
 
 
-    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, normals_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, normals_train), 
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  close_edge_infos_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  close_edge_infos_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
-    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, normals_test = aux_test
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, normals_test), 
+    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  close_edge_infos_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  close_edge_infos_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
     myloss = LpLoss(d=1, p=2, size_average=False)
@@ -756,12 +757,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals in train_loader:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), normals.to(device)
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), close_edge_infos.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -778,11 +779,11 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         model.eval()
         with torch.no_grad():
-            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals in test_loader:
-                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), normals.to(device)
+            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos in test_loader:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), close_edge_infos.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals)) #.reshape(batch_size_,  -1)
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges, close_edge_infos)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)

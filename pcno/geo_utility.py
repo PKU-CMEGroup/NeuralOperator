@@ -2,6 +2,7 @@ import numpy as np
 from math import prod
 from tqdm import tqdm
 from typing import List, Set, Union
+from scipy.spatial import cKDTree
 
 def compute_triangle_area_(points:np.ndarray) -> float:
     ab = points[1, :] - points[0,:]
@@ -951,3 +952,101 @@ def compute_length_scales(nnodes:np.ndarray, nodes: np.ndarray) -> np.ndarray:
         Ls[i, :] = np.amax(node_slice, axis=0) - np.amin(node_slice, axis=0)
 
     return np.max(Ls, axis=0) 
+
+
+def compute_close_node_pairs(nodes:np.ndarray, nnodes:np.ndarray, dist_threshold:float, max_nedges:int):
+    """
+    Compute directed edges between nodes that are within a specified distance threshold (dist).
+    This function uses KDTree to efficiently find all node pairs
+    
+        Parameters:
+            nodes float[ndata, max_nnodes, ndims]: Array of node coordinates with shape, padding with 0 
+                            (ndata, max_nnodes, ndims), where:
+                            - ndata: number of data samples in the batch
+                            - max_nnodes: maximum number of nodes across all samples
+                            - ndims: dimensionality of node coordinates
+
+            nnodes int[ndata]: Array specifying the actual number of nodes for each data sample
+
+            dist_threshold (float): Distance threshold. Node pairs with Euclidean distance less than this
+                        value will be considered as connected
+            
+            max_nedges (int): max number of edges
+        
+        Returns:
+            directed_edges int[ndata,max_nedges,2]: Directed edge array with distance less than dist, padding with 0.
+
+            nedges int[ndata]: Array specifying the actual number of edges for each data sample.
+
+    """
+    print("Preprocessing data : computing close_node_pairs")
+
+    ndata, max_nnodes, ndims = nodes.shape
+    
+    directed_edges_list = []
+    
+    for i in tqdm(range(ndata)):
+        tree = cKDTree(nodes[i, :nnodes[i], :])
+        pairs = tree.query_pairs(dist_threshold, output_type='ndarray')
+
+        if pairs.shape[0] > max_nedges//2:
+            dists = np.linalg.norm(nodes[i, pairs[:,0], :] - nodes[i, pairs[:,1], :], ord=2, axis=-1)
+            sort_idx = np.argsort(dists)
+            pairs = pairs[sort_idx[0:max_nedges//2]]
+
+        directed_edges_list.append(np.vstack([pairs, pairs[:, [1, 0]]]))
+            
+    nedges = np.array([directed_edges.shape[0] for directed_edges in directed_edges_list])
+    max_nedges = max(nedges)
+    directed_edges = np.zeros((ndata, max_nedges, 2),dtype=int)
+    for i in range(ndata):
+        directed_edges[i,:nedges[i],:] = directed_edges_list[i]
+    
+    print("maximum number of close node pairs is ", max_nedges)
+    return directed_edges, nedges
+
+
+
+def compute_close_node_infos(nodes:np.ndarray, directed_edges:np.ndarray, nedges:np.ndarray, normals:np.ndarray):
+    """
+    Compute directed edge infomations between nodes that are within a specified distance threshold (dist).
+    This function uses KDTree to efficiently find all node pairs
+    
+        Parameters:
+            nodes float[ndata, max_nnodes, ndims]: Array of node coordinates with shape, padding with 0 
+                            (ndata, max_nnodes, ndims), where:
+                            - ndata: number of data samples in the batch
+                            - max_nnodes: maximum number of nodes across all samples
+                            - ndims: dimensionality of node coordinates
+
+            directed_edges int[ndata,max_nedges,2]: Directed edge array, padding with 0.
+
+            normals float[ndata, max_nnodes, ndims, nmeasures]: normal direction of each node, padding with 0.
+        
+        Returns:
+            edge_infos float[ndata, max_nedges, 3ndims+1, nmeasures]: include
+            edge norm: padding with nan
+            edge direction: padding with nan
+            start point normal: padding with 0
+            end point normal: padding with 0
+    """
+
+    ndata, max_nnodes, ndims = nodes.shape
+    nmeasures = normals.shape[-1]
+
+    data_indices = np.arange(ndata)[:, None] 
+    tgt, src = directed_edges[..., 1], directed_edges[..., 0]
+    r = nodes[data_indices, tgt] - nodes[data_indices, src]
+    
+    r_norm = np.linalg.norm(r, ord=2, axis=-1, keepdims=True)
+    for i in range(ndata):
+        r_norm[i,nedges[i]:,...] = np.nan
+    r_hat = r/r_norm
+
+    
+    tgt_normals = normals[data_indices, tgt]
+    src_normals = normals[data_indices, src]
+
+    
+    edge_infos = np.concatenate([np.tile(r_norm[..., np.newaxis], (1, 1, 1, nmeasures)), np.tile(r_hat[..., np.newaxis], (1, 1, 1, nmeasures)), src_normals, tgt_normals], axis=-2)
+    return edge_infos

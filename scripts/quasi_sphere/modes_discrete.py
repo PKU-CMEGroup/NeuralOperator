@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 from itertools import product
-
+from math import floor
 
 
 def _is_primitive(m_tuple):
@@ -127,6 +127,61 @@ def discrete_half_ball_modes(
         modes = modes * (norms ** scale)
 
     return modes
+
+
+def discrete_half_ball_modes_hmy(ndim, ks, Ls):
+    if ndim == 1:
+        k = ks[0]
+        L = Ls[0]
+        k_pairs    = np.zeros((k, ndim))
+        k_pair_mag = np.zeros(k)
+        i = 0
+        for kx in range(1, k + 1):
+            k_pairs[i, :] = 2*np.pi/L*kx
+            k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
+            i += 1
+    elif ndim == 2:
+        k_r, k_theta = ks
+        Lx, Ly = Ls
+        n_modes = sum([floor(2 * kr * k_theta) for kr in range(1, k_r + 1)])
+        k_pairs    = np.zeros((n_modes, ndim))
+        k_pair_mag = np.zeros(n_modes)
+        i = 0
+        for kr in range(1, k_r + 1):
+            r = kr 
+            n_theta = floor(2 * kr * k_theta)
+            for kt in range(n_theta):
+                theta = kt * np.pi / n_theta
+                kx = r * np.cos(theta) * 2 * np.pi / Lx
+                ky = r * np.sin(theta) * 2 * np.pi / Ly
+                k_pairs[i, :] = np.array([kx, ky])
+                k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
+                i += 1
+    elif ndim == 3:
+        k_r, k_theta, k_phi = ks
+        Lx, Ly, Lz = Ls
+        n_modes = sum([sum([floor(2 * kr * k_phi * np.sin(kt * np.pi / floor(2 * kr * k_theta))) for kt in range(1, floor(2 * kr * k_theta))]) for kr in range(1, k_r + 1)])
+        k_pairs    = np.zeros((n_modes, ndim))
+        k_pair_mag = np.zeros(n_modes)
+        i = 0
+        for kr in range(1, k_r + 1):
+            r = kr
+            n_theta = floor(2 * kr * k_theta)
+            for kt in range(n_theta):
+                theta = kt * np.pi / n_theta
+                n_phi   = floor(2 * kr * k_phi * np.sin(theta))
+                for kp in range(n_phi):
+                    phi = kp * np.pi / n_phi
+                    kx = r * np.sin(theta) * np.cos(phi) * 2 * np.pi / Lx
+                    ky = r * np.sin(theta) * np.sin(phi) * 2 * np.pi / Ly
+                    kz = r * np.cos(theta) * 2 * np.pi / Lz
+                    k_pairs[i, :] = np.array([kx, ky, kz])
+                    k_pair_mag[i] = np.linalg.norm(k_pairs[i, :])
+                    i += 1
+    else:
+        raise NotImplementedError("Only 1D and 2D and 3D modes are implemented.")
+    return k_pairs[np.argsort(k_pair_mag, kind='stable'), :]
+
 
 if __name__ == "__main__":
     import os

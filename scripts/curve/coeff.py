@@ -1,8 +1,6 @@
 import numpy as np
 from typing import Callable, Literal, Optional, Dict
-import numpy as np
 import math
-from tqdm import tqdm
 import os
 
 import sys
@@ -12,37 +10,37 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-DomainType = Literal["box", "ball"]
 
-def _volume(domain, domain_type: DomainType, n: int):
-    if domain_type == "box":
-        d = np.asarray(domain, float)
-        if d.ndim != 2 or d.shape[1] != 2:
-            raise ValueError("For 'box' domain_type, domain must be a 2D array/list with shape (n, 2) representing intervals.")
-        return np.prod(d[:,1] - d[:,0])
-    if domain_type == "ball":
-        from math import pi, gamma
-        R = float(domain)
-        return (pi ** (n/2)) / gamma(n/2 + 1) * R**n
-    raise ValueError("domain_type")
+def _volume(domain, n: int):
 
-def _sample(domain, domain_type: DomainType, n: int, N: int, rng: np.random.Generator):
-    if domain_type == "box":
+    d = np.asarray(domain, float)
+    if d.ndim != 2 or d.shape[1] != 2:
+        raise ValueError("For 'box' domain_type, domain must be a 2D array/list with shape (n, 2) representing intervals.")
+    return np.prod(d[:,1] - d[:,0])
+
+
+def _sample(domain, n: int, N: int, rng: Optional[np.random.Generator] = None):
+    # 当未提供 rng 时，使用均匀采样（box 上生成尽量接近 N 的规则网格）
+    if rng is None:
+
         d = np.asarray(domain, float)
-        return rng.random((N,n)) * (d[:,1]-d[:,0]) + d[:,0]
-    if domain_type == "ball":
-        R = float(domain)
-        Z = rng.normal(size=(N,n))
-        Z /= np.linalg.norm(Z, axis=1, keepdims=True)
-        u = rng.random(N) ** (1.0 / n)
-        return Z * (u[:,None] * R)
-    raise ValueError("domain_type")
+        if d.ndim != 2 or d.shape[0] != n or d.shape[1] != 2:
+            raise ValueError("For 'box', domain must be shape (n,2).")
+        m = int(np.ceil(N ** (1.0 / n)))  # 每维点数
+        axes = [np.linspace(d[i, 0], d[i, 1], m, dtype=float) for i in range(n)]
+        mesh = np.meshgrid(*axes, indexing="xy")
+        X = np.stack([g.ravel() for g in mesh], axis=1)
+        if X.shape[0] > N:
+            X = X[:N]
+        return X
+
+    d = np.asarray(domain, float)
+    return rng.random((N,n)) * (d[:,1]-d[:,0]) + d[:,0]
 
 def project_irregular(
     k_func: Callable[[np.ndarray], np.ndarray],
     modes: np.ndarray,
     domain,
-    domain_type: DomainType = "box",
     oversampling: float = 4.0,
     rng: Optional[np.random.Generator] = None,
     reg: float = 0.0,
@@ -62,12 +60,10 @@ def project_irregular(
     """
     modes = np.asarray(modes, float)
     M, n = modes.shape
-    if rng is None:
-        rng = np.random.default_rng()
     # Number of MC samples
     N = max(M + 5, int(np.ceil(oversampling * (M if M > 0 else 1))))
-    X = _sample(domain, domain_type, n, N, rng)
-    vol = _volume(domain, domain_type, n)
+    X = _sample(domain, n, N, rng)
+    vol = _volume(domain, n)
 
     # Evaluate function
     try:
@@ -160,16 +156,13 @@ def estimate_L2_error(
     modes: np.ndarray,
     coeffs,
     domain,
-    domain_type: DomainType = "box",
     num_val: int = 20000,
     rng: Optional[np.random.Generator] = None
 ):
     modes = np.asarray(modes, float)
-    n = modes.shape[1] if modes.size else (len(domain) if domain_type == "box" else None)
-    if rng is None:
-        rng = np.random.default_rng()
-    Xv = _sample(domain, domain_type, n, num_val, rng)
-    vol = _volume(domain, domain_type, n)
+    n = modes.shape[1] if modes.size else len(domain)
+    Xv = _sample(domain,  n, num_val, rng)
+    vol = _volume(domain, n)
 
     try:
         fv = k_func(Xv)
@@ -186,7 +179,7 @@ def estimate_L2_error(
     return dict(rel_L2_error=L2_err / L2_norm)
 
 
-def plot_result(modes, res, domain, k_func, nx=200, ny=200, slice_y=0.0, show=True):
+def plot_result(modes, res, domain, k_func, nx=500, ny=500, slice_y=0.0, show=True):
     """
     可视化:
       1. 原函数
@@ -277,11 +270,12 @@ def nonlinear_scale(modes, scale=1.0):
 
 if __name__ == "__main__":
 
-    from quasi_sphere.modes_discrete import discrete_half_ball_modes
+    from quasi_sphere.modes_discrete import discrete_half_ball_modes_hmy as discrete_half_ball_modes
     from pcno.pcno import compute_Fourier_modes
     import numpy as np
-#-------------------------------------------------------------------------
     n = 2
+#-------------------------------------------------------------------------
+    rng = np.random.default_rng(1234)
     k_layer = 16
     scale = 0
     discrete_type = "cube"  # "cube" or "half_ball"
@@ -292,17 +286,27 @@ if __name__ == "__main__":
         # return x
         # return np.sin(3*x) * np.cos(2*y)
         # return np.log(np.sqrt(x**2 + y**2) + 1e-8)  
-        return 1/np.sqrt(x**2 + y**2 + 1e-2)
+        r_cut = 0.1
+        mask = (x**2 + y**2) >= r_cut**2
+        # return 1/np.sqrt(x**2 + y**2 + 1e-8)*mask + (1-mask)*1/r_cut
+        # return x/(x**2 + y**2 + 1e-6)
+        return x/(x**2 + y**2 + 1e-6) * mask + x/r_cut**2 * (1-mask)
 #-------------------------------------------------------------------------
 
     if discrete_type == "half_ball":
-        modes = discrete_half_ball_modes(n, k_layer, scale=scale, min_dir_fraction=0) * k_layer * 2 * np.pi / L 
+        modes = discrete_half_ball_modes(n, [20,2], [L,L]).squeeze()
     elif discrete_type == "cube":
         modes = compute_Fourier_modes(n, [k_layer,k_layer], [L,L]).squeeze() 
         modes = nonlinear_scale(modes, scale=scale)
     
-    res = project_irregular(k_func, modes, domain, oversampling=5, reg=1e-8)
-    err = estimate_L2_error(k_func, modes, res["coeffs"], domain, num_val=1000)
-    print("modes数:", len(modes), "\nerror:", err)
-
+    # # Remove zero-frequency mode (constant already handled by c0) to avoid duplicate column and ill-conditioning
+    # if modes.ndim == 2 and modes.shape[1] > 0:
+    #     zero_mask = np.all(modes == 0, axis=1)
+    #     if zero_mask.any():
+    #         modes = modes[~zero_mask]
+    
+    res = project_irregular(k_func, modes, domain, oversampling=50, reg=1e-8, rng = rng)
+    print("Number of modes:", modes.shape[0])
+    print("Condition number:", res["cond"])
+    print("L2 rel error:", estimate_L2_error(k_func, modes, res, domain, num_val = 50000, rng = rng)["rel_L2_error"])
     plot_result(modes, res, domain, k_func)

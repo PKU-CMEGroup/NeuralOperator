@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
-from pcno.modes_discretization import discrete_half_ball_modes, nonlinear_scale
+from pcno.modes_discretization import discrete_half_ball_modes
+from generate_curves_data import compute_unit_normals
 torch.set_printoptions(precision=16)
 
 
@@ -37,7 +38,7 @@ except IndexError:
 data_path = "../../data/curve/"
 if PREPROCESS_DATA:
     print("Loading data")
-    nodes_list, elems_list, features_list  = load_data(data_file_path = data_path + "curve_data_3_3.npz")
+    nodes_list, elems_list, features_list  = load_data(data_file_path = data_path + "curve_data_3_3_grad.npz")
 
     print("Preprocessing data")
     nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "vertex_centered", adjacent_type="edge")
@@ -54,7 +55,7 @@ if PREPROCESS_DATA:
 else:
     # load data 
     equal_weights = False
-    data = np.load(data_path+"/pcno_curve_data_3_3.npz")
+    data = np.load(data_path+"/pcno_curve_data_3_3_grad.npz")
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
     # node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
@@ -70,6 +71,12 @@ else:
     indices = np.isfinite(node_measures_raw)
     node_rhos = np.copy(node_weights)
     node_rhos[indices] = node_rhos[indices]/node_measures[indices]
+
+print('Computing normal vector')
+normal_vector = np.zeros_like(nodes)
+for i in range(nodes.shape[0]):
+    normal_vector[i] = compute_unit_normals(nodes[i], None)
+normal_vector = torch.from_numpy(normal_vector.astype(np.float32))
 
 print("Casting to tensor",flush = True)
 nnodes = torch.from_numpy(nnodes)
@@ -87,8 +94,10 @@ nodes_input = nodes.clone()
 n_train, n_test = 900, 100
 
 
-x_train, x_test = torch.cat((features[:n_train, :, :1], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1), torch.cat((features[-n_test:, :, :1],nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]),-1)
+x_train, x_test = torch.cat((features[:n_train, :, :1], normal_vector[:n_train, ...], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1), torch.cat((features[-n_test:, :, :1], normal_vector[-n_test:, ...], nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]),-1)
 
+x_train = torch.cat((x_train, x_train[..., 0:1] * x_train[..., 1:3]), dim = -1)
+x_test = torch.cat((x_test, x_test[..., 0:1] * x_test[..., 1:3]), dim = -1)
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 
@@ -97,25 +106,36 @@ y_train, y_test = features[:n_train, :, 1:],     features[-n_test:, :, 1:]
 print(f'x_train shape {x_train.shape}, y_train shape {y_train.shape}')
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)
 train_inv_L_scale = False
-k_max = 16
-scale = 0.5
-min_dir_fraction = 0.3
-print(f'kmax = {k_max}, scale = {scale}, min_dir_fraction = {min_dir_fraction}')
+k_max = 8
 ndim = 2
-modes = discrete_half_ball_modes(ndim, k_max, scale, min_dir_fraction = min_dir_fraction)[...,np.newaxis]*k_max*2*np.pi/5
-print('use sphere modes', modes.shape)
-# modes = compute_Fourier_modes(ndim, [k_max,k_max], [5,5])
+print(f'kmax = {k_max}')
 
-# scale = 0.5
-# modes = nonlinear_scale(modes, scale=scale)
+# scale = 1
+# min_dir_fraction = 0.3
+# modes = discrete_half_ball_modes(ndim, k_max, scale, min_dir_fraction = min_dir_fraction)[...,np.newaxis]*k_max*2*np.pi/5
+# print('use sphere modes, scale = {scale}, min_dir_fraction = {min_dir_fraction}', modes.shape)
+L = 10
+modes = compute_Fourier_modes(ndim, [k_max,k_max], [L,L])
+print(f'L = {L}')
+def nonlinear_scale(modes, scale=1.0):
+    norms = np.linalg.norm(modes, axis=1)
+    max_norm = norms.max()
+    scaled_norms = (norms / max_norm) ** scale
+    modes_scaled = modes * scaled_norms[:, np.newaxis]
+    return modes_scaled
+scale = 0
+modes = nonlinear_scale(modes, scale=scale)
+print(f'use cube modes, scale = {scale}', modes.shape)
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
-               layers=[128,128,128,128,128],
+               layers=[128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-               act='gelu').to(device)
+               act = "none"
+                # act = 'gelu'
+               ).to(device)
 
 
 
@@ -142,5 +162,5 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
 
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_curve_model_k16_sphere_modes_0.3frac_0.5scale"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="model/3_3_grad/PCNO_curve_model_k8_L10_normal_prod_layer2_no_grad"
 )

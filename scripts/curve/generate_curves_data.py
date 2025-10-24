@@ -4,7 +4,7 @@ from tqdm import tqdm
 import os
 
 import sys
-
+from scipy.ndimage import gaussian_filter1d, gaussian_filter
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -14,19 +14,54 @@ import matplotlib.pyplot as plt
 from pcno.geo_utility import compute_node_measures
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
 
-def random_polar_curve(N, k=4, r0_scale = 1, freq_scale = 1):
+def random_polar_curve(N, k=4, r0_scale = 1, freq_scale = 1, deform = True, deform_configs = []):
     t = np.linspace(0, 2 * np.pi, N, endpoint=False)
     r_base = r0_scale * np.random.uniform(-1, 1)
     r = np.full_like(t, r_base)
     for i in range(1, k + 1):
-        a_sin = freq_scale*np.random.uniform(-1, 1)
-        a_cos = freq_scale*np.random.uniform(-1, 1)
+        a_sin = freq_scale/math.sqrt(i)*np.random.uniform(-1, 1)
+        a_cos = freq_scale/math.sqrt(i)*np.random.uniform(-1, 1)
         r += a_sin * np.sin(i * t) + a_cos * np.cos(i * t)
     r = np.tanh(r) + 1.5
     x = r * np.cos(t)
     y = r * np.sin(t)
     nodes = np.stack([x, y], axis=1)
+    if deform:
+        nodes = deform_rbf(nodes, *deform_configs)
     return nodes
+
+
+def deform_rbf(nodes, M=50, sigma=1, epsilon = 0.1, bbox=[-3,3,-3,3]):
+    """
+    M: 基函数个数
+    bbox: [xmin,xmax,ymin,ymax]  基心采样区域
+    sigma: 高斯半径
+
+    rbf(x) = sum_{i=1}^{M} w_i exp(-||x-c_i||^2/(2*sigma^2))
+    weights w_i ~ N(0,1) * U(0.2,1.0)
+    nodes <- nodes + epsilon * rbf(nodes)
+
+    """
+
+    xmin,xmax,ymin,ymax = bbox
+    centers = np.column_stack([
+        np.random.uniform(xmin, xmax, size=M),
+        np.random.uniform(ymin, ymax, size=M),
+    ])
+
+    weights = np.random.randn(M, 2)
+    weights *= np.random.uniform(0.2, 1.0, size=(M,1))
+
+    def field(pts):
+        # pts: (N,2)
+        # u(pts) (N,2)
+        d2 = np.sum((pts[:, None, :] - centers[None, :, :])**2, axis=2)  # (N,M)
+        K = np.exp(-0.5 * d2 / (sigma**2))  # (N,M)
+        u = K.dot(weights)  # (N,2)
+        u = u / (np.linalg.norm(weights, axis=1).mean() + 1e-8)
+        return u
+
+    return nodes + epsilon * field(nodes)
 
 def sequential_elems(N):
     """
@@ -176,12 +211,12 @@ def kernel(x, y, kernel_type = 'log'):
         raise ValueError("Unknown kernel type")
     
 
-def generate_curves_data(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, k_feature=6, kernel_type='log', approaching_direction = None):
+def generate_curves_data(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, k_feature=6, kernel_type='log', approaching_direction = None, deform = True, deform_configs = []):
     nodes_list = []
     elems_list = []
     features_list = []
     for _ in tqdm(range(n_data), desc="Generating curves data"):
-        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale)
+        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         elems = sequential_elems(N)
         if kernel_type in ['grad_log','grad_log_truncated']:
             normal_vector = compute_unit_normals(nodes)
@@ -218,7 +253,7 @@ def generate_curves_data_test(n_data, N, k_curve=4):
     return nodes_list, elems_list, features_list
 
 
-def visualize_curve(nodes, features, elems, figurename):
+def visualize_curve(nodes, features, elems, figurename = ''):
     plt.figure(figsize=(16, 6))
 
     # 左图：曲线及外法向量
@@ -259,45 +294,64 @@ def visualize_curve(nodes, features, elems, figurename):
             plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
     plt.tight_layout()
-    # plt.show()
-    plt.savefig(figurename)
+    if figurename:
+        plt.savefig(figurename)
+    else:
+        plt.show()
 
 
 
 if __name__ == "__main__":
-    np.random.seed(100)
+    np.random.seed(10000)
     epsilon = 0.03
     n_data = 1
     N = 1000
     r0_scale = 1
     freq_scale = 1
-    k_curve = 3
-    k_feature = 3
+    k_curve = 10
+    k_feature = 10
+    kernel_type = 'grad_log'
+    deform = True
+    deform_configs = [100, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
-    kernel_type = 'grad_log_component1'
-
-    nodes_list, elems_list, features_list = generate_curves_data(n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
+    nodes_list, elems_list, features_list = generate_curves_data(
+        n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
                                                                 #   kernel_type='inv',
                                                                 kernel_type = kernel_type,
+                                                                deform = deform, 
+                                                                deform_configs = deform_configs
                                                                 #approaching_direction = 'interior'
                                                                 )
     print("nodes_list(array) shape:", np.array(nodes_list).shape)
     print("elems_list(array) shape:", np.array(elems_list).shape)
     print("features_list(array) shape:", np.array(features_list).shape)
     # np.savez(f"../../data/curve/curve_data_{k_curve}_{k_feature}.npz", nodes_list=nodes_list, elems_list=elems_list, features_list=features_list)
-    visualize_curve(nodes_list[0], features_list[0], elems_list[0], figurename = f'figures/{kernel_type}/N_{N}.png')
+    visualize_curve(nodes_list[0], features_list[0], elems_list[0]
+                    # , figurename = f'figures/deformed.png'
+                    )
 
-    np.random.seed(100)
-    nodes_list_t, elems_list_t, features_list_t = generate_curves_data(n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
-                                                                #   kernel_type='inv',
-                                                                kernel_type = kernel_type + '_truncated',
-                                                                #approaching_direction = 'interior'
-                                                                )
-    print("nodes_list(array) shape:", np.array(nodes_list).shape)
-    print("elems_list(array) shape:", np.array(elems_list).shape)
-    print("features_list(array) shape:", np.array(features_list).shape)
+    # np.random.seed(100)
+    # nodes_list_t, elems_list_t, features_list_t = generate_curves_data(n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
+    #                                                             #   kernel_type='inv',
+    #                                                             kernel_type = kernel_type + '_truncated',
+    #                                                             #approaching_direction = 'interior'
+    #                                                             )
+    # print("nodes_list(array) shape:", np.array(nodes_list).shape)
+    # print("elems_list(array) shape:", np.array(elems_list).shape)
+    # print("features_list(array) shape:", np.array(features_list).shape)
  
-    visualize_curve(nodes_list[0], features_list_t[0], elems_list[0], figurename = f'figures/{kernel_type}/N_{N}_truncated_eps{epsilon}.png')    
+    # visualize_curve(nodes_list[0], features_list_t[0], elems_list[0], figurename = f'figures/{kernel_type}/N_{N}_truncated_eps{epsilon}.png')    
 
-    features_error = np.stack((features_list[0][...,0], features_list_t[0][...,1] - features_list[0][...,1]), axis = -1)
-    visualize_curve(nodes_list[0], features_error, elems_list[0], figurename = f'figures/{kernel_type}/N_{N}_truncated_eps{epsilon}_error.png') 
+    # features_error = np.stack((features_list[0][...,0], features_list_t[0][...,1] - features_list[0][...,1]), axis = -1)
+    # visualize_curve(nodes_list[0], features_error, elems_list[0], figurename = f'figures/{kernel_type}/N_{N}_truncated_eps{epsilon}_error.png')
+    #  
+    # nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "vertex_centered", adjacent_type="edge")
+    # node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
+    # node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
+    # np.savez_compressed("../../data/curve/pcno_curve_data_1_1_3_3_grad.npz", \
+    #                     nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
+    #                     node_measures_raw = node_measures_raw, \
+    #                     node_measures=node_measures, node_weights=node_weights, \
+    #                     node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
+    #                     features=features, \
+    #                     directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)

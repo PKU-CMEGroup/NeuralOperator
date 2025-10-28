@@ -288,74 +288,251 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     return f_gradients.permute(0,2,1)
     
 
-class KernelMessagePassing(nn.Module):
-    def __init__(self, in_channels, out_channels, ndims, nmeasures):
-        super(KernelMessagePassing, self).__init__()
+class SpectralConvLocal(nn.Module):
+    def __init__(self, in_channels, out_channels, modes):
+        super(SpectralConvLocal, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.ndims = ndims
+        nmodes, ndims, nmeasures = modes.shape
+        self.modes = modes
         self.nmeasures = nmeasures
-        self.lin = nn.Linear(3*ndims, 1)
-        self.w = nn.Conv1d(in_channels, out_channels, 1)
+        self.scale = 1 / (in_channels * out_channels)
+
+        self.weights_c = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, nmodes, nmeasures, dtype=torch.float
+            )
+        )
+        self.weights_s = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, nmodes, nmeasures, dtype=torch.float
+            )
+        )
+        self.weights_0 = nn.Parameter(
+            self.scale
+            * torch.rand(
+                in_channels, out_channels, 1, nmeasures, dtype=torch.float
+            )
+        )
         
-        
-    def compute_edge_local_weights(self, edge_infos):
-        '''
-        compute local weight for each edge (kernel), based 
-            Parameters:
-                edge_infos : float[batch_size, max_nedges, 3ndims+1, nmeasures] 
-        
-            Returns:
-                edge_local_weights : float[batch_size, max_nedges, nmeasures]
-                TODO float[batch_size, max_nedges, in_channels, nmeasures]
-        '''
-        ndims = self.ndims
-        batch_size, max_nedges, _, nmeasures = edge_infos.shape
-        # local_weights =  (self.lin(edge_infos.permute(0, 1, 3, 2)).squeeze(-1))/edge_infos[:,:,0,:] 
-        local_weights = torch.einsum('bekm,bekm->bem', edge_infos[:,:,1:1+ndims,:], edge_infos[:,:,1+ndims:1+2*ndims,:])*(1.0/edge_infos[:,:,0,:] - 1.0/0.05) 
-        local_weights = torch.nan_to_num(local_weights, nan=0.0, posinf=0.0, neginf=0.0)
-        return local_weights
     
-    def forward(self, f, node_weights, directed_edges, edge_infos):
+    def forward(self, f, bases_c, bases_s, bases_0, directed_edges, node_weights):
         '''
-        assemble local force f at each node
-        directed_edges stores directed edges (x, x1), (x, x2), ..., (x, xj)
-        send from x to xj:
-            f(x) * nw(x) * ew(x, xj)
-        the weight ew depends on edge_infos, including x, xj, and possibly normal information
-            
+        Assemble local force f at each node
+            u(x)  =  int K(x,y) f(y) dS(y)
+        here K(x,y) = sum_k (wc_k + ws_k i) e^{2 k pi (x - y)/L}. 
+        To ensure the result is real, we have wc_k = wc_{-k}, ws_k = -ws_{-k}
+        
+        directed_edges stores directed edges (x, y1), (x, y2), ..., (x, yj)
+        send from xj to x:
+            u(x)  =  sum K(x,yj) f(yj) S(yj)
+                  =  sum_j sum_k [wc_k + ws_k i] [cos(2pikx/L) + sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)   
+                  =  sum_j sum_k [wc_k + ws_k i] [cos(2pikx/L) + sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)    
+                  =  sum_j sum_k [wc_k cos(2pikx/L) - ws_k sin(2pikx/L) + ws_k cos(2pikx/L)i + wc_k sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)    
+                  =  sum_j { wc_0 + 2sum_k [wc_k cos(2pikx/L)cos(2pikyj/L) - ws_k sin(2pikx/L)cos(2pikyj/L) + ws_k cos(2pikx/L)sin(2pikyj/L) + wc_k sin(2pikx/L)sin(2pikyj/L)] } f(yj) S(yj)    
+       
             Parameters: 
-                f : float[batch_size, in_channels, nnodes]
-                node_weights : float[batch_size, nnodes, nmeasures]
-                directed_edges : int[batch_size, max_nedges, 2] 
-                edge_infos : float[batch_size, max_nedges, ndims]
+                f                   : float[batch_size, in_channels, nnodes]
+                bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
+                bases_0             : float[batch_size, nnodes, 1, nmeasures]
+                directed_edges : int[batch_size, max_nedges, 2, nmeasures] 
+                node_weights   : float[batch_size, max_nedges, nmeasures]
                 
             Returns:
-                x_local_force : float[batch_size, out_channels, max_nnodes]
+                f_out : float[batch_size, out_channels, max_nnodes]
         '''
 
         f = f.permute(0,2,1)
         batch_size, max_nnodes, in_channels = f.shape
-        edge_local_weights = self.compute_edge_local_weights(edge_infos)
+        f_out = torch.zeros(batch_size, max_nnodes, in_channels, dtype=f.dtype, device=f.device)
+
         # Message passing : compute message = edge_gradient_weights * (f_source - f_target) for each edge
         # target\source : int Tensor[batch_size, max_nedges]
         # message : float Tensor[batch_size, max_nedges, in_channels*ndims]
+        for m in range(self.nmeasures):
+            target, source = directed_edges[...,0,m], directed_edges[...,1,m]  # target and source nodes of edges
+            
+            weights_c, weights_s, weights_0 = self.weights_c[...,m], self.weights_s[...,m], self.weights_0[...,0,m]
+            
+            # edge_local_weights = weights_0 + 2*torch.einsum('iok, bek->beio', weights_c, bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source] + bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source]) \
+            #                                + 2*torch.einsum('iok, bek->beio', weights_s, bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source] - bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source])
+            # message = torch.einsum('beio, bei, be->beo', edge_local_weights, f[torch.arange(batch_size).unsqueeze(1),source], node_weights[...,m])
 
-        source, target = directed_edges[...,0], directed_edges[...,1]  # source and target nodes of edges
-        message = torch.einsum('bem, bei, bem->bei', edge_local_weights, f[torch.arange(batch_size).unsqueeze(1),source], node_weights[torch.arange(batch_size).unsqueeze(1),source])
+            f_source = torch.einsum('bei, be->bei', f[torch.arange(batch_size).unsqueeze(1),source], node_weights[...,m])
         
-        # f_gradients : float Tensor[batch_size, max_nnodes, in_channels]
-        f_out = torch.zeros(batch_size, max_nnodes, in_channels, dtype=message.dtype, device=message.device)
-        f_out.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels))
+            message  = torch.einsum('io, bei->beo', weights_0, f_source)
+            
+            edge_local_coeffs = torch.einsum('bek, bei->beki', bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source] + bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source], f_source)
+            message += 2*torch.einsum('iok, beki->beo', weights_c, edge_local_coeffs)
+            
+            edge_local_coeffs = torch.einsum('bek, bei->beki', bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source] - bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source], f_source)
+            message += 2*torch.einsum('iok, beki->beo', weights_s, edge_local_coeffs)
+        
+            
+            f_out.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels))
+        
+        return f_out.permute(0,2,1)
+
+
+# class SpectralConvLocalSimp(nn.Module):
+#     def __init__(self, in_channels, out_channels, modes):
+#         super(SpectralConvLocalSimp, self).__init__()
+#         self.in_channels = in_channels
+#         self.out_channels = out_channels
+#         nmodes, ndims, nmeasures = modes.shape
+#         self.modes = modes
+#         self.nmeasures = nmeasures
+#         self.scale = 1 / (in_channels * out_channels)
+
+#         self.weights_c = nn.Parameter(
+#             self.scale
+#             * torch.rand(nmodes, nmeasures, dtype=torch.float
+#             )
+#         )
+#         self.weights_s = nn.Parameter(
+#             self.scale
+#             * torch.rand(nmodes, nmeasures, dtype=torch.float
+#             )
+#         )
+#         self.weights_0 = nn.Parameter(
+#             self.scale
+#             * torch.rand(1, nmeasures, dtype=torch.float
+#             )
+#         )
+#         self.w = nn.Conv1d(in_channels, out_channels, 1)
+
+        
+    
+#     def forward(self, f, bases_c, bases_s, bases_0, directed_edges, node_weights):
+#         '''
+#         Assemble local force f at each node
+#             u(x)  =  int K(x,y) f(y) dS(y)
+#         here K(x,y) = sum_k (wc_k + ws_k i) e^{2 k pi (x - y)/L}. 
+#         To ensure the result is real, we have wc_k = wc_{-k}, ws_k = -ws_{-k}
+        
+#         directed_edges stores directed edges (x, y1), (x, y2), ..., (x, yj)
+#         send from xj to x:
+#             u(x)  =  sum K(x,yj) f(yj) S(yj)
+#                   =  sum_j sum_k [wc_k + ws_k i] [cos(2pikx/L) + sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)   
+#                   =  sum_j sum_k [wc_k + ws_k i] [cos(2pikx/L) + sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)    
+#                   =  sum_j sum_k [wc_k cos(2pikx/L) - ws_k sin(2pikx/L) + ws_k cos(2pikx/L)i + wc_k sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)    
+#                   =  sum_j { wc_0 + 2sum_k [wc_k cos(2pikx/L)cos(2pikyj/L) - ws_k sin(2pikx/L)cos(2pikyj/L) + ws_k cos(2pikx/L)sin(2pikyj/L) + wc_k sin(2pikx/L)sin(2pikyj/L)] } f(yj) S(yj)    
+       
+#             Parameters: 
+#                 f                   : float[batch_size, in_channels, nnodes]
+#                 bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
+#                 bases_0             : float[batch_size, nnodes, 1, nmeasures]
+#                 directed_edges : int[batch_size, max_nedges, 2, nmeasures] 
+#                 node_weights   : float[batch_size, max_nedges, nmeasures]
+                
+#             Returns:
+#                 f_out : float[batch_size, out_channels, max_nnodes]
+#         '''
+
+#         f = f.permute(0,2,1)
+#         batch_size, max_nnodes, in_channels = f.shape
+#         f_out = torch.zeros(batch_size, max_nnodes, in_channels, dtype=f.dtype, device=f.device)
+
+#         # Message passing : compute message = edge_gradient_weights * (f_source - f_target) for each edge
+#         # target\source : int Tensor[batch_size, max_nedges]
+#         # message : float Tensor[batch_size, max_nedges, in_channels*ndims]
+#         for m in range(self.nmeasures):
+#             target, source = directed_edges[...,0,m], directed_edges[...,1,m]  # target and source nodes of edges
+            
+#             weights_c, weights_s, weights_0 = self.weights_c[...,m], self.weights_s[...,m], self.weights_0[...,0,m]
+            
+#             edge_local_weights = weights_0 + 2*torch.einsum('k, bek->be', weights_c, bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source] + bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source]) \
+#                                            + 2*torch.einsum('k, bek->be', weights_s, bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source] - bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source])
+#             message = torch.einsum('be, bei, be->bei', edge_local_weights, f[torch.arange(batch_size).unsqueeze(1),source], node_weights[...,m])
+
+#             f_out.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels))
+        
+#         return self.w(f_out.permute(0,2,1))
+    
+class SpectralConvLocalSimp(nn.Module):
+    def __init__(self, in_channels, out_channels, modes):
+        super(SpectralConvLocalSimp, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        nmodes, ndims, nmeasures = modes.shape
+        self.modes = modes
+        self.nmeasures = nmeasures
+        self.scale = 1 / (in_channels * out_channels)
+
+        self.weights_c = nn.Parameter(
+            self.scale
+            * torch.rand(in_channels, nmodes, nmeasures, dtype=torch.float
+            )
+        )
+        self.weights_s = nn.Parameter(
+            self.scale
+            * torch.rand(in_channels, nmodes, nmeasures, dtype=torch.float
+            )
+        )
+        self.weights_0 = nn.Parameter(
+            self.scale
+            * torch.rand(in_channels, 1, nmeasures, dtype=torch.float
+            )
+        )
+        self.w = nn.Conv1d(in_channels, out_channels, 1)
+
+        
+    
+    def forward(self, f, bases_c, bases_s, bases_0, directed_edges, node_weights):
+        '''
+        Assemble local force f at each node
+            u(x)  =  int K(x,y) f(y) dS(y)
+        here K(x,y) = sum_k (wc_k + ws_k i) e^{2 k pi (x - y)/L}. 
+        To ensure the result is real, we have wc_k = wc_{-k}, ws_k = -ws_{-k}
+        
+        directed_edges stores directed edges (x, y1), (x, y2), ..., (x, yj)
+        send from xj to x:
+            u(x)  =  sum K(x,yj) f(yj) S(yj)
+                  =  sum_j sum_k [wc_k + ws_k i] [cos(2pikx/L) + sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)   
+                  =  sum_j sum_k [wc_k + ws_k i] [cos(2pikx/L) + sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)    
+                  =  sum_j sum_k [wc_k cos(2pikx/L) - ws_k sin(2pikx/L) + ws_k cos(2pikx/L)i + wc_k sin(2pikx/L)i] [cos(2pikyj/L) - sin(2pikyj/L)i] f(yj) S(yj)    
+                  =  sum_j { wc_0 + 2sum_k [wc_k cos(2pikx/L)cos(2pikyj/L) - ws_k sin(2pikx/L)cos(2pikyj/L) + ws_k cos(2pikx/L)sin(2pikyj/L) + wc_k sin(2pikx/L)sin(2pikyj/L)] } f(yj) S(yj)    
+       
+            Parameters: 
+                f                   : float[batch_size, in_channels, nnodes]
+                bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
+                bases_0             : float[batch_size, nnodes, 1, nmeasures]
+                directed_edges : int[batch_size, max_nedges, 2, nmeasures] 
+                node_weights   : float[batch_size, max_nedges, nmeasures]
+                
+            Returns:
+                f_out : float[batch_size, out_channels, max_nnodes]
+        '''
+
+        f = f.permute(0,2,1)
+        batch_size, max_nnodes, in_channels = f.shape
+        f_out = torch.zeros(batch_size, max_nnodes, in_channels, dtype=f.dtype, device=f.device)
+
+        # Message passing : compute message = edge_gradient_weights * (f_source - f_target) for each edge
+        # target\source : int Tensor[batch_size, max_nedges]
+        # message : float Tensor[batch_size, max_nedges, in_channels*ndims]
+        for m in range(self.nmeasures):
+            target, source = directed_edges[...,0,m], directed_edges[...,1,m]  # target and source nodes of edges
+            
+            weights_c, weights_s, weights_0 = self.weights_c[...,m], self.weights_s[...,m], self.weights_0[...,0,m]
+            
+            edge_local_weights = weights_0 + 2*torch.einsum('ik, bek->bei', weights_c, bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source] + bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source]) \
+                                           + 2*torch.einsum('ik, bek->bei', weights_s, bases_c[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_s[...,m][torch.arange(batch_size).unsqueeze(1),source] - bases_s[...,m][torch.arange(batch_size).unsqueeze(1),target] * bases_c[...,m][torch.arange(batch_size).unsqueeze(1),source])
+            message = torch.einsum('bei, bei, be->bei', edge_local_weights, f[torch.arange(batch_size).unsqueeze(1),source], node_weights[...,m])
+            
+            f_out.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels))
         
         return self.w(f_out.permute(0,2,1))
-
+    
 
 class PCNO(nn.Module):
     def __init__(
         self,
         ndims,
         modes,
+        local_modes,
         nmeasures,
         layers,
         fc_dim=128,
@@ -381,6 +558,10 @@ class PCNO(nn.Module):
                     Dimensionality of the problem
                 modes : float[nmodes, ndims, nmeasures]
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
+                    * We cannot have both k and -k
+                    * k is not integer, and it has the form 2pi*K/L0  (K in Z)
+                modes : float[nmodes, ndims, nmeasures]
+                    It contains nmodes modes k, for local spectral convolution
                     * We cannot have both k and -k
                     * k is not integer, and it has the form 2pi*K/L0  (K in Z)
                 nmeasures : int
@@ -430,6 +611,7 @@ class PCNO(nn.Module):
         """
         
         self.register_buffer('modes', modes) 
+        self.register_buffer('local_modes', local_modes) 
         self.nmeasures = nmeasures
         
 
@@ -454,8 +636,8 @@ class PCNO(nn.Module):
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
         self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
 
-        self.local_kernels = nn.ModuleList(
-            KernelMessagePassing(in_size, out_size, ndims, nmeasures)
+        self.sp_conv_locals = nn.ModuleList(
+            SpectralConvLocalSimp(in_size, out_size, local_modes)
                 for in_size, out_size in zip(
                     self.layers, self.layers[1:]
                 )
@@ -540,7 +722,7 @@ class PCNO(nn.Module):
         length = len(self.ws)
 
         # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos = aux
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights = aux
         # bases: float[batch_size, nnodes, nmodes, nmeasures]
         # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
@@ -551,22 +733,26 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
+        # local bases
+        # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
+        loc_bases_c,  loc_bases_s,  loc_bases_0  = compute_Fourier_bases(nodes, self.local_modes) 
         
+
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, lockernel, w, gw) in enumerate(zip(self.sp_convs, self.local_kernels, self.ws, self.gws)):
+        for i, (speconv, speconvlocal, w, gw) in enumerate(zip(self.sp_convs, self.sp_conv_locals, self.ws, self.gws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x4 = lockernel(x, node_weights, close_directed_edges, close_edge_infos)
+            # x4 = speconvlocal(x, loc_bases_c,  loc_bases_s,  loc_bases_0, close_directed_edges, scaled_node_weights)
             
             if self.act is not None and i != length - 1:
-                x = x + self.act(x1 + x2 + x3 + x4) 
-                # x = x + self.act(x1 + x2) 
+                # x = x + self.act(x1 + x2 + x3 + x4) 
+                x = x + self.act(x1 + x2 + x3) 
             else:
-                x = x1 + x2 + x3 + x4
-                # x = x1 + x2
+                # x  = x1 + x2 + x3 + x4
+                x = x1 + x2 + x3
         x = x.permute(0, 2, 1)
 
         if self.fc_dim > 0:
@@ -716,12 +902,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         y_normalizer.to(device)
 
 
-    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  close_edge_infos_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  close_edge_infos_train), 
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  scaled_node_weights_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  scaled_node_weights_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
-    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  close_edge_infos_test = aux_test
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  close_edge_infos_test), 
+    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  scaled_node_weights_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  scaled_node_weights_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
     myloss = LpLoss(d=1, p=2, size_average=False)
@@ -757,12 +943,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos in train_loader:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), close_edge_infos.to(device)
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), scaled_node_weights.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -779,11 +965,11 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         model.eval()
         with torch.no_grad():
-            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos in test_loader:
-                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  close_edge_infos = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), close_edge_infos.to(device)
+            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights in test_loader:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), scaled_node_weights.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges, close_edge_infos)) #.reshape(batch_size_,  -1)
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges, scaled_node_weights)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)

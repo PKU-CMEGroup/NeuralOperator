@@ -302,17 +302,17 @@ def visualize_curve(nodes, features, elems, figurename = ''):
 
 
 if __name__ == "__main__":
-    np.random.seed(10000)
+    # np.random.seed(10000)
     epsilon = 0.03
-    n_data = 1
+    n_data = 20
     N = 1000
     r0_scale = 1
     freq_scale = 1
-    k_curve = 10
-    k_feature = 10
+    k_curve = 5
+    k_feature = 5
     kernel_type = 'grad_log'
     deform = True
-    deform_configs = [100, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
+    deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
     nodes_list, elems_list, features_list = generate_curves_data(
         n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
@@ -326,9 +326,9 @@ if __name__ == "__main__":
     print("elems_list(array) shape:", np.array(elems_list).shape)
     print("features_list(array) shape:", np.array(features_list).shape)
     # np.savez(f"../../data/curve/curve_data_{k_curve}_{k_feature}.npz", nodes_list=nodes_list, elems_list=elems_list, features_list=features_list)
-    visualize_curve(nodes_list[0], features_list[0], elems_list[0]
-                    # , figurename = f'figures/deformed.png'
-                    )
+    # visualize_curve(nodes_list[0], features_list[0], elems_list[0]
+    #                 # , figurename = f'figures/deformed.png'
+    #                 )
 
     # np.random.seed(100)
     # nodes_list_t, elems_list_t, features_list_t = generate_curves_data(n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
@@ -345,13 +345,13 @@ if __name__ == "__main__":
     # features_error = np.stack((features_list[0][...,0], features_list_t[0][...,1] - features_list[0][...,1]), axis = -1)
     # visualize_curve(nodes_list[0], features_error, elems_list[0], figurename = f'figures/{kernel_type}/N_{N}_truncated_eps{epsilon}_error.png')
     #  
-    # nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "vertex_centered", adjacent_type="edge")
-    # node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
-    # node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
-    # np.savez_compressed("../../data/curve/pcno_curve_data_1_1_3_3_grad.npz", \
-    #                     nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
-    #                     node_measures_raw = node_measures_raw, \
-    #                     node_measures=node_measures, node_weights=node_weights, \
-    #                     node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
-    #                     features=features, \
-    #                     directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "vertex_centered", adjacent_type="edge")
+    node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
+    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
+    np.savez_compressed("../../data/curve/pcno_curve_data_1_1_5_5_grad_deformed.npz", \
+                        nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
+                        node_measures_raw = node_measures_raw, \
+                        node_measures=node_measures, node_weights=node_weights, \
+                        node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
+                        features=features, \
+                        directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights)

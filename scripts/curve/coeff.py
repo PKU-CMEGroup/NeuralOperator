@@ -276,7 +276,7 @@ if __name__ == "__main__":
     n = 2
 #-------------------------------------------------------------------------
     rng = np.random.default_rng(1234)
-    k_layer = 16
+    k_layer = 8
     scale = 0
     discrete_type = "cube"  # "cube" or "half_ball"
     domain = [(-5, 5),(-5, 5)]
@@ -285,12 +285,12 @@ if __name__ == "__main__":
         x, y = X[:,0], X[:,1]
         # return x
         # return np.sin(3*x) * np.cos(2*y)
-        # return np.log(np.sqrt(x**2 + y**2) + 1e-8)  
+        return np.log(np.sqrt(x**2 + y**2) + 1e-8)  
         r_cut = 0.1
         mask = (x**2 + y**2) >= r_cut**2
         # return 1/np.sqrt(x**2 + y**2 + 1e-8)*mask + (1-mask)*1/r_cut
         # return x/(x**2 + y**2 + 1e-6)
-        return x/(x**2 + y**2 + 1e-6) * mask + x/r_cut**2 * (1-mask)
+        # return x/(x**2 + y**2 + 1e-6) * mask + x/r_cut**2 * (1-mask)
 #-------------------------------------------------------------------------
 
     if discrete_type == "half_ball":

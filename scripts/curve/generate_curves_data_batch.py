@@ -137,85 +137,61 @@ def compute_unit_normals(nodes):
     normals /= n_norm
     return normals
 
-def curve_integral_g(node_list, f, kernel_type, node_measure, normal_vector=None, approaching_direction=None):
+
+def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, normal_vector=None, approaching_direction=None):
     """
-    Computes the integral of a kernel function over a set of nodes, optionally using the normal vector for differentiation.
-    This function evaluates either:
-        ∫ k(x, y) g(y) dy
-    or
-        ∫ ∂_n_y k(x, y) g(y) dy
-    depending on whether the normal_vector is provided.
+
     Args:
-        node_list (np.ndarray): Array of node coordinates with shape (N, ndim).
-        f (np.ndarray): Function values at each node, shape (N, 1).
+        node_list (np.ndarray): Array of node coordinates with shape (bsz, N, ndim).
+        f (np.ndarray): Function values at each node, shape (bsz, N, 1).
         kernel_type (str): Type of kernel to use in the computation.
-        node_measure (np.ndarray): Measure (e.g., weight or length) associated with each node, shape (N,).
-        normal_vector (np.ndarray, optional): Normal vectors at each node, shape (N, ndim). If provided, computes the normal derivative of the kernel.
+        node_measure (np.ndarray): Measure (e.g., weight or length) associated with each node, shape (bsz, N,).
+        normal_vector (np.ndarray, optional): Normal vectors at each node, shape (bsz, N, ndim). If provided, computes the normal derivative of the kernel.
     Returns:
-        np.ndarray: Resulting integral values at each node, shape (N, 1).
+        np.ndarray: Resulting integral values at each node, shape (bsz, N, 1).
     """
-    N = node_list.shape[0]
-    g = np.zeros((N, 1))
+    bsz = nodes_list.shape[0]
+    N = nodes_list.shape[1]
+    g = np.zeros((bsz, N, 1))
     for i in range(N):
-        x = node_list[i]
+        x = nodes_list[:, i]
         for j in range(N):
             if j != i:
-                y = node_list[j]
-                if normal_vector is not None:
-                    kxy = np.dot(kernel(x, y, kernel_type), normal_vector[j])
+                y = nodes_list[:, j]
+                if normal_vector is not None and kernel_type == 'grad_log':
+                    kxy = np.einsum('bd,bd -> b', kernel_batch(x, y, kernel_type), normal_vector[:, j])
                 else:
-                    kxy = kernel(x, y, kernel_type)
-                g[i, 0] += kxy * f[j, 0] * node_measure[j]
+                    kxy = kernel_batch(x, y, kernel_type)
+                g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
         if approaching_direction is not None and kernel_type == 'grad_log':
             if approaching_direction == 'interior':
-                g[i, 0] -= (-2*math.pi) * 1/2*f[i, 0]
+                g[:, i, 0] -= (-2*math.pi) * 1/2*f_list[:, i, 0]
             elif approaching_direction == 'exterior':
-                g[i, 0] += (-2*math.pi) * 1/2*f[i, 0]
+                g[:, i, 0] += (-2*math.pi) * 1/2*f_list[:, i, 0]
             else:
                 raise ValueError("approaching_direction must be 'interior' or 'exterior'")
     return g
 
-def kernel(x, y, kernel_type = 'log'):
+
+def kernel_batch(x, y, kernel_type = 'log'):
     if kernel_type == 'log':
-        return np.log(np.linalg.norm(x - y)+1e-6)
-    elif kernel_type == 'log_truncated':
-        if np.linalg.norm(x - y) < epsilon:
-            return np.zeros_like(np.linalg.norm(x - y))
-        else:
-            return np.log(np.linalg.norm(x - y)+1e-6)
-    elif kernel_type == 'inv':
-        return 1.0 / (np.linalg.norm(x - y) + 1e-6)
-    elif kernel_type == 'grad_log_component1':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-8
-        return diff[0] / norm_sq
-    elif kernel_type == 'grad_log_component1_truncated':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-8
-        if np.sqrt(norm_sq) < epsilon:
-            return np.zeros_like(norm_sq)
-        else:
-            return diff[0] / norm_sq
+        return np.log(np.linalg.norm(x - y, axis=1)+1e-6)
     elif kernel_type == 'grad_log':
         diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-6
-        return diff / norm_sq
-    elif kernel_type == 'grad_log_truncated':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-6
-        if np.sqrt(norm_sq) < epsilon:
-            return np.zeros_like(diff / norm_sq)
-        else:
-            return diff / norm_sq
+        norm_sq = np.sum(diff**2, axis=1) + 1e-6
+        return diff / norm_sq[:, None]
     else:
         raise ValueError("Unknown kernel type")
-    
 
-def generate_curves_data(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, k_feature=6, kernel_type='log', combine = True, approaching_direction = None, deform = True, deform_configs = []):
+def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k_curve=4, k_feature=6, kernel_type='log', combine = True, approaching_direction = None, deform = True, deform_configs = []):
     nodes_list = []
     elems_list = []
     features_list = []
-    for _ in tqdm(range(n_data), desc="Generating curves data"):
+    nodes_list_batch = []
+    elems_list_batch = []
+    features_list_batch = []
+    nodes_measure_list_batch = []
+    for index in tqdm(range(n_data), desc="Generating curves data"):
         nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         elems = sequential_elems(N)
         normal_vector = compute_unit_normals(nodes)
@@ -228,11 +204,26 @@ def generate_curves_data(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, k_fea
             normal_vector2 = compute_unit_normals(nodes2)
 
             nodes, elems, f, normal_vector = combine_nodes_and_elems(nodes, nodes2, elems, elems2, f, f2, normal_vector, normal_vector2)
-        g = curve_integral_g(nodes, f, kernel_type, compute_node_measures(nodes, elems)[:,0], normal_vector=normal_vector, approaching_direction = approaching_direction)
-        features = np.concatenate([f, normal_vector, g], axis=1)
-        nodes_list.append(nodes)
-        elems_list.append(elems)
-        features_list.append(features)
+        nodes_list_batch.append(nodes)
+        elems_list_batch.append(elems)
+        features_list_batch.append(np.concatenate([f, normal_vector], axis=1))
+        nodes_measure_list_batch.append(compute_node_measures(nodes, elems)[:,0])
+        if index%n_batch == n_batch - 1 or index == n_data - 1:
+            nodes_batch_array = np.stack(nodes_list_batch, axis=0)
+            elems_batch_array = np.stack(elems_list_batch, axis=0)
+            features_batch_array = np.stack(features_list_batch, axis=0)
+            nodes_measure_list_array = np.stack(nodes_measure_list_batch, axis=0)
+            nodes_list_batch = []
+            elems_list_batch = []
+            features_list_batch = []
+            nodes_measure_list_batch = []
+            g_batch = curve_integral_g_batch(nodes_batch_array, features_batch_array[..., 0:1], kernel_type,
+                                              nodes_measure_list_array, normal_vector=features_batch_array[..., 1:], approaching_direction= approaching_direction)
+            features_batch_array = np.concatenate([features_batch_array, g_batch], axis=-1)
+            for b in range(nodes_batch_array.shape[0]):
+                nodes_list.append(nodes_batch_array[b])
+                elems_list.append(elems_batch_array[b])
+                features_list.append(features_batch_array[b])
     return nodes_list, elems_list, features_list
 
 def combine_nodes_and_elems(nodes1, nodes2, elems1, elems2, f1, f2, normal_vector1=None, normal_vector2=None):
@@ -254,26 +245,6 @@ def combine_nodes_and_elems(nodes1, nodes2, elems1, elems2, f1, f2, normal_vecto
         normal_vector = None
     return nodes, elems, f, normal_vector
 
-# def generate_curves_data_test(n_data, N, k_curve=4):
-#     nodes_list = []
-#     elems_list = []
-#     features_list = []
-#     for _ in tqdm(range(n_data), desc="Generating curves data"):
-#         nodes = random_polar_curve(N, k=k_curve)
-#         elems = sequential_elems(N)
-
-#         normal_vector = compute_unit_normals(nodes)
-
-#         f1 = nodes[:, 0:1] + nodes[:, 1:2]  # Use x-coordinate as feature
-#         g1 = curve_integral_g(nodes, f1, 'grad_log', compute_node_measures(nodes, elems)[:,0], normal_vector=normal_vector, approaching_direction = 'interior')
-#         f2 = np.sum(normal_vector, axis=1, keepdims=True)
-#         g2 = curve_integral_g(nodes, f2, 'log', compute_node_measures(nodes, elems)[:,0], approaching_direction = 'interior')
-#         g = -(- g1 + g2)/(2*np.pi)
-#         features = np.concatenate([f1, g], axis=1)
-#         nodes_list.append(nodes)
-#         elems_list.append(elems)
-#         features_list.append(features)
-#     return nodes_list, elems_list, features_list
 
 
 def visualize_curve(nodes, features, elems, figurename = ''):
@@ -328,6 +299,7 @@ if __name__ == "__main__":
     # np.random.seed(10000)
     epsilon = 0.03
     n_data = 1
+    n_batch = 1
     N = 1000
     r0_scale = 1
     freq_scale = 1
@@ -337,8 +309,8 @@ if __name__ == "__main__":
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
-    nodes_list, elems_list, features_list = generate_curves_data(
-        n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
+    nodes_list, elems_list, features_list = generate_curves_data_batch(
+        n_data, n_batch, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
                                                                 #   kernel_type='inv',
                                                                 kernel_type = kernel_type,
                                                                 combine = True,
@@ -353,7 +325,6 @@ if __name__ == "__main__":
     visualize_curve(nodes_list[0], features_list[0], elems_list[0]
                     # , figurename = f'figures/deformed.png'
                     )
-
     # np.random.seed(100)
     # nodes_list_t, elems_list_t, features_list_t = generate_curves_data(n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
     #                                                             #   kernel_type='inv',

@@ -2,6 +2,7 @@ import numpy as np
 from math import prod
 from tqdm import tqdm
 from typing import List, Set, Union
+from scipy.spatial import cKDTree
 
 def compute_triangle_area_(points:np.ndarray) -> float:
     ab = points[1, :] - points[0,:]
@@ -951,3 +952,77 @@ def compute_length_scales(nnodes:np.ndarray, nodes: np.ndarray) -> np.ndarray:
         Ls[i, :] = np.amax(node_slice, axis=0) - np.amin(node_slice, axis=0)
 
     return np.max(Ls, axis=0) 
+
+
+def sample_close_node_pairs(nodes:np.ndarray, nnodes:np.ndarray, node_weights:np.ndarray, dist_threshold:float, max_nedges:int, seed:int=42):
+    """
+    Compute directed edges between nodes that are within a specified distance threshold (dist).
+    This function uses KDTree to efficiently find all node pairs
+    
+        Parameters:
+            nodes float[ndata, max_nnodes, ndims]: Array of node coordinates with shape, padding with 0 
+                            (ndata, max_nnodes, ndims), where:
+                            - ndata: number of data samples in the batch
+                            - max_nnodes: maximum number of nodes across all samples
+                            - ndims: dimensionality of node coordinates
+
+            nnodes int[ndata]: Array specifying the actual number of nodes for each data sample
+
+            node_weights float[ndata, max_nnodes, nmeasures]: Array of node weights
+
+            dist_threshold (float): Distance threshold. Node pairs with Euclidean distance less than this
+                        value will be considered as connected
+            
+            max_nedges (int): max number of edges
+        
+        Returns:
+            directed_edges int[ndata, max_nedges, 2, nmeasures]: Directed edge array with distance less than dist, padding with 0.
+
+            nedges int[ndata, nmeasures]: Array specifying the actual number of edges for each data sample.
+
+    """
+    np.random.seed(seed)
+    print("Preprocessing data : computing close_node_pairs")
+
+    ndata, max_nnodes, ndims = nodes.shape
+    _, _, nmeasures = node_weights.shape
+    # (target, source), source node weight
+    directed_edges = np.zeros((ndata, max_nedges, 2, nmeasures),dtype=int)
+    nedges = np.zeros((ndata, nmeasures),dtype=int)
+    directed_edge_node_weights = np.zeros((ndata, max_nedges, nmeasures),dtype=float)
+    for i in tqdm(range(ndata)):
+        for m in range(nmeasures):
+            # TODO use all nodes for different measures temporarily
+            ave_nedges = max_nedges // nnodes[i]
+            tree = cKDTree(nodes[i, :nnodes[i], :])
+            # list of list, per_node_indexes[i] contains node i's neighbors
+            # pairs = tree.query_pairs(dist_threshold, p=2., eps=0, output_type='set')
+            # per_node_indexes = [[] for _ in range(nnodes[i])]
+            # for idx1, idx2 in pairs:
+            #     per_node_indexes[idx1].append(idx2)
+            #     per_node_indexes[idx2].append(idx1)
+            # TODO including self edge (j,j)
+            per_node_indexes = tree.query_ball_tree(tree, dist_threshold, p=2., eps=0)
+
+            per_node_nindexes = [len(indexes) for indexes in per_node_indexes]
+            per_node_nedges = [min(nindexes, ave_nedges) for nindexes in per_node_nindexes]   
+            # reduce size, update source node weight
+            for j in range(nnodes[i]):
+                indexes = per_node_indexes[j]
+                neighbors = indexes if(per_node_nindexes[j] == per_node_nedges[j]) else np.random.choice(indexes, per_node_nedges[j], replace=False) 
+                
+                scaled_factor = np.sum(node_weights[i, indexes, m])/np.sum(node_weights[i, neighbors, m])
+                directed_edges[i, nedges[i,m]:nedges[i,m]+per_node_nedges[j],:,m] = np.column_stack((np.full(per_node_nedges[j], j), neighbors))  # n by 2 array 
+                directed_edge_node_weights[i, nedges[i,m]:nedges[i,m]+per_node_nedges[j],m] = node_weights[i, neighbors, m] * scaled_factor     # n vector
+                nedges[i,m] += per_node_nedges[j]
+                
+            
+    
+    max_nedges = np.max(nedges)
+
+    print("maximum number of close node pairs is ", max_nedges)
+    
+    return directed_edges[:,:max_nedges,...], nedges, directed_edge_node_weights[:,:max_nedges,...]
+
+
+

@@ -161,7 +161,7 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
                 if normal_vector is not None and kernel_type == 'grad_log':
                     kxy = np.einsum('bd,bd -> b', kernel_batch(x, y, kernel_type), normal_vector[:, j])
                 else:
-                    kxy = kernel_batch(x, y, kernel_type)
+                    kxy = kernel_batch(x, y, kernel_type).reshape(-1)
                 g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
         if approaching_direction is not None and kernel_type == 'grad_log':
             if approaching_direction == 'interior':
@@ -180,6 +180,10 @@ def kernel_batch(x, y, kernel_type = 'log'):
         diff = y - x
         norm_sq = np.sum(diff**2, axis=1) + 1e-6
         return diff / norm_sq[:, None]
+    elif kernel_type == 'stokes':
+        diff = y - x
+        norm_sq = np.sum(diff**2, axis=1) + 1e-6
+        return diff[:,0:1] * diff[:,1:2]/ norm_sq[:, None]
     else:
         raise ValueError("Unknown kernel type")
 
@@ -296,16 +300,16 @@ def visualize_curve(nodes, features, elems, figurename = ''):
 
 
 if __name__ == "__main__":
-    # np.random.seed(10000)
+    np.random.seed(10000)
     epsilon = 0.03
-    n_data = 1
-    n_batch = 1
-    N = 1000
+    n_data = 4
+    n_batch = 2
+    N = 100
     r0_scale = 1
     freq_scale = 1
     k_curve = 5
     k_feature = 5
-    kernel_type = 'grad_log'
+    kernel_type = 'stokes'
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
@@ -313,7 +317,7 @@ if __name__ == "__main__":
         n_data, n_batch, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
                                                                 #   kernel_type='inv',
                                                                 kernel_type = kernel_type,
-                                                                combine = True,
+                                                                combine = False,
                                                                 deform = deform, 
                                                                 deform_configs = deform_configs
                                                                 #approaching_direction = 'interior'
@@ -323,8 +327,9 @@ if __name__ == "__main__":
     print("features_list(array) shape:", np.array(features_list).shape)
     # np.savez(f"../../data/curve/curve_data_{k_curve}_{k_feature}.npz", nodes_list=nodes_list, elems_list=elems_list, features_list=features_list)
     visualize_curve(nodes_list[0], features_list[0], elems_list[0]
-                    # , figurename = f'figures/deformed.png'
+                    , figurename = f'figures/stokes1.png'
                     )
+    # print(elems_list[0])
     # np.random.seed(100)
     # nodes_list_t, elems_list_t, features_list_t = generate_curves_data(n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
     #                                                             #   kernel_type='inv',

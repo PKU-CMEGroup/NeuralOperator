@@ -10,7 +10,8 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.pcno_geo_split import compute_Fourier_modes, PCNO, PCNO_train
+
 torch.set_printoptions(precision=16)
 
 
@@ -36,7 +37,7 @@ except IndexError:
 data_path = "../../data/curve/"
 if PREPROCESS_DATA:
     print("Loading data")
-    nodes_list, elems_list, features_list  = load_data(data_file_path = data_path + "curve_data_3_3.npz")
+    nodes_list, elems_list, features_list  = load_data(data_file_path = data_path + "curve_data_3_3_grad.npz")
 
     print("Preprocessing data")
     nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "vertex_centered", adjacent_type="edge")
@@ -58,17 +59,11 @@ else:
     data = np.load(data_file_path)
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
-    ####################
-    ##   measure 1
-    print('use normalized raw measures')
+    # node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
     node_weights = data["node_measures_raw"]
+    # print('use node_weight')
     node_weights = node_weights/np.amax(np.sum(node_weights, axis = 1))
-    ####################
-    ##   measure 2
-    # print('use L normalized measures')
-    # _, node_weights = compute_unnormalized_node_measures(nnodes, data["node_measures_raw"], measure_dims=[1], Ls=[2.5,2.5])
-    ####################
-
+    print('use normalized raw measures')
     node_measures = data["node_measures"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
     features = data["features"]
@@ -94,6 +89,7 @@ nodes_input = nodes.clone()
 n_train, n_test = 900, 100
 
 
+
 x_train = torch.cat((features[:n_train, ...][...,[0,1,2]], features[:n_train, ...][...,[1,2]]*features[:n_train, ...][...,[0]], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
 x_test  = torch.cat((features[-n_test:, ...][...,[0,1,2]], features[-n_test:, ...][...,[1,2]]*features[-n_test:, ...][...,[0]], nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
 
@@ -102,28 +98,37 @@ y_train, y_test = (features[:n_train, ...][...,[3]], features[-n_test:, ...][...
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 
+
+
 print(f'x_train shape {x_train.shape}, y_train shape {y_train.shape}')
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)
-k_max = 8
-
-print(f'kmax = {k_max}')
-ndim = 2
 train_inv_L_scale = False
-L = 10
-print("L = ", L)
+k_max = 16
 ndim = 2
+print(f'kmax = {k_max}')
 
+# scale = 1
+# min_dir_fraction = 0.3
+# modes = discrete_half_ball_modes(ndim, k_max, scale, min_dir_fraction = min_dir_fraction)[...,np.newaxis]*k_max*2*np.pi/5
+# print('use sphere modes, scale = {scale}, min_dir_fraction = {min_dir_fraction}', modes.shape)
+L = 10
+modes = compute_Fourier_modes(ndim, [k_max,k_max], [L,L])
+print(f'L = {L}')
 
-modes = compute_Fourier_modes(ndim, [k_max, k_max], [L, L])
+geo_dims = [1,2,5,6]
+print(f'geo_dims = {geo_dims}')
+
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-
-
-model = PCNO(ndim, modes, nmeasures=1,
-               layers=[128,128,128,128,128],
+model = PCNO(ndim, modes, nmeasures=1, geo_dims=geo_dims,
+               layers=[128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-               act='gelu').to(device)
+               act = "none"
+                # act = 'gelu'
+               ).to(device)
+
+
 
 epochs = 500
 base_lr = 5e-4 #0.001
@@ -148,5 +153,6 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
 
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=None
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model,
+     save_model_name = None,#"model/1_1_5_5_grad_deformed/k8_L10_normal_prod_layer2_geo2_softsign_new"
 )

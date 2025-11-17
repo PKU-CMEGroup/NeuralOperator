@@ -346,7 +346,7 @@ class PCNO(nn.Module):
         nmeasures,
         layers,
         geo_dims,
-        num_grad = 3,
+        num_grad=3,
         fc_dim=128,
         in_dim=3,
         out_dim=1,
@@ -428,10 +428,13 @@ class PCNO(nn.Module):
         self.geo_dims = geo_dims
         self.ndims = ndims
         self.in_dim = in_dim
-        self.num_grad = num_grad
         self.geodim = sum([ndims**i for i in range(num_grad + 1)])*len(geo_dims)
 
+
+        self.fc0_fn = nn.Linear(2, layers[0])
+        self.fc0_f = nn.Linear(1, layers[0])
         self.fc0 = nn.Linear(in_dim, layers[0])
+        self.fc_nx = nn.Linear(2, layers[0])
 
         self.sp_convs = nn.ModuleList(
             [
@@ -560,27 +563,34 @@ class PCNO(nn.Module):
             geo_list.append(geo)
         geo = torch.cat(geo_list, dim=1)  # float[batch_size, geo_dims*(1 + ndims + ndims*ndims + ...), nnodes]
 
+        f = x[...,:1]
+        nx = x[...,1:3]
+        fn = x[...,3:5]
 
+        f = self.fc0_f(f)
+        fn = self.fc0_fn(fn)
         x = self.fc0(x)
+        nx = self.fc_nx(nx)
+        
+        f = f.permute(0, 2, 1)
+        fn = fn.permute(0, 2, 1)
         x = x.permute(0, 2, 1)
+        nx = nx.permute(0, 2, 1)
 
         for i, (speconv, w, gw, geow1, geow2, lapw) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.geows1, self.geows2, self.lapws)):
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-            x2 = w(x)
+            x1 = speconv(fn, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+            x2 = w(f)
             
-            # geo_weight1 = self.softsign(geow1(geo))
             geo_weight1 = self.softsign(geow1(geo))
-            x3 = gw(self.softsign(compute_gradient(geo_weight1*x, directed_edges, edge_gradient_weights)))
+            x3 = gw(self.softsign(compute_gradient(geo_weight1*f, directed_edges, edge_gradient_weights)))
             # geo_weight2 = self.softsign(geow2(geo))
-            # x_lap = lapw(self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
-            # x_geo = geo_weight1*lapw(x)
-            # x = x1 + x2 + x3 + geo_weight*x
+            # x_lap = lapw(self.softsign(compute_laplacian(f, directed_edges, edge_gradient_weights)))
+            x = x1 + x2 + x3
             # x = x1 + x2 + geo_weight*x
             # x = x1 + x2 + x3 + geo_weight1*x_lap + geo_weight2*x
             # x = x1 + x2 + geo_weight1*x3 + geo_weight2*x
             # x = x1 + x2 + geo_weight1*x_lap
             # x = x1 + geo_weight1*x2 + geo_weight2*x_lap
-            x = x1 + x2 + x3
 
             if self.act is not None and i != length - 1:
                 x = self.act(x) 

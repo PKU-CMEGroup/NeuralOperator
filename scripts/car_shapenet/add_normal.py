@@ -6,7 +6,7 @@ import numpy as np
 from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 np.random.seed(0)
-import open3d as o3d
+
 from tqdm import tqdm
 data_path = "../../data/car_shapenet/car_shapenet_original"
 
@@ -22,9 +22,12 @@ def load_data(data_path):
 
 nodes_list, elems_list, features_list  = load_data(data_path = data_path)
 
-# 使用open3d计算nodes, elems的法向量，并提供可视化。这是三维空间中的二维流形
 
 def compute_normals_with_open3d(nodes, elems):
+    try:
+        import open3d as o3d
+    except ImportError:
+        raise ImportError("open3d is not installed. Please install it to compute normals.")
     mesh = o3d.geometry.TriangleMesh()
     mesh.vertices = o3d.utility.Vector3dVector(nodes)
     mesh.triangles = o3d.utility.Vector3iVector(elems)
@@ -34,6 +37,10 @@ def compute_normals_with_open3d(nodes, elems):
 
 # 提供可视化
 def visualize_mesh_with_normals(nodes, elems, normals):
+    try:
+        import open3d as o3d
+    except ImportError:
+        raise ImportError("open3d is not installed. Please install it to compute normals.")
     mesh = o3d.geometry.TriangleMesh()
     mesh.vertices = o3d.utility.Vector3dVector(nodes)
     mesh.triangles = o3d.utility.Vector3iVector(elems)

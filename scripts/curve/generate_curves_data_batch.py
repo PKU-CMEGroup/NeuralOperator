@@ -33,14 +33,18 @@ def random_polar_curve(N, k=4, r0_scale = 1, freq_scale = 1, deform = True, defo
 
 def deform_rbf(nodes, M=50, sigma=1, epsilon = 0.1, bbox=[-3,3,-3,3]):
     """
-    M: 基函数个数
-    bbox: [xmin,xmax,ymin,ymax]  基心采样区域
-    sigma: 高斯半径
+    M: number of RBF centers
+    bbox: [xmin,xmax,ymin,ymax]  sampling region for centers
+    sigma: Gaussian radius
 
     rbf(x) = sum_{i=1}^{M} w_i exp(-||x-c_i||^2/(2*sigma^2))
     weights w_i ~ N(0,1) * U(0.2,1.0)
     nodes <- nodes + epsilon * rbf(nodes)
 
+    Args:
+        nodes: (N,2)
+    Returns:
+        nodes_deformed: (N,2)
     """
 
     xmin,xmax,ymin,ymax = bbox
@@ -61,7 +65,19 @@ def deform_rbf(nodes, M=50, sigma=1, epsilon = 0.1, bbox=[-3,3,-3,3]):
         u = u / (np.linalg.norm(weights, axis=1).mean() + 1e-8)
         return u
 
-    return nodes + epsilon * field(nodes)
+
+    for _ in range(10):
+        nodes = nodes + epsilon/10 * field(nodes)
+
+    x_abs_max = np.amax(np.abs(nodes[:,0]))
+    y_abs_max = np.amax(np.abs(nodes[:,1]))
+    if x_abs_max > 2.5:
+        eps = np.random.uniform(0.0, 0.2)
+        nodes[:,0] = nodes[:,0] / (x_abs_max / xmax) * (1-eps)
+    if y_abs_max > 2.5:
+        eps = np.random.uniform(0.0, 0.2)
+        nodes[:,1] = nodes[:,1] / (y_abs_max / ymax) * (1-eps)
+    return nodes
 
 def sequential_elems(N):
     """
@@ -86,15 +102,62 @@ def sequential_elems(N):
     elems = np.stack([np.full(N, elem_dim, dtype=int), idx, next_idx], axis=1)
     return elems
 
-def smooth_feature_f(N, k=6):
-    t = np.linspace(0, 2 * np.pi, N, endpoint=False)
-    f = np.zeros(N)
-    for i in range(1, k + 1):
-        a_sin = np.random.uniform(0.5, 1.5)/math.sqrt(i)
-        a_cos = np.random.uniform(0.5, 1.5)/math.sqrt(i)
-        f += a_sin * np.sin(i * t) + a_cos * np.cos(i * t)
-    f = np.tanh(f) + 0.5 * np.sin(f)
-    return f.reshape(-1, 1)
+
+def smooth_feature_f(points, f_random_config):
+    '''
+    points: (N,2)
+    f_random_config: list of str, e.g. ["1d", "2d"]
+    Returns:
+    f: (N, len(f_random_config))
+    '''
+    def smooth_feature_f_2d(points, M = 200, sigma = (0.5, 1.5)):
+        '''
+        points: (N,2)
+        Returns:
+        f: (N,1)
+        '''
+
+        xmin, xmax = points[:,0].min(), points[:,0].max()
+        ymin, ymax = points[:,1].min(), points[:,1].max()
+        centers = np.column_stack([
+            np.random.uniform(xmin-1, xmax+1, size=M),
+            np.random.uniform(ymin-1, ymax+1, size=M),
+        ])
+
+        if isinstance(sigma, (list, tuple)):
+            sigmas = np.random.uniform(sigma[0], sigma[1], size=(1, M))
+        else:
+            sigmas = np.full((1, M), sigma)
+
+        weights = np.random.randn(M, 1)
+        weights *= np.random.uniform(0.2, 1, size=(M,1))
+        d2 = np.sum((points[:, None, :] - centers[None, :, :])**2, axis=2)  # (N,M)
+        K = np.exp(-0.5 * d2 / (sigmas**2))  # (N,M)
+        f = K.dot(weights)  # (N,1)
+        f = np.tanh(f) + 0.5 * np.sin(f) + 0.2*f
+        return f
+
+
+    def smooth_feature_f_1d(N, k=6):
+        t = np.linspace(0, 2 * np.pi, N, endpoint=False)
+        f = np.zeros(N)
+        for i in range(1, k + 1):
+            a_sin = np.random.uniform(0.5, 1.5)/math.sqrt(i)
+            a_cos = np.random.uniform(0.5, 1.5)/math.sqrt(i)
+            f += a_sin * np.sin(i * t) + a_cos * np.cos(i * t)
+        f = np.tanh(f) + 0.5 * np.sin(f)
+        return f.reshape(-1, 1)
+
+    N = points.shape[0]
+
+    if f_random_config[0] == "1d":
+        f = smooth_feature_f_1d(N, k = f_random_config[1])  # (N,1)
+    elif f_random_config[0] == "2d":
+        f = smooth_feature_f_2d(points)  # (N,1)
+    else:
+        raise ValueError("Unknown f_random_config")
+
+    return f
 
 def compute_unit_normals(nodes):
     """
@@ -186,8 +249,82 @@ def kernel_batch(x, y, kernel_type = 'log'):
         return diff[:,0:1] * diff[:,1:2]/ norm_sq[:, None]
     else:
         raise ValueError("Unknown kernel type")
+    
+def curve_integral_g(nodes, f, kernel_type, node_measure, normal_vector=None, approaching_direction=None):
+    """
+    Computes the integral of a kernel function over a set of nodes, optionally using the normal vector for differentiation.
+    This function evaluates either:
+        ∫ k(x, y) g(y) dy
+    or
+        ∫ ∂_n_y k(x, y) g(y) dy
+    depending on whether the normal_vector is provided.
+    Args:
+        nodes (np.ndarray): Array of node coordinates with shape (N, ndim).
+        f (np.ndarray): Function values at each node, shape (N, 1).
+        kernel_type (str): Type of kernel to use in the computation.
+        node_measure (np.ndarray): Measure (e.g., weight or length) associated with each node, shape (N,).
+        normal_vector (np.ndarray, optional): Normal vectors at each node, shape (N, ndim). If provided, computes the normal derivative of the kernel.
+    Returns:
+        np.ndarray: Resulting integral values at each node, shape (N, 1).
+    """
+    N = nodes.shape[0]
+    g = np.zeros((N, 1))
+    for i in range(N):
+        x = nodes[i]
+        for j in range(N):
+            if j != i:
+                y = nodes[j]
+                if normal_vector is not None and kernel_type.startswith('grad_log'):
+                    kxy = np.dot(kernel(x, y, kernel_type), normal_vector[j])
+                else:
+                    kxy = kernel(x, y, kernel_type)
+                g[i, 0] += kxy * f[j, 0] * node_measure[j]
+        if approaching_direction is not None and kernel_type == 'grad_log':
+            if approaching_direction == 'interior':
+                g[i, 0] -= (-2*math.pi) * 1/2*f[i, 0]
+            elif approaching_direction == 'exterior':
+                g[i, 0] += (-2*math.pi) * 1/2*f[i, 0]
+            else:
+                raise ValueError("approaching_direction must be 'interior' or 'exterior'")
+    return g
 
-def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k_curve=4, k_feature=6, kernel_type='log', combine = True, approaching_direction = None, deform = True, deform_configs = []):
+def kernel(x, y, kernel_type = 'log'):
+    if kernel_type == 'log':
+        return np.log(np.linalg.norm(x - y)+1e-6)
+    elif kernel_type == 'log_truncated':
+        if np.linalg.norm(x - y) < epsilon:
+            return np.zeros_like(np.linalg.norm(x - y))
+        else:
+            return np.log(np.linalg.norm(x - y)+1e-6)
+    elif kernel_type == 'inv':
+        return 1.0 / (np.linalg.norm(x - y) + 1e-6)
+    elif kernel_type == 'grad_log_component1':
+        diff = y - x
+        norm_sq = np.dot(diff, diff) + 1e-8
+        return diff[0] / norm_sq
+    elif kernel_type == 'grad_log_component1_truncated':
+        diff = y - x
+        norm_sq = np.dot(diff, diff) + 1e-8
+        if np.sqrt(norm_sq) < epsilon:
+            return np.zeros_like(norm_sq)
+        else:
+            return diff[0] / norm_sq
+    elif kernel_type == 'grad_log':
+        diff = y - x
+        norm_sq = np.dot(diff, diff) + 1e-6
+        return diff / norm_sq
+    elif kernel_type == 'grad_log_truncated':
+        diff = y - x
+        norm_sq = np.dot(diff, diff) + 1e-6
+        if np.sqrt(norm_sq) < epsilon:
+            return np.zeros_like(diff / norm_sq)
+        else:
+            return diff / norm_sq
+    else:
+        raise ValueError("Unknown kernel type")
+    
+    
+def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config=["1d", 6], kernel_type='log', combine = False, approaching_direction = None, deform = True, deform_configs = []):
     nodes_list = []
     elems_list = []
     features_list = []
@@ -200,11 +337,11 @@ def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k
         elems = sequential_elems(N)
         normal_vector = compute_unit_normals(nodes)
 
-        f = smooth_feature_f(N, k=k_feature)
+        f = smooth_feature_f(nodes, f_random_config)
         if combine:
             nodes2 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
             elems2 = sequential_elems(N)
-            f2 = smooth_feature_f(N, k=k_feature)
+            f2 = smooth_feature_f(nodes2, f_random_config)
             normal_vector2 = compute_unit_normals(nodes2)
 
             nodes, elems, f, normal_vector = combine_nodes_and_elems(nodes, nodes2, elems, elems2, f, f2, normal_vector, normal_vector2)
@@ -302,7 +439,7 @@ def visualize_curve(nodes, features, elems, figurename = ''):
 if __name__ == "__main__":
     np.random.seed(10000)
     epsilon = 0.03
-    n_data = 4
+    n_data = 1
     n_batch = 2
     N = 100
     r0_scale = 1
@@ -314,7 +451,7 @@ if __name__ == "__main__":
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
     nodes_list, elems_list, features_list = generate_curves_data_batch(
-        n_data, n_batch, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, k_feature=k_feature,
+        n_data, n_batch, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config=["1d", k_feature],
                                                                 #   kernel_type='inv',
                                                                 kernel_type = kernel_type,
                                                                 combine = False,

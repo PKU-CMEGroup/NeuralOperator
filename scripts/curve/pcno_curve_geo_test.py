@@ -12,7 +12,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
 from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train
 from pcno.modes_discretization import discrete_half_ball_modes
-from generate_curves_data import compute_unit_normals
 torch.set_printoptions(precision=16)
 
 

@@ -102,13 +102,12 @@ def sequential_elems(N):
     elems = np.stack([np.full(N, elem_dim, dtype=int), idx, next_idx], axis=1)
     return elems
 
-
-def smooth_feature_f(points, f_random_config):
+def smooth_feature_f(points, f_random_config, num_features=1):
     '''
     points: (N,2)
-    f_random_config: list of str, e.g. ["1d", "2d"]
+    f_random_config: [random_dim, k(if 1d)]
     Returns:
-    f: (N, len(f_random_config))
+    f: (N, num_features)
     '''
     def smooth_feature_f_2d(points, M = 200, sigma = (0.5, 1.5)):
         '''
@@ -135,7 +134,7 @@ def smooth_feature_f(points, f_random_config):
         K = np.exp(-0.5 * d2 / (sigmas**2))  # (N,M)
         f = K.dot(weights)  # (N,1)
         f = np.tanh(f) + 0.5 * np.sin(f) + 0.2*f
-        return f
+        return f.reshape(-1)
 
 
     def smooth_feature_f_1d(N, k=6):
@@ -146,18 +145,19 @@ def smooth_feature_f(points, f_random_config):
             a_cos = np.random.uniform(0.5, 1.5)/math.sqrt(i)
             f += a_sin * np.sin(i * t) + a_cos * np.cos(i * t)
         f = np.tanh(f) + 0.5 * np.sin(f)
-        return f.reshape(-1, 1)
+        return f
 
     N = points.shape[0]
+    f_list = []
+    for _ in range(num_features):
+        if f_random_config[0] == "1d":
+            f_list.append(smooth_feature_f_1d(N, k = f_random_config[1]))  # (N)
+        elif f_random_config[0] == "2d":
+            f_list.append(smooth_feature_f_2d(points))  # (N)
+        else:
+            raise ValueError("Unknown f_random_config")
 
-    if f_random_config[0] == "1d":
-        f = smooth_feature_f_1d(N, k = f_random_config[1])  # (N,1)
-    elif f_random_config[0] == "2d":
-        f = smooth_feature_f_2d(points)  # (N,1)
-    else:
-        raise ValueError("Unknown f_random_config")
-
-    return f
+    return np.stack(f_list, axis=-1)  # (N, feature_dim)
 
 def compute_unit_normals(nodes):
     """
@@ -206,26 +206,32 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
 
     Args:
         node_list (np.ndarray): Array of node coordinates with shape (bsz, N, ndim).
-        f (np.ndarray): Function values at each node, shape (bsz, N, 1).
+        f (np.ndarray): Function values at each node, shape (bsz, N, n_feature).
         kernel_type (str): Type of kernel to use in the computation.
         node_measure (np.ndarray): Measure (e.g., weight or length) associated with each node, shape (bsz, N,).
         normal_vector (np.ndarray, optional): Normal vectors at each node, shape (bsz, N, ndim). If provided, computes the normal derivative of the kernel.
     Returns:
-        np.ndarray: Resulting integral values at each node, shape (bsz, N, 1).
+        np.ndarray: Resulting integral values at each node, shape (bsz, N, n_feature).
     """
     bsz = nodes_list.shape[0]
     N = nodes_list.shape[1]
-    g = np.zeros((bsz, N, 1))
+    g = np.zeros_like(f_list)
     for i in range(N):
         x = nodes_list[:, i]
         for j in range(N):
             if j != i:
                 y = nodes_list[:, j]
-                if normal_vector is not None and kernel_type == 'grad_log':
+                if kernel_type == 'grad_log':
                     kxy = np.einsum('bd,bd -> b', kernel_batch(x, y, kernel_type), normal_vector[:, j])
+                    g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
+                elif kernel_type == 'stokes':
+                    kxy = kernel_batch(x, y, kernel_type)
+                    kxy = kxy.reshape(kxy.shape[0], 2 , 2)
+                    g[:, i] +=  np.einsum('bik,bk->bi', kxy, f_list[:, j])*node_measure_list[:, j].reshape(-1,1)
                 else:
                     kxy = kernel_batch(x, y, kernel_type).reshape(-1)
-                g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
+                    g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
+                
         if approaching_direction is not None and kernel_type == 'grad_log':
             if approaching_direction == 'interior':
                 g[:, i, 0] -= (-2*math.pi) * 1/2*f_list[:, i, 0]
@@ -237,89 +243,24 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
 
 
 def kernel_batch(x, y, kernel_type = 'log'):
+    '''
+    x,y: (bsz, 2)
+    Returns:
+    kxy: (bsz, n_kernel)
+    '''
     if kernel_type == 'log':
-        return np.log(np.linalg.norm(x - y, axis=1)+1e-6)
+        return np.log(np.linalg.norm(x - y, axis=1, keepdims=True)+1e-6)*(-1/(2*math.pi))
     elif kernel_type == 'grad_log':
         diff = y - x
         norm_sq = np.sum(diff**2, axis=1) + 1e-6
-        return diff / norm_sq[:, None]
+        return diff / norm_sq[:, None]*(-1/(2*math.pi))
     elif kernel_type == 'stokes':
         diff = y - x
         norm_sq = np.sum(diff**2, axis=1) + 1e-6
-        return diff[:,0:1] * diff[:,1:2]/ norm_sq[:, None]
-    else:
-        raise ValueError("Unknown kernel type")
-    
-def curve_integral_g(nodes, f, kernel_type, node_measure, normal_vector=None, approaching_direction=None):
-    """
-    Computes the integral of a kernel function over a set of nodes, optionally using the normal vector for differentiation.
-    This function evaluates either:
-        ∫ k(x, y) g(y) dy
-    or
-        ∫ ∂_n_y k(x, y) g(y) dy
-    depending on whether the normal_vector is provided.
-    Args:
-        nodes (np.ndarray): Array of node coordinates with shape (N, ndim).
-        f (np.ndarray): Function values at each node, shape (N, 1).
-        kernel_type (str): Type of kernel to use in the computation.
-        node_measure (np.ndarray): Measure (e.g., weight or length) associated with each node, shape (N,).
-        normal_vector (np.ndarray, optional): Normal vectors at each node, shape (N, ndim). If provided, computes the normal derivative of the kernel.
-    Returns:
-        np.ndarray: Resulting integral values at each node, shape (N, 1).
-    """
-    N = nodes.shape[0]
-    g = np.zeros((N, 1))
-    for i in range(N):
-        x = nodes[i]
-        for j in range(N):
-            if j != i:
-                y = nodes[j]
-                if normal_vector is not None and kernel_type.startswith('grad_log'):
-                    kxy = np.dot(kernel(x, y, kernel_type), normal_vector[j])
-                else:
-                    kxy = kernel(x, y, kernel_type)
-                g[i, 0] += kxy * f[j, 0] * node_measure[j]
-        if approaching_direction is not None and kernel_type == 'grad_log':
-            if approaching_direction == 'interior':
-                g[i, 0] -= (-2*math.pi) * 1/2*f[i, 0]
-            elif approaching_direction == 'exterior':
-                g[i, 0] += (-2*math.pi) * 1/2*f[i, 0]
-            else:
-                raise ValueError("approaching_direction must be 'interior' or 'exterior'")
-    return g
-
-def kernel(x, y, kernel_type = 'log'):
-    if kernel_type == 'log':
-        return np.log(np.linalg.norm(x - y)+1e-6)
-    elif kernel_type == 'log_truncated':
-        if np.linalg.norm(x - y) < epsilon:
-            return np.zeros_like(np.linalg.norm(x - y))
-        else:
-            return np.log(np.linalg.norm(x - y)+1e-6)
-    elif kernel_type == 'inv':
-        return 1.0 / (np.linalg.norm(x - y) + 1e-6)
-    elif kernel_type == 'grad_log_component1':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-8
-        return diff[0] / norm_sq
-    elif kernel_type == 'grad_log_component1_truncated':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-8
-        if np.sqrt(norm_sq) < epsilon:
-            return np.zeros_like(norm_sq)
-        else:
-            return diff[0] / norm_sq
-    elif kernel_type == 'grad_log':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-6
-        return diff / norm_sq
-    elif kernel_type == 'grad_log_truncated':
-        diff = y - x
-        norm_sq = np.dot(diff, diff) + 1e-6
-        if np.sqrt(norm_sq) < epsilon:
-            return np.zeros_like(diff / norm_sq)
-        else:
-            return diff / norm_sq
+        k11 = -np.log(np.sqrt(norm_sq)+1e-6) + diff[:,0:1]*diff[:,0:1]/norm_sq[:, None]
+        k12 = diff[:,0:1]*diff[:,1:2]/norm_sq[:, None]
+        k22 = -np.log(np.sqrt(norm_sq)+1e-6) + diff[:,1:2]*diff[:,1:2]/norm_sq[:, None]
+        return np.concatenate([k11, k12, k12, k22], axis=1)/(4*math.pi)
     else:
         raise ValueError("Unknown kernel type")
     

@@ -1,6 +1,7 @@
 import os
 import torch
 import sys
+import argparse
 
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -54,7 +55,7 @@ if PREPROCESS_DATA:
 else:
     # load data 
     equal_weights = False
-    data_file_path = data_path+"/pcno_curve_data_1_1_5_5_grad_deformed.npz"
+    data_file_path = data_path+"/pcno_curve_data_1_1_5_2d_grad_log_panel.npz"
     print("Loading data from ", data_file_path, flush = True)
     data = np.load(data_file_path)
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -72,6 +73,22 @@ else:
     indices = np.isfinite(node_measures_raw)
     node_rhos = np.copy(node_weights)
     node_rhos[indices] = node_rhos[indices]/node_measures[indices]
+
+
+parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
+
+parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
+parser.add_argument('--geo', type=str, default='False', choices=['True', 'False'])
+parser.add_argument('--lap', type=str, default='False', choices=['True', 'False'])
+parser.add_argument('--geo_dims', type=int, nargs='+', default=None)
+parser.add_argument('--k_max', type=int, default=16)
+parser.add_argument('--act', type=str, default="none")
+parser.add_argument('--layers', type=int, nargs='+', default=[128, 128])
+parser.add_argument('--normal_prod', type=str, default='False', choices=['True', 'False'])
+
+args = parser.parse_args()
+layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'lap': args.lap.lower() == "true"}
+normal_prod = args.normal_prod.lower() == "true"
 
 print("Casting to tensor",flush = True)
 nnodes = torch.from_numpy(nnodes)
@@ -93,46 +110,70 @@ n_train, n_test = 900, 100
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 
-x_train = torch.cat((features[:n_train, ...][...,[0,1,2]], features[:n_train, ...][...,[1,2]]*features[:n_train, ...][...,[0]], nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-x_test  = torch.cat((features[-n_test:, ...][...,[0,1,2]], features[-n_test:, ...][...,[1,2]]*features[-n_test:, ...][...,[0]], nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
+if normal_prod:
+    x_train = torch.cat((features[:n_train, ...][...,[0,1,2]],
+                        features[:n_train, ...][...,[1,2]]*features[:n_train, ...][...,[0]],
+                            nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
+    x_test  = torch.cat((features[-n_test:, ...][...,[0,1,2]],
+                        features[-n_test:, ...][...,[1,2]]*features[-n_test:, ...][...,[0]],
+                            nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
+else:
+    x_train = torch.cat((features[:n_train, ...][...,[0,1,2]],
+                          nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
+    x_test  = torch.cat((features[-n_test:, ...][...,[0,1,2]],
+                          nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
 
 y_train, y_test = (features[:n_train, ...][...,[3]], features[-n_test:, ...][...,[3]])
 
 print(f'x_train shape {x_train.shape}, y_train shape {y_train.shape}')
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)
-train_inv_L_scale = False
-k_max = 16
-ndim = 2
-print(f'kmax = {k_max}')
 
-# scale = 1
-# min_dir_fraction = 0.3
-# modes = discrete_half_ball_modes(ndim, k_max, scale, min_dir_fraction = min_dir_fraction)[...,np.newaxis]*k_max*2*np.pi/5
-# print('use sphere modes, scale = {scale}, min_dir_fraction = {min_dir_fraction}', modes.shape)
+
+
+
+##########################################
+train_inv_L_scale = False
+k_max = args.k_max
+ndim = 2
 L = 10
+scale = 0
+layers = args.layers
+geo_dims = args.geo_dims if args.geo_dims is not None else [1,2,5,6] if normal_prod else [1,2,3,4]
+act = args.act
+###########################################
+
+
+
+
 modes = compute_Fourier_modes(ndim, [k_max,k_max], [L,L])
-print(f'L = {L}')
+
 def nonlinear_scale(modes, scale=1.0):
     norms = np.linalg.norm(modes, axis=1)
     max_norm = norms.max()
     scaled_norms = (norms / max_norm) ** scale
     modes_scaled = modes * scaled_norms[:, np.newaxis]
     return modes_scaled
-scale = 0
-modes = nonlinear_scale(modes, scale=scale)
-print(f'use cube modes, scale = {scale}', modes.shape)
 
-geo_dims = [1,2,5,6]
+modes = nonlinear_scale(modes, scale=scale)
+
+print(f'kmax = {k_max}')
+print(f'L = {L}')
+print(f'use cube modes, scale = {scale}', modes.shape)
+print(f'normal_prod = {normal_prod}')
 print(f'geo_dims = {geo_dims}')
+print(f'layer_selection = {layer_selection}')
+print(f'layers = {layers}')
+print(f'activation = {act}')
+
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1, geo_dims=geo_dims,
-               layers=[128,128],
+model = PCNO(ndim, modes, nmeasures=1, geo_dims=geo_dims, 
+               layer_selection = layer_selection,
+               layers=layers,
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-            #    act = "none"
-                act = 'none'
+                act = act
                ).to(device)
 
 

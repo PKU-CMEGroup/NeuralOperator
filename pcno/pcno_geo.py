@@ -346,6 +346,7 @@ class PCNO(nn.Module):
         nmeasures,
         layers,
         geo_dims,
+        layer_selection = {'grad': True, 'geo': False, 'lap': False},
         num_grad = 3,
         fc_dim=128,
         in_dim=3,
@@ -421,7 +422,7 @@ class PCNO(nn.Module):
         self.register_buffer('modes', modes) 
         self.nmeasures = nmeasures
         
-
+        self.layer_selection = layer_selection
         self.layers = layers
         self.fc_dim = fc_dim
 
@@ -472,6 +473,12 @@ class PCNO(nn.Module):
             ]
         )
         self.lapws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size, out_size, 1)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
+        self.w2s = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
@@ -556,31 +563,35 @@ class PCNO(nn.Module):
         geo = x[..., self.geo_dims].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]
         geo_list = [geo]
         for _ in range(self.num_grad):
-            geo = compute_gradient(geo.clone(), directed_edges, edge_gradient_weights)  # float[batch_size, geo_dims*ndims, nnodes]
-            geo_list.append(geo)
+            geo = compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights)  # float[batch_size, geo_dims*ndims, nnodes]
+            geo_list.append(geo.clone())
         geo = torch.cat(geo_list, dim=1)  # float[batch_size, geo_dims*(1 + ndims + ndims*ndims + ...), nnodes]
-
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw, geow1, geow2, lapw) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.geows1, self.geows2, self.lapws)):
+        for i, (speconv, w, w2, gw, geow1, geow2, lapw) in enumerate(zip(self.sp_convs, self.ws, self.w2s, self.gws, self.geows1, self.geows2, self.lapws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             
-            # geo_weight1 = self.softsign(geow1(geo))
-            geo_weight1 = self.softsign(geow1(geo))
-            x3 = gw(self.softsign(compute_gradient(geo_weight1*x, directed_edges, edge_gradient_weights)))
-            # geo_weight2 = self.softsign(geow2(geo))
-            # x_lap = lapw(self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
-            # x_geo = geo_weight1*lapw(x)
-            # x = x1 + x2 + x3 + geo_weight*x
-            # x = x1 + x2 + geo_weight*x
-            # x = x1 + x2 + x3 + geo_weight1*x_lap + geo_weight2*x
-            # x = x1 + x2 + geo_weight1*x3 + geo_weight2*x
-            # x = x1 + x2 + geo_weight1*x_lap
-            # x = x1 + geo_weight1*x2 + geo_weight2*x_lap
-            x = x1 + x2 + x3
+            if self.layer_selection['grad']:
+                x_grad = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
+            else:
+                x_grad = 0
+
+            if self.layer_selection['geo']:
+                geo_weight1 = self.softsign(geow1(geo))
+                x_geo = geo_weight1*w2(x)
+            else:
+                x_geo = 0
+
+            if self.layer_selection['lap']:
+                geo_weight2 = self.softsign(geow2(geo))
+                x_lap = geo_weight2*lapw(self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
+            else:
+                x_lap = 0
+            
+            x = x1 + x2 + x_grad + x_geo + x_lap
 
             if self.act is not None and i != length - 1:
                 x = self.act(x) 

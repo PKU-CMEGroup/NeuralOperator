@@ -146,11 +146,13 @@ def assess_curve_quality(nodes):
     short_edges_count = np.sum(edge_lengths < (mean_edge_lens[:, None] * short_edge_threshold_ratio), axis=1)
     
     # 极长边检测
-    long_edge_threshold_ratio = 5.0
+    long_edge_threshold_ratio = 10.0
     long_edges_count = np.sum(edge_lengths > (mean_edge_lens[:, None] * long_edge_threshold_ratio), axis=1)
     print(f"   - Average Mean Edge Length: {np.mean(mean_edge_lens):.6f}")
-    print(f"   - Samples with short edges: {np.sum(short_edges_count > 0)}")
-    print(f"   - Samples with long edges: {np.sum(long_edges_count > 0)}")
+    print(f"   - Total short edges: {np.sum(short_edges_count)}")
+    print(f"   - Samples with short edges (<10% mean): {np.sum(short_edges_count > 0)}")
+    print(f"   - Total long edges: {np.sum(long_edges_count)}")
+    print(f"   - Samples with long edges (>10x mean): {np.sum(long_edges_count > 0)}")
 
     # 2. 计算转角 (Turning Angles)
     # ------------------------------------------------
@@ -173,8 +175,8 @@ def assess_curve_quality(nodes):
     max_turning_angles = np.max(turning_angles_deg, axis=1)
     mean_turning_angles = np.mean(turning_angles_deg, axis=1)
     
-    # 尖角检测 (比如大于 120 度)
-    sharp_angle_threshold = 120
+    # 尖角检测
+    sharp_angle_threshold = 30
     sharp_angles_count = np.sum(turning_angles_deg > sharp_angle_threshold, axis=1)
     
     # 折返检测 (比如大于 170 度)
@@ -182,7 +184,7 @@ def assess_curve_quality(nodes):
     reversals_count = np.sum(turning_angles_deg > reversal_threshold, axis=1)
 
     print(f"   - Average Max Turning Angle: {np.mean(max_turning_angles):.2f} deg")
-    print(f"   - Samples with sharp angles (>120): {np.sum(sharp_angles_count > 0)}")
+    print(f"   - Samples with sharp angles (>30): {np.sum(sharp_angles_count > 0)}")
     print(f"   - Samples with reversals (>170): {np.sum(reversals_count > 0)}")
 
     # 3. 自相交检测 (Self-Intersections)
@@ -202,33 +204,26 @@ def assess_curve_quality(nodes):
     # 4. 综合评分与报告
     # ------------------------------------------------
     print("4. Generating Severity Scores...")
-    # 定义一些简单的启发式规则来判断"严重程度"
-    # 严重问题: 自相交 > 0, 极短边很多, 出现折返
-    
+
     severity_score = np.zeros(B)
     
     # 自相交非常严重
-    severity_score += intersection_counts * 100 
-    print(f"   - Average Intersections per Sample: {np.mean(intersection_counts):.3f}")
+    severity_score += intersection_counts * 1000
 
     # 折返很严重
-    severity_score += reversals_count * 50
-    print(f"   - Average Reversals per Sample: {np.mean(reversals_count):.3f}")
+    severity_score += reversals_count * 500
 
     # 尖角中等严重
-    severity_score += sharp_angles_count * 10
-    print(f"   - Average Sharp Angles per Sample: {np.mean(sharp_angles_count):.3f}")
+    severity_score += sharp_angles_count * 100
 
     # 极短边轻微严重 (可能导致数值不稳定)
     severity_score += short_edges_count * 5
     severity_score += long_edges_count * 5
-    print(f"   - Average Short Edges per Sample: {np.mean(short_edges_count):.3f}")
-    print(f"   - Average Long Edges per Sample: {np.mean(long_edges_count):.3f}")
     
     # 分布极不均匀
-    severity_score += (cv_edge_lens > 1).astype(float) * 20
-    print(f"   - Average CV of Edge Lengths: {np.mean(cv_edge_lens):.3f}")
-    
+    cv_score = np.sum((cv_edge_lens > 1).astype(float) * (cv_edge_lens-1))*50
+    severity_score += cv_score/B
+    print(f"   - Average cv score: {cv_score/B:.3f}")
     print(f"   - Average Severity Score: {np.mean(severity_score):.3f}")
     
 

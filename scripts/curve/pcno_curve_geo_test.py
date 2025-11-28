@@ -21,60 +21,6 @@ np.random.seed(0)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def load_data(data_file_path):
-    data = np.load(data_file_path)
-    nodes_list, elems_list, features_list = data["nodes_list"], data["elems_list"], data["features_list"]
-
-    return nodes_list, elems_list, features_list 
-
-
-try:
-    PREPROCESS_DATA = sys.argv[1] == "preprocess_data" if len(sys.argv) > 1 else False
-except IndexError:
-    PREPROCESS_DATA = False
-###################################
-# load data
-###################################
-data_path = "../../data/curve/"
-if PREPROCESS_DATA:
-    print("Loading data")
-    nodes_list, elems_list, features_list  = load_data(data_file_path = data_path + "curve_data_3_3_grad.npz")
-
-    print("Preprocessing data")
-    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "vertex_centered", adjacent_type="edge")
-    node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
-    node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
-    np.savez_compressed(data_path+"/pcno_curve_data_3_3.npz", \
-                        nnodes=nnodes, node_mask=node_mask, nodes=nodes, \
-                        node_measures_raw = node_measures_raw, \
-                        node_measures=node_measures, node_weights=node_weights, \
-                        node_equal_measures=node_equal_measures, node_equal_weights=node_equal_weights, \
-                        features=features, \
-                        directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights) 
-    exit()
-else:
-    # load data 
-    equal_weights = False
-    data_file_path = data_path+"/pcno_curve_data_1_1_5_2d_grad_log_panel.npz"
-    print("Loading data from ", data_file_path, flush = True)
-    data = np.load(data_file_path)
-    nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
-    print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
-    # node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
-    node_weights = data["node_measures_raw"]
-    # print('use node_weight')
-    node_weights = node_weights/np.amax(np.sum(node_weights, axis = 1))
-    print('use normalized raw measures')
-    node_measures = data["node_measures"]
-    directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
-    features = data["features"]
-
-    node_measures_raw = data["node_measures_raw"]
-    indices = np.isfinite(node_measures_raw)
-    node_rhos = np.copy(node_weights)
-    node_rhos[indices] = node_rhos[indices]/node_measures[indices]
-
-
 parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
 
 parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
@@ -82,11 +28,43 @@ parser.add_argument('--geo', type=str, default='False', choices=['True', 'False'
 parser.add_argument('--lap', type=str, default='False', choices=['True', 'False'])
 parser.add_argument('--geo_dims', type=int, nargs='+', default=None)
 parser.add_argument('--k_max', type=int, default=16)
+parser.add_argument('--n_train', type=int, default=900)
+parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="none")
 parser.add_argument('--layers', type=int, nargs='+', default=[128, 128])
 parser.add_argument('--normal_prod', type=str, default='False', choices=['True', 'False'])
-
+parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace'])
 args = parser.parse_args()
+
+###################################
+# load data
+###################################
+data_path = "../../data/curve/"
+
+# load data 
+data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel.npz"
+print("Loading data from ", data_file_path, flush = True)
+data = np.load(data_file_path)
+nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
+print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
+# node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
+node_weights = data["node_measures_raw"]
+# print('use node_weight')
+node_weights = node_weights/np.amax(np.sum(node_weights, axis = 1))
+print('use normalized raw measures')
+node_measures = data["node_measures"]
+directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
+features = data["features"]
+
+node_measures_raw = data["node_measures_raw"]
+indices = np.isfinite(node_measures_raw)
+node_rhos = np.copy(node_weights)
+node_rhos[indices] = node_rhos[indices]/node_measures[indices]
+
+
+
+
+
 layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'lap': args.lap.lower() == "true"}
 normal_prod = args.normal_prod.lower() == "true"
 
@@ -103,27 +81,29 @@ edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32
 
 nodes_input = nodes.clone()
 
-n_train, n_test = 900, 100
+n_train, n_test = args.n_train, args.n_test
 
+f_in_dim = 2 if args.kernel_type in ['stokes'] else 1
+f_out_dim = 2 if args.kernel_type in ['modified_dp_laplace','stokes'] else 1
 
 
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
 aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
 
 if normal_prod:
-    x_train = torch.cat((features[:n_train, ...][...,[0,1,2]],
-                        features[:n_train, ...][...,[1,2]]*features[:n_train, ...][...,[0]],
+    x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
+                        features[:n_train, ...][...,f_in_dim:f_in_dim+2]*features[:n_train, :f_in_dim],
                             nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-    x_test  = torch.cat((features[-n_test:, ...][...,[0,1,2]],
-                        features[-n_test:, ...][...,[1,2]]*features[-n_test:, ...][...,[0]],
+    x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
+                        features[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features[-n_test:, :f_in_dim],
                             nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
 else:
-    x_train = torch.cat((features[:n_train, ...][...,[0,1,2]],
+    x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
                           nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-    x_test  = torch.cat((features[-n_test:, ...][...,[0,1,2]],
+    x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
                           nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
 
-y_train, y_test = (features[:n_train, ...][...,[3]], features[-n_test:, ...][...,[3]])
+y_train, y_test = (features[:n_train, ...][...,-f_out_dim:], features[-n_test:, ...][...,-f_out_dim:])
 
 print(f'x_train shape {x_train.shape}, y_train shape {y_train.shape}')
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)
@@ -138,7 +118,7 @@ ndim = 2
 L = 10
 scale = 0
 layers = args.layers
-geo_dims = args.geo_dims if args.geo_dims is not None else [1,2,5,6] if normal_prod else [1,2,3,4]
+geo_dims = args.geo_dims if args.geo_dims is not None else [f_in_dim, f_in_dim+1, 3*f_in_dim+2, 3*f_in_dim+3] if normal_prod else [f_in_dim, f_in_dim+1, f_in_dim+2, f_in_dim+3]
 act = args.act
 ###########################################
 

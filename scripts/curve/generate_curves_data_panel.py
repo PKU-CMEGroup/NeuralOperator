@@ -179,7 +179,7 @@ class PanelGeometry:
 
         Args:
             points: (N, 2)  
-            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes'
+            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace'
         Returns:
             coeffs: (N, n_panels, dim_kernel)
         '''
@@ -221,13 +221,25 @@ class PanelGeometry:
 
             coeffs = np.stack([coeffs_11, coeffs_12, coeffs_12, coeffs_22], axis=-1)  # N, n_panels, 4
             Q = np.stack([self.panel_cosines, self.panel_sines, -self.panel_sines, self.panel_cosines], axis=-1).reshape(self.n_panels, 2,2)  # n_panels, 2,2
-            coeffs = np.einsum('ijkl,jlm->ijkm', coeffs.reshape(coeffs.shape[0], coeffs.shape[1], 2,2), Q)  # N, n_panels, 2,2
-            coeffs = np.einsum('jkl,ijkm->ijlm', Q, coeffs)  # N, n_panels, 2,2
+            coeffs = np.einsum('Npld,pdk->Nplk', coeffs.reshape(coeffs.shape[0], coeffs.shape[1], 2,2), Q)  # N, n_panels, 2,2
+            coeffs = np.einsum('pdk,Npdl->Npkl', Q, coeffs)  # N, n_panels, 2,2
+
             coeffs = coeffs.reshape(coeffs.shape[0], coeffs.shape[1], 4)
             
             coeffs[...,0] -= coeffs0
             coeffs[...,3] -= coeffs0
             coeffs = coeffs/(4*math.pi)
+        elif kernel_type == "modified_dp_laplace": 
+            # k(x,y) = (y-x) /|x-y|^2 * (-1/2pi)  
+            coeffs1 = np.log(r_lengths) - np.log(r_lengths_roll) # N, n_panels
+            coeffs2 = np.zeros_like(x0_stars)  # N, n_panels
+            coeffs2[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
+            coeffs = np.stack([coeffs1, coeffs2], axis=-1)  # N, n_panels, 2
+            coeffs = coeffs/(2*math.pi)
+            Q = np.stack([self.panel_cosines, self.panel_sines, -self.panel_sines, self.panel_cosines], axis=-1).reshape(self.n_panels, 2,2)  # n_panels, 2,2
+            coeffs = np.einsum('pdk,Npd->Npk', Q, coeffs)  # N, n_panels, 2
+
+
 
         return coeffs
     
@@ -245,11 +257,14 @@ class PanelGeometry:
         coeffs = self.compute_points_kernel_coeffs(points, kernel_type)  # N, n_panels, dim_kernel
         if kernel_type == "sp_laplace" or kernel_type == "dp_laplace":
             coeffs = coeffs[...,0]  # N, n_panels
-            g = np.einsum('ij,jl->il', coeffs, f)  # N, n_features
+            g = np.einsum('Np,pk->Nk', coeffs, f)  # N, n_features
         elif kernel_type == "stokes":
             coeffs = coeffs.reshape(coeffs.shape[0], coeffs.shape[1], 2, 2)  # N, n_panels, 2,2
             assert f.shape[1] == 2, "f must have 2 features for stokes kernel"
-            g = np.einsum('ijkl,jl->ik', coeffs, f)  # N, n_features
+            g = np.einsum('Npkl,pl->Nk', coeffs, f)  # N, n_features
+        elif kernel_type == "modified_dp_laplace":
+            g = np.einsum('Npd,p->Nd', coeffs, f[...,0])  # N, n_features
+
 
 
         return g
@@ -270,7 +285,7 @@ def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4,
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
 
         g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
-        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2+2*num_features
+        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
         elems = panel_geo.elems
 
         nodes_list.append(nodes)
@@ -282,83 +297,40 @@ def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4,
 
 
 
-def visualize_curve(nodes, features, elems, figurename = ''):
+def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
 
-    if features.shape[-1] == 4:
-        plt.figure(figsize=(16, 6))
-        # Left plot: curve and outward normals
-        plt.subplot(1, 3, 1)
-        plt.plot(nodes[:, 0], nodes[:, 1], color='blue', alpha=0.5)
-        # plt.scatter(nodes[:, 0], nodes[:, 1], color='blue', s=20)
-        normals = features[:, 1:3] 
-        plt.quiver(nodes[:, 0], nodes[:, 1], normals[:, 0], normals[:, 1], color='red', scale=20, width=0.005, alpha=0.7)
-        plt.title('Random Polar Curve with Outward Normals')
-        plt.axis('equal')
+    out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
+    in_dim = 2 if kernel_type == 'stokes' else 1
+    plt.figure(figsize=(16, 6*out_dim))
+    # Left plot: curve and outward normals
+    plt.subplot(out_dim, 3, 1)
+    plt.plot(nodes[:, 0], nodes[:, 1], color='blue', alpha=0.5)
+    # plt.scatter(nodes[:, 0], nodes[:, 1], color='blue', s=20)
+    normals = features[:, in_dim:in_dim+2] 
+    plt.quiver(nodes[:, 0], nodes[:, 1], normals[:, 0], normals[:, 1], color='red', scale=20, width=0.005, alpha=0.7)
+    plt.title('Random Polar Curve with Outward Normals')
+    plt.axis('equal')
 
-        # Middle plot: feature f
-        plt.subplot(1, 3, 2)
-        scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 0], cmap='viridis', s=40)
-        plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-        plt.colorbar(scatter_f, label='f(x)')
-        plt.title('Feature f(x) on Random Polar Curve')
-        plt.axis('equal')
-        for elem in elems:
-            node_indices = elem[1:]
-            valid_indices = node_indices[node_indices != -1]
-            if len(valid_indices) > 1:
-                elem_nodes = nodes[valid_indices]
-                plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
+    # Middle plot: feature f
+    plt.subplot(out_dim, 3, 2)
+    scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 0], cmap='viridis', s=40)
+    plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
+    plt.colorbar(scatter_f, label='f1(x)')
+    plt.title('Feature f1(x) on Random Polar Curve')
+    plt.axis('equal')
+    for elem in elems:
+        node_indices = elem[1:]
+        valid_indices = node_indices[node_indices != -1]
+        if len(valid_indices) > 1:
+            elem_nodes = nodes[valid_indices]
+            plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
-        # Right plot: feature g
-        plt.subplot(1, 3, 3)
-        scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, -1], cmap='viridis', s=40)
-        plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-        plt.colorbar(scatter_g, label='g(x)')
-        plt.title('Feature g(x) on Random Polar Curve')
-        plt.axis('equal')
-        for elem in elems:
-            node_indices = elem[1:]
-            valid_indices = node_indices[node_indices != -1]
-            if len(valid_indices) > 1:
-                elem_nodes = nodes[valid_indices]
-                plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
-
-        plt.tight_layout()
-        if figurename:
-            plt.savefig(figurename)
-        else:
-            plt.show()
-    elif features.shape[-1] == 6:
-        plt.figure(figsize=(16, 12))
-        # Left plot: curve and outward normals
-        plt.subplot(2, 3, 1)
-        plt.plot(nodes[:, 0], nodes[:, 1], color='blue', alpha=0.5)
-        # plt.scatter(nodes[:, 0], nodes[:, 1], color='blue', s=20)
-        normals = features[:, 2:4] 
-        plt.quiver(nodes[:, 0], nodes[:, 1], normals[:, 0], normals[:, 1], color='red', scale=20, width=0.005, alpha=0.7)
-        plt.title('Random Polar Curve with Outward Normals')
-        plt.axis('equal')
-
-        # Middle plot: feature f1
-        plt.subplot(2, 3, 2)
-        scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 0], cmap='viridis', s=40)
-        plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-        plt.colorbar(scatter_f, label='f(x)')
-        plt.title('Feature f_1(x) on Random Polar Curve')
-        plt.axis('equal')
-        for elem in elems:
-            node_indices = elem[1:]
-            valid_indices = node_indices[node_indices != -1]
-            if len(valid_indices) > 1:
-                elem_nodes = nodes[valid_indices]
-                plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
-
-        # Middle plot: feature f2
-        plt.subplot(2, 3, 5)
+    if in_dim == 2:
+        plt.subplot(out_dim, 3, 2+3)
         scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 1], cmap='viridis', s=40)
         plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-        plt.colorbar(scatter_f, label='f(x)')
-        plt.title('Feature f_2(x) on Random Polar Curve')
+        plt.colorbar(scatter_f, label='f2(x)')
+        plt.title('Feature f2(x) on Random Polar Curve')
         plt.axis('equal')
         for elem in elems:
             node_indices = elem[1:]
@@ -367,12 +339,25 @@ def visualize_curve(nodes, features, elems, figurename = ''):
                 elem_nodes = nodes[valid_indices]
                 plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
-        # Right plot: feature g1
-        plt.subplot(2, 3, 3)
-        scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 4], cmap='viridis', s=40)
+    # Right plot: feature g
+    plt.subplot(out_dim, 3, 3)
+    scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, in_dim+2], cmap='viridis', s=40)
+    plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
+    plt.colorbar(scatter_g, label='g1(x)')
+    plt.title('Feature g1(x) on Random Polar Curve')
+    plt.axis('equal')
+    for elem in elems:
+        node_indices = elem[1:]
+        valid_indices = node_indices[node_indices != -1]
+        if len(valid_indices) > 1:
+            elem_nodes = nodes[valid_indices]
+            plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
+    if out_dim == 2:
+        plt.subplot(out_dim, 3, 3+3)
+        scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, in_dim+3], cmap='viridis', s=40)
         plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-        plt.colorbar(scatter_g, label='g(x)')
-        plt.title('Feature g_1(x) on Random Polar Curve')
+        plt.colorbar(scatter_g, label='g2(x)')
+        plt.title('Feature g2(x) on Random Polar Curve')
         plt.axis('equal')
         for elem in elems:
             node_indices = elem[1:]
@@ -381,26 +366,11 @@ def visualize_curve(nodes, features, elems, figurename = ''):
                 elem_nodes = nodes[valid_indices]
                 plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
-        # Right plot: feature g2
-        plt.subplot(2, 3, 6)
-        scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 5], cmap='viridis', s=40)
-        plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-        plt.colorbar(scatter_g, label='g(x)')
-        plt.title('Feature g_2(x) on Random Polar Curve')
-        plt.axis('equal')
-        for elem in elems:
-            node_indices = elem[1:]
-            valid_indices = node_indices[node_indices != -1]
-            if len(valid_indices) > 1:
-                elem_nodes = nodes[valid_indices]
-                plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
-
-        plt.tight_layout()
-        if figurename:
-            plt.savefig(figurename)
-        else:
-            plt.show()
-
+    plt.tight_layout()
+    if figurename:
+        plt.savefig(figurename)
+    else:
+        plt.show()
 
 if __name__ == "__main__":
     seed = 1000
@@ -410,7 +380,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'stokes'  # 'sp_laplace' or 'dp_laplace' or 'stokes'
+    kernel_type = 'stokes'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
@@ -437,32 +407,34 @@ if __name__ == "__main__":
     print("features_list(array) shape:", np.array(features_list).shape)
 
     features_at_nodes_list = (features_list + np.roll(features_list, 1, axis=1))/2
-
+    out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
+    in_dim = 1 if kernel_type in ['stokes'] else 1
 
 
     if visualization:
-        visualize_curve(nodes_list[0], features_at_nodes_list[0], elems_list[0]
+        visualize_curve(nodes_list[0], features_at_nodes_list[0], elems_list[0], kernel_type
                         , figurename = f'figures/panel.png'
                         )
 
 
     if check_g_with_previous:
         from generate_curves_data_batch import curve_integral_g_batch, compute_unit_normals
-        n_feature = 2 if kernel_type == 'stokes' else 1
-        g_new = curve_integral_g_batch(nodes_list[0][np.newaxis, ...], features_list[0][..., 0:n_feature][np.newaxis, ...], kernel_type,
+        
+
+        g_new = curve_integral_g_batch(nodes_list[0][np.newaxis, ...], features_list[0][..., 0:in_dim][np.newaxis, ...], kernel_type,
                                                     compute_node_measures(nodes_list[0], elems_list[0])[:,0][np.newaxis, ...], normal_vector= compute_unit_normals(nodes_list[0])[np.newaxis, ...])
 
         features_list_new = features_list.copy()
-        features_list_new[0][:,-n_feature:] = g_new[0]
+        features_list_new[0][:,-out_dim:] = g_new[0]
         if visualization:
-            visualize_curve(nodes_list[0], features_list_new[0], elems_list[0]
+            visualize_curve(nodes_list[0], features_list_new[0], elems_list[0], kernel_type
                             , figurename = f'figures/previous.png'
                             )
 
 
-        print("Rel error in g:", np.linalg.norm(features_at_nodes_list[0][:,-n_feature:] - features_list_new[0][:,-n_feature:])/np.linalg.norm(features_at_nodes_list[0][:,-n_feature:]))
+        print("Rel error in g:", np.linalg.norm(features_at_nodes_list[0][:,-out_dim:] - features_list_new[0][:,-out_dim:])/np.linalg.norm(features_at_nodes_list[0][:,-out_dim:]))
         if visualization:
-            visualize_curve(nodes_list[0], features_at_nodes_list[0] - features_list_new[0], elems_list[0]
+            visualize_curve(nodes_list[0], features_at_nodes_list[0] - features_list_new[0], elems_list[0], kernel_type
                             , figurename = f'figures/error.png'
                             )
 
@@ -480,7 +452,7 @@ if __name__ == "__main__":
         print("Rel error in normals:", np.linalg.norm(np.array(features_at_nodes_list)[...,1:3] - np.array(features_list_prev)[...,1:3])/np.linalg.norm(np.array(features_list_prev)[...,1:3]))
         print("Rel error in g:", np.linalg.norm(np.array(features_at_nodes_list)[...,-1] - np.array(features_list_prev)[...,-1])/np.linalg.norm(np.array(features_list_prev)[...,-1]))
         if visualization:
-            visualize_curve(nodes_list_prev[0], features_list_prev[0], elems_list_prev[0]
+            visualize_curve(nodes_list_prev[0], features_list_prev[0], elems_list_prev[0], kernel_type
                             , figurename = f'figures/log_2.png'
                             )
     if save_data_to_pcno_format:

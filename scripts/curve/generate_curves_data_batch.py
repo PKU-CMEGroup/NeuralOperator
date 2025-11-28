@@ -215,7 +215,9 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
     """
     bsz = nodes_list.shape[0]
     N = nodes_list.shape[1]
-    g = np.zeros_like(f_list)
+    in_dim = 2 if kernel_type in ['stokes'] else 1
+    out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
+    g = np.zeros((bsz, N, out_dim))
     for i in range(N):
         x = nodes_list[:, i]
         for j in range(N):
@@ -224,6 +226,9 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
                 if kernel_type == 'dp_laplace':
                     kxy = np.einsum('bd,bd -> b', kernel_batch(x, y, kernel_type), normal_vector[:, j])
                     g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
+                elif kernel_type == 'modified_dp_laplace':
+                    kxy = kernel_batch(x, y, kernel_type)
+                    g[:, i] += kxy * f_list[:, j] * node_measure_list[:, j].reshape(-1,1)
                 elif kernel_type == 'stokes':
                     kxy = kernel_batch(x, y, kernel_type)
                     kxy = kxy.reshape(kxy.shape[0], 2 , 2)
@@ -250,7 +255,7 @@ def kernel_batch(x, y, kernel_type = 'sp_laplace'):
     '''
     if kernel_type == 'sp_laplace':
         return np.log(np.linalg.norm(x - y, axis=1, keepdims=True)+1e-6)*(-1/(2*math.pi))
-    elif kernel_type == 'dp_laplace':
+    elif kernel_type == 'dp_laplace' or kernel_type == 'modified_dp_laplace':
         diff = y - x
         norm_sq = np.sum(diff**2, axis=1) + 1e-6
         return diff / norm_sq[:, None]*(-1/(2*math.pi))
@@ -273,16 +278,18 @@ def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k
     elems_list_batch = []
     features_list_batch = []
     nodes_measure_list_batch = []
+    in_dim = 2 if kernel_type in ['stokes'] else 1
+    out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
     for index in tqdm(range(n_data), desc="Generating curves data"):
         nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         elems = sequential_elems(N)
         normal_vector = compute_unit_normals(nodes)
 
-        f = smooth_feature_f(nodes, f_random_config)
+        f = smooth_feature_f(nodes, f_random_config, num_features=in_dim)
         if combine:
             nodes2 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
             elems2 = sequential_elems(N)
-            f2 = smooth_feature_f(nodes2, f_random_config)
+            f2 = smooth_feature_f(nodes2, f_random_config, num_features=in_dim)
             normal_vector2 = compute_unit_normals(nodes2)
 
             nodes, elems, f, normal_vector = combine_nodes_and_elems(nodes, nodes2, elems, elems2, f, f2, normal_vector, normal_vector2)
@@ -299,8 +306,8 @@ def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k
             elems_list_batch = []
             features_list_batch = []
             nodes_measure_list_batch = []
-            g_batch = curve_integral_g_batch(nodes_batch_array, features_batch_array[..., 0:1], kernel_type,
-                                              nodes_measure_list_array, normal_vector=features_batch_array[..., 1:], approaching_direction= approaching_direction)
+            g_batch = curve_integral_g_batch(nodes_batch_array, features_batch_array[..., 0:in_dim], kernel_type,
+                                              nodes_measure_list_array, normal_vector=features_batch_array[..., in_dim:], approaching_direction= approaching_direction)
             features_batch_array = np.concatenate([features_batch_array, g_batch], axis=-1)
             for b in range(nodes_batch_array.shape[0]):
                 nodes_list.append(nodes_batch_array[b])
@@ -328,25 +335,26 @@ def combine_nodes_and_elems(nodes1, nodes2, elems1, elems2, f1, f2, normal_vecto
     return nodes, elems, f, normal_vector
 
 
+def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
 
-def visualize_curve(nodes, features, elems, figurename = ''):
-    plt.figure(figsize=(16, 6))
-
-    # 左图：曲线及外法向量
-    plt.subplot(1, 3, 1)
+    out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
+    in_dim = 2 if kernel_type == 'stokes' else 1
+    plt.figure(figsize=(16, 6*out_dim))
+    # Left plot: curve and outward normals
+    plt.subplot(out_dim, 3, 1)
     plt.plot(nodes[:, 0], nodes[:, 1], color='blue', alpha=0.5)
     # plt.scatter(nodes[:, 0], nodes[:, 1], color='blue', s=20)
-    normals = features[:, 1:3] 
+    normals = features[:, in_dim:in_dim+2] 
     plt.quiver(nodes[:, 0], nodes[:, 1], normals[:, 0], normals[:, 1], color='red', scale=20, width=0.005, alpha=0.7)
     plt.title('Random Polar Curve with Outward Normals')
     plt.axis('equal')
 
-    # 中图: feature f
-    plt.subplot(1, 3, 2)
+    # Middle plot: feature f
+    plt.subplot(out_dim, 3, 2)
     scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 0], cmap='viridis', s=40)
     plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-    plt.colorbar(scatter_f, label='f(x)')
-    plt.title('Feature f(x) on Random Polar Curve')
+    plt.colorbar(scatter_f, label='f1(x)')
+    plt.title('Feature f1(x) on Random Polar Curve')
     plt.axis('equal')
     for elem in elems:
         node_indices = elem[1:]
@@ -355,12 +363,26 @@ def visualize_curve(nodes, features, elems, figurename = ''):
             elem_nodes = nodes[valid_indices]
             plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
-    # 右图: feature g
-    plt.subplot(1, 3, 3)
-    scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, -1], cmap='viridis', s=40)
+    if in_dim == 2:
+        plt.subplot(out_dim, 3, 2+3)
+        scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 1], cmap='viridis', s=40)
+        plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
+        plt.colorbar(scatter_f, label='f2(x)')
+        plt.title('Feature f2(x) on Random Polar Curve')
+        plt.axis('equal')
+        for elem in elems:
+            node_indices = elem[1:]
+            valid_indices = node_indices[node_indices != -1]
+            if len(valid_indices) > 1:
+                elem_nodes = nodes[valid_indices]
+                plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
+
+    # Right plot: feature g
+    plt.subplot(out_dim, 3, 3)
+    scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, in_dim+2], cmap='viridis', s=40)
     plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
-    plt.colorbar(scatter_g, label='g(x)')
-    plt.title('Feature g(x) on Random Polar Curve')
+    plt.colorbar(scatter_g, label='g1(x)')
+    plt.title('Feature g1(x) on Random Polar Curve')
     plt.axis('equal')
     for elem in elems:
         node_indices = elem[1:]
@@ -368,13 +390,25 @@ def visualize_curve(nodes, features, elems, figurename = ''):
         if len(valid_indices) > 1:
             elem_nodes = nodes[valid_indices]
             plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
+    if out_dim == 2:
+        plt.subplot(out_dim, 3, 3+3)
+        scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, in_dim+3], cmap='viridis', s=40)
+        plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
+        plt.colorbar(scatter_g, label='g2(x)')
+        plt.title('Feature g2(x) on Random Polar Curve')
+        plt.axis('equal')
+        for elem in elems:
+            node_indices = elem[1:]
+            valid_indices = node_indices[node_indices != -1]
+            if len(valid_indices) > 1:
+                elem_nodes = nodes[valid_indices]
+                plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
     plt.tight_layout()
     if figurename:
         plt.savefig(figurename)
     else:
         plt.show()
-
 
 
 if __name__ == "__main__":
@@ -387,7 +421,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     k_feature = 5
-    kernel_type = 'stokes' # 'sp_laplace' or 'dp_laplace' or 'stokes'
+    kernel_type = 'stokes' # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace'
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 

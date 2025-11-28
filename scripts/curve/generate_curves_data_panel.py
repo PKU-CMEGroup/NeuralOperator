@@ -179,7 +179,7 @@ class PanelGeometry:
 
         Args:
             points: (N, 2)  
-            kernel_type: 'log' or 'grad_log' or 'stokes'
+            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes'
         Returns:
             coeffs: (N, n_panels, dim_kernel)
         '''
@@ -193,12 +193,12 @@ class PanelGeometry:
         collinear_mask = np.isclose(np.abs(y0_stars), 0.0, atol=1e-10, rtol=1e-10)
         
 
-        if kernel_type == "log": 
+        if kernel_type == "sp_laplace": 
             # k(x,y) = ln(|x-y|) * (-1/2pi)
             coeffs = ( (self.panel_lengths[None,...]  - x0_stars)*np.log(r_lengths_roll)  + x0_stars*np.log(r_lengths) - self.panel_lengths[None,...])
             coeffs[~collinear_mask] += y0_stars[~collinear_mask] * (np.arctan(((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask]) / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])) 
             coeffs = -coeffs[...,np.newaxis]/(2*math.pi) 
-        elif kernel_type == "grad_log": 
+        elif kernel_type == "dp_laplace": 
             # k(x,y) = (y-x)ny /|x-y|^2  * (-1/2pi)
             coeffs = np.zeros_like(x0_stars)  # N, n_panels
             coeffs[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
@@ -238,12 +238,12 @@ class PanelGeometry:
         Args:
             points: (N, 2)
             f: (n_panels, n_features) 
-            kernel_type: 'log' or 'grad_log' or 'stokes'
+            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes'
         Returns:
             g: (n_panels, n_features) 
         '''
         coeffs = self.compute_points_kernel_coeffs(points, kernel_type)  # N, n_panels, dim_kernel
-        if kernel_type == "log" or kernel_type == "grad_log":
+        if kernel_type == "sp_laplace" or kernel_type == "dp_laplace":
             coeffs = coeffs[...,0]  # N, n_panels
             g = np.einsum('ij,jl->il', coeffs, f)  # N, n_features
         elif kernel_type == "stokes":
@@ -255,7 +255,7 @@ class PanelGeometry:
         return g
 
 
-def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='log', deform = True, deform_configs = []):
+def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = []):
     nodes_list = []
     elems_list = []
     features_list = []
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'stokes'
+    kernel_type = 'stokes'  # 'sp_laplace' or 'dp_laplace' or 'stokes'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox

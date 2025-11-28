@@ -221,7 +221,7 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
         for j in range(N):
             if j != i:
                 y = nodes_list[:, j]
-                if kernel_type == 'grad_log':
+                if kernel_type == 'dp_laplace':
                     kxy = np.einsum('bd,bd -> b', kernel_batch(x, y, kernel_type), normal_vector[:, j])
                     g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
                 elif kernel_type == 'stokes':
@@ -232,7 +232,7 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
                     kxy = kernel_batch(x, y, kernel_type).reshape(-1)
                     g[:, i, 0] += kxy * f_list[:, j, 0] * node_measure_list[:, j]
                 
-        if approaching_direction is not None and kernel_type == 'grad_log':
+        if approaching_direction is not None and kernel_type == 'dp_laplace':
             if approaching_direction == 'interior':
                 g[:, i, 0] -= (-2*math.pi) * 1/2*f_list[:, i, 0]
             elif approaching_direction == 'exterior':
@@ -242,15 +242,15 @@ def curve_integral_g_batch(nodes_list, f_list, kernel_type, node_measure_list, n
     return g
 
 
-def kernel_batch(x, y, kernel_type = 'log'):
+def kernel_batch(x, y, kernel_type = 'sp_laplace'):
     '''
     x,y: (bsz, 2)
     Returns:
     kxy: (bsz, n_kernel)
     '''
-    if kernel_type == 'log':
+    if kernel_type == 'sp_laplace':
         return np.log(np.linalg.norm(x - y, axis=1, keepdims=True)+1e-6)*(-1/(2*math.pi))
-    elif kernel_type == 'grad_log':
+    elif kernel_type == 'dp_laplace':
         diff = y - x
         norm_sq = np.sum(diff**2, axis=1) + 1e-6
         return diff / norm_sq[:, None]*(-1/(2*math.pi))
@@ -265,7 +265,7 @@ def kernel_batch(x, y, kernel_type = 'log'):
         raise ValueError("Unknown kernel type")
     
     
-def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config=["1d", 6], kernel_type='log', combine = False, approaching_direction = None, deform = True, deform_configs = []):
+def generate_curves_data_batch(n_data, n_batch, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config=["1d", 6], kernel_type='sp_laplace', combine = False, approaching_direction = None, deform = True, deform_configs = []):
     nodes_list = []
     elems_list = []
     features_list = []
@@ -387,7 +387,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     k_feature = 5
-    kernel_type = 'stokes'
+    kernel_type = 'stokes' # 'sp_laplace' or 'dp_laplace' or 'stokes'
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 

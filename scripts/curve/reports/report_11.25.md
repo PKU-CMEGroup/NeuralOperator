@@ -64,6 +64,7 @@ g(x) &= \int_\Gamma k(x,y)f(y)dy \\
 $$
 
 
+quality tests
 # Test results
 
 ### 1. Grad Log Kernel Results (Rel. L2 Loss)
@@ -79,20 +80,39 @@ $$
 
 ### 2. Log Kernel Results (Rel. L2 Loss)
 
-| Configuration | Seed 1 |
+#### k=16
+
+| Configuration | no np |
 | :--- | :---: |
-| Base | 0.00349 |
-| Grad | 0.00336 |
-| Geo | 0.00336 |
-| Grad + Geo | **0.00329** |
+| Base | 0.00298 |
+| Grad | 0.00297 |
+| Geo | 0.00292 | 
+| Grad + Geo | **0.00289** | 
+| Base (np)|0.00349 |
+| Grad (np)|0.00336 |
+| Geo (np)|0.00336 |
+| Grad + Geo (np)|0.00329 |
+
+#### k=8
+
+| Configuration | Seed 1 | Seed 2 |
+| :--- | :---: | :---: |
+| Base | 0.00614 | 0.01128 |
+| Grad | 0.00614 | 0.01127 |
+| Geo | **0.00588** | **0.01081** |
+| Grad + Geo | 0.00588 | 0.01083 |
 
 
 ### 3. Stokes Kernel Results (Rel. L2 Loss)
 
 | Configuration | Seed 1 |
 | :--- | :---: |
-| Base | 0.0215 |
-| Grad | 0.0188 |
-| Geo | 0.00741 |
-| Grad + Geo | **0.00737** |
+| Base | 0.0226 |
+| Grad | 0.0225 |
+| Geo | 0.00742 |
+| Grad + Geo | 0.00750 |
+| Base (np)| 0.0215 |
+| Grad (np)| 0.0188 |
+| Geo (np)| 0.00741 |
+| Grad + Geo (np)| **0.00737** |
 

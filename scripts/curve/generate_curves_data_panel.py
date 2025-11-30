@@ -250,11 +250,12 @@ class PanelGeometry:
         Args:
             points: (N, 2)
             f: (n_panels, n_features) 
-            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes'
+            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes' or 'fredholm_laplace'
         Returns:
             g: (n_panels, n_features) 
         '''
-        coeffs = self.compute_points_kernel_coeffs(points, kernel_type)  # N, n_panels, dim_kernel
+        if kernel_type != "fredholm_laplace":
+            coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
         if kernel_type == "sp_laplace" or kernel_type == "dp_laplace":
             coeffs = coeffs[...,0]  # N, n_panels
             g = np.einsum('Np,pk->Nk', coeffs, f)  # N, n_features
@@ -264,6 +265,13 @@ class PanelGeometry:
             g = np.einsum('Npkl,pl->Nk', coeffs, f)  # N, n_features
         elif kernel_type == "modified_dp_laplace":
             g = np.einsum('Npd,p->Nd', coeffs, f[...,0])  # N, n_features
+        elif kernel_type == "fredholm_laplace":
+            # For Fredholm formulation, the evaluation points must be panel midpoints
+            # assert np.allclose(points, self.panel_midpoints), "For 'fredholm_laplace', query points must be panel midpoints." 
+            rhs = f/2.0 + self.compute_kernel_integral(points, f, 'dp_laplace') # RHS = (1/2) f + ∫ K_dp(x, y) f dy
+            coeffs = self.compute_points_kernel_coeffs(points, 'sp_laplace')
+            coeffs = coeffs[...,0]
+            g = np.linalg.solve(coeffs, rhs)  # Solve  ∫ K_sp(x, y) g dy = rhs
 
 
 
@@ -380,12 +388,12 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'stokes'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace'
+    kernel_type = 'fredholm_laplace'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
-    check_g_with_previous = True
+    check_g_with_previous = False
     check_all_with_previous = False
     visualization = True
     save_data_to_pcno_format = False

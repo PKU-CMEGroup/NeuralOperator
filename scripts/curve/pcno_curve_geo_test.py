@@ -31,6 +31,7 @@ parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--n_train', type=int, default=900)
 parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="none")
+parser.add_argument('--scale', type=float, default=0.0)
 parser.add_argument('--layers', type=int, nargs='+', default=[128, 128])
 parser.add_argument('--normal_prod', type=str, default='False', choices=['True', 'False'])
 parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace'])
@@ -116,7 +117,7 @@ train_inv_L_scale = False
 k_max = args.k_max
 ndim = 2
 L = 10
-scale = 0
+scale = args.scale
 layers = args.layers
 geo_dims = args.geo_dims if args.geo_dims is not None else [f_in_dim, f_in_dim+1, 3*f_in_dim+2, 3*f_in_dim+3] if normal_prod else [f_in_dim, f_in_dim+1, f_in_dim+2, f_in_dim+3]
 act = args.act

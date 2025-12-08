@@ -268,7 +268,8 @@ class PanelGeometry:
         elif kernel_type == "fredholm_laplace":
             # For Fredholm formulation, the evaluation points must be panel midpoints
             # assert np.allclose(points, self.panel_midpoints), "For 'fredholm_laplace', query points must be panel midpoints." 
-            rhs = f/2.0 + self.compute_kernel_integral(points, f, 'dp_laplace') # RHS = (1/2) f + ∫ K_dp(x, y) f dy
+            # rhs = f/2.0 + self.compute_kernel_integral(points, f, 'dp_laplace') # RHS = (1/2) f + ∫ K_dp(x, y) f dy
+            rhs = f
             coeffs = self.compute_points_kernel_coeffs(points, 'sp_laplace')
             coeffs = coeffs[...,0]
             g = np.linalg.solve(coeffs, rhs)  # Solve  ∫ K_sp(x, y) g dy = rhs

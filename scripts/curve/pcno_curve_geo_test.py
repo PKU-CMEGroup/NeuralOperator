@@ -42,7 +42,7 @@ args = parser.parse_args()
 ###################################
 # load data
 ###################################
-data_path = "npzs/"
+data_path = "../../data/curve"
 
 # load data 
 data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel"+("_single_mixed" if args.single_mixed == "True" else "")+".npz"

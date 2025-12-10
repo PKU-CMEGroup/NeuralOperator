@@ -36,6 +36,7 @@ parser.add_argument('--normal_prod', type=str, default='False', choices=['True',
 parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace'])
 parser.add_argument('--two_circles_test', type=str, default="False", choices=['True', 'False'])
 parser.add_argument('--single_mixed', type=str, default="False", choices=['True', 'False'])
+parser.add_argument("--layer_sizes", type=str, default="128,128")
 args = parser.parse_args()
 
 ###################################
@@ -166,7 +167,7 @@ k_max = args.k_max
 ndim = 2
 L = 10
 scale = 0
-layers = args.layers
+layers = [int(size) for size in args.layer_sizes.split(",")]
 geo_dims = args.geo_dims if args.geo_dims is not None else [f_in_dim, f_in_dim+1, 3*f_in_dim+2, 3*f_in_dim+3] if normal_prod else [f_in_dim, f_in_dim+1, f_in_dim+2, f_in_dim+3]
 act = args.act
 ###########################################

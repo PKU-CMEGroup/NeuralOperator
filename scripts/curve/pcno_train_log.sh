@@ -10,13 +10,16 @@
 
 # ========== 参数设置 ==========
 KERNEL_TYPE="sp_laplace"
-K_MAX=32
+K_MAX=8
 N_TRAIN=9000
 N_TEST=1000
 TWO_CIRCLES_TEST="True"
 NORMAL_PROD="False"
 TPYE="1_1_5_2d"
-# 动态生成日志目录
+ACT="gelu"
+LAYERS=(128 128 128 128 128)
+NUM_LAYERS=${#LAYERS[@]}
+LAYER_SIZES_STR=$(IFS=,; echo "${LAYERS[*]}")
 if [ "$TWO_CIRCLES_TEST" = "True" ]; then
     LOG_DIR="log/${TPYE}_${KERNEL_TYPE}_two_circles"
 else
@@ -41,7 +44,9 @@ python pcno_curve_geo_test.py \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
     --normal_prod $NORMAL_PROD \
-    > ${LOG_DIR}/k${K_MAX}_L10_layer2_noact_new.log
+    --layer_sizes $LAYER_SIZES_STR \
+    --act $ACT \
+    > ${LOG_DIR}/k${K_MAX}_L10_num_${NUM_LAYERS}_layer_${LAYER_SIZES_STR}_act_${ACT}.log
 
 python pcno_curve_geo_test.py \
     --grad True \
@@ -53,7 +58,9 @@ python pcno_curve_geo_test.py \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
     --normal_prod $NORMAL_PROD \
-    > ${LOG_DIR}/k${K_MAX}_L10_layer2_noact_geo3wx_new.log
+    --layer_sizes $LAYER_SIZES_STR \
+    --act $ACT \
+    > ${LOG_DIR}/k${K_MAX}_L10_num_${NUM_LAYERS}_layer_${LAYER_SIZES_STR}_act_${ACT}_geo3wx.log
 
 python pcno_curve_geo_test.py \
     --grad False \
@@ -65,7 +72,9 @@ python pcno_curve_geo_test.py \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
     --normal_prod $NORMAL_PROD \
-    > ${LOG_DIR}/k${K_MAX}_L10_layer2_noact_nograd_geo3wx_new.log
+    --layer_sizes $LAYER_SIZES_STR \
+    --act $ACT \
+    > ${LOG_DIR}/k${K_MAX}_L10_num_${NUM_LAYERS}_layer_${LAYER_SIZES_STR}_act_${ACT}_nograd_geo3wx.log
 
 python pcno_curve_geo_test.py \
     --grad False \
@@ -77,4 +86,6 @@ python pcno_curve_geo_test.py \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
     --normal_prod $NORMAL_PROD \
-    > ${LOG_DIR}/k${K_MAX}_L10_layer2_noact_nograd_new.log
+    --layer_sizes $LAYER_SIZES_STR \
+    --act $ACT \
+    > ${LOG_DIR}/k${K_MAX}_L10_num_${NUM_LAYERS}_layer_${LAYER_SIZES_STR}_act_${ACT}_nograd.log

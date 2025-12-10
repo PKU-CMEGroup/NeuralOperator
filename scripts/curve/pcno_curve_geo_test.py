@@ -10,9 +10,9 @@ import numpy as np
 from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train
-from pcno.modes_discretization import discrete_half_ball_modes
+from pcno_kernel_integral.geo_utility import preprocess_data_mesh, compute_node_weights
+from pcno_kernel_integral.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train
+from pcno_kernel_integral.modes_discretization import discrete_half_ball_modes
 torch.set_printoptions(precision=16)
 
 
@@ -31,19 +31,20 @@ parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--n_train', type=int, default=900)
 parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="none")
-parser.add_argument('--scale', type=float, default=0.0)
 parser.add_argument('--layers', type=int, nargs='+', default=[128, 128])
 parser.add_argument('--normal_prod', type=str, default='False', choices=['True', 'False'])
-parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace'])
+parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace'])
+parser.add_argument('--two_circles_test', type=str, default="False", choices=['True', 'False'])
+parser.add_argument('--single_mixed', type=str, default="False", choices=['True', 'False'])
 args = parser.parse_args()
 
 ###################################
 # load data
 ###################################
-data_path = "../../data/curve/"
+data_path = "npzs/"
 
 # load data 
-data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel.npz"
+data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel"+("_single_mixed" if args.single_mixed == "True" else "")+".npz"
 print("Loading data from ", data_file_path, flush = True)
 data = np.load(data_file_path)
 nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -51,7 +52,8 @@ print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
 # node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
 node_weights = data["node_measures_raw"]
 # print('use node_weight')
-node_weights = node_weights/np.amax(np.sum(node_weights, axis = 1))
+to_divide = np.amax(np.sum(node_weights, axis = 1))
+node_weights = node_weights/to_divide
 print('use normalized raw measures')
 node_measures = data["node_measures"]
 directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
@@ -61,7 +63,28 @@ node_measures_raw = data["node_measures_raw"]
 indices = np.isfinite(node_measures_raw)
 node_rhos = np.copy(node_weights)
 node_rhos[indices] = node_rhos[indices]/node_measures[indices]
+print(args.two_circles_test, flush = True)
 
+if args.two_circles_test == "True":
+    # load data 
+    data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel_two_circles.npz"
+    print("Loading data from ", data_file_path, flush = True)
+    data2 = np.load(data_file_path)
+    nnodes2, node_mask2, nodes2 = data2["nnodes"], data2["node_mask"], data2["nodes"]
+    print(nnodes2.shape,node_mask2.shape,nodes2.shape,flush = True)
+    # node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
+    node_weights2 = data2["node_measures_raw"]
+    # print('use node_weight')
+    node_weights2 = node_weights2/to_divide
+    print('use normalized raw measures')
+    node_measures2 = data2["node_measures"]
+    directed_edges2, edge_gradient_weights2 = data2["directed_edges"], data2["edge_gradient_weights"]
+    features2 = data2["features"]
+
+    node_measures_raw2 = data2["node_measures_raw"]
+    indices2 = np.isfinite(node_measures_raw2)
+    node_rhos2 = np.copy(node_weights2)
+    node_rhos2[indices2] = node_rhos2[indices2]/node_measures2[indices2]
 
 
 
@@ -79,8 +102,20 @@ features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
+if args.two_circles_test == "True":
+    nnodes2 = torch.from_numpy(nnodes2)
+    node_mask2 = torch.from_numpy(node_mask2)
+    nodes2 = torch.from_numpy(nodes2.astype(np.float32))
+    node_weights2 = torch.from_numpy(node_weights2.astype(np.float32))
+    node_rhos2 = torch.from_numpy(node_rhos2.astype(np.float32))
+    features2 = torch.from_numpy(features2.astype(np.float32))
+    directed_edges2 = torch.from_numpy(directed_edges2.astype(np.int64))
+    edge_gradient_weights2 = torch.from_numpy(edge_gradient_weights2.astype(np.float32))
+
 
 nodes_input = nodes.clone()
+if args.two_circles_test == "True":
+    nodes_input2 = nodes2.clone()
 
 n_train, n_test = args.n_train, args.n_test
 
@@ -89,22 +124,35 @@ f_out_dim = 2 if args.kernel_type in ['modified_dp_laplace','stokes'] else 1
 
 
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
-aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
+if not args.two_circles_test == "True":
+    aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
+else:
+    aux_test        = (node_mask2[-n_test:,...],  nodes2[-n_test:,...],  node_weights2[-n_test:,...],  directed_edges2[-n_test:,...],  edge_gradient_weights2[-n_test:,...])
 
 if normal_prod:
     x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
-                        features[:n_train, ...][...,f_in_dim:f_in_dim+2]*features[:n_train, :f_in_dim],
+                        features[:n_train, ...][...,f_in_dim:f_in_dim+2]*features[:n_train, ...][...,:f_in_dim],
                             nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-    x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
-                        features[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features[-n_test:, :f_in_dim],
+    if not args.two_circles_test == "True":
+        x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
+                        features[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features[-n_test:, ...][...,:f_in_dim],
                             nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
+    else:
+        x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
+                        features2[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features2[-n_test:, ...][...,:f_in_dim],
+                            nodes_input2[-n_test:, ...], node_rhos2[-n_test:, ...]), -1)
 else:
     x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
                           nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-    x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
+    if not args.two_circles_test == "True":
+        x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
                           nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
+    else:
+        x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
+                          nodes_input2[-n_test:, ...], node_rhos2[-n_test:, ...]), -1)
 
-y_train, y_test = (features[:n_train, ...][...,-f_out_dim:], features[-n_test:, ...][...,-f_out_dim:])
+y_train = features[:n_train, ...][...,-f_out_dim:]
+y_test = features[-n_test:, ...][...,-f_out_dim:] if not args.two_circles_test == "True" else features2[-n_test:, ...][...,-f_out_dim:]
 
 print(f'x_train shape {x_train.shape}, y_train shape {y_train.shape}')
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)
@@ -117,7 +165,7 @@ train_inv_L_scale = False
 k_max = args.k_max
 ndim = 2
 L = 10
-scale = args.scale
+scale = 0
 layers = args.layers
 geo_dims = args.geo_dims if args.geo_dims is not None else [f_in_dim, f_in_dim+1, 3*f_in_dim+2, 3*f_in_dim+3] if normal_prod else [f_in_dim, f_in_dim+1, f_in_dim+2, f_in_dim+3]
 act = args.act

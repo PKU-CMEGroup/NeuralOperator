@@ -540,7 +540,7 @@ if __name__ == "__main__":
                         )
 
     if save_data_to_pcno_format:
-        name = f"pcno_curve_data_{r0_scale}_{freq_scale}_{k_curve}_{f_random_config[-1]}_{kernel_type}_panel" + ("_two_circles" if two_circles else "") + ("_single_mixed" if single_mixed else "") + ".npz"
+        name = f"../../data/curve/pcno_curve_data_{r0_scale}_{freq_scale}_{k_curve}_{f_random_config[-1]}_{kernel_type}_panel" + ("_two_circles" if two_circles else "") + ("_single_mixed" if single_mixed else "") + ".npz"
         nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "cell_centered", adjacent_type="nodes")
         node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
         node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)

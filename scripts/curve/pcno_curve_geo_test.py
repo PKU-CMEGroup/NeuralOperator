@@ -10,9 +10,9 @@ import numpy as np
 from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pcno_kernel_integral.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno_kernel_integral.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train
-from pcno_kernel_integral.modes_discretization import discrete_half_ball_modes
+from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
+from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.modes_discretization import discrete_half_ball_modes
 torch.set_printoptions(precision=16)
 
 

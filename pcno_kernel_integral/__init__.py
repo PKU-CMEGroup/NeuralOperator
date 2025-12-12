@@ -1,1 +1,0 @@
-from .geo_utility import compute_edge_gradient_weights

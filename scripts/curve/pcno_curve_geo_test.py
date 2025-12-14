@@ -33,7 +33,7 @@ parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="none")
 parser.add_argument('--layers', type=int, nargs='+', default=[128, 128])
 parser.add_argument('--normal_prod', type=str, default='False', choices=['True', 'False'])
-parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace'])
+parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace', 'exterior_laplace_neumann'])
 parser.add_argument('--two_circles_test', type=str, default="False", choices=['True', 'False'])
 parser.add_argument('--single_mixed', type=str, default="False", choices=['True', 'False'])
 parser.add_argument("--layer_sizes", type=str, default="128,128")
@@ -132,15 +132,18 @@ else:
 
 if normal_prod:
     x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
-                        features[:n_train, ...][...,f_in_dim:f_in_dim+2]*features[:n_train, ...][...,:f_in_dim],
+                        features[:n_train, ...][...,f_in_dim:f_in_dim+1]*features[:n_train, ...][...,:f_in_dim],
+                        features[:n_train, ...][...,f_in_dim+1:f_in_dim+2]*features[:n_train, ...][...,:f_in_dim],
                             nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
     if not args.two_circles_test == "True":
         x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
-                        features[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features[-n_test:, ...][...,:f_in_dim],
+                        features[-n_test:, ...][...,f_in_dim:f_in_dim+1]*features[-n_test:, ...][...,:f_in_dim],
+                        features[-n_test:, ...][...,f_in_dim+1:f_in_dim+2]*features[-n_test:, ...][...,:f_in_dim],
                             nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
     else:
         x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
-                        features2[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features2[-n_test:, ...][...,:f_in_dim],
+                        features2[-n_test:, ...][...,f_in_dim:f_in_dim+1]*features2[-n_test:, ...][...,:f_in_dim],
+                        features2[-n_test:, ...][...,f_in_dim+1:f_in_dim+2]*features2[-n_test:, ...][...,:f_in_dim],
                             nodes_input2[-n_test:, ...], node_rhos2[-n_test:, ...]), -1)
 else:
     x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],

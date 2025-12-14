@@ -191,7 +191,7 @@ class PanelGeometry:
         r_lengths = np.sqrt((x0[:, None] - self.vertices[None, self.elems[:,1], 0])**2+(y0[:, None] - self.vertices[None, self.elems[:,1], 1])**2)  # N, n_panels
         r_lengths_roll = np.sqrt((x0[:, None] - self.vertices[None, self.elems[:,2], 0])**2+(y0[:, None] - self.vertices[None, self.elems[:,2], 1])**2)  # N, n_panels
 
-        collinear_mask = np.isclose(np.abs(y0_stars), 0.0, atol=1e-10, rtol=1e-10)
+        collinear_mask = np.isclose(np.abs(y0_stars), 0.0, atol=1e-10, rtol=1e-10) # N, n_panels
         
 
         if kernel_type == "sp_laplace": 
@@ -203,6 +203,7 @@ class PanelGeometry:
             # k(x,y) = (y-x)ny /|x-y|^2  * (-1/2pi)
             coeffs = np.zeros_like(x0_stars)  # N, n_panels
             coeffs[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
+            coeffs[collinear_mask] = -0.5
             coeffs = -coeffs[...,np.newaxis]/(2*math.pi)
         elif kernel_type == "stokes": 
             # k(x,y) = (-ln|x-y| I + (x-y)(x-y)^T/|x-y|^2 ) ny / (4pi)
@@ -252,17 +253,18 @@ class PanelGeometry:
             kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes' or 'fredholm_laplace'
         Returns:
             g: (n_panels, n_features) 
-        '''
-        if kernel_type != "fredholm_laplace":
-            coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
+        '''    
         if kernel_type == "sp_laplace" or kernel_type == "dp_laplace":
+            coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
             coeffs = coeffs[...,0]  # N, n_panels
             g = np.einsum('Np,pk->Nk', coeffs, f)  # N, n_features
         elif kernel_type == "stokes":
+            coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
             coeffs = coeffs.reshape(coeffs.shape[0], coeffs.shape[1], 2, 2)  # N, n_panels, 2,2
             assert f.shape[1] == 2, "f must have 2 features for stokes kernel"
             g = np.einsum('Npkl,pl->Nk', coeffs, f)  # N, n_features
         elif kernel_type == "modified_dp_laplace":
+            coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
             g = np.einsum('Npd,p->Nd', coeffs, f[...,0])  # N, n_features
         elif kernel_type == "fredholm_laplace":
             # For Fredholm formulation, the evaluation points must be panel midpoints
@@ -272,7 +274,18 @@ class PanelGeometry:
             coeffs = self.compute_points_kernel_coeffs(points, 'sp_laplace')
             coeffs = coeffs[...,0]
             g = np.linalg.solve(coeffs, rhs)  # Solve  ∫ K_sp(x, y) g dy = rhs
-
+        elif kernel_type == "exterior_laplace_neumann":
+            # Solve Laplace u = 0   in Omega
+            #               u = f   on \partial Omega
+            # u = ∫ K_sp(x, y) sigma(y) dy
+            # Neumann to Dirichlet map
+            rhs = f 
+            coeffs_s = self.compute_points_kernel_coeffs(points, 'sp_laplace')[...,0]
+            coeffs_modified_d = self.compute_points_kernel_coeffs(points, 'modified_dp_laplace')
+            coeffs_d = np.einsum('Npd,Nd->Np', coeffs_modified_d, self.out_normals)
+            coeffs = - 1/2*np.identity(coeffs_d.shape[0]) - coeffs_d
+            sigma = np.linalg.solve(coeffs, rhs)
+            g = np.dot(coeffs_s, sigma)  
         return g
 
 def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = []):
@@ -285,11 +298,14 @@ def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4,
         elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
 
         panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type == 'stokes':
+        if kernel_type in ['stokes']:
             num_features = 2
         else:
             num_features = 1
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
+        if kernel_type  == 'exterior_laplace_neumann':
+            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # integral on the surface is 0
+
 
         g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
         features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
@@ -312,11 +328,14 @@ def generate_curves_data_panel_singlemixed(n_data, N, r0_scale=0, freq_scale=0.5
         elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
 
         panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type == 'stokes':
+        if kernel_type in ['stokes']:
             num_features = 2
         else:
             num_features = 1
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
+        if kernel_type  == 'exterior_laplace_neumann':
+            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # integral on surface is 0
+
 
         g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
         features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
@@ -332,12 +351,14 @@ def generate_curves_data_panel_singlemixed(n_data, N, r0_scale=0, freq_scale=0.5
         elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
 
         panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type == 'stokes':
+        if kernel_type in ['stokes']:
             num_features = 2
         else:
             num_features = 1
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
-
+        if kernel_type  == 'exterior_laplace_neumann':
+            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # integral on surfce is 0
+            
         g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
         features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
         elems = panel_geo.elems
@@ -351,11 +372,14 @@ def generate_curves_data_panel_singlemixed(n_data, N, r0_scale=0, freq_scale=0.5
         elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
 
         panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type == 'stokes':
+        if kernel_type in ['stokes']:
             num_features = 2
         else:
             num_features = 1
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
+        if kernel_type  == 'exterior_laplace_neumann':
+            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # 要求积分为0
+
         g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
         features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
         elems = panel_geo.elems
@@ -388,6 +412,9 @@ def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curv
         else:
             num_features = 1
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
+        if kernel_type  == 'exterior_laplace_neumann':
+            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # integral on surface is 0
+
 
         g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
         features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
@@ -405,10 +432,11 @@ def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curv
 def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
 
     out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
-    in_dim = 2 if kernel_type == 'stokes' else 1
+    in_dim = 2  if kernel_type in ['stokes'] else 1
     plt.figure(figsize=(16, 6*out_dim))
+    nrows, ncols = max(out_dim,in_dim), 3
     # Left plot: curve and outward normals
-    plt.subplot(out_dim, 3, 1)
+    plt.subplot(nrows, ncols, 1)
     # plt.plot(nodes[:, 0], nodes[:, 1], color='blue', alpha=0.5)
     for elem in elems:
         node_indices = elem[1:]
@@ -423,7 +451,7 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
     plt.axis('equal')
 
     # Middle plot: feature f
-    plt.subplot(out_dim, 3, 2)
+    plt.subplot(nrows, ncols, 2)
     scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 0], cmap='viridis', s=40)
     # plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
     plt.colorbar(scatter_f, label='f1(x)')
@@ -437,7 +465,7 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
             plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
     if in_dim == 2:
-        plt.subplot(out_dim, 3, 2+3)
+        plt.subplot(nrows, ncols, 2+3)
         scatter_f = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, 1], cmap='viridis', s=40)
         # plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
         plt.colorbar(scatter_f, label='f2(x)')
@@ -451,7 +479,7 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
                 plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
 
     # Right plot: feature g
-    plt.subplot(out_dim, 3, 3)
+    plt.subplot(nrows, ncols, 3)
     scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, in_dim+2], cmap='viridis', s=40)
     # plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
     plt.colorbar(scatter_g, label='g1(x)')
@@ -464,7 +492,7 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
             elem_nodes = nodes[valid_indices]
             plt.plot(elem_nodes[:, 0], elem_nodes[:, 1], color='red', linewidth=1, alpha=0.7)
     if out_dim == 2:
-        plt.subplot(out_dim, 3, 3+3)
+        plt.subplot(nrows, ncols, 3+3)
         scatter_g = plt.scatter(nodes[:, 0], nodes[:, 1], c=features[:, in_dim+3], cmap='viridis', s=40)
         # plt.plot(nodes[:, 0], nodes[:, 1], color='gray', alpha=0.5)
         plt.colorbar(scatter_g, label='g2(x)')
@@ -483,6 +511,7 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
     else:
         plt.show()
 
+    
 if __name__ == "__main__":
     seed = 1000
     n_data = 10000
@@ -491,7 +520,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'stokes'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace'
+    kernel_type = 'exterior_laplace_neumann'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'exterior_laplace_neumann'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
@@ -499,8 +528,8 @@ if __name__ == "__main__":
     visualization = True
     save_data_to_pcno_format = True
     
-    two_circles = False  # generate two circles data for interaction kernel testing
-    single_mixed = True  # generate single mixed data for testing
+    two_circles = True  # generate two circles data for interaction kernel testing
+    single_mixed = False  # generate single mixed data for testing
 
     np.random.seed(seed)
     if not two_circles:
@@ -531,7 +560,7 @@ if __name__ == "__main__":
 
     features_at_nodes_list = (features_list + np.roll(features_list, 1, axis=1))/2
     out_dim = 2 if kernel_type in ['stokes', 'modified_dp_laplace'] else 1
-    in_dim = 1 if kernel_type in ['stokes'] else 1
+    in_dim = 2 if kernel_type in ['stokes'] else 1
 
 
     if visualization:

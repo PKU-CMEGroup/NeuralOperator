@@ -1,0 +1,1 @@
+python pcno_car_deep_geo_test.py  --grad True --geograd False --geo True --lap False  --act gelu --geo_act gelu --num_grad 3 --layers 128 128 128 128 128 --k_max 8 --bsz 32 --ep 1000> log/PCNO_car_k8_geo3wx_deep_bsz32.log  

@@ -1,0 +1,302 @@
+# 1_1_5_2d_dp_laplace_panel
+
+## gelu
+- n10000_k16_L10_deep.log                         : ep  499, train 0.00086779, test 0.11017907
+- n10000_k16_L10_geo3wx_deep.log                  : ep  499, train 0.00153905, test 0.08324031
+- n10000_k16_L10_layer2_nograd_deep.log           : ep  499, train 0.00177655, test 0.11571985
+- n10000_k16_L10_nograd_geo3wx_deep.log           : ep  499, train 0.00144164, test 0.07030413
+- n10000_k16_L10_np_deep.log                      : ep  499, train 0.00057436, test 0.02550784
+- n10000_k16_L10_np_geo3wx_deep.log               : ep  499, train 0.00090239, test 0.02504782
+- n10000_k16_L10_np_layer2_nograd_deep.log        : ep  499, train 0.00117987, test 0.03004423
+- n10000_k16_L10_np_nograd_geo3wx_deep.log        : ep  499, train 0.00111427, test 0.02657265
+- n10000_k16_L10_np_nograd_geograd_deep.log       : ep  499, train 0.00079268, test 0.02179056
+- n10000_k16_L10_np_nograd_geograd_geo3wx_deep.log: ep  499, train 0.00085180, test 0.02203254
+- n2000_k16_L10_deep.log                          : ep  499, train 0.00146894, test 0.25203380
+- n2000_k16_L10_geo3wx_deep.log                   : ep  499, train 0.00137902, test 0.24627859
+- n2000_k16_L10_nograd_deep.log                   : ep  499, train 0.00158978, test 0.24634483
+- n2000_k16_L10_nograd_geo3wx_deep.log            : ep  499, train 0.00164490, test 0.23871154
+- n2000_k16_L10_np_deep.log                       : ep  499, train 0.00334760, test 0.11503154
+- n2000_k16_L10_np_geo3wx_deep.log                : ep  499, train 0.00416050, test 0.13248097
+- n2000_k16_L10_np_nograd_deep.log                : ep  499, train 0.00413432, test 0.15547861
+- n2000_k16_L10_np_nograd_geo3wx_deep.log         : ep  499, train 0.00101765, test 0.07682789
+- n2000_k16_L10_np_nograd_geograd_deep.log        : ep  499, train 0.00090905, test 0.12915005
+- n2000_k16_L10_np_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00094076, test 0.12424979
+- n4000_k16_L10_deep.log                          : ep  499, train 0.00130833, test 0.17226026
+- n4000_k16_L10_geo3wx_deep.log                   : ep  499, train 0.00131065, test 0.14668054
+- n4000_k16_L10_nograd_deep.log                   : ep  499, train 0.00165153, test 0.17342547
+- n4000_k16_L10_nograd_geo3wx_deep.log            : ep  499, train 0.00153572, test 0.14179169
+- n4000_k16_L10_np_deep.log                       : ep  499, train 0.00151683, test 0.05602185
+- n4000_k16_L10_np_geo3wx_deep.log                : ep  499, train 0.00220796, test 0.06264912
+- n4000_k16_L10_np_nograd_deep.log                : ep  499, train 0.00287649, test 0.08084393
+- n4000_k16_L10_np_nograd_geo3wx_deep.log         : ep  499, train 0.00212676, test 0.07045980
+- n4000_k16_L10_np_nograd_geograd_deep.log        : ep  499, train 0.00078857, test 0.05343765
+- n4000_k16_L10_np_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00071531, test 0.05384629
+- n6000_k16_L10_deep.log                          : ep  499, train 0.00105152, test 0.14132858
+- n6000_k16_L10_geo3wx_deep.log                   : ep  499, train 0.00128069, test 0.12250611
+- n6000_k16_L10_nograd_deep.log                   : ep  499, train 0.00168418, test 0.14347432
+- n6000_k16_L10_nograd_geo3wx_deep.log            : ep  499, train 0.00155298, test 0.10779051
+- n6000_k16_L10_np_deep.log                       : ep  499, train 0.00094413, test 0.03835620
+- n6000_k16_L10_np_geo3wx_deep.log                : ep  499, train 0.00108670, test 0.03491710
+- n6000_k16_L10_np_nograd_deep.log                : ep  499, train 0.00207226, test 0.05513207
+- n6000_k16_L10_np_nograd_geo3wx_deep.log         : ep  499, train 0.00133514, test 0.04111059
+- n6000_k16_L10_np_nograd_geograd_deep.log        : ep  499, train 0.00078905, test 0.03290588
+- n6000_k16_L10_np_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00081925, test 0.03496572
+- n8000_k16_L10_deep.log                          : ep  499, train 0.00092317, test 0.12314133
+- n8000_k16_L10_geo3wx_deep.log                   : ep  499, train 0.00123665, test 0.08926934
+- n8000_k16_L10_nograd_deep.log                   : ep  499, train 0.00171910, test 0.12845922
+- n8000_k16_L10_nograd_geo3wx_deep.log            : ep  499, train 0.00149071, test 0.08834560
+- n8000_k16_L10_np_deep.log                       : ep  499, train 0.00070715, test 0.03023996
+- n8000_k16_L10_np_geo3wx_deep.log                : ep  499, train 0.00083892, test 0.02808227
+- n8000_k16_L10_np_nograd_deep.log                : ep  499, train 0.00118254, test 0.03534994
+- n8000_k16_L10_np_nograd_geo3wx_deep.log         : ep  499, train 0.00106582, test 0.03198716
+- n8000_k16_L10_np_nograd_geograd_deep.log        : ep  499, train 0.00080524, test 0.02618477
+- n8000_k16_L10_np_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00083663, test 0.02857022
+
+## layer2_gelu
+- n10000_k16_L10_layer2_deep.log                         : ep  499, train 0.02998838, test 0.13061526
+- n10000_k16_L10_layer2_geo3wx_deep.log                  : ep  499, train 0.02950025, test 0.12880203
+- n10000_k16_L10_layer2_nograd_deep.log                  : ep  499, train 0.03156180, test 0.13675646
+- n10000_k16_L10_layer2_nograd_geo3wx_deep.log           : ep  499, train 0.03118815, test 0.13597634
+- n10000_k16_L10_np_layer2_deep.log                      : ep  499, train 0.00481684, test 0.01707134
+- n10000_k16_L10_np_layer2_geo3wx_deep.log               : ep  499, train 0.00436922, test 0.01457943
+- n10000_k16_L10_np_layer2_nograd_deep.log               : ep  499, train 0.00555963, test 0.02134449
+- n10000_k16_L10_np_layer2_nograd_geo3wx_deep.log        : ep  499, train 0.00513344, test 0.01684579
+- n10000_k16_L10_np_layer2_nograd_geograd_deep.log       : ep  499, train 0.00484056, test 0.01579892
+- n10000_k16_L10_np_layer2_nograd_geograd_geo3wx_deep.log: ep  499, train 0.00468556, test 0.01483949
+- n2000_k16_L10_layer2_deep.log                          : ep  499, train 0.00868413, test 0.26352503
+- n2000_k16_L10_layer2_geo3wx_deep.log                   : ep  499, train 0.00887741, test 0.26000171
+- n2000_k16_L10_layer2_nograd_deep.log                   : ep  499, train 0.00864654, test 0.27005936
+- n2000_k16_L10_layer2_nograd_geo3wx_deep.log            : ep  499, train 0.00894509, test 0.26698350
+- n2000_k16_L10_np_layer2_deep.log                       : ep  499, train 0.00382323, test 0.07020134
+- n2000_k16_L10_np_layer2_geo3wx_deep.log                : ep  499, train 0.00377432, test 0.06450892
+- n2000_k16_L10_np_layer2_nograd_deep.log                : ep  499, train 0.00308849, test 0.07695328
+- n2000_k16_L10_np_layer2_nograd_geo3wx_deep.log         : ep  499, train 0.00377780, test 0.06790439
+- n2000_k16_L10_np_layer2_nograd_geograd_deep.log        : ep  499, train 0.00380586, test 0.06777497
+- n2000_k16_L10_np_layer2_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00378805, test 0.06405603
+- n4000_k16_L10_layer2_deep.log                          : ep  499, train 0.01554292, test 0.20672523
+- n4000_k16_L10_layer2_geo3wx_deep.log                   : ep  499, train 0.01541471, test 0.20462516
+- n4000_k16_L10_layer2_nograd_deep.log                   : ep  499, train 0.01607259, test 0.21596250
+- n4000_k16_L10_layer2_nograd_geo3wx_deep.log            : ep  499, train 0.01582421, test 0.21081057
+- n4000_k16_L10_np_layer2_deep.log                       : ep  499, train 0.00453901, test 0.03985522
+- n4000_k16_L10_np_layer2_geo3wx_deep.log                : ep  499, train 0.00448183, test 0.03553495
+- n4000_k16_L10_np_layer2_nograd_deep.log                : ep  499, train 0.00438386, test 0.04606743
+- n4000_k16_L10_np_layer2_nograd_geo3wx_deep.log         : ep  499, train 0.00464011, test 0.03963296
+- n4000_k16_L10_np_layer2_nograd_geograd_deep.log        : ep  499, train 0.00458022, test 0.03796552
+- n4000_k16_L10_np_layer2_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00441410, test 0.03457708
+- n6000_k16_L10_layer2_deep.log                          : ep  499, train 0.02222337, test 0.18005849
+- n6000_k16_L10_layer2_geo3wx_deep.log                   : ep  499, train 0.02173552, test 0.17464758
+- n6000_k16_L10_layer2_nograd_deep.log                   : ep  499, train 0.02285693, test 0.18494072
+- n6000_k16_L10_layer2_nograd_geo3wx_deep.log            : ep  499, train 0.02264825, test 0.18446621
+- n6000_k16_L10_np_layer2_deep.log                       : ep  499, train 0.00479394, test 0.02822019
+- n6000_k16_L10_np_layer2_geo3wx_deep.log                : ep  499, train 0.00458207, test 0.02411171
+- n6000_k16_L10_np_layer2_nograd_deep.log                : ep  499, train 0.00517491, test 0.03406634
+- n6000_k16_L10_np_layer2_nograd_geo3wx_deep.log         : ep  499, train 0.00513488, test 0.02888925
+- n6000_k16_L10_np_layer2_nograd_geograd_deep.log        : ep  499, train 0.00496454, test 0.02688257
+- n6000_k16_L10_np_layer2_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00467707, test 0.02376986
+- n8000_k16_L10_layer2_deep.log                          : ep  499, train 0.02750076, test 0.15601648
+- n8000_k16_L10_layer2_geo3wx_deep.log                   : ep  499, train 0.02663298, test 0.15000593
+- n8000_k16_L10_layer2_nograd_deep.log                   : ep  499, train 0.02835262, test 0.16128903
+- n8000_k16_L10_layer2_nograd_geo3wx_deep.log            : ep  499, train 0.02828603, test 0.16005422
+- n8000_k16_L10_np_layer2_deep.log                       : ep  499, train 0.00484779, test 0.02088791
+- n8000_k16_L10_np_layer2_geo3wx_deep.log                : ep  499, train 0.00460988, test 0.01859497
+- n8000_k16_L10_np_layer2_nograd_deep.log                : ep  499, train 0.00544315, test 0.02634741
+- n8000_k16_L10_np_layer2_nograd_geo3wx_deep.log         : ep  499, train 0.00522709, test 0.02139404
+- n8000_k16_L10_np_layer2_nograd_geograd_deep.log        : ep  499, train 0.00487291, test 0.01955896
+- n8000_k16_L10_np_layer2_nograd_geograd_geo3wx_deep.log : ep  499, train 0.00467231, test 0.01791918
+
+# 1_1_5_2d_modified_dp_panel
+
+## gelu
+- n10000_k16_L10.log                          : ep  499, train 0.00088616, test 0.02126734
+- n10000_k16_L10_deep.log                     : ep  499, train 0.00060970, test 0.00737793
+- n10000_k16_L10_geo3wx.log                   : ep  499, train 0.00122414, test 0.02110850
+- n10000_k16_L10_geo3wx_deep.log              : ep  499, train 0.00064871, test 0.00599280
+- n10000_k16_L10_nograd.log                   : ep  499, train 0.00130169, test 0.03178822
+- n10000_k16_L10_nograd_deep.log              : ep  499, train 0.00088116, test 0.01262397
+- n10000_k16_L10_nograd_geo3wx.log            : ep  499, train 0.00141588, test 0.02769129
+- n10000_k16_L10_nograd_geo3wx_deep.log       : ep  499, train 0.00074996, test 0.00772828
+- n2000_k16_L10.log                           : ep  499, train 0.00129715, test 0.07326228
+- n2000_k16_L10_deep.log                      : ep  499, train 0.00058986, test 0.02663034
+- n2000_k16_L10_geo3wx.log                    : ep  499, train 0.00226215, test 0.07710590
+- n2000_k16_L10_geo3wx_deep.log               : ep  499, train 0.00066654, test 0.02483696
+- n2000_k16_L10_nograd.log                    : ep  499, train 0.00157598, test 0.08102132
+- n2000_k16_L10_nograd_deep.log               : ep  499, train 0.00070880, test 0.03565398
+- n2000_k16_L10_nograd_geo3wx.log             : ep  499, train 0.00243577, test 0.08191761
+- n2000_k16_L10_nograd_geo3wx_deep.log        : ep  499, train 0.00102080, test 0.03256388
+- n2000_k16_L10_nograd_geograd_geo3wx_deep.log: ep   86, train 0.03106369, test 0.04721360
+- n4000_k16_L10.log                           : ep  499, train 0.00099270, test 0.03872635
+- n4000_k16_L10_deep.log                      : ep  499, train 0.00056590, test 0.01576253
+- n4000_k16_L10_geo3wx.log                    : ep  499, train 0.00162188, test 0.03964163
+- n4000_k16_L10_geo3wx_deep.log               : ep  499, train 0.00065372, test 0.01468677
+- n4000_k16_L10_nograd.log                    : ep  499, train 0.00143666, test 0.05554187
+- n4000_k16_L10_nograd_deep.log               : ep  499, train 0.00069186, test 0.02423552
+- n4000_k16_L10_nograd_geo3wx.log             : ep  499, train 0.00189986, test 0.05142763
+- n4000_k16_L10_nograd_geo3wx_deep.log        : ep  499, train 0.00077124, test 0.01937514
+- n6000_k16_L10.log                           : ep  499, train 0.00093045, test 0.03141925
+- n6000_k16_L10_deep.log                      : ep  499, train 0.00058328, test 0.01152873
+- n6000_k16_L10_geo3wx.log                    : ep  499, train 0.00142906, test 0.02977964
+- n6000_k16_L10_geo3wx_deep.log               : ep  499, train 0.00063731, test 0.01018667
+- n6000_k16_L10_nograd.log                    : ep  499, train 0.00141287, test 0.04434497
+- n6000_k16_L10_nograd_deep.log               : ep  499, train 0.00074624, test 0.01870237
+- n6000_k16_L10_nograd_geo3wx.log             : ep  499, train 0.00173499, test 0.04218571
+- n6000_k16_L10_nograd_geo3wx_deep.log        : ep  499, train 0.00071716, test 0.01211757
+- n8000_k16_L10.log                           : ep  499, train 0.00090671, test 0.02447363
+- n8000_k16_L10_deep.log                      : ep  499, train 0.00059967, test 0.00901653
+- n8000_k16_L10_geo3wx.log                    : ep  499, train 0.00130944, test 0.02446683
+- n8000_k16_L10_geo3wx_deep.log               : ep  499, train 0.00063384, test 0.00765658
+- n8000_k16_L10_nograd.log                    : ep  499, train 0.00134979, test 0.03773901
+- n8000_k16_L10_nograd_deep.log               : ep  499, train 0.00082824, test 0.01467831
+- n8000_k16_L10_nograd_geo3wx.log             : ep  499, train 0.00151474, test 0.03425022
+- n8000_k16_L10_nograd_geo3wx_deep.log        : ep  499, train 0.00074149, test 0.00940039
+
+## layer2_gelu
+- n10000_k16_L10_layer2.log                   : ep  499, train 0.00584345, test 0.01110211
+- n10000_k16_L10_layer2_deep.log              : ep  499, train 0.00533408, test 0.01008018
+- n10000_k16_L10_layer2_geo3wx.log            : ep  499, train 0.00506887, test 0.00944777
+- n10000_k16_L10_layer2_geo3wx_deep.log       : ep  499, train 0.00453672, test 0.00747497
+- n10000_k16_L10_layer2_nograd.log            : ep  499, train 0.01520859, test 0.02575003
+- n10000_k16_L10_layer2_nograd_deep.log       : ep  499, train 0.01464910, test 0.02446469
+- n10000_k16_L10_layer2_nograd_geo3wx.log     : ep  499, train 0.01127199, test 0.01950849
+- n10000_k16_L10_layer2_nograd_geo3wx_deep.log: ep  499, train 0.01093370, test 0.01828245
+- n2000_k16_L10_layer2.log                    : ep  499, train 0.00639731, test 0.03527544
+- n2000_k16_L10_layer2_deep.log               : ep  499, train 0.00611148, test 0.03894014
+- n2000_k16_L10_layer2_geo3wx.log             : ep  499, train 0.00582253, test 0.03152731
+- n2000_k16_L10_layer2_geo3wx_deep.log        : ep  499, train 0.00558445, test 0.03029843
+- n2000_k16_L10_layer2_nograd.log             : ep  499, train 0.01335344, test 0.07017501
+- n2000_k16_L10_layer2_nograd_deep.log        : ep  499, train 0.01275121, test 0.07535694
+- n2000_k16_L10_layer2_nograd_geo3wx.log      : ep  499, train 0.00936532, test 0.05091259
+- n2000_k16_L10_layer2_nograd_geo3wx_deep.log : ep  499, train 0.00770133, test 0.05016758
+- n4000_k16_L10_layer2.log                    : ep  499, train 0.00640851, test 0.02100869
+- n4000_k16_L10_layer2_deep.log               : ep  499, train 0.00597856, test 0.02046779
+- n4000_k16_L10_layer2_geo3wx.log             : ep  499, train 0.00571623, test 0.01863041
+- n4000_k16_L10_layer2_geo3wx_deep.log        : ep  499, train 0.00565156, test 0.01652346
+- n4000_k16_L10_layer2_nograd.log             : ep  499, train 0.01326865, test 0.04066025
+- n4000_k16_L10_layer2_nograd_deep.log        : ep  499, train 0.01407333, test 0.04443421
+- n4000_k16_L10_layer2_nograd_geo3wx.log      : ep  499, train 0.00973933, test 0.03113900
+- n4000_k16_L10_layer2_nograd_geo3wx_deep.log : ep  499, train 0.00959347, test 0.03084207
+- n6000_k16_L10_layer2.log                    : ep  499, train 0.00609492, test 0.01568141
+- n6000_k16_L10_layer2_deep.log               : ep  499, train 0.00576634, test 0.01494503
+- n6000_k16_L10_layer2_geo3wx.log             : ep  499, train 0.00554328, test 0.01399963
+- n6000_k16_L10_layer2_geo3wx_deep.log        : ep  499, train 0.00515272, test 0.01117960
+- n6000_k16_L10_layer2_nograd.log             : ep  499, train 0.01421690, test 0.03297104
+- n6000_k16_L10_layer2_nograd_deep.log        : ep  499, train 0.01489276, test 0.03347805
+- n6000_k16_L10_layer2_nograd_geo3wx.log      : ep  499, train 0.01066759, test 0.02504958
+- n6000_k16_L10_layer2_nograd_geo3wx_deep.log : ep  499, train 0.01040852, test 0.02382757
+- n8000_k16_L10_layer2.log                    : ep  499, train 0.00596237, test 0.01276248
+- n8000_k16_L10_layer2_deep.log               : ep  499, train 0.00547902, test 0.01183268
+- n8000_k16_L10_layer2_geo3wx.log             : ep  499, train 0.00536003, test 0.01139605
+- n8000_k16_L10_layer2_geo3wx_deep.log        : ep  499, train 0.00475910, test 0.00875854
+- n8000_k16_L10_layer2_nograd.log             : ep  499, train 0.01490197, test 0.02848069
+- n8000_k16_L10_layer2_nograd_deep.log        : ep  499, train 0.01501521, test 0.02816516
+- n8000_k16_L10_layer2_nograd_geo3wx.log      : ep  499, train 0.01111267, test 0.02185912
+- n8000_k16_L10_layer2_nograd_geo3wx_deep.log : ep  499, train 0.01060111, test 0.02033590
+
+## noact
+- k16_L10_layer2_noact.log                 : ep  499, train 0.07005191, test 0.07576695
+- k16_L10_layer2_noact_geo3wx.log          : ep  499, train 0.02746614, test 0.03106586
+- k16_L10_layer2_noact_nograd.log          : ep  499, train 0.06803399, test 0.07607363
+- k16_L10_layer2_noact_nograd_geo3wx.log   : ep  499, train 0.05010176, test 0.05704017
+- k16_L10_layer2_noact_np.log              : ep  499, train 0.06042896, test 0.06839607
+- k16_L10_layer2_noact_np_geo3wx.log       : ep  499, train 0.01841864, test 0.02115615
+- k16_L10_layer2_noact_np_nograd.log       : ep  499, train 0.06242813, test 0.07000478
+- k16_L10_layer2_noact_np_nograd_geo3wx.log: ep  499, train 0.04292831, test 0.04965001
+- k32_L10_layer2_noact.log                 : ep  499, train 0.02552749, test 0.02955916
+- k32_L10_layer2_noact_geo3wx.log          : ep  499, train 0.01968758, test 0.02298377
+- k32_L10_layer2_noact_nograd.log          : ep  499, train 0.02578798, test 0.02976976
+- k32_L10_layer2_noact_nograd_geo3wx.log   : ep  499, train 0.02060176, test 0.02425257
+- k8_L10_layer2_noact.log                  : ep  499, train 0.14391871, test 0.15730642
+- k8_L10_layer2_noact_geo3wx.log           : ep  499, train 0.05288348, test 0.05898043
+- k8_L10_layer2_noact_nograd.log           : ep  499, train 0.15345735, test 0.16787976
+- k8_L10_layer2_noact_nograd_geo3wx.log    : ep  499, train 0.10841309, test 0.11892839
+
+# 1_1_5_2d_sp_laplace_panel
+
+# 1_1_5_2d_stokes_panel
+
+## gelu
+
+## layer2_gelu
+- n10000_k16_L10_bsz8_layer2_deep.log                       : ep  499, train 0.00258065, test 0.00365317
+- n10000_k16_L10_bsz8_layer2_geo3wx_deep.log                : ep  499, train 0.00267672, test 0.00368784
+- n10000_k16_L10_bsz8_layer2_nograd_geo3wx_deep.log         : ep  186, train 0.01051116, test 0.01109135
+- n10000_k16_L10_layer2_deep.log                            : ep  499, train 0.00233647, test 0.00478932
+- n10000_k16_L10_layer2_geo3wx_deep.log                     : ep  499, train 0.00203379, test 0.00390018
+- n10000_k16_L10_layer2_nograd_deep.log                     : ep  499, train 0.00230507, test 0.00490841
+- n10000_k16_L10_layer2_nograd_geo3wx_deep.log              : ep  499, train 0.00216398, test 0.00404396
+- n10000_k16_L10_layer2_nograd_geograd_deep.log             : ep  499, train 0.00211306, test 0.00435261
+- n10000_k16_L10_layer2_nograd_geograd_geo3wx_deep.log      : ep  499, train 0.00191815, test 0.00377064
+- n2000_k16_L10_bsz8_layer2_deep.log                        : ep  499, train 0.00208304, test 0.00824310
+- n2000_k16_L10_bsz8_layer2_geo3wx_deep.log                 : ep  499, train 0.00211094, test 0.00818422
+- n2000_k16_L10_bsz8_layer2_nograd_deep.log                 : ep  499, train 0.00209717, test 0.00741034
+- n2000_k16_L10_bsz8_layer2_nograd_geo3wx_deep.log          : ep  499, train 0.00209493, test 0.00724244
+- n2000_k16_L10_bsz8_layer2_nograd_geograd_deep.log         : ep  499, train 0.00211128, test 0.00761085
+- n2000_k16_L10_bsz8_layer2_nograd_geograd_geo3wx_deep.log  : ep  499, train 0.00212270, test 0.00761722
+- n2000_k16_L10_ep5000_layer2_deep.log                      : ep 4999, train 0.00055957, test 0.01398616
+- n2000_k16_L10_ep5000_layer2_geo3wx_deep.log               : ep 4999, train 0.00054709, test 0.00933656
+- n2000_k16_L10_ep5000_layer2_nograd_deep.log               : ep 4999, train 0.00055049, test 0.01630047
+- n2000_k16_L10_ep5000_layer2_nograd_geo3wx_deep.log        : ep 4999, train 0.00057565, test 0.00952689
+- n2000_k16_L10_ep5000_layer2_nograd_geograd_deep.log       : ep 4999, train 0.00053619, test 0.01209762
+- n2000_k16_L10_ep5000_layer2_nograd_geograd_geo3wx_deep.log: ep 4999, train 0.00052558, test 0.00970124
+- n2000_k16_L10_layer2_deep.log                             : ep  499, train 0.00221933, test 0.02904931
+- n2000_k16_L10_layer2_geo3wx_deep.log                      : ep  499, train 0.00222344, test 0.02590905
+- n2000_k16_L10_layer2_nograd_deep.log                      : ep  499, train 0.00254035, test 0.03308884
+- n2000_k16_L10_layer2_nograd_geo3wx_deep.log               : ep  499, train 0.00232292, test 0.02668595
+- n2000_k16_L10_layer2_nograd_geograd_deep.log              : ep  499, train 0.00234635, test 0.03049924
+- n2000_k16_L10_layer2_nograd_geograd_geo3wx_deep.log       : ep  499, train 0.00209510, test 0.02304752
+- n4000_k16_L10_bsz8_layer2_deep.log                        : ep  499, train 0.00249232, test 0.00548905
+- n4000_k16_L10_bsz8_layer2_geo3wx_deep.log                 : ep  499, train 0.00261592, test 0.00573348
+- n4000_k16_L10_bsz8_layer2_nograd_deep.log                 : ep  499, train 0.00201111, test 0.00457620
+- n4000_k16_L10_bsz8_layer2_nograd_geo3wx_deep.log          : ep  499, train 0.00200041, test 0.00469780
+- n4000_k16_L10_bsz8_layer2_nograd_geograd_deep.log         : ep  499, train 0.00203224, test 0.00457444
+- n4000_k16_L10_bsz8_layer2_nograd_geograd_geo3wx_deep.log  : ep  499, train 0.00204649, test 0.00479425
+- n4000_k16_L10_ep5000_layer2_deep.log                      : ep 4999, train 0.00079645, test 0.00585160
+- n4000_k16_L10_ep5000_layer2_geo3wx_deep.log               : ep 4999, train 0.00075349, test 0.00471593
+- n4000_k16_L10_ep5000_layer2_nograd_deep.log               : ep 4999, train 0.00084128, test 0.00600985
+- n4000_k16_L10_ep5000_layer2_nograd_geo3wx_deep.log        : ep 4999, train 0.00080237, test 0.00493128
+- n4000_k16_L10_ep5000_layer2_nograd_geograd_deep.log       : ep 4999, train 0.00073906, test 0.00511591
+- n4000_k16_L10_ep5000_layer2_nograd_geograd_geo3wx_deep.log: ep 4999, train 0.00069230, test 0.00451929
+- n4000_k16_L10_layer2_deep.log                             : ep  499, train 0.00272339, test 0.01420263
+- n4000_k16_L10_layer2_geo3wx_deep.log                      : ep  499, train 0.00235260, test 0.01067795
+- n4000_k16_L10_layer2_nograd_deep.log                      : ep  499, train 0.00332823, test 0.01744207
+- n4000_k16_L10_layer2_nograd_geo3wx_deep.log               : ep  499, train 0.00252086, test 0.01072878
+- n4000_k16_L10_layer2_nograd_geograd_deep.log              : ep  499, train 0.00258605, test 0.01351430
+- n4000_k16_L10_layer2_nograd_geograd_geo3wx_deep.log       : ep  499, train 0.00217170, test 0.01029736
+- n6000_k16_L10_bsz8_layer2_deep.log                        : ep  499, train 0.00261420, test 0.00448303
+- n6000_k16_L10_bsz8_layer2_geo3wx_deep.log                 : ep  499, train 0.00275046, test 0.00459628
+- n6000_k16_L10_bsz8_layer2_nograd_deep.log                 : ep  499, train 0.00203518, test 0.00370889
+- n6000_k16_L10_bsz8_layer2_nograd_geo3wx_deep.log          : ep  499, train 0.00203580, test 0.00352188
+- n6000_k16_L10_bsz8_layer2_nograd_geograd_deep.log         : ep  499, train 0.00205966, test 0.00349085
+- n6000_k16_L10_bsz8_layer2_nograd_geograd_geo3wx_deep.log  : ep  499, train 0.00205715, test 0.00356278
+- n6000_k16_L10_ep5000_layer2_deep.log                      : ep 4999, train 0.00089664, test 0.00347709
+- n6000_k16_L10_ep5000_layer2_geo3wx_deep.log               : ep 4999, train 0.00078207, test 0.00286059
+- n6000_k16_L10_ep5000_layer2_nograd_deep.log               : ep 4999, train 0.00099989, test 0.00369681
+- n6000_k16_L10_ep5000_layer2_nograd_geo3wx_deep.log        : ep 4999, train 0.00088411, test 0.00320574
+- n6000_k16_L10_ep5000_layer2_nograd_geograd_deep.log       : ep 4999, train 0.00076903, test 0.00303482
+- n6000_k16_L10_ep5000_layer2_nograd_geograd_geo3wx_deep.log: ep 4999, train 0.00069968, test 0.00278909
+- n6000_k16_L10_layer2_deep.log                             : ep  499, train 0.00261449, test 0.00841458
+- n6000_k16_L10_layer2_geo3wx_deep.log                      : ep  499, train 0.00228667, test 0.00655940
+- n6000_k16_L10_layer2_nograd_deep.log                      : ep  499, train 0.00280069, test 0.00905688
+- n6000_k16_L10_layer2_nograd_geo3wx_deep.log               : ep  499, train 0.00244508, test 0.00672617
+- n6000_k16_L10_layer2_nograd_geograd_deep.log              : ep  499, train 0.00238850, test 0.00764998
+- n6000_k16_L10_layer2_nograd_geograd_geo3wx_deep.log       : ep  499, train 0.00211997, test 0.00624996
+- n8000_k16_L10_bsz8_layer2_deep.log                        : ep  499, train 0.00276542, test 0.00399317
+- n8000_k16_L10_bsz8_layer2_geo3wx_deep.log                 : ep  499, train 0.00269179, test 0.00395633
+- n8000_k16_L10_bsz8_layer2_nograd_deep.log                 : ep  499, train 0.00203667, test 0.00298357
+- n8000_k16_L10_bsz8_layer2_nograd_geo3wx_deep.log          : ep  499, train 0.00201719, test 0.00295647
+- n8000_k16_L10_bsz8_layer2_nograd_geograd_deep.log         : ep  499, train 0.00202739, test 0.00302958
+- n8000_k16_L10_bsz8_layer2_nograd_geograd_geo3wx_deep.log  : ep  499, train 0.00202653, test 0.00296154
+- n8000_k16_L10_ep5000_layer2_deep.log                      : ep 4999, train 0.00095661, test 0.00264646
+- n8000_k16_L10_ep5000_layer2_geo3wx_deep.log               : ep 4999, train 0.00078342, test 0.00220143
+- n8000_k16_L10_ep5000_layer2_nograd_deep.log               : ep 4999, train 0.00109299, test 0.00287046
+- n8000_k16_L10_ep5000_layer2_nograd_geo3wx_deep.log        : ep 4999, train 0.00088414, test 0.00241736
+- n8000_k16_L10_ep5000_layer2_nograd_geograd_deep.log       : ep 2730, train 0.00411421, test 0.00439534
+- n8000_k16_L10_ep5000_layer2_nograd_geograd_geo3wx_deep.log: ep 4999, train 0.00074369, test 0.00214240
+- n8000_k16_L10_layer2_deep.log                             : ep  499, train 0.00252226, test 0.00611330
+- n8000_k16_L10_layer2_geo3wx_deep.log                      : ep  499, train 0.00215005, test 0.00476657
+- n8000_k16_L10_layer2_nograd_deep.log                      : ep  499, train 0.00256330, test 0.00633780
+- n8000_k16_L10_layer2_nograd_geo3wx_deep.log               : ep  499, train 0.00231598, test 0.00497074
+- n8000_k16_L10_layer2_nograd_geograd_deep.log              : ep  499, train 0.00223306, test 0.00535883
+- n8000_k16_L10_layer2_nograd_geograd_geo3wx_deep.log       : ep  499, train 0.00202745, test 0.00457089
+
+# figures
+

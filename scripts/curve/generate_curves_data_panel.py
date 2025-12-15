@@ -203,7 +203,6 @@ class PanelGeometry:
             # k(x,y) = (y-x)ny /|x-y|^2  * (-1/2pi)
             coeffs = np.zeros_like(x0_stars)  # N, n_panels
             coeffs[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
-            coeffs[collinear_mask] = -0.5
             coeffs = -coeffs[...,np.newaxis]/(2*math.pi)
         elif kernel_type == "stokes": 
             # k(x,y) = (-ln|x-y| I + (x-y)(x-y)^T/|x-y|^2 ) ny / (4pi)

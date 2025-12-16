@@ -325,80 +325,7 @@ def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4,
 
     return nodes_list, elems_list, features_list
 
-def generate_curves_data_panel_singlemixed(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = []):
-    nodes_list = []
-    elems_list = []
-    features_list = []
-
-    for index in tqdm(range(n_data//4), desc="Generating curves data singlemixed part 1 (left half)"):
-        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
-        nodes[:,0] = (nodes[:,0] + 2.5) * 0.49 - 2.5
-        elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
-
-        panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type in ['stokes']:
-            num_features = 2
-        else:
-            num_features = 1
-        f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
-        if kernel_type  == 'exterior_laplace_neumann':
-            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # integral on surface is 0
-
-
-        g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
-        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
-        elems = panel_geo.elems
-
-        nodes_list.append(nodes)
-        elems_list.append(elems)
-        features_list.append(features)
-    
-    for index in tqdm(range(n_data//4, n_data//2), desc="Generating curves data singlemixed part 2 (right half)"):
-        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
-        nodes[:,0] = (nodes[:,0] - 2.5) * 0.49 + 2.5
-        elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
-
-        panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type in ['stokes']:
-            num_features = 2
-        else:
-            num_features = 1
-        f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
-        if kernel_type  == 'exterior_laplace_neumann':
-            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # integral on surfce is 0
-            
-        g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
-        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
-        elems = panel_geo.elems
-
-        nodes_list.append(nodes)
-        elems_list.append(elems)
-        features_list.append(features)
-
-    for index in tqdm(range(n_data//2,n_data), desc="Generating curves data singlemixed part 3 (full box)"):
-        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
-        elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
-
-        panel_geo = PanelGeometry(nodes,elems)
-        if kernel_type in ['stokes']:
-            num_features = 2
-        else:
-            num_features = 1
-        f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
-        if kernel_type  == 'exterior_laplace_neumann':
-            f[...,0] = f[...,0] - np.sum(f[...,0] * panel_geo.panel_lengths) / np.sum(panel_geo.panel_lengths)  # 要求积分为0
-
-        g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
-        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
-        elems = panel_geo.elems
-
-        nodes_list.append(nodes)
-        elems_list.append(elems)
-        features_list.append(features)
-
-    return nodes_list, elems_list, features_list
-
-def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = []):
+def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = [], compress_coeff = 1.0):
     nodes_list = []
     elems_list = []
     features_list = []
@@ -406,10 +333,10 @@ def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curv
     for index in tqdm(range(n_data), desc="Generating curves data double"):
         nodes1 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         nodes1[:,0] = (nodes1[:,0] + 2.5) * 0.49 - 2.5
-        nodes1 = nodes1 * 0.75
+        nodes1 = nodes1 * compress_coeff
         nodes2 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         nodes2[:,0] = (nodes2[:,0] - 2.5) * 0.49 + 2.5
-        nodes2 = nodes2 * 0.75
+        nodes2 = nodes2 * compress_coeff
         nodes = np.concatenate([nodes1, nodes2], axis=0)  # 2N, 2
 
         elems1 = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
@@ -539,30 +466,20 @@ if __name__ == "__main__":
     save_data_to_pcno_format = True
     
     two_circles = True  # generate two circles data for interaction kernel testing
-    single_mixed = False  # generate single mixed data for testing
 
     np.random.seed(seed)
     if not two_circles:
-        if single_mixed:
-            nodes_list, elems_list, features_list = generate_curves_data_panel_singlemixed(
-                n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
-                                                                    kernel_type = kernel_type,
-                                                                    deform = deform, 
-                                                                    deform_configs = deform_configs)
-        else:
-            nodes_list, elems_list, features_list = generate_curves_data_panel(
+        nodes_list, elems_list, features_list = generate_curves_data_panel(
                 n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
                                                                 kernel_type = kernel_type,
                                                                 deform = deform, 
                                                                 deform_configs = deform_configs)
     else:
-        if single_mixed:
-            raise NotImplementedError("single_mixed option is not implemented for two_circles=True.")
         nodes_list, elems_list, features_list = generate_curves_data_panel_two(
-        n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
+                n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
                                                                 kernel_type = kernel_type,
                                                                 deform = deform, 
-                                                                deform_configs = deform_configs)
+                                                                deform_configs = deform_configs, compress_coeff = 0.9)
 
     print("nodes_list(array) shape:", np.array(nodes_list).shape)
     print("elems_list(array) shape:", np.array(elems_list).shape)
@@ -579,7 +496,7 @@ if __name__ == "__main__":
                         )
 
     if save_data_to_pcno_format:
-        name = f"../../data/curve/pcno_curve_data_{r0_scale}_{freq_scale}_{k_curve}_{f_random_config[-1]}_{kernel_type}_panel" + ("_two_circles" if two_circles else "") + ("_single_mixed" if single_mixed else "") + ".npz"
+        name = f"../../data/curve/pcno_curve_data_{r0_scale}_{freq_scale}_{k_curve}_{f_random_config[-1]}_{kernel_type}_panel" + ("_two_circles" if two_circles else "") + ".npz"
         nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type = "cell_centered", adjacent_type="nodes")
         node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
         node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)

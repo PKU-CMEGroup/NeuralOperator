@@ -14,7 +14,6 @@ K_MAX=8
 N_TRAIN=9000
 N_TEST=1000
 TWO_CIRCLES_TEST="True"
-TWO_CIRCLES_TRAIN="False"
 if [ "$KERNEL_TYPE" = "dp_laplace" ]; then
     NORMAL_PROD="True"
 else
@@ -26,13 +25,7 @@ LAYERS=(128 128)
 NUM_LAYERS=${#LAYERS[@]}
 LAYER_SIZES_STR=$(IFS=,; echo "${LAYERS[*]}")
 if [ "$TWO_CIRCLES_TEST" = "True" ]; then
-    if [ "$TWO_CIRCLES_TRAIN" = "True" ]; then
-        LOG_DIR="log/${TPYE}_${KERNEL_TYPE}_two_circles_train_test"
-    else
-        LOG_DIR="log/${TPYE}_${KERNEL_TYPE}_two_circles_test"
-    fi
-elif [ "$TWO_CIRCLES_TRAIN" = "True" ]; then
-    LOG_DIR="log/${TPYE}_${KERNEL_TYPE}_two_circles_train"
+    LOG_DIR="log/${TPYE}_${KERNEL_TYPE}_two_circles_test"
 else
     LOG_DIR="log/${TPYE}_${KERNEL_TYPE}"
 fi
@@ -54,7 +47,6 @@ python pcno_curve_geo_test.py \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
-    --two_circles_train $TWO_CIRCLES_TRAIN \
     --normal_prod $NORMAL_PROD \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
@@ -69,7 +61,6 @@ python pcno_curve_geo_test.py \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
-    --two_circles_train $TWO_CIRCLES_TRAIN \
     --normal_prod $NORMAL_PROD \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
@@ -84,7 +75,6 @@ python pcno_curve_geo_test.py \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
-    --two_circles_train $TWO_CIRCLES_TRAIN \
     --normal_prod $NORMAL_PROD \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
@@ -99,7 +89,6 @@ python pcno_curve_geo_test.py \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
     --two_circles_test $TWO_CIRCLES_TEST \
-    --two_circles_train $TWO_CIRCLES_TRAIN \
     --normal_prod $NORMAL_PROD \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \

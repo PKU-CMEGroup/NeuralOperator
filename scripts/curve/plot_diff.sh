@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -o out/data_generate.out 
+#SBATCH -o out/data_plot.out 
 #SBATCH --qos=low
-#SBATCH -J data_generate
+#SBATCH -J data_plot
 #SBATCH -p C064M0256G
 #SBATCH --nodes=1 
 #SBATCH --ntasks=12
@@ -9,4 +9,4 @@
 
 source ~/.bashrc
 conda activate myconda
-python generate_curves_data_panel.py
+python plot_difference_of_points.py

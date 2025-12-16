@@ -397,8 +397,10 @@ def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curv
     for index in tqdm(range(n_data), desc="Generating curves data double"):
         nodes1 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         nodes1[:,0] = (nodes1[:,0] + 2.5) * 0.49 - 2.5
+        nodes1 = nodes1 * 0.75
         nodes2 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         nodes2[:,0] = (nodes2[:,0] - 2.5) * 0.49 + 2.5
+        nodes2 = nodes2 * 0.75
         nodes = np.concatenate([nodes1, nodes2], axis=0)  # 2N, 2
 
         elems1 = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
@@ -519,7 +521,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'exterior_laplace_neumann'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'exterior_laplace_neumann'
+    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox

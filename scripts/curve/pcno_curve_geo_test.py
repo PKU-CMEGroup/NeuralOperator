@@ -36,6 +36,7 @@ parser.add_argument('--normal_prod', type=str, default='False', choices=['True',
 parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace', 'exterior_laplace_neumann'])
 parser.add_argument('--two_circles_test', type=str, default="False", choices=['True', 'False'])
 parser.add_argument('--single_mixed', type=str, default="False", choices=['True', 'False'])
+parser.add_argument('--two_circles_train', type=str, default="False", choices=['True', 'False'])
 parser.add_argument("--layer_sizes", type=str, default="128,128")
 args = parser.parse_args()
 
@@ -45,8 +46,8 @@ args = parser.parse_args()
 data_path = "../../data/curve"
 
 # load data 
-data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel"+("_single_mixed" if args.single_mixed == "True" else "")+".npz"
-print("Loading data from ", data_file_path, flush = True)
+data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel"+("_single_mixed" if args.single_mixed == "True" else "")+("_two_circles" if args.two_circles_train == "True" else "")+".npz"
+print("Loading train data from ", data_file_path, flush = True)
 data = np.load(data_file_path)
 nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
 print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
@@ -64,28 +65,25 @@ node_measures_raw = data["node_measures_raw"]
 indices = np.isfinite(node_measures_raw)
 node_rhos = np.copy(node_weights)
 node_rhos[indices] = node_rhos[indices]/node_measures[indices]
-print(args.two_circles_test, flush = True)
+print("Two circles test:", args.two_circles_test, flush = True)
 
-if args.two_circles_test == "True":
-    # load data 
-    data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel_two_circles.npz"
-    print("Loading data from ", data_file_path, flush = True)
-    data2 = np.load(data_file_path)
-    nnodes2, node_mask2, nodes2 = data2["nnodes"], data2["node_mask"], data2["nodes"]
-    print(nnodes2.shape,node_mask2.shape,nodes2.shape,flush = True)
-    # node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
-    node_weights2 = data2["node_measures_raw"]
-    # print('use node_weight')
-    node_weights2 = node_weights2/to_divide
-    print('use normalized raw measures')
-    node_measures2 = data2["node_measures"]
-    directed_edges2, edge_gradient_weights2 = data2["directed_edges"], data2["edge_gradient_weights"]
-    features2 = data2["features"]
-
-    node_measures_raw2 = data2["node_measures_raw"]
-    indices2 = np.isfinite(node_measures_raw2)
-    node_rhos2 = np.copy(node_weights2)
-    node_rhos2[indices2] = node_rhos2[indices2]/node_measures2[indices2]
+data_file_path2 = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel"+("_two_circles" if args.two_circles_test == "True" else "")+".npz"
+print("Loading test data from ", data_file_path2, flush = True)
+data2 = np.load(data_file_path2)
+nnodes2, node_mask2, nodes2 = data2["nnodes"], data2["node_mask"], data2["nodes"]
+print(nnodes2.shape,node_mask2.shape,nodes2.shape,flush = True)
+# node_weights = data["node_equal_weights"] if equal_weights else data["node_weights"]
+node_weights2 = data2["node_measures_raw"]
+# print('use node_weight')
+node_weights2 = node_weights2/to_divide
+print('use normalized raw measures')
+node_measures2 = data2["node_measures"]
+directed_edges2, edge_gradient_weights2 = data2["directed_edges"], data2["edge_gradient_weights"]
+features2 = data2["features"]
+node_measures_raw2 = data2["node_measures_raw"]
+indices2 = np.isfinite(node_measures_raw2)
+node_rhos2 = np.copy(node_weights2)
+node_rhos2[indices2] = node_rhos2[indices2]/node_measures2[indices2]
 
 
 
@@ -103,20 +101,18 @@ features = torch.from_numpy(features.astype(np.float32))
 directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
 edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
-if args.two_circles_test == "True":
-    nnodes2 = torch.from_numpy(nnodes2)
-    node_mask2 = torch.from_numpy(node_mask2)
-    nodes2 = torch.from_numpy(nodes2.astype(np.float32))
-    node_weights2 = torch.from_numpy(node_weights2.astype(np.float32))
-    node_rhos2 = torch.from_numpy(node_rhos2.astype(np.float32))
-    features2 = torch.from_numpy(features2.astype(np.float32))
-    directed_edges2 = torch.from_numpy(directed_edges2.astype(np.int64))
-    edge_gradient_weights2 = torch.from_numpy(edge_gradient_weights2.astype(np.float32))
+nnodes2 = torch.from_numpy(nnodes2)
+node_mask2 = torch.from_numpy(node_mask2)
+nodes2 = torch.from_numpy(nodes2.astype(np.float32))
+node_weights2 = torch.from_numpy(node_weights2.astype(np.float32))
+node_rhos2 = torch.from_numpy(node_rhos2.astype(np.float32))
+features2 = torch.from_numpy(features2.astype(np.float32))
+directed_edges2 = torch.from_numpy(directed_edges2.astype(np.int64))
+edge_gradient_weights2 = torch.from_numpy(edge_gradient_weights2.astype(np.float32))
 
 
 nodes_input = nodes.clone()
-if args.two_circles_test == "True":
-    nodes_input2 = nodes2.clone()
+nodes_input2 = nodes2.clone()
 
 n_train, n_test = args.n_train, args.n_test
 
@@ -125,38 +121,24 @@ f_out_dim = 2 if args.kernel_type in ['modified_dp_laplace','stokes'] else 1
 
 
 aux_train       = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
-if not args.two_circles_test == "True":
-    aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
-else:
-    aux_test        = (node_mask2[-n_test:,...],  nodes2[-n_test:,...],  node_weights2[-n_test:,...],  directed_edges2[-n_test:,...],  edge_gradient_weights2[-n_test:,...])
+aux_test        = (node_mask2[-n_test:,...],  nodes2[-n_test:,...],  node_weights2[-n_test:,...],  directed_edges2[-n_test:,...],  edge_gradient_weights2[-n_test:,...])
 
 if normal_prod:
     x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
                         features[:n_train, ...][...,f_in_dim:f_in_dim+1]*features[:n_train, ...][...,:f_in_dim],
                         features[:n_train, ...][...,f_in_dim+1:f_in_dim+2]*features[:n_train, ...][...,:f_in_dim],
                             nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-    if not args.two_circles_test == "True":
-        x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
-                        features[-n_test:, ...][...,f_in_dim:f_in_dim+1]*features[-n_test:, ...][...,:f_in_dim],
-                        features[-n_test:, ...][...,f_in_dim+1:f_in_dim+2]*features[-n_test:, ...][...,:f_in_dim],
-                            nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
-    else:
-        x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
-                        features2[-n_test:, ...][...,f_in_dim:f_in_dim+1]*features2[-n_test:, ...][...,:f_in_dim],
-                        features2[-n_test:, ...][...,f_in_dim+1:f_in_dim+2]*features2[-n_test:, ...][...,:f_in_dim],
+    x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
+                        features2[-n_test:, ...][...,f_in_dim:f_in_dim+2]*features2[-n_test:, ...][...,:f_in_dim],
                             nodes_input2[-n_test:, ...], node_rhos2[-n_test:, ...]), -1)
 else:
     x_train = torch.cat((features[:n_train, ...][...,:f_in_dim+2],
                           nodes_input[:n_train, ...], node_rhos[:n_train, ...]), -1)
-    if not args.two_circles_test == "True":
-        x_test  = torch.cat((features[-n_test:, ...][...,:f_in_dim+2],
-                          nodes_input[-n_test:, ...], node_rhos[-n_test:, ...]), -1)
-    else:
-        x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
+    x_test  = torch.cat((features2[-n_test:, ...][...,:f_in_dim+2],
                           nodes_input2[-n_test:, ...], node_rhos2[-n_test:, ...]), -1)
 
 y_train = features[:n_train, ...][...,-f_out_dim:]
-y_test = features[-n_test:, ...][...,-f_out_dim:] if not args.two_circles_test == "True" else features2[-n_test:, ...][...,-f_out_dim:]
+y_test = features2[-n_test:, ...][...,-f_out_dim:]
 
 print(f'x_train shape {x_train.shape}, y_train shape {y_train.shape}')
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)

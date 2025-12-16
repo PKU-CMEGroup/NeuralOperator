@@ -1,3 +1,5 @@
 figures/
 model/
 __pycache__/
+log/
+out/

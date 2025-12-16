@@ -204,6 +204,15 @@ class PanelGeometry:
             coeffs = np.zeros_like(x0_stars)  # N, n_panels
             coeffs[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
             coeffs = -coeffs[...,np.newaxis]/(2*math.pi)
+        elif kernel_type == "adjoint_dp_laplace": 
+            # k(x,y) = (x-y)nx/|x-y|^2  * (-1/2pi)
+            coeffs1 = np.log(r_lengths) - np.log(r_lengths_roll) # N, n_panels
+            coeffs2 = np.zeros_like(x0_stars)  # N, n_panels
+            coeffs2[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
+            coeffs = np.stack([coeffs1, coeffs2], axis=-1)  # N, n_panels, 2
+            Q = np.stack([self.panel_cosines, self.panel_sines, -self.panel_sines, self.panel_cosines], axis=-1).reshape(self.n_panels, 2,2)  # n_panels, 2,2
+            coeffs = np.einsum('pdk,Npd->Npk', Q, coeffs)  # N, n_panels, 2
+            coeffs = -np.einsum('Npd,Nd->Np', coeffs, self.out_normals)[...,np.newaxis]/(2*math.pi)
         elif kernel_type == "stokes": 
             # k(x,y) = (-ln|x-y| I + (x-y)(x-y)^T/|x-y|^2 ) ny / (4pi)
             coeffs0 = (self.panel_lengths[None,...]  - x0_stars)*np.log(r_lengths_roll)  + x0_stars*np.log(r_lengths) - self.panel_lengths[None,...]
@@ -249,11 +258,11 @@ class PanelGeometry:
         Args:
             points: (N, 2)
             f: (n_panels, n_features) 
-            kernel_type: 'sp_laplace' or 'dp_laplace' or 'stokes' or 'fredholm_laplace'
+            kernel_type: 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'fredholm_laplace' or 'exterior_laplace_neumann'
         Returns:
             g: (n_panels, n_features) 
         '''    
-        if kernel_type == "sp_laplace" or kernel_type == "dp_laplace":
+        if kernel_type in ["sp_laplace" , "dp_laplace" , "adjoint_dp_laplace"]:
             coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
             coeffs = coeffs[...,0]  # N, n_panels
             g = np.einsum('Np,pk->Nk', coeffs, f)  # N, n_features
@@ -521,7 +530,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace'
+    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'exterior_laplace_neumann'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox

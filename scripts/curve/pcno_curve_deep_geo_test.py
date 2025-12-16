@@ -88,13 +88,12 @@ def load_data_to_torch(data_file_path, to_divide = None):
             edge_gradient_weights   :  float[ndata, max_nedges, ndims]    
 
     '''
-    data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel.npz"
     print("Loading data from ", data_file_path, flush = True)
     data = np.load(data_file_path)
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
     node_weights = data["node_measures_raw"]
-    if to_divide is not None:
+    if to_divide is None:
         to_divide = np.amax(np.sum(node_weights, axis = 1))
     print('Node weights are devided by ', to_divide.item())
     node_weights = node_weights/to_divide
@@ -148,9 +147,9 @@ x_test_list, y_test_list, aux_test_list = [x_test], [y_test], [aux_test]
 label_list = ['Default']
 
 if n_two_circles_test > 0:
-    data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel_two_circles.npz"
+    data_file_path2 = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel_two_circles.npz"
 
-    nnodes2, node_mask2, nodes2, node_weights2, node_rhos2, features2, directed_edges2, edge_gradient_weights2, _ = load_data_to_torch(data_file_path, to_divide = to_divide)
+    nnodes2, node_mask2, nodes2, node_weights2, node_rhos2, features2, directed_edges2, edge_gradient_weights2, _ = load_data_to_torch(data_file_path2, to_divide = to_divide)
     x_two_circles_test, y_two_circles_test, aux_two_circles_test = gen_data_tensors(np.arange(n_two_circles_test),nodes2, features2, node_mask2, node_weights2, directed_edges2, edge_gradient_weights2, node_rhos2,)
     x_test_list.append(x_two_circles_test)
     y_test_list.append(y_two_circles_test)

@@ -357,10 +357,10 @@ class Geo_emb(nn.Module):
             self.P = nn.Conv1d(geo_size, hidden_size, 1)
             self.w1s = nn.ModuleList([nn.Conv1d(hidden_size, hidden_size, 1) for _ in range(1)])
             self.Q = nn.Conv1d(hidden_size, out_size, 1)
-            self.wx = nn.Conv1d(in_size, out_size, 1)
             self.act = _get_geo_act(act) 
         else:
             self.geo_wx = nn.Conv1d(geo_size, out_size, 1)
+        self.wx = nn.Conv1d(in_size, out_size, 1)
         self.gate = nn.Parameter(torch.zeros(1)) if zero_init else nn.Parameter(torch.ones(1))
     def forward(self, geo, x):
         '''
@@ -745,7 +745,7 @@ class Combinedscheduler_OneCycleLR:
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
 def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list,  config, model, label_test_list = None, save_model_name="./PCNO_model", checkpoint_path=None):
-    assert(len(x_test_list) == len(y_test_list) == len(aux_test_list), "The length of x_test_list, y_test_list and aux_test_list should be the same")
+    assert len(x_test_list) == len(y_test_list) == len(aux_test_list), "The length of x_test_list, y_test_list and aux_test_list should be the same"
     n_distributions = len(x_test_list)
     n_train= x_train.shape[0]
     train_rel_l2_losses = []

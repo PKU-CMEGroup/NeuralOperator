@@ -503,10 +503,21 @@ class PCNO(nn.Module):
 
         self.gws = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1)
+                nn.Conv1d(ndims*in_size, out_size, 1, bias=False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
+
+        
+
+        self.nws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size * ndims, out_size, 1, bias=False)
+                for in_size, out_size in zip(self.layers[1:], self.layers[1:])
+            ]
+        )
+
+        
 
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
@@ -584,6 +595,7 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
+        outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]
         geo_0 = x[..., self.geo_dims].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]
         geo_list = [geo_0]
         for _ in range(self.num_grad):
@@ -593,8 +605,10 @@ class PCNO(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw, geo_emb1, geo_emb2, geo_emb3) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.geo_emb1s, self.geo_emb2s, self.geo_emb3s)):
+        for i, (speconv, w, nw, gw, geo_emb1, geo_emb2, geo_emb3) in enumerate(zip(self.sp_convs, self.ws, self.nws, self.gws, self.geo_emb1s, self.geo_emb2s, self.geo_emb3s)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+            x1 = x1 + nw(torch.cat([x1 * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1))
+            
             x2 = w(x)
 
             if self.layer_selection['grad']:

@@ -11,7 +11,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.pcno_concat_geo import compute_Fourier_modes, PCNO, PCNO_train, PCNO_train_multidist
+from pcno.pcno_geo_scaled import compute_Fourier_modes, PCNO, PCNO_train, PCNO_train_multidist
 from pcno.modes_discretization import discrete_half_ball_modes
 torch.set_printoptions(precision=16)
 
@@ -40,9 +40,6 @@ parser.add_argument('--n_train', type=int, default=900)
 parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="none")
 parser.add_argument('--scale', type=float, default=0.0)
-parser.add_argument('--geo_act', type=str, default="gelu")
-parser.add_argument('--zero_init', type=str, default="False", choices=['True', 'False'])
-parser.add_argument('--if_deep', type=str, default="False", choices=['True', 'False'])
 parser.add_argument("--layer_sizes", type=str, default="128,128")
 parser.add_argument('--normal_prod', type=str, default='False', choices=['True', 'False'])
 parser.add_argument('--n_two_circles_test', type=int, default=0)
@@ -62,9 +59,7 @@ layers = [int(size) for size in args.layer_sizes.split(",")]
 num_grad =  args.num_grad
 geo_dims = args.geo_dims if args.geo_dims is not None else [f_in_dim, f_in_dim+1, 3*f_in_dim+2, 3*f_in_dim+3] if normal_prod else [f_in_dim, f_in_dim+1, f_in_dim+2, f_in_dim+3]
 act = args.act
-geo_act = args.geo_act
-zero_init = args.zero_init.lower() == "true"
-if_deep = args.if_deep.lower() == "true"
+
 
 ###################################
 # load data
@@ -147,9 +142,9 @@ x_test_list, y_test_list, aux_test_list = [x_test], [y_test], [aux_test]
 label_list = ['Default']
 
 if n_two_circles_test > 0:
-    data_file_path2 = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel_two_circles.npz"
+    data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel_two_circles.npz"
 
-    nnodes2, node_mask2, nodes2, node_weights2, node_rhos2, features2, directed_edges2, edge_gradient_weights2, _ = load_data_to_torch(data_file_path2, to_divide = to_divide)
+    nnodes2, node_mask2, nodes2, node_weights2, node_rhos2, features2, directed_edges2, edge_gradient_weights2, _ = load_data_to_torch(data_file_path, to_divide = to_divide)
     x_two_circles_test, y_two_circles_test, aux_two_circles_test = gen_data_tensors(np.arange(n_two_circles_test),nodes2, features2, node_mask2, node_weights2, directed_edges2, edge_gradient_weights2, node_rhos2,)
     x_test_list.append(x_two_circles_test)
     y_test_list.append(y_two_circles_test)
@@ -177,25 +172,20 @@ print(f'use cube modes, scale = {scale}', modes.shape)
 print(f'normal_prod = {normal_prod}')
 print(f'geo_dims = {geo_dims}')
 print(f'num_grad = {num_grad}')
-print(f'zero_init = {zero_init}')
-print(f'if_deep = {if_deep}')
 print(f'layer_selection = {layer_selection}')
 print(f'layers = {layers}')
 print(f'activation = {act}')
-print(f'geo_activation = {geo_act}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1, geo_dims=geo_dims, 
                layer_selection = layer_selection,
                num_grad = num_grad,
-               geo_emb_param = {'zero_init': zero_init, 'if_deep': if_deep},
                layers=layers,
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                 act = act,
-                geo_act = geo_act
                ).to(device)
 
 

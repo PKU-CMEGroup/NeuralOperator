@@ -349,19 +349,11 @@ def compute_laplacian(f, directed_edges, edge_gradient_weights):
 
 
 class Geo_emb(nn.Module):
-    def __init__(self, geo_size, in_size, out_size, act, hidden_size = 16, zero_init = True, if_deep = True):
+    def __init__(self, geo_size, in_size, out_size):
         super(Geo_emb, self).__init__()
-        self.if_deep = if_deep
-        if if_deep:
-            self.scale = nn.Parameter(torch.ones(geo_size))
-            self.P = nn.Conv1d(geo_size, hidden_size, 1)
-            self.w1s = nn.ModuleList([nn.Conv1d(hidden_size, hidden_size, 1) for _ in range(1)])
-            self.Q = nn.Conv1d(hidden_size, out_size, 1)
-            self.act = _get_geo_act(act) 
-        else:
-            self.geo_wx = nn.Conv1d(geo_size, out_size, 1)
-        self.wx = nn.Conv1d(in_size, out_size, 1)
-        self.gate = nn.Parameter(torch.zeros(1)) if zero_init else nn.Parameter(torch.ones(1))
+        self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
+        self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
+        self.w = nn.Conv1d(out_size, out_size, 1)
     def forward(self, geo, x):
         '''
         geo: float[batch_size, geo_size, nnodes]
@@ -369,16 +361,8 @@ class Geo_emb(nn.Module):
         return: 
             float[batch_size, out_size, nnodes]
         '''
-        # geo_encoded = self.act(self.w(geo))
-        if self.if_deep:
-            geo_acted = F.softsign(geo * self.scale.reshape(1,-1,1))
-            z = self.P(geo_acted)
-            for w1 in self.w1s:
-                z = self.act(w1(z)) + z
-            z = self.Q(z)
-            return self.gate * self.act(z * self.wx(x))
-        else:
-            return self.gate * F.softsign(self.geo_wx(geo)) * self.wx(x)
+
+        return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
 
 class PCNO(nn.Module):
     def __init__(
@@ -390,13 +374,11 @@ class PCNO(nn.Module):
         geo_dims,
         layer_selection = {'grad': True, 'geograd': False, 'geo': False, 'lap': False},
         num_grad = 3,
-        geo_emb_param = {'if_deep': True, 'zero_init': True},
         fc_dim=128,
         in_dim=3,
         out_dim=1,
         inv_L_scale_hyper = ['independently', 0.5, 2.0],
         act="gelu",
-        geo_act = "softsign"
     ):
         super(PCNO, self).__init__()
 
@@ -479,9 +461,9 @@ class PCNO(nn.Module):
 
         self.fc0 = nn.Linear(in_dim, layers[0])
 
-        self.geo_emb1s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size, geo_act, **geo_emb_param) for out_size in self.layers[1:]]) if layer_selection['geo'] else [None]*len(layers[1:])
-        self.geo_emb2s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size, geo_act, **geo_emb_param) for out_size in self.layers[1:]]) if layer_selection['lap'] else [None]*len(layers[1:])
-        self.geo_emb3s = nn.ModuleList([Geo_emb(self.geodim, ndims*out_size, out_size, geo_act, **geo_emb_param) for out_size in self.layers[1:]]) if layer_selection['geograd'] else [None]*len(layers[1:])
+        self.geo_emb1s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geo'] else [None]*len(layers[1:])
+        self.geo_emb2s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['lap'] else [None]*len(layers[1:])
+        self.geo_emb3s = nn.ModuleList([Geo_emb(self.geodim, ndims*out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geograd'] else [None]*len(layers[1:])
         self.sp_convs = nn.ModuleList(
             [
                 SpectralConv(in_size, out_size, modes)
@@ -493,7 +475,12 @@ class PCNO(nn.Module):
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
         self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
-
+        self.spws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size, out_size, 1, bias = False)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
@@ -503,7 +490,7 @@ class PCNO(nn.Module):
 
         self.gws = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1)
+                nn.Conv1d(ndims*in_size, out_size, 1, bias = False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
@@ -514,15 +501,15 @@ class PCNO(nn.Module):
         else:
             self.fc2 = nn.Linear(layers[-1], out_dim)
 
+        num_branches = 2 
+        if layer_selection['grad']: num_branches += 1
+        if layer_selection['geograd']: num_branches += 1
+        if layer_selection['geo']: num_branches += 1
+        if layer_selection['lap']: num_branches += 1
+        self.scale_factor = 1.0 / num_branches  # 1/num or 1/sqrt(num) ??
+
         self.act = _get_act(act)
         self.softsign = F.softsign
-        num_to_concat = sum([int(self.layer_selection[key]) for key in ['grad', 'geograd', 'geo', 'lap']]) + 1
-        self.concatws = nn.ModuleList(
-            [
-                nn.Conv1d(num_to_concat*in_size, out_size, 1)
-                for in_size, out_size in zip(self.layers, self.layers[1:])
-            ]
-        )
 
         self.normal_params = []  #  group of params which will be trained normally
         self.inv_L_scale_params = []    #  group of params which may be trained specially
@@ -600,32 +587,34 @@ class PCNO(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw, geo_emb1, geo_emb2, geo_emb3, concatw) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.geo_emb1s, self.geo_emb2s, self.geo_emb3s, self.concatws)):
-            
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+        for i, (speconv, w, gw, spw, geo_emb1, geo_emb2, geo_emb3) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.spws, self.geo_emb1s, self.geo_emb2s, self.geo_emb3s)):
+            x1 = spw(speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0))
             x2 = w(x)
-            concat_list = [x1 + x2]
 
             if self.layer_selection['grad']:
                 x_grad = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-                concat_list.append(x_grad)
+            else:
+                x_grad = 0
 
             if self.layer_selection['geograd']:
                 x_geo_grad = geo_emb3(geo, self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-                concat_list.append(x_geo_grad)
+            else:
+                x_geo_grad = 0
 
             if self.layer_selection['geo']:
                 x_geo = geo_emb1(geo, x)
-                concat_list.append(x_geo)  
+            else:
+                x_geo = 0
 
             if self.layer_selection['lap']:
                 x_lap = geo_emb2(geo, self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
-                concat_list.append(x_lap)  
+            else:
+                x_lap = 0
             
             if self.act is not None and i != length - 1:
-                x = x + self.act(concatw(torch.cat(concat_list, dim=1))) 
+                x = x + self.act(self.scale_factor*(x1 + x2 + x_grad + x_geo_grad + x_geo + x_lap))
             else:
-                x = concatw(torch.cat(concat_list, dim=1))
+                x = self.scale_factor*(x1 + x2 + x_grad + x_geo_grad + x_geo + x_lap)
 
         x = x.permute(0, 2, 1)
 

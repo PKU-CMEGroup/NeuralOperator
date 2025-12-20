@@ -33,6 +33,7 @@ parser.add_argument('--geograd', type=str, default='False', choices=['True', 'Fa
 parser.add_argument('--lap', type=str, default='False', choices=['True', 'False'])
 parser.add_argument('--geo_dims', type=int, nargs='+', default=None)
 parser.add_argument('--num_grad', type=int, default=3)
+parser.add_argument('--to_divide_factor', type=float, default=1.0)
 parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--bsz', type=int, default=128)
 parser.add_argument('--ep', type=int, default=500)
@@ -59,12 +60,12 @@ layers = [int(size) for size in args.layer_sizes.split(",")]
 num_grad =  args.num_grad
 geo_dims = args.geo_dims if args.geo_dims is not None else [f_in_dim, f_in_dim+1, 3*f_in_dim+2, 3*f_in_dim+3] if normal_prod else [f_in_dim, f_in_dim+1, f_in_dim+2, f_in_dim+3]
 act = args.act
-
+to_divide_factor = args.to_divide_factor
 
 ###################################
 # load data
 ###################################
-def load_data_to_torch(data_file_path, to_divide = None):
+def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
     '''
     returns:
         torch tensors:
@@ -89,7 +90,7 @@ def load_data_to_torch(data_file_path, to_divide = None):
     print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
     node_weights = data["node_measures_raw"]
     if to_divide is None:
-        to_divide = np.amax(np.sum(node_weights, axis = 1))
+        to_divide = factor * np.amax(np.sum(node_weights, axis = 1))
     print('Node weights are devided by ', to_divide.item())
     node_weights = node_weights/to_divide
     node_measures = data["node_measures"]
@@ -134,7 +135,7 @@ data_path = "../../data/curve/"
 
 n_train, n_test, n_two_circles_test = args.n_train, args.n_test, args.n_two_circles_test
 data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel.npz"
-nnodes, node_mask, nodes, node_weights, node_rhos, features, directed_edges, edge_gradient_weights, to_divide = load_data_to_torch(data_file_path, to_divide = None)
+nnodes, node_mask, nodes, node_weights, node_rhos, features, directed_edges, edge_gradient_weights, to_divide = load_data_to_torch(data_file_path, to_divide = None, factor = to_divide_factor)
 
 x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, node_rhos,)
 x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, node_rhos,)

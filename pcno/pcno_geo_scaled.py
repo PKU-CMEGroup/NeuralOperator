@@ -353,7 +353,7 @@ class Geo_emb(nn.Module):
         super(Geo_emb, self).__init__()
         self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
         self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
-        self.w = nn.Conv1d(out_size, out_size, 1)
+        self.w = nn.Conv1d(out_size, out_size, 1, bias=False)
     def forward(self, geo, x):
         '''
         geo: float[batch_size, geo_size, nnodes]

@@ -141,16 +141,22 @@ class PanelGeometry:
     """
     Assume curve vertices are ordered counter-clockwise.
     """
-    def __init__(self, vertices: np.ndarray, elems: np.ndarray):
+    def __init__(self, vertices: np.ndarray, elems: np.ndarray, panel_component_ids: np.ndarray | None = None):
         """
         Args:
             vertices (ndarray) (n, 2)
             elems (ndarray) (m, 3) dtype = int 此处我们要求每条边必须要是逆时针方向
+            panel_component_ids (ndarray or None): Optional, (m,) array of component labels for each panel. E.g., outer=0, inner=1, ...
         """
 
         self.n_panels = elems.shape[0]
         self.elems = elems
         self.vertices = vertices
+        # Optional: panel component labels (e.g. outer=0, inner=1, ...)
+        self.panel_component_ids = panel_component_ids
+        if self.panel_component_ids is not None:
+            self.panel_component_ids = np.asarray(self.panel_component_ids, dtype=int)
+            assert self.panel_component_ids.shape[0] == self.n_panels, "panel_component_ids must have length n_panels"
         self._compute_panel_properties()
 
     def _compute_panel_properties(self):
@@ -282,6 +288,76 @@ class PanelGeometry:
             coeffs = self.compute_points_kernel_coeffs(points, 'sp_laplace')
             coeffs = coeffs[...,0]
             g = np.linalg.solve(coeffs, rhs)  # Solve  ∫ K_sp(x, y) g dy = rhs
+        elif kernel_type == "interior_laplace_dirichlet":
+            # The evaluation points must be panel midpoints
+            # f = -(1/2) g + ∫ K_dp(x, y) g dsy
+            coeffs_d = self.compute_points_kernel_coeffs(points, 'dp_laplace')[..., 0]
+            A = -0.5 * np.identity(coeffs_d.shape[0]) + coeffs_d
+            A = A + 1e-10 * np.eye(A.shape[0])
+
+            # For single closed curves, (-1/2 I + K) is typically invertible and no constraint is needed.
+            # For domains with holes, we enforce
+            # \int_Γi g ds = 0 for each inner boundary (assuming component 0 is the outer boundary).
+            if self.panel_component_ids is not None:
+                comps_all = np.unique(self.panel_component_ids)
+                if comps_all.size > 1:
+                    inner_comps = [c for c in comps_all.tolist() if c != 0]
+                    m = len(inner_comps)
+                    if m > 0:
+                        C = np.zeros((A.shape[0], m), dtype=A.dtype)
+                        for j, cid in enumerate(inner_comps):
+                            mask = (self.panel_component_ids == cid)
+                            C[mask, j] = self.panel_lengths[mask]
+
+                        top = np.concatenate([A, C], axis=1)
+                        bottom = np.concatenate([C.T, np.zeros((m, m), dtype=A.dtype)], axis=1)
+                        A_aug = np.concatenate([top, bottom], axis=0)
+
+                        rhs = f
+                        if rhs.ndim == 1:
+                            rhs = rhs[:, None]
+                        rhs_aug = np.concatenate([rhs, np.zeros((m, rhs.shape[1]), dtype=rhs.dtype)], axis=0)
+
+                        sol = np.linalg.solve(A_aug, rhs_aug)
+                        g = sol[:A.shape[0], :]
+                    else:
+                        g = np.linalg.solve(A, f)
+                else:
+                    g = np.linalg.solve(A, f)
+            else:
+                g = np.linalg.solve(A, f)
+        elif kernel_type == "exterior_laplace_dirichlet":
+            # The evaluation points must be panel midpoints
+            # f = -(1/2) g + ∫ K_dp(x, y) g dsy
+            coeffs_d = self.compute_points_kernel_coeffs(points, 'dp_laplace')[..., 0]
+            A = -0.5 * np.identity(coeffs_d.shape[0]) + coeffs_d
+
+            # We enforce
+            # \int_Γi g ds = 0 for each boundary.
+            if self.panel_component_ids is None:
+                comp_ids = np.zeros(A.shape[0], dtype=int)
+            else:
+                comp_ids = self.panel_component_ids
+
+            comps = np.unique(comp_ids).tolist()
+            m = len(comps)
+
+            C = np.zeros((A.shape[0], m), dtype=A.dtype)
+            for j, cid in enumerate(comps):
+                mask = (comp_ids == cid)
+                C[mask, j] = self.panel_lengths[mask]
+
+            top = np.concatenate([A, C], axis=1)
+            bottom = np.concatenate([C.T, np.zeros((m, m), dtype=A.dtype)], axis=1)
+            A_aug = np.concatenate([top, bottom], axis=0)
+
+            rhs = f
+            if rhs.ndim == 1:
+                rhs = rhs[:, None]
+            rhs_aug = np.concatenate([rhs, np.zeros((m, rhs.shape[1]), dtype=rhs.dtype)], axis=0)
+
+            sol = np.linalg.solve(A_aug, rhs_aug)
+            g = sol[:A.shape[0], :]
         elif kernel_type == "exterior_laplace_neumann":
             # Solve Laplace u = 0   in Omega
             #               u = f   on \partial Omega
@@ -303,9 +379,11 @@ def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4,
 
     for index in tqdm(range(n_data), desc="Generating curves data single"):
         nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
+        if kernel_type in ['exterior_laplace_dirichlet']:
+            nodes = nodes[::-1]
         elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
 
-        panel_geo = PanelGeometry(nodes,elems)
+        panel_geo = PanelGeometry(nodes, elems, panel_component_ids=np.zeros(elems.shape[0], dtype=int))
         if kernel_type in ['stokes']:
             num_features = 2
         else:
@@ -337,13 +415,20 @@ def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curv
         nodes2 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
         nodes2[:,0] = (nodes2[:,0] - 2.5) * 0.49 + 2.5
         nodes2 = nodes2 * compress_coeff
+        # For exterior Laplace Dirichlet, we want the boundary orientation to be clockwise
+        # so that the computed `out_normals` point out of the exterior domain (into each obstacle).
+        if kernel_type in ['exterior_laplace_dirichlet']:
+            nodes1 = nodes1[::-1]
+            nodes2 = nodes2[::-1]
+
         nodes = np.concatenate([nodes1, nodes2], axis=0)  # 2N, 2
 
         elems1 = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
         elems2 = np.stack([np.full(N, 1, dtype=int), np.arange(N, 2*N), (np.arange(N, 2*N) + 1 - N) % N + N], axis=1)
         elems = np.concatenate([elems1, elems2], axis=0)  # 2N, 3
 
-        panel_geo = PanelGeometry(nodes,elems)
+        comp_ids = np.concatenate([np.zeros(elems1.shape[0], dtype=int), np.ones(elems2.shape[0], dtype=int)], axis=0)
+        panel_geo = PanelGeometry(nodes, elems, panel_component_ids=comp_ids)
         if kernel_type == 'stokes':
             num_features = 2
         else:
@@ -363,7 +448,50 @@ def generate_curves_data_panel_two(n_data, N, r0_scale=0, freq_scale=0.5, k_curv
 
     return nodes_list, elems_list, features_list
 
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-x))
 
+def generate_curves_data_panel_hole(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = []):
+    nodes_list = []
+    elems_list = []
+    features_list = []
+
+    for index in tqdm(range(n_data), desc="Generating curves data double"):
+        nodes1 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
+        r1 = np.linalg.norm(nodes1, axis=1)  # sqrt(x^2 + y^2), shape (N,)
+        r1_min, r1_max = r1.min(), r1.max()
+        
+        nodes2_tmp = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale,
+                                        deform=deform, deform_configs=deform_configs)
+        r2 = np.linalg.norm(nodes2_tmp, axis=1)
+        z = (r2 - r2.mean()) / (r2.std() + 1e-12)
+        beta = 0.9
+        ratio = 0.1 + 0.4 * sigmoid(beta * z)
+        nodes2 = nodes1 * ratio[:, None]
+            
+        nodes = np.concatenate([nodes1, nodes2[::-1]], axis=0)  # 2N, 2
+
+        elems1 = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
+        elems2 = np.stack([np.full(N, 1, dtype=int), np.arange(N, 2*N), (np.arange(N, 2*N) + 1 - N) % N + N], axis=1)
+        elems = np.concatenate([elems1, elems2], axis=0)  # 2N, 3
+
+        comp_ids = np.concatenate([np.zeros(elems1.shape[0], dtype=int), np.ones(elems2.shape[0], dtype=int)], axis=0)
+        panel_geo = PanelGeometry(nodes, elems, panel_component_ids=comp_ids)
+        if kernel_type == 'stokes':
+            num_features = 2
+        else:
+            num_features = 1
+        f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=num_features)  # N, num_features
+
+        g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # N, num_features
+        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # N, 2 + num_features_in + num_features_out
+        elems = panel_geo.elems
+
+        nodes_list.append(nodes)
+        elems_list.append(elems)
+        features_list.append(features)
+
+    return nodes_list, elems_list, features_list
 
 
 def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
@@ -457,7 +585,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'exterior_laplace_neumann'
+    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'interior_laplace_dirichlet' or 'exterior_laplace_dirichlet' or 'exterior_laplace_neumann'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
@@ -475,11 +603,18 @@ if __name__ == "__main__":
                                                                 deform = deform, 
                                                                 deform_configs = deform_configs)
     else:
-        nodes_list, elems_list, features_list = generate_curves_data_panel_two(
+        if kernel_type in ['interior_laplace_dirichlet']:
+            nodes_list, elems_list, features_list = generate_curves_data_panel_hole(
                 n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
                                                                 kernel_type = kernel_type,
                                                                 deform = deform, 
-                                                                deform_configs = deform_configs, compress_coeff = 0.9)
+                                                                deform_configs = deform_configs)
+        else:
+            nodes_list, elems_list, features_list = generate_curves_data_panel_two(
+                    n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
+                                                                    kernel_type = kernel_type,
+                                                                    deform = deform, 
+                                                                    deform_configs = deform_configs, compress_coeff = 0.9)
 
     print("nodes_list(array) shape:", np.array(nodes_list).shape)
     print("elems_list(array) shape:", np.array(elems_list).shape)

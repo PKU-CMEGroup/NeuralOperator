@@ -338,6 +338,22 @@ def compute_laplacian(f, directed_edges, edge_gradient_weights):
     return f_laplacian.permute(0,2,1)
 
 
+class Geo_emb(nn.Module):
+    def __init__(self, geo_size, in_size, out_size):
+        super(Geo_emb, self).__init__()
+        self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
+        self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
+        self.w = nn.Conv1d(out_size, out_size, 1, bias=False)
+    def forward(self, geo, x):
+        '''
+        geo: float[batch_size, geo_size, nnodes]
+        x:  float[batch_size, in_size, nnodes]
+        return: 
+            float[batch_size, out_size, nnodes]
+        '''
+
+        return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
+
 class PCNO(nn.Module):
     def __init__(
         self,
@@ -346,7 +362,7 @@ class PCNO(nn.Module):
         nmeasures,
         layers,
         geo_dims,
-        layer_selection = {'grad': True, 'geo': False, 'lap': False},
+        layer_selection = {'grad': True, 'geograd': False, 'geo': False, 'lap': False, 'geointegral': False},
         num_grad = 3,
         fc_dim=128,
         in_dim=3,
@@ -430,10 +446,14 @@ class PCNO(nn.Module):
         self.ndims = ndims
         self.in_dim = in_dim
         self.num_grad = num_grad
+
         self.geodim = sum([ndims**i for i in range(num_grad + 1)])*len(geo_dims)
 
         self.fc0 = nn.Linear(in_dim, layers[0])
 
+        self.geo_emb1s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geo'] else [None]*len(layers[1:])
+        self.geo_emb2s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['lap'] else [None]*len(layers[1:])
+        self.geo_emb3s = nn.ModuleList([Geo_emb(self.geodim, ndims*out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geograd'] else [None]*len(layers[1:])
         self.sp_convs = nn.ModuleList(
             [
                 SpectralConv(in_size, out_size, modes)
@@ -445,50 +465,43 @@ class PCNO(nn.Module):
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
         self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
-
+        self.spws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size, out_size, 1, bias = False)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
-
+        self.nws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size * ndims, out_size, 1, bias=False)
+                for in_size, out_size in zip(self.layers[1:], self.layers[1:])
+            ]
+        )
         self.gws = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1)
+                nn.Conv1d(ndims*in_size, out_size, 1, bias = False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
 
-        self.geows1 = nn.ModuleList(
-            [
-                nn.Conv1d(self.geodim, out_size, 1)
-                for out_size in self.layers[1:]
-            ]
-        )
-        self.geows2 = nn.ModuleList(
-            [
-                nn.Conv1d(self.geodim, out_size, 1)
-                for out_size in self.layers[1:]
-            ]
-        )
-        self.lapws = nn.ModuleList(
-            [
-                nn.Conv1d(in_size, out_size, 1)
-                for in_size, out_size in zip(self.layers, self.layers[1:])
-            ]
-        )
-        self.w2s = nn.ModuleList(
-            [
-                nn.Conv1d(in_size, out_size, 1)
-                for in_size, out_size in zip(self.layers, self.layers[1:])
-            ]
-        )
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
             self.fc2 = nn.Linear(fc_dim, out_dim)
         else:
             self.fc2 = nn.Linear(layers[-1], out_dim)
+
+        num_branches = 2 
+        if layer_selection['grad']: num_branches += 1
+        if layer_selection['geograd']: num_branches += 1
+        if layer_selection['geo']: num_branches += 1
+        if layer_selection['lap']: num_branches += 1
+        self.scale_factor = 1.0 / num_branches  # 1/num or 1/sqrt(num) ??
 
         self.act = _get_act(act)
         self.softsign = F.softsign
@@ -559,42 +572,49 @@ class PCNO(nn.Module):
         wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
-        
-        geo = x[..., self.geo_dims].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]
-        geo_list = [geo]
+
+        outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]        
+        geo_0 = x[..., self.geo_dims].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]
+        geo_list = [geo_0]
         for _ in range(self.num_grad):
-            geo = compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights)  # float[batch_size, geo_dims*ndims, nnodes]
-            geo_list.append(geo.clone())
+            geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
         geo = torch.cat(geo_list, dim=1)  # float[batch_size, geo_dims*(1 + ndims + ndims*ndims + ...), nnodes]
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, w2, gw, geow1, geow2, lapw) in enumerate(zip(self.sp_convs, self.ws, self.w2s, self.gws, self.geows1, self.geows2, self.lapws)):
+        for i, (speconv, w, gw, nw, spw, geo_emb1, geo_emb2, geo_emb3) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.nws, self.spws, self.geo_emb1s, self.geo_emb2s, self.geo_emb3s)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-            x2 = w(x)
+            if self.layer_selection['geointegral']:
+                x1 = x1 + nw(torch.cat([x1 * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1))
+            x1 = spw(x1)
             
+            x2 = w(x)
+
             if self.layer_selection['grad']:
                 x_grad = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
             else:
                 x_grad = 0
 
+            if self.layer_selection['geograd']:
+                x_geo_grad = geo_emb3(geo, self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
+            else:
+                x_geo_grad = 0
+
             if self.layer_selection['geo']:
-                geo_weight1 = self.softsign(geow1(geo))
-                x_geo = geo_weight1*w2(x)
+                x_geo = geo_emb1(geo, x)
             else:
                 x_geo = 0
 
             if self.layer_selection['lap']:
-                geo_weight2 = self.softsign(geow2(geo))
-                x_lap = geo_weight2*lapw(self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
+                x_lap = geo_emb2(geo, self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
             else:
                 x_lap = 0
             
-            x = x1 + x2 + x_grad + x_geo + x_lap
-
             if self.act is not None and i != length - 1:
-                x = self.act(x) 
+                x = x + self.act(self.scale_factor*(x1 + x2 + x_grad + x_geo_grad + x_geo + x_lap))
+            else:
+                x = self.scale_factor*(x1 + x2 + x_grad + x_geo_grad + x_geo + x_lap)
 
         x = x.permute(0, 2, 1)
 
@@ -713,6 +733,178 @@ class Combinedscheduler_OneCycleLR:
             self.scheduler2.load_state_dict(state_dict['scheduler2'])
 
         
+
+
+
+
+# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list,  config, model, label_test_list = None, save_model_name="./PCNO_model", checkpoint_path=None):
+    assert len(x_test_list) == len(y_test_list) == len(aux_test_list), "The length of x_test_list, y_test_list and aux_test_list should be the same"
+    n_distributions = len(x_test_list)
+    n_train= x_train.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
+    normalization_dim_x, normalization_dim_y = config["train"]["normalization_dim_x"], config["train"]["normalization_dim_y"]
+    non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
+    
+    ndims = model.ndims # n_train, size, n_channel
+    print("In PCNO_train, ndims = ", ndims)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
+        x_train = x_normalizer.encode(x_train)
+        for i in range(n_distributions):
+            x_test_list[i] = x_normalizer.encode(x_test_list[i])
+        x_normalizer.to(device)
+        
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
+        y_train = y_normalizer.encode(y_train)
+        for i in range(n_distributions):
+            y_test_list[i] = y_normalizer.encode(y_test_list[i])
+        y_normalizer.to(device)
+
+
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
+                                               batch_size=config['train']['batch_size'], shuffle=True)
+    
+    test_loaders = []
+
+    for i in range(n_distributions):
+        node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test_list[i]
+        sub_dataset = torch.utils.data.TensorDataset(
+            x_test_list[i], 
+            y_test_list[i], 
+            node_mask_test, 
+            nodes_test, 
+            node_weights_test, 
+            directed_edges_test, 
+            edge_gradient_weights_test
+        )
+        sub_loader = torch.utils.data.DataLoader(sub_dataset, batch_size=config['train']['batch_size'], shuffle=False)
+        try:
+            name = label_test_list[i]
+        except:
+            name = f"Distribution_{i}"
+        test_loaders.append((name, sub_loader))
+  
+    
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
+    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
+        betas=(0.9, 0.999),
+        lr=config["train"]["base_lr"],
+        lr_ratio = config["train"]["lr_ratio"],
+        weight_decay=config["train"]["weight_decay"],
+        )
+    
+    scheduler = Combinedscheduler_OneCycleLR(
+        optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
+        div_factor=2, final_div_factor=100,pct_start=0.2,
+        steps_per_epoch=1, epochs=config['train']['epochs'])
+    
+    current_epoch, epochs = 0, config['train']['epochs']
+    
+    if checkpoint_path:
+        checkpoint = torch.load(checkpoint_path, weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        # retrieve epoch and loss
+        current_epoch = checkpoint['current_epoch'] + 1
+        print("resetart from epoch : ", current_epoch)
+
+
+
+
+    for ep in range(current_epoch, epochs):
+        t1 = default_timer()
+        train_rel_l2 = 0
+
+        model.train()
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+
+            batch_size_ = x.shape[0]
+            optimizer.zero_grad()
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+            out = out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+            
+            loss.backward()
+
+            optimizer.step()
+            train_rel_l2 += loss.item()
+
+
+        test_rel_l2_dict = {}
+        test_l2_dict = {}
+
+        model.eval()
+        with torch.no_grad():
+            for name, loader in test_loaders:
+                test_l2 = 0
+                test_rel_l2 = 0
+
+                for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in loader:
+                    x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+
+                    batch_size_ = x.shape[0]
+                    out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+
+                    if normalization_y:
+                        out = y_normalizer.decode(out)
+                        y = y_normalizer.decode(y)
+                    out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                    test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                    test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                test_l2 /= len(loader.dataset)
+                test_rel_l2 /= len(loader.dataset)
+                test_rel_l2_dict[name] = test_rel_l2
+                test_l2_dict[name] = test_l2
+    
+
+        scheduler.step()
+
+        train_rel_l2/= n_train
+
+        train_rel_l2_losses.append(train_rel_l2)
+        test_rel_l2_losses.append(test_rel_l2_dict)
+        test_l2_losses.append(test_l2_dict)
+    
+
+        t2 = default_timer()
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2_dict, " Test L2 Loss : ", test_l2_dict,
+              " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
+              flush=True)
+        if (ep %100 == 99) or (ep == epochs -1):    
+            if save_model_name:
+                torch.save(model.state_dict(), save_model_name + ".pth")
+
+                torch.save({
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'current_epoch': ep,  # optional: to track training progress
+                }, "checkpoint.pth")
+
+            
+    
+    
+    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+
+
+
 
 
 
@@ -854,12 +1046,3 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
-
-
-
-
-
-
-
-
-

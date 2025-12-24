@@ -19,6 +19,7 @@ N_TRAIN=2000
 N_TEST=1000
 N_TWO_CIRCLES_TEST=1000
 
+TO_DIVIDE_FACTOR=1.0
 BATCH_SIZE=32
 LAYERS=(128 128 128 128 128)
 ACT="gelu"
@@ -42,6 +43,7 @@ python pcno_curve_geo_test.py \
     --n_train $N_TRAIN \
     --n_test $N_TEST \
     --n_two_circles_test $N_TWO_CIRCLES_TEST \
+    --to_divide_factor $TO_DIVIDE_FACTOR \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
     --normal_prod $NORMAL_PROD \
@@ -49,4 +51,4 @@ python pcno_curve_geo_test.py \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
     --bsz $BATCH_SIZE \
-    > ${LOG_DIR}/k${K_MAX}_L10_bsz${BATCH_SIZE}_grad${GRAD}_geo${GEO}_geoint${GEOINTEGRAL}.log
+    > ${LOG_DIR}/k${K_MAX}_L10_bsz${BATCH_SIZE}_factor${TO_DIVIDE_FACTOR}_grad${GRAD}_geo${GEO}_geoint${GEOINTEGRAL}.log

@@ -27,16 +27,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
 
-parser.add_argument('--grad', type=str, default='False', choices=['True', 'False'])
-parser.add_argument('--geo', type=str, default='False', choices=['True', 'False'])
-parser.add_argument('--geograd', type=str, default='False', choices=['True', 'False'])
-parser.add_argument('--lap', type=str, default='False', choices=['True', 'False'])
-parser.add_argument('--geointegral', type=str, default='False', choices=['True', 'False'])
+parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
+parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
+parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
+
 parser.add_argument('--geo_dims', type=int, nargs='+', default=None)
 parser.add_argument('--num_grad', type=int, default=3)
 parser.add_argument('--to_divide_factor', type=float, default=1.0)
 parser.add_argument('--k_max', type=int, default=16)
-parser.add_argument('--bsz', type=int, default=128)
+parser.add_argument('--bsz', type=int, default=32)
 parser.add_argument('--ep', type=int, default=500)
 parser.add_argument('--n_train', type=int, default=900)
 parser.add_argument('--n_test', type=int, default=100)
@@ -48,7 +47,7 @@ parser.add_argument('--n_two_circles_test', type=int, default=0)
 parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace', 'exterior_laplace_neumann'])
 args = parser.parse_args()
 
-layer_selection = {'grad': args.grad.lower() == "true", 'geograd': args.geograd.lower() == "true", 'geo': args.geo.lower() == "true", 'lap': args.lap.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
+layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
 normal_prod = args.normal_prod.lower() == "true"
 f_in_dim = 2 if args.kernel_type in ['stokes'] else 1
 f_out_dim = 2 if args.kernel_type in ['modified_dp_laplace','stokes'] else 1

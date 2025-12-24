@@ -362,7 +362,7 @@ class PCNO(nn.Module):
         nmeasures,
         layers,
         geo_dims,
-        layer_selection = {'grad': True, 'geograd': False, 'geo': False, 'lap': False, 'geointegral': False},
+        layer_selection = {'grad': True, 'geo': True, 'geointegral': True},
         num_grad = 3,
         fc_dim=128,
         in_dim=3,
@@ -451,9 +451,7 @@ class PCNO(nn.Module):
 
         self.fc0 = nn.Linear(in_dim, layers[0])
 
-        self.geo_emb1s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geo'] else [None]*len(layers[1:])
-        self.geo_emb2s = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['lap'] else [None]*len(layers[1:])
-        self.geo_emb3s = nn.ModuleList([Geo_emb(self.geodim, ndims*out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geograd'] else [None]*len(layers[1:])
+        self.geo_embs = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geo'] else [None]*len(layers[1:])
         self.sp_convs = nn.ModuleList(
             [
                 SpectralConv(in_size, out_size, modes)
@@ -498,9 +496,7 @@ class PCNO(nn.Module):
 
         num_branches = 2 
         if layer_selection['grad']: num_branches += 1
-        if layer_selection['geograd']: num_branches += 1
         if layer_selection['geo']: num_branches += 1
-        if layer_selection['lap']: num_branches += 1
         self.scale_factor = 1.0 / num_branches  # 1/num or 1/sqrt(num) ??
 
         self.act = _get_act(act)
@@ -583,12 +579,11 @@ class PCNO(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw, nw, spw, geo_emb1, geo_emb2, geo_emb3) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.nws, self.spws, self.geo_emb1s, self.geo_emb2s, self.geo_emb3s)):
+        for i, (speconv, w, gw, nw, spw, geo_emb) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.nws, self.spws, self.geo_embs)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             if self.layer_selection['geointegral']:
                 x1 = x1 + nw(torch.cat([x1 * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1))
             x1 = spw(x1)
-            
             x2 = w(x)
 
             if self.layer_selection['grad']:
@@ -596,25 +591,16 @@ class PCNO(nn.Module):
             else:
                 x_grad = 0
 
-            if self.layer_selection['geograd']:
-                x_geo_grad = geo_emb3(geo, self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            else:
-                x_geo_grad = 0
-
             if self.layer_selection['geo']:
-                x_geo = geo_emb1(geo, x)
+                x_geo = geo_emb(geo, x)
             else:
                 x_geo = 0
 
-            if self.layer_selection['lap']:
-                x_lap = geo_emb2(geo, self.softsign(compute_laplacian(x, directed_edges, edge_gradient_weights)))
-            else:
-                x_lap = 0
             
             if self.act is not None and i != length - 1:
-                x = x + self.act(self.scale_factor*(x1 + x2 + x_grad + x_geo_grad + x_geo + x_lap))
+                x = x + self.act(self.scale_factor*(x1 + x2 + x_grad + x_geo))
             else:
-                x = self.scale_factor*(x1 + x2 + x_grad + x_geo_grad + x_geo + x_lap)
+                x = self.scale_factor*(x1 + x2 + x_grad + x_geo)
 
         x = x.permute(0, 2, 1)
 

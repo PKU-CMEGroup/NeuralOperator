@@ -288,76 +288,13 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     return f_gradients.permute(0,2,1)
     
 
-def compute_laplacian(f, directed_edges, edge_gradient_weights):
-    """
-    Compute Laplacian using gradient-divergence approach.
-    
-    Parameters:
-        f: [batch_size, in_channels, nnodes] - scalar field
-        directed_edges: [batch_size, max_nedges, 2] - directed edges
-        edge_gradient_weights: [batch_size, max_nedges, ndims] - gradient weights
-        
-    Returns:
-        f_laplacian: [batch_size, in_channels, nnodes] - Laplacian of f
-    """
-    
-    batch_size, in_channels, max_nnodes = f.shape
-    _, max_nedges, ndims = edge_gradient_weights.shape
-    
-    # Step 1: Compute gradient of f
-    f_grad = compute_gradient(f, directed_edges, edge_gradient_weights)  # [batch_size, in_channels*ndims, nnodes]
-    f_grad = f_grad.reshape(batch_size, in_channels, ndims, max_nnodes)
-    f_grad = f_grad.permute(0, 3, 1, 2)  # [batch_size, nnodes, in_channels, ndims]
-    
-    # Step 2: Compute divergence of gradient (Laplacian)
-    target, source = directed_edges[..., 0], directed_edges[..., 1]
-    
-    # For each edge (s->t), compute contribution to divergence
-    # The divergence at node t gets contribution from edge s->t
-    # The weight for this contribution is edge_divergence_weights for edge s->t
-    
-    # Expand f_grad to match edge structure
-    f_grad_source = f_grad[torch.arange(batch_size).unsqueeze(1), source]  # [batch_size, max_nedges, in_channels, ndims]
-    
-    # Compute dot product: edge_divergence_weights · f_grad_source
-    # edge_divergence_weights: [batch_size, max_nedges, ndims]
-    # f_grad_source: [batch_size, max_nedges, in_channels, ndims]
-    message = torch.einsum('bed,becd->bec', 
-                                          edge_gradient_weights,
-                                          f_grad_source)  # [batch_size, in_channels, max_nedges]
-    
-    # Sum contributions for each target node
-    f_laplacian = torch.zeros(batch_size, max_nnodes, in_channels,
-                             dtype=message.dtype, 
-                             device=message.device)
-    
-    # Scatter add: for each edge s->t, add contribution to node t
-    f_laplacian.scatter_add_(dim=1, src=message,
-                           index=target.unsqueeze(2).repeat(1,1,in_channels))
-    
-    return f_laplacian.permute(0,2,1)
-
-
-# class Geo_emb(nn.Module):
-#     def __init__(self, geo_size, in_size, out_size):
-#         super(Geo_emb, self).__init__()
-#         self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
-#         self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
-#         self.w = nn.Conv1d(out_size, out_size, 1, bias=False)
-#     def forward(self, geo, x):
-#         '''
-#         geo: float[batch_size, geo_size, nnodes]
-#         x:  float[batch_size, in_size, nnodes]
-#         return: 
-#             float[batch_size, out_size, nnodes]
-#         '''
-
-#         return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
 
 class Geo_emb(nn.Module):
     def __init__(self, geo_size, in_size, out_size):
         super(Geo_emb, self).__init__()
-        self.geo_wx = nn.Conv1d(geo_size*in_size, out_size, 1, bias=False)
+        self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
+        self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
+        self.w = nn.Conv1d(out_size, out_size, 1, bias=False)
     def forward(self, geo, x):
         '''
         geo: float[batch_size, geo_size, nnodes]
@@ -365,9 +302,10 @@ class Geo_emb(nn.Module):
         return: 
             float[batch_size, out_size, nnodes]
         '''
-        return self.geo_wx(torch.einsum('bgx,bcx->bgcx', geo, x).reshape(x.shape[0], -1, x.shape[-1]))
-    
-    
+
+        return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
+
+
 # class Geo_emb(nn.Module):
 #     def __init__(self, geo_size, in_size, out_size):
 #         super(Geo_emb, self).__init__()
@@ -534,11 +472,7 @@ class PCNO(nn.Module):
             ]
         )
         # Short-range geo layer
-        self.geo_embs = nn.ModuleList(
-            [Geo_emb((ndims + 2*ndims*ndims), in_size, out_size) 
-             for in_size, out_size in zip(self.layers, self.layers[1:])
-             ]
-            ) if layer_selection['geo'] else [None]*len(layers[1:])
+        self.geo_embs = nn.ModuleList([Geo_emb((ndims + 2*ndims*ndims), in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])
         
         # Projection layer
         if fc_dim > 0:
@@ -629,11 +563,10 @@ class PCNO(nn.Module):
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
         outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, ndims, nnodes]        
-        nodes_coord = x[..., self.geo_dims[-self.ndims:]].permute(0,2,1)     # float[batch_size, ndims, nnodes]        
         
         geo_0 = x[..., self.geo_dims].permute(0,2,1)                         # (nx, x) float[batch_size, 2ndims, nnodes]
         geo_list = [outward_normal]
-        geo_list.append(F.softsign(compute_gradient(geo_0, directed_edges, edge_gradient_weights)))
+        geo_list.append(compute_gradient(geo_0, directed_edges, edge_gradient_weights))
         geo = torch.cat(geo_list, dim=1)                                     # float[batch_size, ndims + ndims*(2ndims), nnodes]
 
         x = self.fc0(x)

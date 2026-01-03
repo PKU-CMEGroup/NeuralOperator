@@ -338,12 +338,26 @@ def compute_laplacian(f, directed_edges, edge_gradient_weights):
     return f_laplacian.permute(0,2,1)
 
 
+# class Geo_emb(nn.Module):
+#     def __init__(self, geo_size, in_size, out_size):
+#         super(Geo_emb, self).__init__()
+#         self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
+#         self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
+#         self.w = nn.Conv1d(out_size, out_size, 1, bias=False)
+#     def forward(self, geo, x):
+#         '''
+#         geo: float[batch_size, geo_size, nnodes]
+#         x:  float[batch_size, in_size, nnodes]
+#         return: 
+#             float[batch_size, out_size, nnodes]
+#         '''
+
+#         return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
+
 class Geo_emb(nn.Module):
     def __init__(self, geo_size, in_size, out_size):
         super(Geo_emb, self).__init__()
-        self.geo_wx = nn.Conv1d(geo_size, out_size, 1, bias=False)
-        self.wx = nn.Conv1d(in_size, out_size, 1, bias=False)
-        self.w = nn.Conv1d(out_size, out_size, 1, bias=False)
+        self.geo_wx = nn.Conv1d(geo_size*in_size, out_size, 1, bias=False)
     def forward(self, geo, x):
         '''
         geo: float[batch_size, geo_size, nnodes]
@@ -351,9 +365,25 @@ class Geo_emb(nn.Module):
         return: 
             float[batch_size, out_size, nnodes]
         '''
+        return self.geo_wx(torch.einsum('bgx,bcx->bgcx', geo, x).reshape(x.shape[0], -1, x.shape[-1]))
+    
+    
+# class Geo_emb(nn.Module):
+#     def __init__(self, geo_size, in_size, out_size):
+#         super(Geo_emb, self).__init__()
+#         self.w = nn.Conv1d(geo_size*in_size, out_size, 1, bias=False)
+#     def forward(self, geo, x):
+#         '''
+#         geo: float[batch_size, geo_size, nnodes]
+#         x:   float[batch_size, in_size, nnodes]
+#         return: 
+#             float[batch_size, out_size, nnodes]
+#         '''
 
-        return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
-
+#         return self.w(torch.einsum('bgx, bcx -> bgcx', F.softsign(geo), x).reshape(x.shape[0],-1, x.shape[-1]))
+    
+    
+    
 class PCNO(nn.Module):
     def __init__(
         self,
@@ -447,11 +477,10 @@ class PCNO(nn.Module):
         self.in_dim = in_dim
         self.num_grad = num_grad
 
-        self.geodim = sum([ndims**i for i in range(num_grad + 1)])*len(geo_dims)
-
+        # Lifting layer
         self.fc0 = nn.Linear(in_dim, layers[0])
 
-        self.geo_embs = nn.ModuleList([Geo_emb(self.geodim, out_size, out_size) for out_size in self.layers[1:]]) if layer_selection['geo'] else [None]*len(layers[1:])
+        # Long-range spectral convolution layer
         self.sp_convs = nn.ModuleList(
             [
                 SpectralConv(in_size, out_size, modes)
@@ -460,40 +489,70 @@ class PCNO(nn.Module):
                 )
             ]
         )
-        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
-        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
-        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
-        self.spws = nn.ModuleList(
+        # Linear operator outside the spectral convolution layer
+        self.sp_ws = nn.ModuleList(
             [
-                nn.Conv1d(in_size, out_size, 1, bias = False)
+                nn.Conv1d(out_size, out_size, 1, bias = False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
+                
+        # Cheap implementation for long-range spectral convolution layer with ny
+        # Combine information with ny
+        # [x, x\otimes n]    ->    \tilde{x} = W[x, x\otimes n]
+        self.sp_convs_nws = nn.ModuleList(
+            [
+                nn.Conv1d(in_size * (ndims + 1), in_size, 1, bias=False)
+                for in_size, out_size in zip(self.layers[1:], self.layers[1:])
+            ]
+        )
+
+
+        # Cheap implementation for long-range spectral convolution layer with nx
+        # Combine information with nx
+        # f    ->    \tilde{f} = W[f \otimes n]
+        self.sp_convs_adj_nws = nn.ModuleList(
+            [
+                nn.Conv1d(out_size * ndims, out_size, 1, bias = False)
+                for in_size, out_size in zip(self.layers, self.layers[1:])
+            ]
+        )
+        
+        # Linear operator
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
-        self.nws = nn.ModuleList(
-            [
-                nn.Conv1d(in_size * ndims, out_size, 1, bias=False)
-                for in_size, out_size in zip(self.layers[1:], self.layers[1:])
-            ]
-        )
+
+        # Gradient operator
         self.gws = nn.ModuleList(
             [
                 nn.Conv1d(ndims*in_size, out_size, 1, bias = False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
-
+        # Short-range geo layer
+        self.geo_embs = nn.ModuleList(
+            [Geo_emb((ndims + 2*ndims*ndims), in_size, out_size) 
+             for in_size, out_size in zip(self.layers, self.layers[1:])
+             ]
+            ) if layer_selection['geo'] else [None]*len(layers[1:])
+        
+        # Projection layer
         if fc_dim > 0:
             self.fc1 = nn.Linear(layers[-1], fc_dim)
             self.fc2 = nn.Linear(fc_dim, out_dim)
         else:
             self.fc2 = nn.Linear(layers[-1], out_dim)
 
+
+        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
+        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
+        
+        
         num_branches = 2 
         if layer_selection['grad']: num_branches += 1
         if layer_selection['geo']: num_branches += 1
@@ -569,21 +628,26 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
-        outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]        
-        geo_0 = x[..., self.geo_dims].permute(0,2,1)  # float[batch_size, geo_dims, nnodes]
-        geo_list = [geo_0]
-        for _ in range(self.num_grad):
-            geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
-        geo = torch.cat(geo_list, dim=1)  # float[batch_size, geo_dims*(1 + ndims + ndims*ndims + ...), nnodes]
+        outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, ndims, nnodes]        
+        nodes_coord = x[..., self.geo_dims[-self.ndims:]].permute(0,2,1)     # float[batch_size, ndims, nnodes]        
+        
+        geo_0 = x[..., self.geo_dims].permute(0,2,1)                         # (nx, x) float[batch_size, 2ndims, nnodes]
+        geo_list = [outward_normal]
+        geo_list.append(F.softsign(compute_gradient(geo_0, directed_edges, edge_gradient_weights)))
+        geo = torch.cat(geo_list, dim=1)                                     # float[batch_size, ndims + ndims*(2ndims), nnodes]
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, w, gw, nw, spw, geo_emb) in enumerate(zip(self.sp_convs, self.ws, self.gws, self.nws, self.spws, self.geo_embs)):
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+        for i, (speconv, spw, spconvnw, spconvadjnw, w, gw, geo_emb) in enumerate(zip(self.sp_convs, self.sp_ws, self.sp_convs_nws, self.sp_convs_adj_nws, self.ws, self.gws, self.geo_embs)):
+            
             if self.layer_selection['geointegral']:
-                x1 = x1 + nw(torch.cat([x1 * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1))
-            x1 = spw(x1)
+                x1 = speconv( spconvnw(  torch.cat([x] + [x * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1)  ), bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+                x1 = spw(x1) + spconvadjnw(torch.cat([x1 * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1))
+            else:
+                x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+                x1 = spw(x1)
+                
             x2 = w(x)
 
             if self.layer_selection['grad']:

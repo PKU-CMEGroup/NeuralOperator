@@ -305,22 +305,6 @@ class Geo_emb(nn.Module):
 
         return self.w(F.softsign(self.geo_wx(geo)) * self.wx(x))
 
-
-# class Geo_emb(nn.Module):
-#     def __init__(self, geo_size, in_size, out_size):
-#         super(Geo_emb, self).__init__()
-#         self.w = nn.Conv1d(geo_size*in_size, out_size, 1, bias=False)
-#     def forward(self, geo, x):
-#         '''
-#         geo: float[batch_size, geo_size, nnodes]
-#         x:   float[batch_size, in_size, nnodes]
-#         return: 
-#             float[batch_size, out_size, nnodes]
-#         '''
-
-#         return self.w(torch.einsum('bgx, bcx -> bgcx', F.softsign(geo), x).reshape(x.shape[0],-1, x.shape[-1]))
-    
-    
     
 class PCNO(nn.Module):
     def __init__(
@@ -471,8 +455,9 @@ class PCNO(nn.Module):
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
-        # Short-range geo layer
-        self.geo_embs = nn.ModuleList([Geo_emb((ndims + 2*ndims*ndims), in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])
+        # Short-range geo layer, geo includes nx, d^(k)(nx, x), k=1,2, ... num_grad
+        geodims = ndims + sum([ndims**i for i in range(1,num_grad + 1)])*len(geo_dims)
+        self.geo_embs = nn.ModuleList([Geo_emb(geodims, in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])
         
         # Projection layer
         if fc_dim > 0:
@@ -563,10 +548,11 @@ class PCNO(nn.Module):
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
         outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, ndims, nnodes]        
-        
         geo_0 = x[..., self.geo_dims].permute(0,2,1)                         # (nx, x) float[batch_size, 2ndims, nnodes]
-        geo_list = [outward_normal]
-        geo_list.append(compute_gradient(geo_0, directed_edges, edge_gradient_weights))
+        geo_list = [outward_normal, compute_gradient(geo_0, directed_edges, edge_gradient_weights)]
+        for _ in range(self.num_grad-1):
+            geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
+
         geo = torch.cat(geo_list, dim=1)                                     # float[batch_size, ndims + ndims*(2ndims), nnodes]
 
         x = self.fc0(x)
@@ -583,13 +569,14 @@ class PCNO(nn.Module):
                 
             x2 = w(x)
 
+
             if self.layer_selection['grad']:
                 x_grad = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
             else:
                 x_grad = 0
 
             if self.layer_selection['geo']:
-                x_geo = geo_emb(geo, x)
+                x_geo = geo_emb(geo,  x)
             else:
                 x_geo = 0
 

@@ -119,12 +119,10 @@ def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, dir
     if normal_prod:
         x = torch.cat((features[data_indices][...,:f_in_dim+2],
                             features[data_indices][...,f_in_dim:f_in_dim+2]*features[data_indices][..., :f_in_dim],
-                            nodes_input[data_indices, ...],
-                            node_rhos[data_indices, ...]), -1)
+                            nodes_input[data_indices, ...]), -1)
     else:
         x = torch.cat((features[data_indices][...,:f_in_dim+2],
-                            nodes_input[data_indices, ...],
-                            node_rhos[data_indices, ...]), -1)
+                            nodes_input[data_indices, ...]), -1)
     y = features[data_indices][...,-f_out_dim:]
     aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices])
     

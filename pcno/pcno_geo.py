@@ -287,6 +287,34 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     
     return f_gradients.permute(0,2,1)
     
+def compute_geo(nx, x, num_grad, directed_edges, edge_gradient_weights, add_inner_product=False):
+    '''
+    Input:
+    nx: float[batch_size, ndims, nnodes]  outward normal at each node
+    x: float[batch_size, ndims, nnodes]  nodal coordinate
+    directed_edges : int[batch_size, max_nedges, 2]
+    edge_gradient_weights : float[batch_size, max_nedges, ndim]
+
+    Return: 
+    geo: float [batch_size, ndims + (ndims + ... + ndims**num_grad)*(2ndims), nnodes]
+    '''       
+    if add_inner_product:
+        bsz, ndims, nnodes = x.shape  
+        gradx = compute_gradient(x, directed_edges, edge_gradient_weights)      
+        hessx = compute_gradient(gradx, directed_edges, edge_gradient_weights)
+        gradx = gradx.reshape(bsz, ndims, ndims, nnodes)
+        hessx = hessx.reshape(bsz, ndims*ndims, ndims, nnodes)
+        geo0 = torch.cat([nx.unsqueeze(1),gradx,hessx], dim=1)
+        geo_matrix = torch.einsum('bikn,bjkn->bijn', geo0, geo0).reshape(bsz,-1,nnodes)
+        geo = torch.cat([geo0.reshape(bsz, -1, nnodes), geo_matrix], dim=1)
+        return geo
+    
+    else:
+        geo_list = [nx, compute_gradient(torch.cat([nx, x], dim=1), directed_edges, edge_gradient_weights)]
+        for _ in range(num_grad-1):
+            geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
+        geo = torch.cat(geo_list, dim=1)                                     
+        return geo  
 
 
 class Geo_emb(nn.Module):
@@ -313,9 +341,8 @@ class PCNO(nn.Module):
         modes,
         nmeasures,
         layers,
-        geo_dims,
+        geodims,
         layer_selection = {'grad': True, 'geo': True, 'geointegral': True},
-        num_grad = 3,
         fc_dim=128,
         in_dim=3,
         out_dim=1,
@@ -394,10 +421,9 @@ class PCNO(nn.Module):
         self.layers = layers
         self.fc_dim = fc_dim
 
-        self.geo_dims = geo_dims
+
         self.ndims = ndims
         self.in_dim = in_dim
-        self.num_grad = num_grad
 
         # Lifting layer
         self.fc0 = nn.Linear(in_dim, layers[0])
@@ -456,7 +482,6 @@ class PCNO(nn.Module):
             ]
         )
         # Short-range geo layer, geo includes nx, d^(k)(nx, x), k=1,2, ... num_grad
-        geodims = ndims + sum([ndims**i for i in range(1,num_grad + 1)])*len(geo_dims)
         self.geo_embs = nn.ModuleList([Geo_emb(geodims, in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])
         
         # Projection layer
@@ -536,7 +561,7 @@ class PCNO(nn.Module):
         length = len(self.ws)
 
         # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = aux
         # bases: float[batch_size, nnodes, nmodes]
         # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
@@ -547,13 +572,7 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
-        outward_normal = x[..., self.geo_dims[0:self.ndims]].permute(0,2,1)  # float[batch_size, ndims, nnodes]        
-        geo_0 = x[..., self.geo_dims].permute(0,2,1)                         # (nx, x) float[batch_size, 2ndims, nnodes]
-        geo_list = [outward_normal, compute_gradient(geo_0, directed_edges, edge_gradient_weights)]
-        for _ in range(self.num_grad-1):
-            geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
-
-        geo = torch.cat(geo_list, dim=1)                                     # float[batch_size, ndims + ndims*(2ndims), nnodes]
+        outward_normal = geo[:, 0:self.ndims, :]  # float[batch_size, ndims, nnodes]        
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
@@ -739,14 +758,14 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
         y_normalizer.to(device)
 
 
-    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
     test_loaders = []
 
     for i in range(n_distributions):
-        node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test_list[i]
+        node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test = aux_test_list[i]
         sub_dataset = torch.utils.data.TensorDataset(
             x_test_list[i], 
             y_test_list[i], 
@@ -754,7 +773,8 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
             nodes_test, 
             node_weights_test, 
             directed_edges_test, 
-            edge_gradient_weights_test
+            edge_gradient_weights_test,
+            geo_test
         )
         sub_loader = torch.utils.data.DataLoader(sub_dataset, batch_size=config['train']['batch_size'], shuffle=False)
         try:
@@ -797,12 +817,12 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -824,11 +844,11 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
                 test_l2 = 0
                 test_rel_l2 = 0
 
-                for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in loader:
-                    x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+                for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in loader:
+                    x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
 
                     batch_size_ = x.shape[0]
-                    out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+                    out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
 
                     if normalization_y:
                         out = y_normalizer.decode(out)

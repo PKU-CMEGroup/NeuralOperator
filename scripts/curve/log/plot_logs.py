@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import matplotlib.ticker as ticker
+import ast
 
 def parse_log_file_full(filepath):
     try:
@@ -27,9 +28,22 @@ def parse_log_file_full(filepath):
                         
                         # Extract Test Loss
                         test_part = line.split('Rel. Test L2 Loss :')[1].split('Test L2 Loss :')[0].strip()
-                        test_loss = float(test_part)
                         
-                        return epoch, train_loss, test_loss
+                        try:
+                            test_data = ast.literal_eval(test_part)
+                            if isinstance(test_data, dict):
+                                test_loss_default = test_data.get('Default', float('nan'))
+                                test_loss_two_circles = test_data.get('Two Circles', float('nan'))
+                            else:
+                                # Old format, just a float
+                                test_loss_default = float(test_part)
+                                test_loss_two_circles = float('nan')
+                        except:
+                             # Fallback if eval fails but it might be a simple float
+                            test_loss_default = float(test_part)
+                            test_loss_two_circles = float('nan')
+                        
+                        return epoch, train_loss, test_loss_default, test_loss_two_circles
                     except (ValueError, IndexError, AttributeError):
                         continue
     except Exception as e:
@@ -78,8 +92,8 @@ def save_results_to_md(log_dir, output_file, record_previous=False):
                     if len(filename) > max_len:
                         max_len = len(filename)
             
-            for filename, (epoch, train_loss, test_loss) in file_infos:
-                md.write(f"- {filename:<{max_len}}: ep {epoch:>4}, train {train_loss:.8f}, test {test_loss:.8f}\n")
+            for filename, (epoch, train_loss, test_loss_default, test_loss_two_circles) in file_infos:
+                md.write(f"- {filename:<{max_len}}: ep {epoch:>4}, train {train_loss:.8f}, test_default {test_loss_default:.8f}, test_2cir {test_loss_two_circles:.8f}\n")
             
             # Add newline only if we wrote something (header or files)
             if level > 0 or file_infos:
@@ -117,7 +131,13 @@ def load_results_from_md(md_file):
                 
                 curr = data
                 for key in path_stack: curr = curr[key]
-                curr[filename] = (int(vals[0].split()[-1]), float(vals[1].split()[-1]), float(vals[2].split()[-1]))
+                
+                epoch = int(vals[0].split()[-1])
+                train_loss = float(vals[1].split()[-1])
+                test_default = float(vals[2].split()[-1])
+                test_2cir = float(vals[3].split()[-1]) if len(vals) > 3 else float('nan')
+                
+                curr[filename] = (epoch, train_loss, test_default, test_2cir)
 
     return data
 
@@ -222,116 +242,127 @@ def plot_curves(kernel_type, layer_type, normal_keywords, special_keywords, igno
 
     print(f"Processing {len(target_data)} files for {kernel_type}/{layer_type}...")
 
-    def get_data(required_keys, excluded_keys, label):
-        results = {}
-        count = 0
-        for filename, (_, _, loss) in target_data.items():
-            if not filename.endswith('.log'): continue
-            info = parse_model_info(filename, required_keys, excluded_keys)
-            if not info: continue
-            
-            count += 1
-            n_data, model_type, k_value = info
-            group_key, x_val = (k_value, n_data) if plot_axis == 'n_train' else (n_data, k_value)
-            
-            if model_type not in results.setdefault(group_key, {}):
-                results[group_key][model_type] = {}
-            
-            current_results = results[group_key][model_type]
-            if x_val not in current_results or loss < current_results[x_val]:
-                current_results[x_val] = loss
-        print(f"Processed {count} {label} files (keywords: {required_keys}, ignored: {excluded_keys})")
-        return results
+    loss_types = [('Default', 2), ('TwoCircles', 3)]
 
-    normal_results = get_data(normal_keywords, special_keywords + ignore_keywords, 'normal')
-    special_results = {}
-    if special_keywords:
-        special_results = get_data(normal_keywords + special_keywords, ignore_keywords, 'special')
+    for loss_name, loss_idx in loss_types:
+        print(f"\nGenerating plots for {loss_name} Loss...")
 
-    styles = {
-        'geo + grad': {'marker': 'o', 'color': 'red'},
-        'grad': {'marker': 's', 'color': 'blue'},
-        'geo': {'marker': '^', 'color': 'green'},
-        'base': {'marker': 'x', 'color': 'orange'},
-        'geograd': {'marker': 'D', 'color': 'purple'},
-        'geo + geograd': {'marker': 'v', 'color': 'brown'}
-    }
+        def get_data(required_keys, excluded_keys, label):
+            results = {}
+            count = 0
+            for filename, values in target_data.items():
+                if not filename.endswith('.log'): continue
+                
+                # values is (epoch, train, test_def, test_2cir)
+                if len(values) <= loss_idx: continue
+                loss = values[loss_idx]
+                if np.isnan(loss): continue
 
-    def plot_group(data, overlay=None, suffix=''):
-        for group_key, models in data.items():
-            plt.figure(figsize=(10, 8))
-            
-            def draw_lines(model_dict, linestyle='-', alpha=1.0, label_suffix=''):
-                # Sort by length to ensure base model comes first
-                sorted_models = sorted(model_dict.items(), key=lambda x: (len(x[0]), x[0]))
-                seen_types = {}
+                info = parse_model_info(filename, required_keys, excluded_keys)
+                if not info: continue
+                
+                count += 1
+                n_data, model_type, k_value = info
+                group_key, x_val = (k_value, n_data) if plot_axis == 'n_train' else (n_data, k_value)
+                
+                if model_type not in results.setdefault(group_key, {}):
+                    results[group_key][model_type] = {}
+                
+                current_results = results[group_key][model_type]
+                if x_val not in current_results or loss < current_results[x_val]:
+                    current_results[x_val] = loss
+            print(f"Processed {count} {label} files (keywords: {required_keys}, ignored: {excluded_keys})")
+            return results
 
-                for model_type, points in sorted_models:
-                    dtype = dominant_model_type(model_type)
-                    seen_types[dtype] = seen_types.get(dtype, 0) + 1
-                    style = styles.get(dtype, {'marker': 'o', 'color': 'black'})
-                    
-                    ls = linestyle
-                    if linestyle == '-':
-                        # Cycle styles for variants: Solid -> Dash-dot -> Dotted
-                        ls = ['-', '-.', ':'][ (seen_types[dtype]-1) % 3 ]
+        normal_results = get_data(normal_keywords, special_keywords + ignore_keywords, 'normal')
+        special_results = {}
+        if special_keywords:
+            special_results = get_data(normal_keywords + special_keywords, ignore_keywords, 'special')
 
-                    x_vals, y_vals = zip(*sorted(points.items()))
-                    plt.plot(x_vals, y_vals, marker=style['marker'], color=style['color'], 
-                             label=model_type + label_suffix, linestyle=ls, 
-                             linewidth=1.5, markersize=4, alpha=alpha)
+        styles = {
+            'geo + grad': {'marker': 'o', 'color': 'red'},
+            'grad': {'marker': 's', 'color': 'blue'},
+            'geo': {'marker': '^', 'color': 'green'},
+            'base': {'marker': 'x', 'color': 'orange'},
+            'geograd': {'marker': 'D', 'color': 'purple'},
+            'geo + geograd': {'marker': 'v', 'color': 'brown'}
+        }
 
-            draw_lines(models)
-            if overlay and group_key in overlay:
-                draw_lines(overlay[group_key], linestyle='--', alpha=0.7, label_suffix=f' ({"+".join(special_keywords)})')
+        def plot_group(data, overlay=None, suffix=''):
+            for group_key, models in data.items():
+                plt.figure(figsize=(10, 8))
+                
+                def draw_lines(model_dict, linestyle='-', alpha=1.0, label_suffix=''):
+                    # Sort by length to ensure base model comes first
+                    sorted_models = sorted(model_dict.items(), key=lambda x: (len(x[0]), x[0]))
+                    seen_types = {}
 
-            xlabel = 'Data Size (N)' if plot_axis == 'n_train' else 'k_max'
-            group_label = 'k' if plot_axis == 'n_train' else 'N'
-            
-            plt.xlabel(xlabel)
-            plt.ylabel('Rel. Test L2 Loss')
-            plt.yscale('log')
-            plt.title(f'Model Performance vs {xlabel} ({kernel_type}, {group_label}={group_key})')
-            plt.legend()
-            plt.grid(True, which="both", alpha=0.5)
+                    for model_type, points in sorted_models:
+                        dtype = dominant_model_type(model_type)
+                        seen_types[dtype] = seen_types.get(dtype, 0) + 1
+                        style = styles.get(dtype, {'marker': 'o', 'color': 'black'})
+                        
+                        ls = linestyle
+                        if linestyle == '-':
+                            # Cycle styles for variants: Solid -> Dash-dot -> Dotted
+                            ls = ['-', '-.', ':'][ (seen_types[dtype]-1) % 3 ]
 
-            ax = plt.gca()
-            ax.yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.arange(2, 10), numticks=20))
-            formatter = ticker.ScalarFormatter()
-            formatter.set_scientific(False)
-            ax.yaxis.set_major_formatter(formatter)
-            ax.yaxis.set_minor_formatter(formatter)
-            
-            output_filename = f"{kernel_type}_{layer_type}_{group_label}{group_key}{suffix}.png"
-            plt.savefig(os.path.join(output_dir, output_filename), dpi=300)
-            plt.close()
-            print(f"Plot saved to {output_filename}")
+                        x_vals, y_vals = zip(*sorted(points.items()))
+                        plt.plot(x_vals, y_vals, marker=style['marker'], color=style['color'], 
+                                 label=model_type + label_suffix, linestyle=ls, 
+                                 linewidth=1.5, markersize=4, alpha=alpha)
 
-    if plot_normal:
-        normal_tag = "_".join(normal_keywords)
-        suffix = f"_{normal_tag}"
-        overlay = None
-        if plot_special_with_normal and special_results:
-            special_tag = "_".join(special_keywords)
-            suffix += f"({special_tag})"
-            overlay = special_results
-        if ignore_keywords:
-            suffix += f"_no_{'_'.join(ignore_keywords)}"
-        plot_group(normal_results, overlay, suffix=suffix)
+                draw_lines(models)
+                if overlay and group_key in overlay:
+                    draw_lines(overlay[group_key], linestyle='--', alpha=0.7, label_suffix=f' ({"+".join(special_keywords)})')
 
-    if plot_special and special_results:
-        suffix = f"_{'_'.join(normal_keywords + special_keywords)}"
-        if ignore_keywords:
-            suffix += f"_no_{'_'.join(ignore_keywords)}"
-        plot_group(special_results, suffix=suffix)
+                xlabel = 'Data Size (N)' if plot_axis == 'n_train' else 'k_max'
+                group_label = 'k' if plot_axis == 'n_train' else 'N'
+                
+                plt.xlabel(xlabel)
+                plt.ylabel(f'Rel. Test L2 Loss ({loss_name})')
+                plt.yscale('log')
+                plt.title(f'Model Performance vs {xlabel} ({kernel_type}, {group_label}={group_key}) - {loss_name}')
+                plt.legend()
+                plt.grid(True, which="both", alpha=0.5)
+
+                ax = plt.gca()
+                ax.yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.arange(2, 10), numticks=20))
+                formatter = ticker.ScalarFormatter()
+                formatter.set_scientific(False)
+                ax.yaxis.set_major_formatter(formatter)
+                ax.yaxis.set_minor_formatter(formatter)
+                
+                output_filename = f"{kernel_type}_{layer_type}_{group_label}{group_key}{suffix}_{loss_name}.png"
+                plt.savefig(os.path.join(output_dir, output_filename), dpi=300)
+                plt.close()
+                print(f"Plot saved to {output_filename}")
+
+        if plot_normal:
+            normal_tag = "_".join(normal_keywords)
+            suffix = f"_{normal_tag}"
+            overlay = None
+            if plot_special_with_normal and special_results:
+                special_tag = "_".join(special_keywords)
+                suffix += f"({special_tag})"
+                overlay = special_results
+            if ignore_keywords:
+                suffix += f"_no_{'_'.join(ignore_keywords)}"
+            plot_group(normal_results, overlay, suffix=suffix)
+
+        if plot_special and special_results:
+            suffix = f"_{'_'.join(normal_keywords + special_keywords)}"
+            if ignore_keywords:
+                suffix += f"_no_{'_'.join(ignore_keywords)}"
+            plot_group(special_results, suffix=suffix)
 
 
 if __name__ == '__main__':
-    kernel_type = "stokes"  # dp_laplace or sp_laplace or stokes or modified_dp
-    layer_type = 'layer2_gelu' # gelu or layer2_gelu or noact
+    kernel_type = "dp_laplace"  # dp_laplace or sp_laplace or stokes or modified_dp
+    layer_type = 'gelu' # gelu or layer2_gelu or noact
 
-    normal_keywords = ['deep']
-    special_keywords = []
+    normal_keywords = ['2cir','np']
+    special_keywords = ['deep']
     ignore_keywords = []
     plot_normal = True
     plot_special_with_normal = True  
@@ -342,8 +373,8 @@ if __name__ == '__main__':
     record_previous = False
 
     update_log_summary(md_filename=md_filename, record_previous=record_previous)
-    plot_curves(kernel_type, layer_type,
-                 normal_keywords, special_keywords, ignore_keywords,
-                 plot_normal, plot_special_with_normal, plot_special, plot_axis,
-                   md_filename=md_filename,
-                   output_dir='figures/')
+    # plot_curves(kernel_type, layer_type,
+    #              normal_keywords, special_keywords, ignore_keywords,
+    #              plot_normal, plot_special_with_normal, plot_special, plot_axis,
+    #                md_filename=md_filename,
+    #                output_dir='figures/')

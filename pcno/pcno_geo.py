@@ -927,12 +927,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         y_normalizer.to(device)
 
 
-    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
-    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test), 
+    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
     myloss = LpLoss(d=1, p=2, size_average=False)
@@ -968,12 +968,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -991,11 +991,11 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         model.eval()
         with torch.no_grad():
-            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
-                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
+            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in test_loader:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)

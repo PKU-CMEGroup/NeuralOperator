@@ -1025,4 +1025,135 @@ def sample_close_node_pairs(nodes:np.ndarray, nnodes:np.ndarray, node_weights:np
     return directed_edges[:,:max_nedges,...], nedges, directed_edge_node_weights[:,:max_nedges,...]
 
 
+def compute_outward_normals(vertices_list:List[np.ndarray], elems_list:List[np.ndarray]):
+    '''
+    Compute outward normals for a batch of meshes 
+    
+    This function compute outward normals as List[np.ndarray]
 
+        Parameters:  
+            vertices_list :  list of float[nvertices, ndims]
+                    Original vertex coordinates for each mesh in the batch.
+            
+            elems_list :  list of int[nelems, max_num_of_nodes_per_elem+1]. 
+                    Element connectivity.
+                    The first entry is elem_dim, the dimensionality of the element.
+                    The elems array can have some padding numbers, for example, when
+                    we have both line segments and triangles, the padding values are
+                    -1 or any negative integers.
+
+
+        Return :
+            elems_outward_normals_list : list of flot[nelems, ndims]
+    '''
+    ndims = vertices_list[0].shape[1]
+    elems_outward_normals_list = []
+    for vertices, elems in zip(vertices_list, elems_list):
+        nelems = elems.shape[0]
+        normals = np.zeros((nelems, ndims), dtype=float)
+        for e in range(nelems):
+            elem_dim = elems[e, 0]
+            node_ids = elems[e, 1:]
+            node_ids = node_ids[node_ids >= 0]
+            coords = vertices[node_ids]
+            # --------------------------------------------------
+            # 1D element (line) in 2D, counterclockwise 
+            # --------------------------------------------------
+            if elem_dim == 1 and ndims == 2:
+                v0, v1 = coords
+                tangent = v1 - v0
+                normal = np.array([tangent[1], -tangent[0]])
+            # --------------------------------------------------
+            # 2D element (triangle or polygon) in 3D
+            # --------------------------------------------------
+            elif elem_dim == 2 and ndims == 3:
+                v0, v1, v2 = coords[:3]
+                normal = np.cross(v1 - v0, v2 - v0)
+            else:
+                raise NotImplementedError(
+                    f"Unsupported element_dim={elem_dim}, ndims={ndims}"
+                )
+
+            # Normalize
+            norm = np.linalg.norm(normal)
+            normal /= norm
+            assert(norm > 0)
+            
+            normals[e] = normal
+
+        elems_outward_normals_list.append(normals)
+
+    return elems_outward_normals_list
+
+
+def element_features_to_vertices(vertices_list:List[np.ndarray], elems_list:List[np.ndarray], elem_features_list:List[np.ndarray], reduction: str = "area") -> List[np.ndarray]:
+    """
+    Transfer element-wise features to vertices by local averaging.
+
+    This function aggregates features defined on mesh elements
+    (e.g., normals, stresses, fluxes) onto mesh vertices using
+    either uniform or area-weighted averaging.
+
+    Parameters
+    ----------
+    vertices_list : list of ndarray, shape (nvertices, ndims)
+        Vertex coordinates for each mesh in the batch.
+
+    elems_list : list of ndarray, shape (nelems, max_nodes_per_elem + 1)
+        Element connectivity.
+        - elems[e, 0] gives the element dimension
+        - elems[e, 1:] are vertex indices (padding entries < 0 are ignored)
+
+    elem_features_list : list of ndarray, shape (nelems, nfeatures)
+        Features defined on each element.
+
+    reduction : {"area", "uniform"}, default="area"
+        Aggregation rule:
+        - "area": weighted by element measure (length/area)
+        - "uniform": simple arithmetic average
+
+    Returns
+    -------
+    vertex_features_list : list of ndarray, shape (nvertices, nfeatures)
+        Averaged features defined on each vertex.
+    """
+    vertex_features_list = []
+
+    for vertices, elems, elem_features in zip(vertices_list, elems_list, elem_features_list):
+        nvertices = vertices.shape[0]
+        nelems, nfeatures = elem_features.shape
+        vertex_feature = np.zeros((nvertices, nfeatures), dtype=float)
+        vertex_weight = np.zeros(nvertices, dtype=float)
+
+        for e in range(nelems):
+            elem_dim = elems[e, 0]
+            node_ids = elems[e, 1:]
+            node_ids = node_ids[node_ids >= 0]
+            coords = vertices[node_ids]
+            # ---------------------------------------------
+            # Compute element weight
+            # ---------------------------------------------
+            if reduction == "uniform":
+                w = 1.0
+            elif reduction == "area":
+                w = compute_measure_per_elem_(coords, elem_dim)
+            else:
+                raise NotImplementedError(
+                    f"Unsupported reduction={reduction}"
+                )
+            # ---------------------------------------------
+            # Scatter element feature to vertices
+            # ---------------------------------------------
+            for v in node_ids:
+                vertex_feature[v, :] += w * elem_features[e, :]
+                vertex_weight[v] += w
+
+        # ---------------------------------------------
+        # Normalize
+        # ---------------------------------------------
+        assert(np.min(vertex_weight) > 0)
+        vertex_feature /= vertex_weight[:, None]
+
+        vertex_features_list.append(vertex_feature)
+
+    return vertex_features_list

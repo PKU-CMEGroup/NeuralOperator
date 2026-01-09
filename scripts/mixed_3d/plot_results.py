@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedLocator, FixedFormatter
 plt.rcParams['font.family'] = 'Times New Roman'
-
+from pcno_geo_mixed_3d_test import random_shuffle
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from utility.normalizer import UnitGaussianNormalizer
 from utility.losses import LpLoss
@@ -70,7 +70,8 @@ def plot_results(vertices, elems, vertex_data, elem_data, file_name):
     # Save to an Exodus II file
     meshio.write(file_name+ ".vtk", mesh)
 
-folder = "/Users/huang/Desktop/Code/NeuralOperator/data/mixed_3d/mixed_3d_add_elem_features"
+# visualize raw data
+folder = "../../data/mixed_3d_add_elem_features"
 category = "Plane"
 subcategory = "boeing737"
 data_id = 10
@@ -85,4 +86,46 @@ print("number of elems : ", elems.shape[0])
 vertex_data = {"vertex_Cp":  data["features_list"][:,0]}
 elem_data   = {"element_Cp": [data["elem_features_list"][:,0]]}
 file_name = category + subcategory + str(data_id).zfill(4)
+plot_results(vertices, elems, vertex_data, elem_data, file_name)
+
+
+
+mesh_type = "cell_centered"
+# visualize postprocessed data
+data = np.load(folder+"/pcno_mixed_3d_"+mesh_type+".npz")
+names_array = np.load(folder+"/pcno_mixed_3d_names_list.npy", allow_pickle=True)
+# random shuffle, and keep only n_train + n_test data
+print("ndata = ", data["nodes"].shape[0])
+assert(data["nodes"].shape[0] == names_array.shape[0])
+n_train, n_test = 10, 10
+data, names_array = random_shuffle(data, names_array, n_train, n_test, seed=42)
+data_id = 10 # from n_train + n_test data
+nnodes, node_mask, nodes, features = data["nnodes"][data_id], data["node_mask"][data_id], data["nodes"][data_id], data["features"][data_id]
+print(nnodes, node_mask.shape, nodes.shape, flush = True)
+
+raw_data_category, raw_data_subcategory, raw_data_id = names_array[data_id].split('-')
+raw_data_id = int(raw_data_id)
+raw_data_file = folder + "/" + raw_data_category + "/" + raw_data_subcategory + "/" + str(raw_data_id).zfill(4) + ".npz"
+raw_data = np.load(raw_data_file)
+elems = raw_data["elems_list"]
+vertices = raw_data["nodes_list"]
+
+print("number of vertices : ", vertices.shape[0])
+print("number of elems : ", elems.shape[0])
+
+if mesh_type == "cell_centered":
+    vertex_data = {"vertex_Cp":  raw_data["features_list"][:,0]}
+    elem_data   = {"element_Cp": [raw_data["elem_features_list"][:,0]], "post_element_Cp": [features[0:nnodes,3]], "post_element_normal": [features[0:nnodes,0:3]]}
+    print(vertices.shape, elems.shape)
+    print(raw_data["features_list"].shape, raw_data["elem_features_list"].shape, nnodes)
+
+elif mesh_type == "vertex_centered":
+    vertex_data = {"vertex_Cp":  raw_data["features_list"][:,0], "post_vertex_Cp": [features[0:nnodes,3]], "post_vertex_normal": [features[0:nnodes,0:3]]}
+    elem_data   = {"element_Cp": [raw_data["elem_features_list"][:,0]]}
+else:
+    raise NotImplementedError(
+                    f"Unsupported mesh_type={mesh_type}"
+                ) 
+    
+file_name = "post_" + mesh_type + "_" + raw_data_category + raw_data_subcategory + str(raw_data_id).zfill(4)
 plot_results(vertices, elems, vertex_data, elem_data, file_name)

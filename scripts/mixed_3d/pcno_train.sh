@@ -10,15 +10,16 @@
 
 module load conda
 source activate pytorch
-python pcno_geo_mixed_3d_test.py    --grad True \
+python pcno_geo_mixed_3d_test.py    --preprocess_data False \
+                                    --grad True \
                                     --geo True \
                                     --geointegral True \
                                     --num_grad 3 \
-                                    --k_max 16 \
-                                    --batch_size 8 \
+                                    --k_max 8 \
+                                    --batch_size 4 \
                                     --epochs 500 \
                                     --n_train 90 \
                                     --n_test 10 \
                                     --to_divide_factor 1.0 \
-                                    --mesh_type "cell_centered" \    # "cell_centered" , "vertex_centered"
+                                    --mesh_type "cell_centered" \
                                     > logs/PCNO_mixed_3d_grad_geo.log

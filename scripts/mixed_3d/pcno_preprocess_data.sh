@@ -5,11 +5,11 @@
 #SBATCH -J PCNO_preprocess_data
 #SBATCH --nodes=1 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=32
 #SBATCH --time=100:00:00
 
 module load conda
 source activate pytorch
 python pcno_geo_mixed_3d_test.py --preprocess_data True \
-                                 --n_each 100 \
+                                 --n_each 2000 \
                                  --mesh_type "cell_centered"  # "cell_centered" , "vertex_centered"

@@ -65,55 +65,6 @@ mesh_type = args.mesh_type
 n_train = args.n_train
 n_test  = args.n_test
 n_each  = args.n_each 
-
-def _load_data(file_path, nodes_list, elems_list, elem_features_list):
-    data = np.load(file_path)
-    nodes_list.append(data["nodes_list"])
-    elems = data["elems_list"]
-    elems[:, 0] = 2 # element dim = 2
-    elems_list.append(elems)
-    elem_features_list.append(data["elem_features_list"])
-
-
-def load_data(data_path, Plane_datasets, DrivAerNet_datasets, n_each):
-    nodes_list, elems_list, elem_features_list = [], [], []
-
-    Plane_dir = os.path.join(data_path, "Plane")
-    DrivAerNet_dir = os.path.join(data_path, "DrivAerNet")
-
-    # load data
-    for i in range(n_each):
-        for subdir in Plane_datasets:
-            file_path = os.path.join(Plane_dir, subdir, "%04d"%(i+1)+".npz")
-            if os.path.exists(file_path):
-                _load_data(file_path, nodes_list, elems_list, elem_features_list)
-            else:
-                print("Warning: ignore ", file_path)
-                
-        for subdir in DrivAerNet_datasets:
-            file_path = os.path.join(DrivAerNet_dir, subdir, "%04d"%(i+1)+".npz")
-            if os.path.exists(file_path):
-                _load_data(file_path, nodes_list, elems_list, elem_features_list)
-            else:
-                print("Warning: ignore ", file_path)
-
-
-    return nodes_list, elems_list, elem_features_list 
-
-# prepare data
-def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights):
-    nodes_input = nodes.clone()
-    # input x （normal, coordinate）
-    x = torch.cat((features[data_indices][...,:f_in_dim+ndim], nodes_input[data_indices, ...]), -1)
-    # output y
-    y = features[data_indices][...,-f_out_dim:]
-    # outward normal
-    nx = features[data_indices][...,f_in_dim:f_in_dim+ndim]
-    geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
-    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], geo)
-    return x, y, aux
-
-
 PREPROCESS_DATA = args.preprocess_data.lower() == "true"
 
 
@@ -135,15 +86,127 @@ DrivAerNet_datasets = [
 ]
 
 
+def _load_data(file_path, nodes_list, elems_list, elem_features_list):
+    data = np.load(file_path)
+    nodes_list.append(data["nodes_list"])
+    elems = data["elems_list"]
+    elems[:, 0] = 2 # element dim = 2
+    elems_list.append(elems)
+    elem_features_list.append(data["elem_features_list"])
+
+
+def load_data(data_path, Plane_datasets, DrivAerNet_datasets, n_each):
+    names_list, nodes_list, elems_list, elem_features_list = [], [], [], []
+
+    Plane_dir = os.path.join(data_path, "Plane")
+    DrivAerNet_dir = os.path.join(data_path, "DrivAerNet")
+
+    # load data
+    
+    for subdir in Plane_datasets:
+        for i in range(n_each):
+            file_path = os.path.join(Plane_dir, subdir, "%04d"%(i+1)+".npz")
+            if os.path.exists(file_path):
+                _load_data(file_path, nodes_list, elems_list, elem_features_list)
+                names_list.append("Plane-" + subdir + "-%04d"%(i+1))
+            else:
+                print("Warning: ignore ", file_path)
+                
+    for subdir in DrivAerNet_datasets:
+        for i in range(n_each):
+            file_path = os.path.join(DrivAerNet_dir, subdir, "%04d"%(i+1)+".npz")
+            if os.path.exists(file_path):
+                _load_data(file_path, nodes_list, elems_list, elem_features_list)
+                names_list.append("DrivAerNet-" + subdir + "-%04d"%(i+1))
+            else:
+                print("Warning: ignore ", file_path)
+
+
+    return nodes_list, elems_list, elem_features_list, names_list
+
+def random_shuffle(data, names_array, n_train, n_test, seed=42):
+    np.random.seed(seed)  # 可选的：为了可重复性设置随机种子
+    
+    ndata = data["nodes"].shape[0]
+    assert(ndata >= n_train + n_test)
+    random_indices = np.arange(ndata)
+    np.random.shuffle(random_indices)
+    
+    # 取前n_train 和后n_test 个分别作为训练和测试集
+    train_indices = random_indices[:n_train]
+    test_indices = random_indices[-n_test:]
+    indices = np.concatenate([train_indices, test_indices])
+    
+    
+    data = {key: value[indices] for key, value in data.items()}
+    names_array = names_array[indices]
+    
+    # 输出数据统计情况
+    all_datasets = Plane_datasets + DrivAerNet_datasets
+    train_data_stats = {subdir: 0 for subdir in all_datasets}
+    test_data_stats = {subdir: 0 for subdir in all_datasets}
+    for i in range(n_train):
+        train_data_stats[names_array[i].split('-')[1]] += 1
+    for i in range(-n_test,0):
+        test_data_stats[names_array[i].split('-')[1]] += 1
+    print("Training data statistics:")
+    print("-" * 40)
+    assert(sum(train_data_stats.values()) == n_train)
+    for dataset in sorted(all_datasets):
+        count = train_data_stats[dataset]
+        if count > 0:
+            percentage = count / n_train * 100
+            print(f"  {dataset:15s}: {count:3d} ({percentage:5.1f}%)")
+    
+    print("Test data statistics:")
+    print("-" * 40)
+    assert(sum(test_data_stats.values()) == n_test)
+    for dataset in sorted(all_datasets):
+        count = test_data_stats[dataset]
+        if count > 0:
+            percentage = count / n_test * 100
+            print(f"  {dataset:15s}: {count:3d} ({percentage:5.1f}%)")
+    
+    return data, names_array
+
+
+# prepare data
+def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights):
+    nodes_input = nodes.clone()
+    # input x （normal, coordinate）
+    x = torch.cat((features[data_indices][...,:f_in_dim+ndim], nodes_input[data_indices, ...]), -1)
+    # output y
+    y = features[data_indices][...,-f_out_dim:]
+    # outward normal
+    nx = features[data_indices][...,f_in_dim:f_in_dim+ndim]
+    geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
+    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], geo)
+    return x, y, aux
+
+
+    
+
+
+
+
 ###################################
 # load data
 ###################################
 data_path = "../../data/mixed_3d_add_elem_features"
+# Warning there are redundant nodes in ./Plane/J20/0418.npz
+# node 4674 : [ 0.7249122  -0.17730147 -0.03439951]
+# node 4673 : [ 0.7249122  -0.17730147 -0.03439951]
+# Warning there are redundant nodes in ./Plane/P180/1401.npz
+# node 2129 : [ 0.36551496  0.08711994 -0.14670402]
+# node 2121 : [ 0.36551496  0.08711994 -0.14670402]
+# replace ./Plane/J20/0418.npz by ./Plane/J20/0418.npz
+# replace ./Plane/P180/1401.npz by ./Plane/P180/1401.npz
+                                                                                               
 if PREPROCESS_DATA:
     print("Loading data: ", n_each, " from each datasets")
     print("Plane datasets: ", Plane_datasets)
     print("DrivAerNet datasets: ", DrivAerNet_datasets)
-    nodes_list, elems_list, elem_features_list  =  load_data(data_path, 
+    nodes_list, elems_list, elem_features_list, names_list =  load_data(data_path, 
                                                         Plane_datasets,
                                                         DrivAerNet_datasets,
                                                         n_each)
@@ -166,11 +229,21 @@ if PREPROCESS_DATA:
                         node_measures=node_measures, \
                         features=features, \
                         directed_edges=directed_edges, edge_gradient_weights=edge_gradient_weights) 
+    
+    np.save(os.path.join(data_path, "pcno_mixed_3d_names_list.npy"), np.array(names_list, dtype=object))
+
     exit()
 else:
-    # load data 
+    
+    # load data n_train + n_test
     equal_weights = False
     data = np.load(data_path+"/pcno_mixed_3d_"+mesh_type+".npz")
+    names_array = np.load(data_path+"/pcno_mixed_3d_names_list.npy", allow_pickle=True)
+    
+    # random shuffle, and keep only n_train + n_test data
+    data, names_list = random_shuffle(data, names_array, n_train, n_test, seed=42)
+    
+    
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
     
@@ -186,7 +259,7 @@ else:
 
 print(args)
 ndata = nodes.shape[0]
-assert(ndata >= n_train + n_test)
+assert(ndata == n_train + n_test)
 print(f"ndata: {ndata},  n_train: {n_train}, n_test: {n_test}", flush=True)
     
 

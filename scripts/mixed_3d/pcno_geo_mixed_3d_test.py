@@ -217,9 +217,6 @@ if __name__ == "__main__":
         # concatenate features behind normals 
         elem_features_list = [np.concatenate((elem_normals_list[i], elem_features_list[i]),axis=1) for i in range(ndata)]
         
-        n_subdirs = ndata // (n_each)
-        assert n_subdirs == (len(Plane_datasets) + len(DrivAerNet_datasets))
-        
         features_list =  elem_features_list if mesh_type == "cell_centered" else element_features_to_vertices(nodes_list, elems_list, elem_features_list, reduction = "area")
         
         print("Preprocessing data")

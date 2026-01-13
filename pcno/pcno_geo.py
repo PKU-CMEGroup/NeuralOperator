@@ -3,7 +3,10 @@ import numpy as np
 import torch
 import sys
 import torch.nn as nn
+import torch.distributed as dist
 import torch.nn.functional as F
+from torch.utils.data import Dataset, Dataset, DistributedSampler
+
 from timeit import default_timer
 from utility.adam import Adam
 from utility.losses import LpLoss
@@ -1033,6 +1036,176 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
                 }, "checkpoint.pth")
 
             
+    
+    
+    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+
+
+
+
+        
+def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, rank=0, world_size=1, save_model_name="./PCNO_parallel_model", checkpoint_path=None):
+    """
+    PCNO_train function for parallel GPU training
+    
+    Args:
+        model: DDP-wrapped model (should already be wrapped with DistributedDataParallel)
+        rank: rank of the current process (0 is the main process)
+        world_size: total number of processes
+    """
+    assert(world_size > 1)
+    
+    n_train, n_test = x_train.shape[0], x_test.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
+    normalization_dim_x, normalization_dim_y = config["train"]["normalization_dim_x"], config["train"]["normalization_dim_y"]
+    non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
+    
+    ndims = model.module.ndims # n_train, size, n_channel
+    if rank == 0:
+        print("In PCNO_train, ndims = ", ndims)
+        print(f"Distributed training， world size: {world_size}")
+        
+    device = torch.device(f'cuda:{rank}')
+        
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
+        x_train = x_normalizer.encode(x_train)
+        x_test = x_normalizer.encode(x_test)
+        x_normalizer.to(device)
+        
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
+        y_train = y_normalizer.encode(y_train)
+        y_test = y_normalizer.encode(y_test)
+        y_normalizer.to(device)
+
+
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train = aux_train
+    train_dataset = torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train)
+    train_sampler = torch.utils.data.DistributedSampler(train_dataset, num_replicas=world_size,rank=rank,shuffle=True,seed=42)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config['train']['batch_size'], sampler=train_sampler, shuffle=False)
+    
+    if rank == 0:
+        node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test = aux_test
+        test_dataset = torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test)
+        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config['train']['batch_size'], shuffle=False)
+    
+    if rank == 0:
+        print(f"Batch size per GPU: {config['train']['batch_size']}")
+        print(f"Effective batch size: {config['train']['batch_size'] * world_size}")
+        print(f"Training batches per GPU: {len(train_loader)}")
+        
+        
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
+    optimizer = CombinedOptimizer(model.module.normal_params, model.module.inv_L_scale_params,
+        betas=(0.9, 0.999),
+        lr=config["train"]["base_lr"],
+        lr_ratio = config["train"]["lr_ratio"],
+        weight_decay=config["train"]["weight_decay"],
+        )
+    
+    scheduler = Combinedscheduler_OneCycleLR(
+        optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
+        div_factor=2, final_div_factor=100,pct_start=0.2,
+        steps_per_epoch=1, epochs=config['train']['epochs'])
+    
+    current_epoch, epochs = 0, config['train']['epochs']
+    
+    if checkpoint_path:
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        model.module.load_state_dict(checkpoint['model_state_dict'])
+        
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        # retrieve epoch and loss
+        current_epoch = checkpoint['current_epoch'] + 1
+        if rank == 0:
+            print("resetart from epoch : ", current_epoch)
+
+
+
+
+    for ep in range(current_epoch, epochs):
+        train_sampler.set_epoch(ep)
+        
+        t1 = default_timer()
+        train_rel_l2 = 0
+
+        model.train()
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device, non_blocking=True), y.to(device, non_blocking=True), node_mask.to(device, non_blocking=True), nodes.to(device, non_blocking=True), node_weights.to(device, non_blocking=True), directed_edges.to(device, non_blocking=True), edge_gradient_weights.to(device, non_blocking=True), geo.to(device, non_blocking=True)
+
+            batch_size_ = x.shape[0]
+            
+            # Forward pass
+            optimizer.zero_grad()
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+            out = out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+            
+            # Backward pass (gradients are automatically synchronized)
+            loss.backward()
+            optimizer.step()
+            train_rel_l2 += loss.item()
+
+        
+
+        # TEST
+        if rank == 0:
+            model.eval()
+            test_l2 = 0
+            test_rel_l2 = 0
+            with torch.no_grad():
+                for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in test_loader:
+                    x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
+
+                    batch_size_ = x.shape[0]
+                    out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
+
+                    if normalization_y:
+                        out = y_normalizer.decode(out)
+                        y = y_normalizer.decode(y)
+                    out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                    test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                    test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+
+
+
+
+        scheduler.step()
+
+        train_rel_l2/= n_train
+        test_l2 /= n_test
+        test_rel_l2/= n_test
+        train_rel_l2_losses.append(train_rel_l2)
+        test_rel_l2_losses.append(test_rel_l2)
+        test_l2_losses.append(test_l2)
+    
+
+        t2 = default_timer()
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+        if (ep %100 == 99) or (ep == epochs -1):    
+            if save_model_name:
+                torch.save({
+                    'model_state_dict': model.module.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'current_epoch': ep,  # optional: to track training progress
+                }, "checkpoint_parallel.pth")
+
+        # Synchronize all processes
+        dist.barrier()    
+    
+    dist.destroy_process_group()
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

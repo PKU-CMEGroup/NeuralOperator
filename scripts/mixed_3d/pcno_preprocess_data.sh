@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -o logs/PCNO_preprocess_data.out
+#SBATCH -o logs/PCNO_preprocess_data_vertex_centered.out
 #SBATCH --qos=low
 #SBATCH -p C064M1024G
-#SBATCH -J PCNO_preprocess_data
+#SBATCH -J PCNO_preprocess_data_vertex_centered
 #SBATCH --nodes=1 
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -12,4 +12,4 @@ module load conda
 source activate pytorch
 python pcno_geo_mixed_3d_test.py --preprocess_data True \
                                  --n_each 2000 \
-                                 --mesh_type "cell_centered"  # "cell_centered" , "vertex_centered"
+                                 --mesh_type "vertex_centered"  # "cell_centered" , "vertex_centered"

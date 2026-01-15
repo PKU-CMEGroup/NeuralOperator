@@ -6,7 +6,6 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
 
-
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -14,116 +13,12 @@ import numpy as np
 from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pcno.pcno_geo import compute_Fourier_modes, PCNO, parallel_PCNO_train, compute_geo
+from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train_parallel, compute_geo
 
 torch.set_printoptions(precision=16)
 
-
-
-Plane_datasets = [
-    "boeing737",
-    "erj",
-    "J20",
-    "P180"
-]
-DrivAerNet_datasets = [
-    "E_S_WW_WM",
-    "E_S_WWC_WM",
-    "F_D_WM_WW",
-    "F_S_WWC_WM",
-    "F_S_WWS_WM",
-    "N_S_WW_WM",
-    "N_S_WWC_WM",
-    "N_S_WWS_WM"
-]
-
-
-def _load_data(file_path, nodes_list, elems_list, elem_features_list):
-    data = np.load(file_path)
-    nodes_list.append(data["nodes_list"])
-    elems = data["elems_list"]
-    elems[:, 0] = 2 # element dim = 2
-    elems_list.append(elems)
-    elem_features_list.append(data["elem_features_list"])
-
-
-def load_data(data_path, Plane_datasets, DrivAerNet_datasets, n_each):
-    names_list, nodes_list, elems_list, elem_features_list = [], [], [], []
-
-    Plane_dir = os.path.join(data_path, "Plane")
-    DrivAerNet_dir = os.path.join(data_path, "DrivAerNet")
-
-    # load data
-    
-    for subdir in Plane_datasets:
-        for i in range(n_each):
-            file_path = os.path.join(Plane_dir, subdir, "%04d"%(i+1)+".npz")
-            if os.path.exists(file_path):
-                _load_data(file_path, nodes_list, elems_list, elem_features_list)
-                names_list.append("Plane-" + subdir + "-%04d"%(i+1))
-            else:
-                print("Warning: ignore ", file_path)
-                
-    for subdir in DrivAerNet_datasets:
-        for i in range(n_each):
-            file_path = os.path.join(DrivAerNet_dir, subdir, "%04d"%(i+1)+".npz")
-            if os.path.exists(file_path):
-                _load_data(file_path, nodes_list, elems_list, elem_features_list)
-                names_list.append("DrivAerNet-" + subdir + "-%04d"%(i+1))
-            else:
-                print("Warning: ignore ", file_path)
-
-
-    return nodes_list, elems_list, elem_features_list, names_list
-
-def random_shuffle(data, names_array, n_train, n_test, seed=42):
-    np.random.seed(seed)  # 可选的：为了可重复性设置随机种子
-    
-    ndata = data["nodes"].shape[0]
-    assert(ndata >= n_train + n_test)
-    random_indices = np.arange(ndata)
-    np.random.shuffle(random_indices)
-    
-    # 取前n_train 和后n_test 个分别作为训练和测试集
-    train_indices = random_indices[:n_train]
-    test_indices = random_indices[-n_test:]
-    indices = np.concatenate([train_indices, test_indices])
-    
-    
-    data = {key: value[indices] for key, value in data.items()}
-    names_array = names_array[indices]
-    
-    # 输出数据统计情况
-    all_datasets = Plane_datasets + DrivAerNet_datasets
-    train_data_stats = {subdir: 0 for subdir in all_datasets}
-    test_data_stats = {subdir: 0 for subdir in all_datasets}
-    for i in range(n_train):
-        train_data_stats[names_array[i].split('-')[1]] += 1
-    for i in range(-n_test,0):
-        test_data_stats[names_array[i].split('-')[1]] += 1
-    print("Training data statistics:")
-    print("-" * 40)
-    assert(sum(train_data_stats.values()) == n_train)
-    for dataset in sorted(all_datasets):
-        count = train_data_stats[dataset]
-        if count > 0:
-            percentage = count / n_train * 100
-            print(f"  {dataset:15s}: {count:3d} ({percentage:5.1f}%)")
-    
-    print("Test data statistics:")
-    print("-" * 40)
-    assert(sum(test_data_stats.values()) == n_test)
-    for dataset in sorted(all_datasets):
-        count = test_data_stats[dataset]
-        if count > 0:
-            percentage = count / n_test * 100
-            print(f"  {dataset:15s}: {count:3d} ({percentage:5.1f}%)")
-    
-    return data, names_array
-
-
 # prepare data
-def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad):
+def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product):
     nodes_input = nodes.clone()
     ndim = nodes.shape[-1]
     # input x （normal, coordinate）
@@ -181,9 +76,7 @@ def train_ddp(rank, world_size, args):
     mesh_type = args.mesh_type
     n_train = args.n_train
     n_test  = args.n_test
-    n_each  = args.n_each 
     
-
     
 
     if rank == 0:
@@ -196,11 +89,8 @@ def train_ddp(rank, world_size, args):
     # load data n_train + n_test
     # Note: All ranks need to load data, but we'll use DistributedSampler to distribute the data
     
-    data = np.load(data_path+"/pcno_mixed_3d_"+mesh_type+".npz")
-    names_array = np.load(data_path+"/pcno_mixed_3d_names_list.npy", allow_pickle=True)
-    
-    # random shuffle, and keep only n_train + n_test data
-    data, names_list = random_shuffle(data, names_array, n_train, n_test, seed=42)
+    data = np.load(data_path+"/pcno_mixed_3d_"+mesh_type+"_n_train"+str(n_train)+"_n_test"+str(n_test)+".npz")
+    names_array = np.load(data_path+"/pcno_mixed_3d_names_list"+"_n_train"+str(n_train)+"_n_test"+str(n_test)+".npy", allow_pickle=True)
     
     
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
@@ -235,8 +125,8 @@ def train_ddp(rank, world_size, args):
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
 
-    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad)
-    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad)
+    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
+    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
 
 
     #！！！！！
@@ -293,8 +183,8 @@ def train_ddp(rank, world_size, args):
                         }
 
 
-    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = parallel_PCNO_train(
-        x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, rank=rank, world_size=world_size, save_model_name="./PCNO_mixed_3d_model"
+    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train_parallel(
+        x_train, aux_train, y_train, x_test, aux_test, y_test, config, ddp_model, rank=rank, world_size=world_size, save_model_name="./PCNO_parallel_mixed_3d_model"
     )
 
 
@@ -315,33 +205,36 @@ def main():
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=500)
     # Preprocess data n_each from each subcategories
-    parser.add_argument('--n_each', type=int, default=100)
     parser.add_argument('--n_train', type=int, default=900)
     parser.add_argument('--n_test', type=int, default=100)
     parser.add_argument('--act', type=str, default="gelu")
     parser.add_argument('--scale', type=float, default=0.0)
     parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 
-    parser.add_argument('--preprocess_data', type=str, default='False', choices=['True', 'False'])
     # Specifies how the computational mesh is represented. 
     # “cell_centered” stores features at cell centers (control-volume based), 
     # while “vertex_centered” stores features at mesh vertices (node-based).
     parser.add_argument('--mesh_type', type=str, default='cell_centered', choices=['cell_centered', 'vertex_centered'])
+    
+    # parser.add_argument('--master_addr', type=str, default='localhost')
+    # parser.add_argument('--master_port', type=str, default='29500')
+    
     args = parser.parse_args()
     
-    # 设置分布式训练的环境变量
-    os.environ['MASTER_ADDR'] = args.master_addr
-    os.environ['MASTER_PORT'] = args.master_port
+    # # 设置分布式训练的环境变量
+    # os.environ['MASTER_ADDR'] = args.master_addr
+    # os.environ['MASTER_PORT'] = args.master_port
     
     # 启动多进程训练
-    world_size = min(args.world_size, torch.cuda.device_count())
-    print(f"Starting distributed training with {world_size} GPUs")
+    # world_size = torch.cuda.device_count()
+    # print(f"Starting distributed training with {world_size} GPUs")
     
-    mp.spawn(
-        train_ddp,
-        args=(world_size, args),
-        nprocs=world_size,
-        join=True
-    )
+    # 获取当前进程的rank和world_size（torchrun自动设置）
+    rank = int(os.environ.get('RANK', 0))
+    local_rank = int(os.environ.get('LOCAL_RANK', 0))
+    world_size = int(os.environ.get('WORLD_SIZE', 1))
     
+    train_ddp(local_rank, world_size, args)
     
+if __name__ == "__main__":
+    main()

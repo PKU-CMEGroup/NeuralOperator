@@ -1,0 +1,200 @@
+import os
+import torch
+import sys
+import argparse
+
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+import numpy as np
+from timeit import default_timer
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train, compute_geo
+
+torch.set_printoptions(precision=16)
+
+
+torch.manual_seed(0)
+np.random.seed(0)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+
+
+
+
+# prepare data
+def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product):
+    nodes_input = nodes.clone()
+    ndim = nodes.shape[-1]
+    # input x （normal, coordinate）
+    x = torch.cat((features[data_indices][...,:f_in_dim+ndim], nodes_input[data_indices, ...]), -1)
+    # output y
+    y = features[data_indices][...,-f_out_dim:]
+    # outward normal
+    nx = features[data_indices][...,f_in_dim:f_in_dim+ndim]
+    geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
+    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], geo)
+    return x, y, aux
+
+
+    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
+
+    parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--num_grad', type=int, default=3)
+    parser.add_argument('--add_geo_inner_product', default='False', choices=['True', 'False'])
+    parser.add_argument('--to_divide_factor', type=float, default=1.0)
+    parser.add_argument('--k_max', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--epochs', type=int, default=500)
+    # Preprocess data n_each from each subcategories
+    parser.add_argument('--n_each', type=int, default=100)
+    parser.add_argument('--n_train', type=int, default=900)
+    parser.add_argument('--n_test', type=int, default=100)
+    parser.add_argument('--act', type=str, default="gelu")
+    parser.add_argument('--scale', type=float, default=0.0)
+    parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
+
+    # Specifies how the computational mesh is represented. 
+    # “cell_centered” stores features at cell centers (control-volume based), 
+    # while “vertex_centered” stores features at mesh vertices (node-based).
+    parser.add_argument('--mesh_type', type=str, default='cell_centered', choices=['cell_centered', 'vertex_centered'])
+    args = parser.parse_args()
+
+    layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
+    add_geo_inner_product = args.add_geo_inner_product.lower() == "true"
+    f_in_dim = 0
+    f_out_dim = 1
+    train_inv_L_scale = False
+    k_max = args.k_max
+    ndim = 3
+    scale = args.scale
+    layers = [int(size) for size in args.layer_sizes.split(",")]
+    num_grad =  args.num_grad
+    act = args.act
+    to_divide_factor = args.to_divide_factor
+    mesh_type = args.mesh_type
+    n_train = args.n_train
+    n_test  = args.n_test
+    n_each  = args.n_each 
+    
+    ###################################
+    # load data
+    ###################################
+    data_path = "../../data/mixed_3d_add_elem_features"
+    # Warning there are redundant nodes in ./Plane/J20/0418.npz
+    # node 4674 : [ 0.7249122  -0.17730147 -0.03439951]
+    # node 4673 : [ 0.7249122  -0.17730147 -0.03439951]
+    # Warning there are redundant nodes in ./Plane/P180/1401.npz
+    # node 2129 : [ 0.36551496  0.08711994 -0.14670402]
+    # node 2121 : [ 0.36551496  0.08711994 -0.14670402]
+    # replace ./Plane/J20/0418.npz by ./Plane/J20/0418.npz
+    # replace ./Plane/P180/1401.npz by ./Plane/P180/1401.npz
+
+
+        
+    # load data n_train + n_test
+    data = np.load(data_path+"/pcno_mixed_3d_"+mesh_type+"_n_train"+str(n_train)+"_n_test"+str(n_test)+".npz")
+    names_array = np.load(data_path+"/pcno_mixed_3d_names_list"+"_n_train"+str(n_train)+"_n_test"+str(n_test)+".npy", allow_pickle=True)
+    
+
+    nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
+    print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
+    
+    node_weights = data["node_measures"]
+    to_divide = args.to_divide_factor * np.amax(np.sum(node_weights, axis = 1))
+    print('Node weights are devided by factor ', to_divide.item())
+    to_divide = to_divide_factor * np.amax(np.sum(node_weights, axis=1))
+    node_weights = node_weights / to_divide
+
+    node_measures = data["node_measures"]
+    directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
+    features = data["features"]
+
+    print(args)
+    ndata = nodes.shape[0]
+    assert(ndata == n_train + n_test)
+    print(f"ndata: {ndata},  n_train: {n_train}, n_test: {n_test}", flush=True)
+        
+
+
+
+
+    print("Casting to tensor", flush=True)
+    nnodes = torch.from_numpy(nnodes)
+    node_mask = torch.from_numpy(node_mask)
+    nodes = torch.from_numpy(nodes.astype(np.float32))
+    node_weights = torch.from_numpy(node_weights.astype(np.float32))
+    features = torch.from_numpy(features.astype(np.float32))
+    directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
+    edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
+
+
+    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
+    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
+
+
+
+
+
+    print(f'x_train shape {x_train.shape}, x_test shape {x_train.shape}, y_train shape {y_train.shape}, y_test shape {y_train.shape}', flush = True)
+    print('length of each dim: ',torch.amax(nodes, dim = [0,1]) - torch.amin(nodes, dim = [0,1]), flush = True)
+
+    #！！！！！
+    Ls = [4.1, 4.1, 1.5]
+
+    print(f'kmax = {k_max}')
+    print(f'n_train = {n_train}, n_test = {n_test}')
+    print(f'Ls = {Ls}')
+    print(f'num_grad = {num_grad}')
+    print(f'layer_selection = {layer_selection}')
+    print(f'layers = {layers}')
+    print(f'activation = {act}')
+    print(f'add_geo_inner_product = {add_geo_inner_product}')
+
+
+    modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
+    modes = torch.tensor(modes, dtype=torch.float).to(device)
+    model = PCNO(ndim, modes, nmeasures=1, geodims=aux_train[-1].shape[1], 
+                layer_selection = layer_selection,
+                layers=layers,
+                fc_dim=128,
+                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
+                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
+                    act = act,
+                ).to(device)
+
+
+
+    epochs = args.epochs
+    base_lr = 5e-4
+    lr_ratio = 10
+    scheduler = "OneCycleLR"
+    weight_decay = 1.0e-4
+    batch_size = args.batch_size
+    print(f'batch_size = {batch_size}')
+
+    normalization_x = False
+    normalization_y = True
+    normalization_dim_x = []
+    normalization_dim_y = []
+    non_normalized_dim_x = 4
+    non_normalized_dim_y = 0
+
+
+    config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+                        "normalization_x": normalization_x,"normalization_y": normalization_y, 
+                        "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
+                        "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
+                        }
+
+
+    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
+        x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_mixed_3d_model"
+    )

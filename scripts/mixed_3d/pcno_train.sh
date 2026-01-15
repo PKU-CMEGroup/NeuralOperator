@@ -10,8 +10,7 @@
 
 module load conda
 source activate pytorch
-python pcno_geo_mixed_3d_test.py    --preprocess_data False \
-                                    --grad True \
+python pcno_geo_mixed_3d_train.py   --grad True \
                                     --geo True \
                                     --geointegral True \
                                     --num_grad 1 \

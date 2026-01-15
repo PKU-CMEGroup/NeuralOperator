@@ -10,6 +10,5 @@
 
 module load conda
 source activate pytorch
-python pcno_geo_mixed_3d_test.py --preprocess_data True \
-                                 --n_each 2000 \
+python pcno_geo_mixed_3d_preprocess_data.py --n_each 2000 \
                                  --mesh_type "vertex_centered"  # "cell_centered" , "vertex_centered"

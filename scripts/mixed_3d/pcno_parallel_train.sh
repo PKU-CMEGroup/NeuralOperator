@@ -22,8 +22,7 @@ echo "Number of GPUs: $(nvidia-smi -L | wc -l)"
 
 
 torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0  --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT \
-                                    python pcno_geo_parallel_mixed_3d_test.py \
-                                    --preprocess_data False \
+                                    pcno_geo_mixed_3d_parallel_train.py \
                                     --grad True \
                                     --geo True \
                                     --geointegral True \

@@ -4,7 +4,7 @@ import sys
 import argparse
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader, DistributedSampler
+
 
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -32,15 +32,14 @@ def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, dir
     return x, y, aux
 
 
-def setup(rank, world_size):
-    """初始化分布式训练环境"""
-    # 设置当前进程使用的GPU
-    torch.cuda.set_device(rank)
+def setup_ddp(rank, local_rank, world_size):
+    """Initialize distributed environment."""
+    torch.cuda.set_device(local_rank)
     
-    # 初始化进程组
+
     dist.init_process_group(
-        backend="nccl",  # 使用NCCL后端进行GPU通信
-        init_method="env://",  # 从环境变量初始化
+        backend="nccl",   
+        init_method="env://",  
         rank=rank,
         world_size=world_size
     )
@@ -49,17 +48,20 @@ def setup(rank, world_size):
     torch.manual_seed(0 + rank)  # 每个进程有不同的偏移
     np.random.seed(0 + rank)
     
-    print(f"Rank {rank}: CUDA device {torch.cuda.current_device()}")    
+    if rank == 0:
+        print(f"Rank {rank}: CUDA device {torch.cuda.current_device()}")    
 
 
 
-def cleanup():
+def cleanup_ddp():
     """清理分布式训练环境"""
     dist.destroy_process_group()
 
-def train_ddp(rank, world_size, args):
+
+
+def train_ddp(rank, local_rank, world_size, args):
     # Initialize distributed environment
-    setup(rank, world_size)
+    setup_ddp(rank, local_rank, world_size)
     
     # Parse configuration from parameters
     layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
@@ -83,7 +85,7 @@ def train_ddp(rank, world_size, args):
         print("Loading and preprocessing data...")
         
     ###################################
-    # load data
+    # load all data (CPU only)
     ###################################
     data_path = "../../data/mixed_3d_add_elem_features"
     # load data n_train + n_test
@@ -146,18 +148,18 @@ def train_ddp(rank, world_size, args):
 
 
     modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
-    modes = torch.tensor(modes, dtype=torch.float).to(rank)
+    modes = torch.tensor(modes, dtype=torch.float, device=local_rank)
     model = PCNO(ndim, modes, nmeasures=1, geodims=aux_train[-1].shape[1], 
                 layer_selection = layer_selection,
                 layers=layers,
                 fc_dim=128,
                 in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                 inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-                    act = act,
-                ).to(rank)
+                act = act,
+                ).to(local_rank)
 
     # Wrap the model with DDP
-    ddp_model = DDP(model, device_ids=[rank])
+    ddp_model = DDP(model, device_ids=[local_rank])
 
     epochs = args.epochs
     base_lr = 5e-4
@@ -184,8 +186,10 @@ def train_ddp(rank, world_size, args):
 
 
     train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train_parallel(
-        x_train, aux_train, y_train, x_test, aux_test, y_test, config, ddp_model, rank=rank, world_size=world_size, save_model_name="./PCNO_parallel_mixed_3d_model"
+        x_train, aux_train, y_train, x_test, aux_test, y_test, config, ddp_model, rank=rank, local_rank = local_rank, world_size=world_size, save_model_name="./PCNO_parallel_mixed_3d_model"
     )
+    
+    cleanup_ddp()
 
 
 
@@ -216,25 +220,16 @@ def main():
     # while “vertex_centered” stores features at mesh vertices (node-based).
     parser.add_argument('--mesh_type', type=str, default='cell_centered', choices=['cell_centered', 'vertex_centered'])
     
-    # parser.add_argument('--master_addr', type=str, default='localhost')
-    # parser.add_argument('--master_port', type=str, default='29500')
-    
+
     args = parser.parse_args()
     
-    # # 设置分布式训练的环境变量
-    # os.environ['MASTER_ADDR'] = args.master_addr
-    # os.environ['MASTER_PORT'] = args.master_port
-    
-    # 启动多进程训练
-    # world_size = torch.cuda.device_count()
-    # print(f"Starting distributed training with {world_size} GPUs")
-    
+
     # 获取当前进程的rank和world_size（torchrun自动设置）
     rank = int(os.environ.get('RANK', 0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
     world_size = int(os.environ.get('WORLD_SIZE', 1))
     
-    train_ddp(local_rank, world_size, args)
+    train_ddp(rank, local_rank, world_size, args)
     
 if __name__ == "__main__":
     main()

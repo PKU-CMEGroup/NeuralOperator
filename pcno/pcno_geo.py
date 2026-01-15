@@ -1046,33 +1046,36 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
         
-def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, rank=0, world_size=1, save_model_name="./PCNO_parallel_model", checkpoint_path=None):
+def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, rank=0, local_rank = 0, world_size=1, save_model_name="./PCNO_parallel_model", checkpoint_path=None):
     """
     PCNO_train function for parallel GPU training
-    
+    Assumes:
+      - dist.init_process_group already called
+      - model is already wrapped by DistributedDataParallel
+      - torch.cuda.set_device(local_rank) already called
     Args:
         model: DDP-wrapped model (should already be wrapped with DistributedDataParallel)
         rank: rank of the current process (0 is the main process)
+        local_rank: local_rank of the current process on the device 
         world_size: total number of processes
     """
     assert(world_size > 1)
+    device = torch.device(f'cuda:{local_rank}')
     
     n_train, n_test = x_train.shape[0], x_test.shape[0]
-    train_rel_l2_losses = []
-    test_rel_l2_losses = []
-    test_l2_losses = []
+    
+    if rank == 0:
+        print(f"[DDP] world_size={world_size}")
+        print(f"[DDP] n_train={n_train}, n_test={n_test}")
+        print(f"[DDP] batch_size per GPU={config['train']['batch_size']}")
+        print(f"[DDP] effective batch_size={config['train']['batch_size'] * world_size}")
+
+
+
     normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
     normalization_dim_x, normalization_dim_y = config["train"]["normalization_dim_x"], config["train"]["normalization_dim_y"]
     non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
     
-    ndims = model.module.ndims # n_train, size, n_channel
-    if rank == 0:
-        print("In PCNO_train, ndims = ", ndims)
-        print(f"Distributed training， world size: {world_size}")
-        print(f"n_train = ", n_train, " n_test = ", n_test)
-        
-    device = torch.device(f'cuda:{rank}')
-        
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
         x_train = x_normalizer.encode(x_train)
@@ -1085,7 +1088,13 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
 
-
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    
+    # ------------------------
+    # Dataset / Sampler / Loader
+    # ------------------------
     node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train = aux_train
     train_dataset = torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, geo_train)
     train_sampler = torch.utils.data.DistributedSampler(train_dataset, num_replicas=world_size, rank=rank, shuffle=True, seed=42, drop_last=False)
@@ -1094,15 +1103,11 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
     
     node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test = aux_test
     test_dataset = torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, geo_test)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config['train']['batch_size'], shuffle=False)
+    test_sampler = torch.utils.data.DistributedSampler(test_dataset, num_replicas=world_size, rank=rank, shuffle=False, seed=42, drop_last=False)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=config['train']['batch_size'], sampler=test_sampler, shuffle=False)
     
-    if rank == 0:
-        print(f"Batch size per GPU: {config['train']['batch_size']}")
-        print(f"Effective batch size: {config['train']['batch_size'] * world_size}")
-        print(f"Training batches per GPU: {len(train_loader)}")
-        print(f"Test batches per GPU: {len(test_loader)}")
-        
-        
+
+
     myloss = LpLoss(d=1, p=2, size_average=False)
 
     optimizer = CombinedOptimizer(model.module.normal_params, model.module.inv_L_scale_params,
@@ -1131,6 +1136,15 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
             print("resetart from epoch : ", current_epoch)
 
 
+       
+    if rank == 0:
+        print(f"n_train = ", n_train, " n_test = ", n_test)
+        print(f"Batch size per GPU: {config['train']['batch_size']}")
+        print(f"Effective batch size: {config['train']['batch_size'] * world_size}")
+        print(f"Training batches per GPU: {len(train_loader)}")
+        print(f"Test batches per GPU: {len(test_loader)}")
+        
+        
 
 
     for ep in range(current_epoch, epochs):
@@ -1138,8 +1152,7 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
         
         t1 = default_timer()
         train_rel_l2 = 0.0
-        test_l2 = 0.0
-        test_rel_l2 = 0.0
+
         
         model.train()
         for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in train_loader:
@@ -1161,36 +1174,43 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
             optimizer.step()
             train_rel_l2 += loss.item()
             
+            
         # synchronize train error
         train_rel_l2_tensor = torch.tensor(train_rel_l2, device=device)
         dist.all_reduce(train_rel_l2_tensor, op=dist.ReduceOp.SUM)
         train_rel_l2 = train_rel_l2_tensor.item()/n_train
         
+        
         # TEST
-        if rank == 0:
-            model.eval()
+        model.eval()
+        test_l2 = 0.0
+        test_rel_l2 = 0.0
+        with torch.no_grad():
+            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in test_loader:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device, non_blocking=True), y.to(device, non_blocking=True), node_mask.to(device, non_blocking=True), nodes.to(device, non_blocking=True), node_weights.to(device, non_blocking=True), directed_edges.to(device, non_blocking=True), edge_gradient_weights.to(device, non_blocking=True), geo.to(device, non_blocking=True)
 
-            with torch.no_grad():
-                for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in test_loader:
-                    x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
+                batch_size_ = x.shape[0]
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
 
-                    batch_size_ = x.shape[0]
-                    out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
+                if normalization_y:
+                    out = y_normalizer.decode(out)
+                    y = y_normalizer.decode(y)
+                out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 
-                    if normalization_y:
-                        out = y_normalizer.decode(out)
-                        y = y_normalizer.decode(y)
-                    out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
-                    test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-                    test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-
-                test_l2 /= n_test
-                test_rel_l2/= n_test
+            # synchronize train error
+            test_l2_tensor = torch.tensor(test_l2, device=device)
+            test_rel_l2_tensor = torch.tensor(test_rel_l2, device=device)
+            dist.all_reduce(test_rel_l2_tensor, op=dist.ReduceOp.SUM)
+            dist.all_reduce(test_l2_tensor, op=dist.ReduceOp.SUM)
+            test_l2 = test_l2_tensor.item()/n_test
+            test_rel_l2 = test_rel_l2_tensor.item()/n_test
 
 
 
         scheduler.step()
-
+        
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
@@ -1201,18 +1221,17 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
         if rank == 0:
             print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
         
-        if ((ep %100 == 99) or (ep == epochs -1)) and rank == 0 and save_model_name:    
-            torch.save({
-                'model_state_dict': model.module.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'scheduler_state_dict': scheduler.state_dict(),
-                'current_epoch': ep,  # optional: to track training progress
-            }, "checkpoint_parallel.pth")
+        
+            if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:    
+                torch.save({
+                    'model_state_dict': model.module.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scheduler_state_dict': scheduler.state_dict(),
+                    'current_epoch': ep,  # optional: to track training progress
+                }, "checkpoint_parallel.pth")
 
         # Synchronize all processes
-        dist.barrier()    
-    
-    dist.destroy_process_group()
+        dist.barrier()
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

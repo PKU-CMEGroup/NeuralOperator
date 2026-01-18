@@ -25,8 +25,6 @@ LAYERS=(64 64 64 64 64 64)
 ACT="gelu"
 
 K_MAX=32
-NORMAL_PROD="False"
-NUM_GRAD=1
 # =============================
 
 
@@ -46,8 +44,6 @@ python pcno_curve_geo_test.py \
     --to_divide_factor $TO_DIVIDE_FACTOR \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
-    --normal_prod $NORMAL_PROD \
-    --num_grad $NUM_GRAD \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
     --bsz $BATCH_SIZE \

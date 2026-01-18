@@ -10,7 +10,7 @@
 #SBATCH --array=0-3  # 4个任务对应4个K_MAX值
 
 # ========== params ==========
-KERNEL_TYPE="stokes" # "sp_laplace" or "dp_laplace" or "modified_dp_laplace" or "adjoint_dp_laplace" or "stokes"
+KERNEL_TYPE="sp_laplace" # "sp_laplace" or "dp_laplace" or "modified_dp_laplace" or "adjoint_dp_laplace" or "stokes"
 
 GRAD="True"
 GEO="True"
@@ -26,8 +26,6 @@ LAYERS=(64 64 64 64 64 64)
 ACT="gelu"
 
 K_MAX_VALUES=(8 16 32 64)
-NORMAL_PROD="False"
-NUM_GRAD=3 # 1 或 3
 # =============================
 
 # 根据数组索引选择K_MAX
@@ -35,7 +33,7 @@ INDEX=$SLURM_ARRAY_TASK_ID
 K_MAX=${K_MAX_VALUES[$INDEX]}
 
 LAYER_SIZES_STR=$(IFS=,; echo "${LAYERS[*]}")
-LOG_DIR="log/1_1_5_2d_${KERNEL_TYPE}/${NUM_GRAD}_${LAYER_SIZES_STR}_${ACT}/"
+LOG_DIR="log/1_1_5_2d_${KERNEL_TYPE}/${LAYER_SIZES_STR}_${ACT}/"
 mkdir -p ${LOG_DIR}
 
 source activate pytorch 
@@ -50,8 +48,6 @@ python pcno_curve_geo_test.py \
     --to_divide_factor $TO_DIVIDE_FACTOR \
     --kernel_type $KERNEL_TYPE \
     --k_max $K_MAX \
-    --normal_prod $NORMAL_PROD \
-    --num_grad $NUM_GRAD \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
     --bsz $BATCH_SIZE \

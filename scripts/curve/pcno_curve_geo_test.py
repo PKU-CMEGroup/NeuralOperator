@@ -30,8 +30,6 @@ parser = argparse.ArgumentParser(description='Train model with different configu
 parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
-parser.add_argument('--num_grad', type=int, default=3)
-parser.add_argument('--add_geo_inner_product', default='False', choices=['True', 'False'])
 parser.add_argument('--to_divide_factor', type=float, default=1.0)
 parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--bsz', type=int, default=32)
@@ -41,14 +39,11 @@ parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="gelu")
 parser.add_argument('--scale', type=float, default=0.0)
 parser.add_argument("--layer_sizes", type=str, default="128,128")
-parser.add_argument('--normal_prod', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--n_two_circles_test', type=int, default=0)
 parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace', 'exterior_laplace_neumann'])
 args = parser.parse_args()
 
 layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
-normal_prod = args.normal_prod.lower() == "true"
-add_geo_inner_product = args.add_geo_inner_product.lower() == "true"
 f_in_dim = 2 if args.kernel_type in ['stokes'] else 1
 f_out_dim = 2 if args.kernel_type in ['modified_dp_laplace','stokes'] else 1
 train_inv_L_scale = False
@@ -57,7 +52,6 @@ ndim = 2
 L = 10
 scale = args.scale
 layers = [int(size) for size in args.layer_sizes.split(",")]
-num_grad =  args.num_grad
 act = args.act
 to_divide_factor = args.to_divide_factor
 
@@ -115,16 +109,10 @@ def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
 
 def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights):
     nodes_input = nodes.clone()
-    if normal_prod:
-        x = torch.cat((features[data_indices][...,:f_in_dim+2],
-                            features[data_indices][...,f_in_dim:f_in_dim+2]*features[data_indices][..., :f_in_dim],
-                            nodes_input[data_indices, ...]), -1)
-    else:
-        x = torch.cat((features[data_indices][...,:f_in_dim+2],
+    x = torch.cat((features[data_indices][...,:f_in_dim+2],
                             nodes_input[data_indices, ...]), -1)
     y = features[data_indices][...,-f_out_dim:]
     nx = features[data_indices][...,f_in_dim:f_in_dim+2]
-    # geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
     aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], nx.permute(0,2,1))
     
     return x, y, aux
@@ -168,12 +156,9 @@ print(f'kmax = {k_max}')
 print(f'n_train = {n_train}, n_test = {n_test}')
 print(f'L = {L}')
 print(f'use cube modes, scale = {scale}', modes.shape)
-print(f'normal_prod = {normal_prod}')
-print(f'num_grad = {num_grad}')
 print(f'layer_selection = {layer_selection}')
 print(f'layers = {layers}')
 print(f'activation = {act}')
-print(f'add_geo_inner_product = {add_geo_inner_product}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)

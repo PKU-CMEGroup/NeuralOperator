@@ -569,7 +569,7 @@ class PCNO(nn.Module):
         length = len(self.ws)
 
         # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = aux
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, outward_normal = aux
         # bases: float[batch_size, nnodes, nmodes]
         # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
@@ -580,8 +580,7 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
-        outward_normal = geo  # float[batch_size, ndims, nnodes]        
-        geo = torch.cat([geo,compute_gradient(geo, directed_edges, edge_gradient_weights)], dim=1) if self.layer_selection['geo'] else None
+        geo = torch.cat([outward_normal,compute_gradient(outward_normal, directed_edges, edge_gradient_weights)], dim=1) if self.layer_selection['geo'] else None
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)

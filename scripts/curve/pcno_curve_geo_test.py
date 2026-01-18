@@ -124,8 +124,8 @@ def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, dir
                             nodes_input[data_indices, ...]), -1)
     y = features[data_indices][...,-f_out_dim:]
     nx = features[data_indices][...,f_in_dim:f_in_dim+2]
-    geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
-    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], geo)
+    # geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
+    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], nx.permute(0,2,1))
     
     return x, y, aux
 
@@ -177,7 +177,7 @@ print(f'add_geo_inner_product = {add_geo_inner_product}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1, geodims=aux_train[-1].shape[1], 
+model = PCNO(ndim, modes, nmeasures=1, geodims=ndim+ndim*ndim, 
                layer_selection = layer_selection,
                layers=layers,
                fc_dim=128,

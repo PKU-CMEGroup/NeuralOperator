@@ -290,41 +290,6 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     
     return f_gradients.permute(0,2,1)
     
-def compute_geo(nx, x, num_grad, directed_edges, edge_gradient_weights, add_inner_product=False):
-    '''
-    Input:
-    nx: float[batch_size, ndims, nnodes]  outward normal at each node
-    x: float[batch_size, ndims, nnodes]  nodal coordinate
-    directed_edges : int[batch_size, max_nedges, 2]
-    edge_gradient_weights : float[batch_size, max_nedges, ndim]
-
-    Return: 
-    geo: float [batch_size, ndims + (ndims + ... + ndims**num_grad)*(2ndims), nnodes]
-    '''       
-    if add_inner_product:
-        bsz, ndims, nnodes = x.shape  
-        gradx = compute_gradient(x, directed_edges, edge_gradient_weights)      
-        hessx = compute_gradient(gradx, directed_edges, edge_gradient_weights)
-        gradx = gradx.reshape(bsz, ndims, ndims, nnodes)
-        hessx = hessx.reshape(bsz, ndims*ndims, ndims, nnodes)
-        geo0 = torch.cat([nx.unsqueeze(1),gradx,hessx], dim=1)
-        geo_matrix = torch.einsum('bikn,bjkn->bijn', geo0, geo0).reshape(bsz,-1,nnodes)
-        geo = torch.cat([geo0.reshape(bsz, -1, nnodes), geo_matrix], dim=1)
-        return geo
-    
-    else:
-        # 或许不需要有这么geo了一步了吗?但是为了保持格式先了动了。
-        """
-        geo_list = [nx, compute_gradient(torch.cat([nx, x], dim=1), directed_edges, edge_gradient_weights)]
-        for _ in range(num_grad-1):
-            geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
-        geo = torch.cat(geo_list, dim=1)                                     
-        return geo  
-        """
-        geo = nx
-        return geo
-
-
 class Geo_emb(nn.Module):
     def __init__(self, geo_size, in_size, out_size):
         super(Geo_emb, self).__init__()
@@ -349,7 +314,6 @@ class PCNO(nn.Module):
         modes,
         nmeasures,
         layers,
-        geodims,
         layer_selection = {'grad': True, 'geo': True, 'geointegral': True},
         fc_dim=128,
         in_dim=3,
@@ -489,8 +453,9 @@ class PCNO(nn.Module):
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
-        # Short-range geo layer, geo includes nx, d^(k)(nx, x), k=1,2, ... num_grad
-        self.geo_embs = nn.ModuleList([Geo_emb(geodims, in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])
+
+        # Short-range geo layer, geo includes nx, d^(1)(nx)
+        self.geo_embs = nn.ModuleList([Geo_emb(ndims*(ndims+1), in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])
         
         # Projection layer
         if fc_dim > 0:
@@ -569,7 +534,7 @@ class PCNO(nn.Module):
         length = len(self.ws)
 
         # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, outward_normal = aux
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, outward_normals = aux
         # bases: float[batch_size, nnodes, nmodes]
         # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
@@ -580,7 +545,7 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
-        geo = torch.cat([outward_normal,compute_gradient(outward_normal, directed_edges, edge_gradient_weights)], dim=1) if self.layer_selection['geo'] else None
+        geo = torch.cat([outward_normals,compute_gradient(outward_normals, directed_edges, edge_gradient_weights)], dim=1) if self.layer_selection['geo'] else None
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
@@ -588,8 +553,8 @@ class PCNO(nn.Module):
         for i, (speconv, spw, spconvnw, spconvadjnw, w, gw, geo_emb) in enumerate(zip(self.sp_convs, self.sp_ws, self.sp_convs_nws, self.sp_convs_adj_nws, self.ws, self.gws, self.geo_embs)):
             
             if self.layer_selection['geointegral']:
-                x1 = speconv( spconvnw(  torch.cat([x] + [x * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1)  ), bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-                x1 = spw(x1) + spconvadjnw(torch.cat([x1 * outward_normal[:, i:i+1, :] for i in range(outward_normal.size(1))], dim=1))
+                x1 = speconv( spconvnw(  torch.cat([x] + [x * outward_normals[:, i:i+1, :] for i in range(outward_normals.size(1))], dim=1)  ), bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+                x1 = spw(x1) + spconvadjnw(torch.cat([x1 * outward_normals[:, i:i+1, :] for i in range(outward_normals.size(1))], dim=1))
             else:
                 x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
                 x1 = spw(x1)

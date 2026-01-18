@@ -11,7 +11,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train, PCNO_train_multidist, compute_geo
+from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train, PCNO_train_multidist
 from pcno.modes_discretization import discrete_half_ball_modes
 torch.set_printoptions(precision=16)
 
@@ -177,7 +177,7 @@ print(f'add_geo_inner_product = {add_geo_inner_product}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1, geodims=ndim+ndim*ndim, 
+model = PCNO(ndim, modes, nmeasures=1,
                layer_selection = layer_selection,
                layers=layers,
                fc_dim=128,

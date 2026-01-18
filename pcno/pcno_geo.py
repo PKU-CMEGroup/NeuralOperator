@@ -799,7 +799,7 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
     scheduler = Combinedscheduler_OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
         div_factor=2, final_div_factor=100,pct_start=0.2,
-        steps_per_epoch=1, epochs=config['train']['epochs'])
+        steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
     
     current_epoch, epochs = 0, config['train']['epochs']
     
@@ -835,6 +835,9 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
             loss.backward()
 
             optimizer.step()
+            
+            scheduler.step()
+            
             train_rel_l2 += loss.item()
 
 
@@ -865,7 +868,7 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
                 test_l2_dict[name] = test_l2
     
 
-        scheduler.step()
+        
 
         train_rel_l2/= n_train
 
@@ -950,7 +953,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     scheduler = Combinedscheduler_OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
         div_factor=2, final_div_factor=100,pct_start=0.2,
-        steps_per_epoch=1, epochs=config['train']['epochs'])
+        steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
     
     current_epoch, epochs = 0, config['train']['epochs']
     
@@ -984,8 +987,9 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
             
             loss.backward()
-
             optimizer.step()
+            scheduler.step()
+            
             train_rel_l2 += loss.item()
 
         test_l2 = 0
@@ -1010,7 +1014,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
 
-        scheduler.step()
+        
 
         train_rel_l2/= n_train
         test_l2 /= n_test
@@ -1120,7 +1124,7 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
     scheduler = Combinedscheduler_OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
         div_factor=2, final_div_factor=100,pct_start=0.2,
-        steps_per_epoch=1, epochs=config['train']['epochs'])
+        steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
     
     current_epoch, epochs = 0, config['train']['epochs']
     
@@ -1152,7 +1156,7 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
         
         t1 = default_timer()
         train_rel_l2 = 0.0
-
+        num_train_samples = 0
         
         model.train()
         for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in train_loader:
@@ -1172,19 +1176,23 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
             # Backward pass (gradients are automatically synchronized)
             loss.backward()
             optimizer.step()
+            scheduler.step()
             train_rel_l2 += loss.item()
-            
+            num_train_samples += batch_size_
             
         # synchronize train error
         train_rel_l2_tensor = torch.tensor(train_rel_l2, device=device)
+        train_count_tensor = torch.tensor(num_train_samples, device=device)
         dist.all_reduce(train_rel_l2_tensor, op=dist.ReduceOp.SUM)
-        train_rel_l2 = train_rel_l2_tensor.item()/n_train
+        dist.all_reduce(train_count_tensor, op=dist.ReduceOp.SUM)
+        train_rel_l2 = train_rel_l2_tensor.item() / train_count_tensor.item()
         
         
         # TEST
         model.eval()
         test_l2 = 0.0
         test_rel_l2 = 0.0
+        num_test_samples = 0
         with torch.no_grad():
             for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo in test_loader:
                 x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device, non_blocking=True), y.to(device, non_blocking=True), node_mask.to(device, non_blocking=True), nodes.to(device, non_blocking=True), node_weights.to(device, non_blocking=True), directed_edges.to(device, non_blocking=True), edge_gradient_weights.to(device, non_blocking=True), geo.to(device, non_blocking=True)
@@ -1198,18 +1206,22 @@ def PCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, c
                 out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
-
+                num_test_samples += batch_size_
+                
             # synchronize train error
             test_l2_tensor = torch.tensor(test_l2, device=device)
             test_rel_l2_tensor = torch.tensor(test_rel_l2, device=device)
+            test_count_tensor = torch.tensor(num_test_samples, device=device)
             dist.all_reduce(test_rel_l2_tensor, op=dist.ReduceOp.SUM)
             dist.all_reduce(test_l2_tensor, op=dist.ReduceOp.SUM)
-            test_l2 = test_l2_tensor.item()/n_test
-            test_rel_l2 = test_rel_l2_tensor.item()/n_test
+            dist.all_reduce(test_count_tensor, op=dist.ReduceOp.SUM)
+
+            test_l2 = test_l2_tensor.item() / test_count_tensor.item()
+            test_rel_l2 = test_rel_l2_tensor.item() / test_count_tensor.item()
 
 
 
-        scheduler.step()
+        
         
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)

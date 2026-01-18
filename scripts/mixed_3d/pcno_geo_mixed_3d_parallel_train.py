@@ -98,8 +98,6 @@ def train_ddp(rank, local_rank, world_size, args):
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     
     node_weights = data["node_measures"]
-    to_divide = args.to_divide_factor * np.amax(np.sum(node_weights, axis = 1))
-    
     to_divide = to_divide_factor * np.amax(np.sum(node_weights, axis=1))
     node_weights = node_weights / to_divide
 
@@ -135,7 +133,7 @@ def train_ddp(rank, local_rank, world_size, args):
     Ls = [4.1, 4.1, 1.5]
     
     if rank == 0:
-        print(f'x_train shape {x_train.shape}, x_test shape {x_train.shape}, y_train shape {y_train.shape}, y_test shape {y_train.shape}', flush = True)
+        print(f'x_train shape {x_train.shape}, x_test shape {x_test.shape}, y_train shape {y_train.shape}, y_test shape {y_train.shape}', flush = True)
         print('length of each dim: ',torch.amax(nodes, dim = [0,1]) - torch.amin(nodes, dim = [0,1]), flush = True)
         print(f'kmax = {k_max}')
         print(f'n_train = {n_train}, n_test = {n_test}')
@@ -148,7 +146,7 @@ def train_ddp(rank, local_rank, world_size, args):
 
 
     modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
-    modes = torch.tensor(modes, dtype=torch.float, device=local_rank)
+    modes = torch.tensor(modes, dtype=torch.float, device=f'cuda:{local_rank}')
     model = PCNO(ndim, modes, nmeasures=1, geodims=aux_train[-1].shape[1], 
                 layer_selection = layer_selection,
                 layers=layers,

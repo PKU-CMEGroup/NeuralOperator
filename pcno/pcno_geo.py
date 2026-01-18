@@ -313,11 +313,16 @@ def compute_geo(nx, x, num_grad, directed_edges, edge_gradient_weights, add_inne
         return geo
     
     else:
+        # 或许不需要有这么geo了一步了吗?但是为了保持格式先了动了。
+        """
         geo_list = [nx, compute_gradient(torch.cat([nx, x], dim=1), directed_edges, edge_gradient_weights)]
         for _ in range(num_grad-1):
             geo_list.append(compute_gradient(geo_list[-1], directed_edges, edge_gradient_weights))
         geo = torch.cat(geo_list, dim=1)                                     
         return geo  
+        """
+        geo = nx
+        return geo
 
 
 class Geo_emb(nn.Module):
@@ -575,7 +580,8 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
 
-        outward_normal = geo[:, 0:self.ndims, :]  # float[batch_size, ndims, nnodes]        
+        outward_normal = geo  # float[batch_size, ndims, nnodes]        
+        geo = torch.cat([geo,compute_gradient(geo, directed_edges, edge_gradient_weights)], dim=1) if self.layer_selection['geo'] else None
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)

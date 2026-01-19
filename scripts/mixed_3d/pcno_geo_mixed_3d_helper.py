@@ -1,6 +1,6 @@
 import os
 import numpy as np
-
+import torch
 
 Plane_datasets = [
     "boeing737",
@@ -104,3 +104,16 @@ def random_shuffle(data, names_array, n_train, n_test, seed=42):
     
     return data, names_array
 
+
+# prepare data
+def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim):
+    nodes_input = nodes.clone()
+    ndim = nodes.shape[-1]
+    # input x （normal, coordinate）
+    x = torch.cat((features[data_indices][...,:f_in_dim+ndim], nodes_input[data_indices, ...]), -1)
+    # output y
+    y = features[data_indices][...,-f_out_dim:]
+    # outward normal
+    nx = features[data_indices][...,f_in_dim:f_in_dim+ndim]
+    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], nx.permute(0,2,1))
+    return x, y, aux

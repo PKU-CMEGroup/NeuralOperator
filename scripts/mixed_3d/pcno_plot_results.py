@@ -7,27 +7,15 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedLocator, FixedFormatter
 plt.rcParams['font.family'] = 'Times New Roman'
 
+from pcno_geo_mixed_3d_helper import gen_data_tensors
+
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from utility.normalizer import UnitGaussianNormalizer
 from utility.losses import LpLoss
-from pcno.pcno_geo_head import compute_Fourier_modes, PCNO, compute_geo
+from pcno.pcno_geo_head import compute_Fourier_modes, PCNO
 
 FONTSIZE = 17
-
-
-# prepare data
-def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product):
-    nodes_input = nodes.clone()
-    ndim = nodes.shape[-1]
-    # input x （normal, coordinate）
-    x = torch.cat((features[data_indices][...,:f_in_dim+ndim], nodes_input[data_indices, ...]), -1)
-    # output y
-    y = features[data_indices][...,-f_out_dim:]
-    # outward normal
-    nx = features[data_indices][...,f_in_dim:f_in_dim+ndim]
-    geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
-    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], geo)
-    return x, y, aux
 
 
 
@@ -156,7 +144,7 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
     names_array = np.load(folder+"/pcno_mixed_3d_names_list"+"_n_train"+str(n_train)+"_n_test"+str(n_test)+".npy", allow_pickle=True)
     
     to_divide_factor = 1.0
-    f_in_dim, f_out_dim, num_grad, add_geo_inner_product = 0, 1, 1, False
+    f_in_dim, f_out_dim = 0, 1
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
     node_weights = data["node_measures"]
@@ -184,8 +172,8 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
 
-    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
-    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
+    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim)
+    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim)
 
 
     print(f'x_train shape {x_train.shape}, x_test shape {x_train.shape}, y_train shape {y_train.shape}, y_test shape {y_train.shape}', flush = True)
@@ -198,7 +186,7 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
     
     modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
     modes = torch.tensor(modes, dtype=torch.float).to(device)
-    model = PCNO(ndim, modes, nmeasures=1, geodims=aux_train[-1].shape[1], 
+    model = PCNO(ndim, modes, nmeasures=1, 
     layer_selection = {'grad': "true", 'geo': "true", 'geointegral': "true"},
                 layers=[64,64,64,64,64,64],
                 fc_dim=128,

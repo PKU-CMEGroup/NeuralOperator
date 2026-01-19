@@ -2,34 +2,25 @@ import os
 import torch
 import sys
 import argparse
+from pathlib import Path
+import gc
+
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-
 import numpy as np
 from timeit import default_timer
+
+from pcno_geo_mixed_3d_helper import gen_data_tensors
+
+sys.path.append(str(Path(__file__).parent.parent))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train_parallel, compute_geo
+from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train_parallel
 
 torch.set_printoptions(precision=16)
 
-# prepare data
-def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product):
-    nodes_input = nodes.clone()
-    ndim = nodes.shape[-1]
-    # input x （normal, coordinate）
-    x = torch.cat((features[data_indices][...,:f_in_dim+ndim], nodes_input[data_indices, ...]), -1)
-    # output y
-    y = features[data_indices][...,-f_out_dim:]
-    # outward normal
-    nx = features[data_indices][...,f_in_dim:f_in_dim+ndim]
-    geo = compute_geo(nx.permute(0,2,1), nodes[data_indices].permute(0,2,1), num_grad, directed_edges[data_indices], edge_gradient_weights[data_indices], add_inner_product=add_geo_inner_product)
-    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], geo)
-    return x, y, aux
+
 
 
 def setup_ddp(rank, local_rank, world_size):
@@ -65,14 +56,12 @@ def train_ddp(rank, local_rank, world_size, args):
     
     # Parse configuration from parameters
     layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
-    add_geo_inner_product = args.add_geo_inner_product.lower() == "true"
     f_in_dim = 0
     f_out_dim = 1
     train_inv_L_scale = False
     k_max = args.k_max
     ndim = 3
     layers = [int(size) for size in args.layer_sizes.split(",")]
-    num_grad =  args.num_grad
     act = args.act
     to_divide_factor = args.to_divide_factor
     mesh_type = args.mesh_type
@@ -107,7 +96,10 @@ def train_ddp(rank, local_rank, world_size, args):
     
     ndata = nodes.shape[0]
     assert(ndata == n_train + n_test)
-        
+    
+    # delete data and release its memory
+    del data
+    gc.collect()
 
     if rank == 0:
         print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
@@ -125,8 +117,8 @@ def train_ddp(rank, local_rank, world_size, args):
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
 
-    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
-    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim, num_grad, add_geo_inner_product)
+    x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim)
+    x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights, f_in_dim, f_out_dim)
 
 
     #！！！！！
@@ -138,16 +130,14 @@ def train_ddp(rank, local_rank, world_size, args):
         print(f'kmax = {k_max}')
         print(f'n_train = {n_train}, n_test = {n_test}')
         print(f'Ls = {Ls}')
-        print(f'num_grad = {num_grad}')
         print(f'layer_selection = {layer_selection}')
         print(f'layers = {layers}')
         print(f'activation = {act}')
-        print(f'add_geo_inner_product = {add_geo_inner_product}')
 
 
     modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
     modes = torch.tensor(modes, dtype=torch.float, device=f'cuda:{local_rank}')
-    model = PCNO(ndim, modes, nmeasures=1, geodims=aux_train[-1].shape[1], 
+    model = PCNO(ndim, modes, nmeasures=1,
                 layer_selection = layer_selection,
                 layers=layers,
                 fc_dim=128,
@@ -160,7 +150,7 @@ def train_ddp(rank, local_rank, world_size, args):
     ddp_model = DDP(model, device_ids=[local_rank])
 
     epochs = args.epochs
-    base_lr = 5e-4
+    base_lr = 1e-3
     lr_ratio = 10
     scheduler = "OneCycleLR"
     weight_decay = 1.0e-4
@@ -200,8 +190,6 @@ def main():
     parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
-    parser.add_argument('--num_grad', type=int, default=3)
-    parser.add_argument('--add_geo_inner_product', default='False', choices=['True', 'False'])
     parser.add_argument('--to_divide_factor', type=float, default=1.0)
     parser.add_argument('--k_max', type=int, default=16)
     parser.add_argument('--batch_size', type=int, default=8)

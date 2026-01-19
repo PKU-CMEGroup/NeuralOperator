@@ -13,7 +13,6 @@ source activate pytorch
 python pcno_geo_mixed_3d_train.py   --grad True \
                                     --geo True \
                                     --geointegral True \
-                                    --num_grad 1 \
                                     --k_max 16 \
                                     --batch_size 5 \
                                     --epochs 500 \

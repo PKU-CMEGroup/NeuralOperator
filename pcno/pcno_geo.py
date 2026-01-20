@@ -425,7 +425,7 @@ class PCNO(nn.Module):
                 nn.Conv1d(in_size * (ndims + 1), in_size, 1, bias=False)
                 for in_size, out_size in zip(self.layers[1:], self.layers[1:])
             ]
-        )
+        ) if layer_selection['geointegral'] else [None]*len(layers[1:])
 
 
         # Cheap implementation for long-range spectral convolution layer with nx
@@ -436,7 +436,7 @@ class PCNO(nn.Module):
                 nn.Conv1d(out_size * ndims, out_size, 1, bias = False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
-        )
+        ) if layer_selection['geointegral'] else [None]*len(layers[1:])
         
         # Linear operator
         self.ws = nn.ModuleList(
@@ -452,7 +452,7 @@ class PCNO(nn.Module):
                 nn.Conv1d(ndims*in_size, out_size, 1, bias = False)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
-        )
+        ) if layer_selection['grad'] else [None]*len(layers[1:])
 
         # Short-range geo layer, geo includes nx, d^(1)(nx)
         self.geo_embs = nn.ModuleList([Geo_emb(ndims*(ndims+1), in_size, out_size) for in_size, out_size in zip(self.layers, self.layers[1:])]) if layer_selection['geo'] else [None]*len(layers[1:])

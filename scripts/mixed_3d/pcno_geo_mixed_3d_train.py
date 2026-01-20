@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
 
 
-    print(f'x_train shape {x_train.shape}, x_test shape {x_train.shape}, y_train shape {y_train.shape}, y_test shape {y_train.shape}', flush = True)
+    print(f'x_train shape {x_train.shape}, x_test shape {x_test.shape}, y_train shape {y_train.shape}, y_test shape {y_test.shape}', flush = True)
     print('length of each dim: ',torch.amax(nodes, dim = [0,1]) - torch.amin(nodes, dim = [0,1]), flush = True)
 
     #！！！！！

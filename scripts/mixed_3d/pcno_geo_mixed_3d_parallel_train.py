@@ -147,7 +147,7 @@ def train_ddp(rank, local_rank, world_size, args):
                 ).to(local_rank)
 
     # Wrap the model with DDP
-    ddp_model = DDP(model, device_ids=[local_rank])
+    ddp_model = DDP(model, device_ids=[local_rank], find_unused_parameters=True)
 
     epochs = args.epochs
     base_lr = 5e-4

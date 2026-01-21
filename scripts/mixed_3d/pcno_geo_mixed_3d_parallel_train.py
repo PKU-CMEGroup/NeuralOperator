@@ -150,7 +150,7 @@ def train_ddp(rank, local_rank, world_size, args):
     ddp_model = DDP(model, device_ids=[local_rank])
 
     epochs = args.epochs
-    base_lr = 1e-3
+    base_lr = 5e-4
     lr_ratio = 10
     scheduler = "OneCycleLR"
     weight_decay = 1.0e-4

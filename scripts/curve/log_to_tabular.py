@@ -133,7 +133,7 @@ def get_the_loss_from_log(kernel_type, k_max, n_train, layers, act, prefix = "1_
     返回:
     tuple: (default_scaled, two_circles_scaled) 或 None（如果提取失败）
     """
-    log_dir = f"log/{prefix}_{kernel_type}/{layers}_{act}/"
+    log_dir = f"log/log_new/{prefix}_{kernel_type}/{layers}_{act}/"
     log_file_path = (f"{log_dir}N{n_train}_Ntest{n_test},{n_two_circles_test}_k{k_max}_L10_"
                      f"bsz{batch_size}_factor{to_divide_factor}_grad{grad}_geo{geo}_geoint{geoint}.log")
     

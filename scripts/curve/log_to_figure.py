@@ -135,57 +135,75 @@ def get_the_loss_from_log(kernel_type, k_max, n_train, layers, act, prefix = "1_
     返回:
     tuple: (default_scaled, two_circles_scaled) 或 None（如果提取失败）
     """
-    log_dir = f"log/log_old/{prefix}_{kernel_type}/{layers}_{act}/"
+    log_dir = f"log/log_new/{prefix}_{kernel_type}/{layers}_{act}/"
     log_file_path = (f"{log_dir}N{n_train}_Ntest{n_test},{n_two_circles_test}_k{k_max}_L10_"
                      f"bsz{batch_size}_factor{to_divide_factor}_grad{grad}_geo{geo}_geoint{geoint}.log")
     
     return extract_test_losses_with_epochcheck(log_file_path)
 
-def Figure1_generate():
+def generate_combined_figure():
+    plt.rc('xtick', labelsize=16)  # X轴刻度标签字号
+    plt.rc('ytick', labelsize=16)  # Y轴刻度标签字号
+
     kernel_types = ["sp_laplace","dp_laplace","modified_dp_laplace","adjoint_dp_laplace","stokes"]
-    formal_names = {"sp_laplace":"Laplacian single layer potential",
-                    "dp_laplace":"Laplacian double layer potential",
-                    "modified_dp_laplace":"Modified Laplacian double layer potential",
-                    "adjoint_dp_laplace":"Adjoint Laplacian double layer potential",
+    formal_names = {"sp_laplace":"Laplacian single\n layer potential",
+                    "dp_laplace":"Laplacian double\n layer potential",
+                    "modified_dp_laplace":"Modified Laplacian double\n layer potential",
+                    "adjoint_dp_laplace":" Adjoint Laplacian\n double layer potential",
                     "stokes":"Stokeslet"}
-    k_max_values = [8,16,32,64]
-    n_train = 8000
     
-    # 创建1行5列的子图
-    fig, axes = plt.subplots(1, 5, figsize=(22, 5.5))
+    # Figure 1 参数
+    k_max_values = [8,16,32,64]
+    n_train_fig1 = 8000
+    
+    # Figure 2 参数
+    k_max_fig2 = 32
+    n_values_list = [1000,2000,4000,8000]
+    
+    # 创建2行5列的子图
+    fig, axes = plt.subplots(2, 5, figsize=(22, 11), sharey=True)
     
     # 定义线条样式
-    styles = {
+    styles_fig1 = {
         "1L-S": {"color": "blue", "ls": "-", "marker": "o", "label": "1L-S"},
         "1L-D": {"color": "blue", "ls": "--", "marker": "s", "label": "1L-D"},
         "5L-S": {"color": "red", "ls": "-", "marker": "o", "label": "5L-S"},
         "5L-D": {"color": "red", "ls": "--", "marker": "s", "label": "5L-D"},
     }
-    configs = [
+    
+    styles_fig2 = {
+        "5L-S": {"color": "red", "ls": "-", "marker": "o", "label": "5L-S"},
+        "5L-D": {"color": "red", "ls": "--", "marker": "s", "label": "5L-D"},
+    }
+    
+    configs_fig1 = [
         {"layers": "64,64", "act": "none", "name": "1L"},
         {"layers": "64,64,64,64,64,64", "act": "gelu", "name": "5L"}
     ]
     
-    # 创建自定义图例句柄 - 只显示线条，不带标记
-    from matplotlib.lines import Line2D
-    
-    # 预先创建图例句柄（只包含线条，不带标记）
-    legend_elements = [
-        Line2D([0], [0], color='blue', lw=2, linestyle='-'),  # 蓝色实线
-        Line2D([0], [0], color='blue', lw=2, linestyle='--'), # 蓝色虚线
-        Line2D([0], [0], color='red', lw=2, linestyle='-'),   # 红色实线
-        Line2D([0], [0], color='red', lw=2, linestyle='--'),  # 红色虚线
+    configs_fig2 = [
+        {"layers": "64,64,64,64,64,64", "act": "gelu", "name": "5L"}
     ]
     
-    # 图例标签
-    legend_labels = ['1L-S', '1L-D', '5L-S', '5L-D']
+    from matplotlib.lines import Line2D
     
-    for ax_idx, kernel in enumerate(kernel_types):
-        ax = axes[ax_idx]
+    # 创建第一个图的图例元素（放在顶部）
+    legend_elements_fig1 = [
+        Line2D([0], [0], color='blue', lw=2, linestyle='-'),
+        Line2D([0], [0], color='blue', lw=2, linestyle='--'),
+        Line2D([0], [0], color='red', lw=2, linestyle='-'),
+        Line2D([0], [0], color='red', lw=2, linestyle='--'),
+    ]
+    
+    legend_labels_fig1 = ['Single-layer linear model\n(Single-curve test)', 'Single-layer linear model\n(Two-curve test)', '5-layer M-PCNO\n(Single-curve test)', '5-layer M-PCNO\n(Two-curve test)']
+    
+    # 第一行：Figure 1 (Varying p)
+    for col_idx, kernel in enumerate(kernel_types):
+        ax = axes[0, col_idx]
         
         # 收集所有配置的数据
         data = {}
-        for config in configs:
+        for config in configs_fig1:
             layers = config["layers"]
             act = config["act"]
             config_name = config["name"]
@@ -197,7 +215,7 @@ def Figure1_generate():
                     k_max=k_max, 
                     layers=layers, 
                     act=act, 
-                    n_train=n_train
+                    n_train=n_train_fig1
                 )
                 if result:
                     single, double = result
@@ -210,129 +228,63 @@ def Figure1_generate():
             data[f"{config_name}-S"] = singles
             data[f"{config_name}-D"] = doubles
         
-        # 绘制四条线（仍然保留标记，只是图例中不显示）
-        for line_name, line_style in styles.items():
+        # 绘制四条线
+        for line_name, line_style in styles_fig1.items():
             values = data.get(line_name, [])
             if any(values):
                 ax.plot([k for k in k_max_values],
-                        [v if v else np.nan for v in values], color=line_style["color"],
+                        [v * 1e-2 if v else np.nan for v in values], 
+                        color=line_style["color"],
                         linestyle=line_style["ls"],
                         linewidth=2,
                         marker=line_style["marker"],
                         markersize=6)
-
-                # 设置log-log坐标
-                ax.set_xscale('log')
-                ax.set_yscale('log')
-
-                # 设置横坐标范围（关键步骤！）
-                ax.set_xlim(min(k_max_values) * 0.8, max(k_max_values) * 1.2)
-
-                # 设置横坐标刻度（现在只会显示我们指定的刻度）
-                ax.set_xticks(k_max_values, k_max_values)
         
-        # 理论参考线 y = 5 - x
+        # 设置log-log坐标
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlim(min(k_max_values) * 0.8, max(k_max_values) * 1.2)
+        ax.set_xticks(k_max_values, k_max_values)
+        
+        # 理论参考线 y = 1/p
         ax.plot(k_max_values,
-                [100/k for k in k_max_values],
+                [1/k for k in k_max_values],
                 color='green',
                 linestyle=':',
                 linewidth=2,
                 alpha=0.7)
         
-        # 在每个子图的参考线旁边添加"e^5/p"标注
-        x_mid = np.exp((np.log(k_max_values[0]) + np.log(k_max_values[-1])) / 2)
-        y_mid = 100/x_mid
-        
         # 添加文本标注
+        x_mid = np.exp((np.log(k_max_values[0]) + np.log(k_max_values[-1])) / 2)
+        y_mid = 1/x_mid
         ax.text(x_mid, y_mid,
                 r'$1/p$',
-                fontsize=9,
+                fontsize=16,
                 color='green',
                 alpha=0.8,
                 verticalalignment='bottom',
                 horizontalalignment='left')
         
-        ax.set_xlabel('')
-        ax.tick_params(axis='x', labelleft=False)
-        
-        # 设置子图标题和坐标轴
-        ax.set_title(formal_names[kernel], fontsize=8, pad=8, fontweight='bold')
-        ax.set_xlabel('p', fontsize=11)
-        
-        # 只在第一个子图显示完整的y轴
-        if ax_idx == 0:
-            ax.set_ylabel('log(Error × 10²)', fontsize=11)
+        # 设置标题和标签
+        ax.set_title(formal_names[kernel], fontsize=20, pad=8, fontweight='bold')
+        if col_idx == 0:
+            ax.set_ylabel('Test Error', fontsize=18)
         else:
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft=False)
         
+        ax.set_xlabel('p', fontsize=18)
+        
         # 添加网格
         ax.grid(True, linestyle=':', alpha=0.3)
     
-    # 在整个图形顶部添加统一图例（只显示线条）
-    fig.legend(legend_elements, legend_labels,
-               loc='upper center',
-               ncol=len(legend_elements),
-               fontsize=11,
-               bbox_to_anchor=(0.5, 0.95),
-               frameon=True,
-               fancybox=True,
-               shadow=False,
-               borderpad=1,
-               handletextpad=0.5,
-               columnspacing=1.5)
-    
-    # 添加总标题
-    plt.suptitle('Error Convergence with Varying Truncation Order p', 
-                 fontsize=14, y=0.98)
-    
-    # 调整布局
-    plt.tight_layout(rect=[0, 0, 1, 0.92])
-    
-    # 保存图像
-    plt.savefig('figure1.png', dpi=300, bbox_inches='tight')
-    plt.show()
-
-def Figure2_generate():
-    kernel_types = ["sp_laplace","dp_laplace","modified_dp_laplace","adjoint_dp_laplace","stokes"]
-    formal_names = {"sp_laplace":"Laplacian single layer potential",
-                    "dp_laplace":"Laplacian double layer potential",
-                    "modified_dp_laplace":"Modified Laplacian double layer potential",
-                    "adjoint_dp_laplace":"Adjoint Laplacian double layer potential",
-                    "stokes":"Stokeslet"}
-    k_max = 32
-    n_values_list = [1000,2000,4000,8000]
-    
-    # 创建1行5列的子图
-    fig, axes = plt.subplots(1, 5, figsize=(22, 5.5))
-    
-    # 定义线条样式
-    styles = {
-        "5L-S": {"color": "red", "ls": "-", "marker": "o", "label": "5L-S"},
-        "5L-D": {"color": "red", "ls": "--", "marker": "s", "label": "5L-D"},
-    }
-    configs = [
-        {"layers": "64,64,64,64,64,64", "act": "gelu", "name": "5L"}
-    ]
-    
-    # 创建自定义图例句柄 - 只显示线条，不带标记
-    from matplotlib.lines import Line2D
-    
-    # 预先创建图例句柄（只包含线条，不带标记）
-    legend_elements = [
-        Line2D([0], [0], color='red', lw=2, linestyle='-'),   # 红色实线
-        Line2D([0], [0], color='red', lw=2, linestyle='--'),  # 红色虚线
-    ]
-    
-    # 图例标签
-    legend_labels = ['5L-S', '5L-D']
-    
-    for ax_idx, kernel in enumerate(kernel_types):
-        ax = axes[ax_idx]
+    # 第二行：Figure 2 (Varying N)
+    for col_idx, kernel in enumerate(kernel_types):
+        ax = axes[1, col_idx]
         
         # 收集所有配置的数据
         data = {}
-        for config in configs:
+        for config in configs_fig2:
             layers = config["layers"]
             act = config["act"]
             config_name = config["name"]
@@ -341,7 +293,7 @@ def Figure2_generate():
             for n_train in n_values_list:
                 result = get_the_loss_from_log(
                     kernel_type=kernel, 
-                    k_max=k_max, 
+                    k_max=k_max_fig2, 
                     layers=layers, 
                     act=act, 
                     n_train=n_train
@@ -357,86 +309,94 @@ def Figure2_generate():
             data[f"{config_name}-S"] = singles
             data[f"{config_name}-D"] = doubles
         
-        # 绘制四条线（仍然保留标记，只是图例中不显示）
-        for line_name, line_style in styles.items():
+        # 绘制两条线
+        for line_name, line_style in styles_fig2.items():
             values = data.get(line_name, [])
             if any(values):
                 ax.plot(n_values_list,
-                        values,
+                        [v * 1e-2 if v else np.nan for v in values],
                         color=line_style["color"],
                         linestyle=line_style["ls"],
                         linewidth=2,
                         marker=line_style["marker"],
                         markersize=6)
-                # 设置log-log坐标
-                ax.set_xscale('log')
-                ax.set_yscale('log')
-
-                # 设置横坐标范围（关键步骤！）
-                ax.set_xlim(min(n_values_list) * 0.8, max(n_values_list) * 1.2)
-
-                # 设置横坐标刻度（现在只会显示我们指定的刻度）
-                ax.set_xticks(n_values_list, n_values_list)
         
-        # 理论参考线
+        # 设置log-log坐标
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlim(min(n_values_list) * 0.8, max(n_values_list) * 1.2)
+        ax.set_xticks(n_values_list, n_values_list)
+        
+        # 理论参考线 y = 1/√N
         ax.plot(n_values_list,
-                [100/np.sqrt(N) for N in n_values_list],
+                [1/np.sqrt(N) for N in n_values_list],
                 color='green',
                 linestyle=':',
                 linewidth=2,
                 alpha=0.7)
         
-        # 在每个子图的参考线旁边添加"e^5/p"标注
-        x_mid = np.exp((np.log(n_values_list[0]) + np.log(n_values_list[-1])) / 2)
-        y_mid = 100/np.sqrt(x_mid)
-        
         # 添加文本标注
-        ax.text(x_mid, y_mid,
-                r'$1/\sqrt{N}$',
-                fontsize=9,
+        x_mid = np.exp((np.log(n_values_list[0]) + np.log(n_values_list[-1])) / 2)
+        y_mid = 1/np.sqrt(x_mid)
+        if col_idx != 1:
+            ax.text(x_mid, y_mid,
+                r'$1/\sqrt{n}$',
+                fontsize=16,
                 color='green',
                 alpha=0.8,
                 verticalalignment='bottom',
                 horizontalalignment='left')
+        else:
+            ax.text(x_mid, y_mid,
+                r'$1/\sqrt{n}$',
+                fontsize=16,
+                color='green',
+                alpha=0.8,
+                verticalalignment='top',
+                horizontalalignment='right')
         
-        # 设置子图标题和坐标轴
-        ax.set_title(formal_names[kernel], fontsize=8, pad=8, fontweight='bold')
-        ax.set_xlabel('log(N)', fontsize=11)
-        
-        # 只在第一个子图显示完整的y轴
-        if ax_idx == 0:
-            ax.set_ylabel('log(Error × 10²)', fontsize=11)
+        # 设置标题和标签
+        if col_idx == 0:
+            ax.set_ylabel('Test Error', fontsize=18)
         else:
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft=False)
         
+        ax.set_xlabel('n', fontsize=18)
+        
         # 添加网格
         ax.grid(True, linestyle=':', alpha=0.3)
     
-    # 在整个图形顶部添加统一图例（只显示线条）
-    fig.legend(legend_elements, legend_labels,
+    # 在整个图形顶部添加统一图例（只显示第一个图的图例）
+    fig.legend(legend_elements_fig1, legend_labels_fig1,
                loc='upper center',
-               ncol=len(legend_elements),
-               fontsize=11,
-               bbox_to_anchor=(0.5, 0.95),
-               frameon=True,
-               fancybox=True,
+               ncol=len(legend_elements_fig1),
+               fontsize=20,
+               bbox_to_anchor=(0.55, 1.05),
+               frameon=False,
+               fancybox=False,
                shadow=False,
                borderpad=1,
                handletextpad=0.5,
                columnspacing=1.5)
     
-    # 添加总标题
-    plt.suptitle('Error Convergence with Varying Data Amount N', 
-                 fontsize=14, y=0.98)
+    # 添加行标题
+    axes[0, 0].text(-0.32, 0.5, 'Varying truncated mode number p',
+                    fontsize=18, fontweight='bold',
+                    rotation=90, verticalalignment='center',
+                    transform=axes[0, 0].transAxes)
+    
+    axes[1, 0].text(-0.32, 0.5, 'Varying training data size N',
+                    fontsize=18, fontweight='bold',
+                    rotation=90, verticalalignment='center',
+                    transform=axes[1, 0].transAxes)
     
     # 调整布局
-    plt.tight_layout(rect=[0, 0, 1, 0.92])
+    plt.tight_layout(rect=[0.05, 0, 1, 0.92])  # 为顶部图例留出空间
     
     # 保存图像
-    plt.savefig('figure2.png', dpi=300, bbox_inches='tight')
+    plt.savefig('kernel_integral_combined_figure.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":
-    Figure1_generate()
-    Figure2_generate()
+    generate_combined_figure()

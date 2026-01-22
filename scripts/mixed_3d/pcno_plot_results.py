@@ -13,7 +13,7 @@ from pcno_geo_mixed_3d_helper import gen_data_tensors
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from utility.normalizer import UnitGaussianNormalizer
 from utility.losses import LpLoss
-from pcno.pcno_geo_head import compute_Fourier_modes, PCNO
+from pcno.pcno_geo import compute_Fourier_modes, PCNO
 
 FONTSIZE = 17
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedLocator, FixedFormatter
 plt.rcParams['font.family'] = 'Times New Roman'
 
-from pcno_geo_mixed_3d_helper import gen_data_tensors
+from scripts.mixed_3d.mpcno_geo_mixed_3d_helper import gen_data_tensors
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))

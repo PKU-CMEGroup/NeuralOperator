@@ -5,7 +5,7 @@ import sys
 import numpy as np
 from pathlib import Path
 
-from pcno_geo_mixed_3d_helper import (
+from scripts.mixed_3d.mpcno_geo_mixed_3d_helper import (
     Plane_datasets,
     DrivAerNet_datasets,
     load_data,

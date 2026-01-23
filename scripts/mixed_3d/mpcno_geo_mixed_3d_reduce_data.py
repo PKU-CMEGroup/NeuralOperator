@@ -2,7 +2,7 @@ import os
 import argparse
 import numpy as np
 
-from pcno_geo_mixed_3d_helper import (
+from scripts.mixed_3d.mpcno_geo_mixed_3d_helper import (
     Plane_datasets,
     DrivAerNet_datasets,
     random_shuffle

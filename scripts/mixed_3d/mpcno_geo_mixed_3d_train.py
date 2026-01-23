@@ -8,12 +8,12 @@ from pathlib import Path
 import numpy as np
 from timeit import default_timer
 
-from pcno_geo_mixed_3d_helper import gen_data_tensors
+from scripts.mixed_3d.mpcno_geo_mixed_3d_helper import gen_data_tensors
 
 sys.path.append(str(Path(__file__).parent.parent))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train
+from pcno.mpcno import compute_Fourier_modes, MPCNO, MPCNO_train
 
 torch.set_printoptions(precision=16)
 
@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_train', type=int, default=900)
     parser.add_argument('--n_test', type=int, default=100)
     parser.add_argument('--act', type=str, default="gelu")
+    parser.add_argument('--geo_act', type=str, default="softsign")
     parser.add_argument('--scale', type=float, default=0.0)
     parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 
@@ -60,6 +61,7 @@ if __name__ == "__main__":
     scale = args.scale
     layers = [int(size) for size in args.layer_sizes.split(",")]
     act = args.act
+    geo_act = args.geo_act
     to_divide_factor = args.to_divide_factor
     mesh_type = args.mesh_type
     n_train = args.n_train
@@ -141,13 +143,15 @@ if __name__ == "__main__":
 
     modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
     modes = torch.tensor(modes, dtype=torch.float).to(device)
-    model = PCNO(ndim, modes, nmeasures=1, 
+    model = MPCNO(ndim, modes, nmeasures=1, 
                 layer_selection = layer_selection,
                 layers=layers,
                 fc_dim=128,
                 in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                 inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-                    act = act,
+                act = act,
+                geo_act = geo_act,
+                scaling_mode='sqrt_inv',
                 ).to(device)
 
 
@@ -175,6 +179,6 @@ if __name__ == "__main__":
                         }
 
 
-    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
+    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = MPCNO_train(
         x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_mixed_3d_model"
     )

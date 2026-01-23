@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -o logs/PCNO_train_vertex_centered.out
+#SBATCH -o logs/MPCNO_train_vertex_centered.out
 #SBATCH --qos=low
-#SBATCH -J PCNO_train_vertex_centered
+#SBATCH -J MPCNO_train_vertex_centered
 #SBATCH -p GPU80G
 #SBATCH --nodes=1 
 #SBATCH --ntasks=16
@@ -10,7 +10,7 @@
 
 module load conda
 source activate pytorch
-python pcno_geo_mixed_3d_train.py   --grad True \
+python mpcno_geo_mixed_3d_train.py   --grad True \
                                     --geo True \
                                     --geointegral True \
                                     --k_max 16 \
@@ -20,4 +20,4 @@ python pcno_geo_mixed_3d_train.py   --grad True \
                                     --n_test 500 \
                                     --to_divide_factor 1.0 \
                                     --mesh_type "vertex_centered" \
-                                    > logs/PCNO_mixed_3d_grad_geo_vertex_centered.log
+                                    > logs/MPCNO_mixed_3d_grad_geo_vertex_centered.log

@@ -401,7 +401,7 @@ def generate_combined_figure():
 
 
 
-def generate_exterior_laplacian_neumann_figure(fontsize=20):
+def generate_exterior_laplacian_neumann_figure(fontsize=22):
     plt.rc('xtick', labelsize=fontsize)  # X轴刻度标签字号
     plt.rc('ytick', labelsize=fontsize)  # Y轴刻度标签字号
 
@@ -422,7 +422,7 @@ def generate_exterior_laplacian_neumann_figure(fontsize=20):
 			[0.10741320264339448   ,   0.09519950917363167   ,   0.07916956254839898  ,   0.06170262950658798]])
     
     # 创建1行2列的子图
-    fig, axe = plt.subplots(1,1, figsize=(7, 5), sharey=True)
+    fig, axe = plt.subplots(1,1, figsize=(7, 6), sharey=True)
     # 第一个图变k_max， 第二个图变n
     axe.loglog(k_max_values, single_curve[:,2], linestyle = "--", marker = "s", color="C0", label=r"$\substack{n=4000 \\ \text{(single-curve test)}}$")
     axe.loglog(k_max_values, two_curve[:,2], color="C0", marker = "o", label=r"$\substack{n=4000 \\ \text{(two-curve test)}}$")
@@ -456,7 +456,7 @@ def generate_exterior_laplacian_neumann_figure(fontsize=20):
     axe.grid(True, linestyle=':', alpha=0.3)
     axe.legend(loc='center right',
             fontsize=fontsize,
-            bbox_to_anchor=(1.7, 0.5),
+            bbox_to_anchor=(1.75, 0.5),
             frameon=False,
             fancybox=False,
             shadow=False,
@@ -475,12 +475,12 @@ def generate_exterior_laplacian_neumann_figure(fontsize=20):
 
 
      # 创建1行2列的子图
-    fig, axe = plt.subplots(1,1, figsize=(7, 5), sharey=True)
+    fig, axe = plt.subplots(1,1, figsize=(7, 6), sharey=True)
     # 第一个图变k_max， 第二个图变n
-    axe.loglog(n_values, single_curve[2,:], linestyle = "--", marker = "s", color="C0", label=r"$\substack{p=32 \\ \text{(single-curve test)}}$")
-    axe.loglog(n_values, two_curve[2,:], color="C0", marker = "o", label=r"$\substack{p=32 \\ \text{(two-curve test)}}$")
-    axe.loglog(n_values, single_curve[3,:], linestyle = "--", marker = "s", color="C1", label=r"$\substack{p=64 \\ \text{(single-curve test)}}$")
-    axe.loglog(n_values, two_curve[3,:], color="C1", marker = "o", label=r"$\substack{p=64 \\ \text{(two-curve test)}}$")
+    axe.loglog(n_values, single_curve[1,:], linestyle = "--", marker = "s", color="C0", label=r"$\substack{p=16 \\ \text{(single-curve test)}}$")
+    axe.loglog(n_values, two_curve[1,:], color="C0", marker = "o", label=r"$\substack{p=16 \\ \text{(two-curve test)}}$")
+    axe.loglog(n_values, single_curve[2,:], linestyle = "--", marker = "s", color="C1", label=r"$\substack{p=32 \\ \text{(single-curve test)}}$")
+    axe.loglog(n_values, two_curve[2,:], color="C1", marker = "o", label=r"$\substack{p=32 \\ \text{(two-curve test)}}$")
     axe.set_xlabel(r"$n$",fontsize=fontsize)
     
     # 理论参考线 y = 1/√N
@@ -509,7 +509,7 @@ def generate_exterior_laplacian_neumann_figure(fontsize=20):
     axe.grid(True, linestyle=':', alpha=0.3)
     axe.legend(loc='center right',
             fontsize=fontsize,
-            bbox_to_anchor=(1.7, 0.5),
+            bbox_to_anchor=(1.75, 0.5),
             frameon=False,
             fancybox=False,
             shadow=False,

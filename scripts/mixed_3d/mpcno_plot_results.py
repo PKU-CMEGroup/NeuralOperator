@@ -1,5 +1,6 @@
 import meshio
 import torch
+import time
 import os
 import sys
 import numpy as np
@@ -7,10 +8,10 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedLocator, FixedFormatter
 plt.rcParams['font.family'] = 'Times New Roman'
 
-from scripts.mixed_3d.mpcno_geo_mixed_3d_helper import gen_data_tensors
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from scripts.mixed_3d.mpcno_mixed_3d_helper import gen_data_tensors
 from utility.normalizer import UnitGaussianNormalizer
 from utility.losses import LpLoss
 from pcno.mpcno import compute_Fourier_modes, MPCNO
@@ -195,7 +196,7 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
                 act = 'gelu',
                 ).to(device)
     
-    checkpoint = torch.load('checkpoint.pth', map_location='cpu')
+    checkpoint = torch.load('checkpoint_parallel.pth', map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     
@@ -220,9 +221,10 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
 
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
     if data_ids is None:
         test_rel_l2 = np.zeros(n_test)
-        myloss = LpLoss(d=1, p=2, size_average=False)
         for i in range(n_test):
             x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x_test[[i],...], y_test[[i],...], aux_test[0][[i],...], aux_test[1][[i],...], aux_test[2][[i],...], aux_test[3][[i],...], aux_test[4][[i],...], aux_test[5][[i],...]
             x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
@@ -264,20 +266,28 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
         
         if data_id < n_train:
             x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = (x_train[[data_id],...], y_train[[data_id],...], aux_train[0][[data_id],...], aux_train[1][[data_id],...], aux_train[2][[data_id],...], aux_train[3][[data_id],...], aux_train[4][[data_id],...], aux_train[5][[data_id],...])
+            print("Load training data ", data_id)
         else:
             x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = (x_test[[data_id - n_train],...], y_test[[data_id - n_train],...], aux_test[0][[data_id - n_train],...], aux_test[1][[data_id - n_train],...], aux_test[2][[data_id - n_train],...], aux_test[3][[data_id - n_train],...], aux_test[4][[data_id - n_train],...], aux_test[5][[data_id - n_train],...])
-        
+            print("Load test data ", data_id - n_train)
+
         x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
 
         batch_size_ = x.shape[0]
+        
+        # evalution time
+        start_time = time.time()
         out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
         if normalization_y:
             out = y_normalizer.decode(out)
             y = y_normalizer.decode(y)
+        out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+        end_time = time.time()
 
-       
+        print(f"Evaluation time on {device} is : {end_time - start_time:.4f} s")
+        print("Error is : ", myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item())
         
-        node_mask_bool = node_mask[0,:,0].bool().numpy()
+        node_mask_bool = node_mask[0,:,0].cpu().bool().numpy()
         y = y.cpu().detach().numpy()[0, node_mask_bool ,0]
         out = out.cpu().detach().numpy()[0, node_mask_bool ,0]
         
@@ -307,5 +317,5 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
         meshio.write(file_name+ ".vtk", mesh)
         
         
-# predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 1000, n_test = 100, data_ids = [0,1])
-predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 1000, n_test = 100, data_ids = None)
+predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 4000, n_test = 500, data_ids = [4011,4023,4300])
+# predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 4000, n_test = 500, data_ids = None)

@@ -10,7 +10,7 @@
 
 module load conda
 source activate pytorch
-python mpcno_geo_mixed_3d_train.py   --grad True \
+python mpcno_mixed_3d_train.py   --grad True \
                                     --geo True \
                                     --geointegral True \
                                     --k_max 16 \

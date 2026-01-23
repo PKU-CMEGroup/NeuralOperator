@@ -10,6 +10,6 @@
 
 module load conda
 source activate pytorch
-python mpcno_geo_mixed_3d_reduce_data.py --n_train 1000 \
+python mpcno_mixed_3d_reduce_data.py --n_train 1000 \
                                         --n_test 500 \
                                         --mesh_type "vertex_centered"  # "cell_centered" , "vertex_centered"

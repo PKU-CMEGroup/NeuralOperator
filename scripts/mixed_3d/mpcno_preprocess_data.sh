@@ -10,5 +10,5 @@
 
 module load conda
 source activate pytorch
-python mpcno_geo_mixed_3d_preprocess_data.py --n_each 2000 \
+python mpcno_mixed_3d_preprocess_data.py --n_each 2000 \
                                  --mesh_type "vertex_centered"  # "cell_centered" , "vertex_centered"

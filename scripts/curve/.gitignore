@@ -1,5 +1,6 @@
 figures/
 model/
+reports/
 __pycache__/
 log/
 out/

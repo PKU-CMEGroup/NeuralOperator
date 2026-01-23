@@ -11,8 +11,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.pcno_geo import compute_Fourier_modes, PCNO, PCNO_train, PCNO_train_multidist
-from pcno.modes_discretization import discrete_half_ball_modes
+from pcno.mpcno import compute_Fourier_modes, MPCNO, MPCNO_train, MPCNO_train_multidist
 torch.set_printoptions(precision=16)
 
 
@@ -37,6 +36,7 @@ parser.add_argument('--ep', type=int, default=500)
 parser.add_argument('--n_train', type=int, default=900)
 parser.add_argument('--n_test', type=int, default=100)
 parser.add_argument('--act', type=str, default="gelu")
+parser.add_argument('--geo_act', type=str, default="softsign")
 parser.add_argument('--scale', type=float, default=0.0)
 parser.add_argument("--layer_sizes", type=str, default="128,128")
 parser.add_argument('--n_two_circles_test', type=int, default=0)
@@ -53,6 +53,7 @@ L = 10
 scale = args.scale
 layers = [int(size) for size in args.layer_sizes.split(",")]
 act = args.act
+geo_act = args.geo_act
 to_divide_factor = args.to_divide_factor
 
 ###################################
@@ -63,28 +64,20 @@ def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
     returns:
         torch tensors:
             nnodes : int[ndata]
-
             node_mask : int[ndata, max_nnodes, 1]         
-  
             nodes : float[ndata, max_nnodes, ndims]     
-
             node_measures : float[ndata, max_nnodes, nmeasures] 
-         
             features : float[ndata, max_nnodes, nfeatures]  
-
             directed_edges :  float[ndata, max_nedges, 2]         
-
             edge_gradient_weights   :  float[ndata, max_nedges, ndims]    
 
     '''
-    print("Loading data from ", data_file_path, flush = True)
     data = np.load(data_file_path)
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
-    print(nnodes.shape,node_mask.shape,nodes.shape,flush = True)
+    print(f"Loaded {nodes.shape[0]} samples from {data_file_path}", flush = True)
     node_weights = data["node_measures_raw"]
     if to_divide is None:
         to_divide = factor * np.amax(np.sum(node_weights, axis = 1))
-    print('Node weights are devided by ', to_divide.item())
     node_weights = node_weights/to_divide
     node_measures = data["node_measures"]
     directed_edges, edge_gradient_weights = data["directed_edges"], data["edge_gradient_weights"]
@@ -108,6 +101,30 @@ def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
 
 
 def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights):
+    """
+        Generate and format tensors for a specific data batch.
+        
+        Parameters:
+            data_indices : LongTensor[batch_size]
+                Indices of the samples to be included in the batch.
+            nodes : Tensor[ndata, max_nnodes, ndim]
+            features : Tensor[ndata, max_nnodes, nfeatures]
+            node_mask : Tensor[ndata, max_nnodes, 1]
+            node_weights : Tensor[ndata, max_nnodes, nmeasures]
+            directed_edges : Tensor[ndata, max_nedges, 2]
+            edge_gradient_weights : Tensor[ndata, max_nedges, ndim]
+
+
+        Returns:
+            x : Tensor[batch_size, max_nnodes, in_dim]
+                Input features, typically including raw features and coordinates.
+            y : Tensor[batch_size, max_nnodes, out_dim]
+                Target labels or ground truth fields.
+            aux : tuple
+                A collection of geometric and structural tensors:
+                (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, outward_normals)
+                where outward_normals (nx) is permuted to [batch_size, ndim, max_nnodes].
+        """
     nodes_input = nodes.clone()
     x = torch.cat((features[data_indices][...,:f_in_dim+2],
                             nodes_input[data_indices, ...]), -1)
@@ -139,37 +156,38 @@ if n_two_circles_test > 0:
     label_list.append('Two Circles')
 
 print(f'x_train shape {x_train.shape}, x_test shape {[x.shape for x in x_test_list]}, y_train shape {y_train.shape}, y_test shape {[y.shape for y in y_test_list]}', flush = True)
-print('length of each dim: ',torch.amax(nodes, dim = [0,1]) - torch.amin(nodes, dim = [0,1]), flush = True)
+print('Domain range per dimension: ',torch.amax(nodes, dim = [0,1]) - torch.amin(nodes, dim = [0,1]), flush = True)
+
+
+
+###################################
+# load model and train
+###################################
 
 modes = compute_Fourier_modes(ndim, [k_max,k_max], [L,L])
 
-def nonlinear_scale(modes, scale=1.0):
-    norms = np.linalg.norm(modes, axis=1)
-    max_norm = norms.max()
-    scaled_norms = (norms / max_norm) ** scale
-    modes_scaled = modes * scaled_norms[:, np.newaxis]
-    return modes_scaled
-
-modes = nonlinear_scale(modes, scale=scale)
-
+print('------Parameters------')
 print(f'kmax = {k_max}')
 print(f'n_train = {n_train}, n_test = {n_test}')
 print(f'L = {L}')
-print(f'use cube modes, scale = {scale}', modes.shape)
+print(f'Shape of Fourier modes: ', modes.shape)
 print(f'layer_selection = {layer_selection}')
 print(f'layers = {layers}')
 print(f'activation = {act}')
+print(f'geo_activation = {geo_act}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = PCNO(ndim, modes, nmeasures=1,
+model = MPCNO(ndim, modes, nmeasures=1,
                layer_selection = layer_selection,
                layers=layers,
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-                act = act,
-               ).to(device)
+               scaling_mode='inv',
+               act = act,
+               geo_act = geo_act,
+                ).to(device)
 
 
 
@@ -179,7 +197,7 @@ lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = args.bsz
-print('batch_size', batch_size)
+print('batch_size', batch_size, '\n')
 
 normalization_x = False
 normalization_y = True
@@ -196,7 +214,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
                      }
 
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train_multidist(
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = MPCNO_train_multidist(
     x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list, config, model, label_test_list=label_list,
-     save_model_name = None,#"model/1_1_5_5_grad_deformed/k8_L10_normal_prod_layer2_geo2_softsign_new"
+     save_model_name = None,
 )

@@ -15,7 +15,7 @@ GRAD="True"
 GEO="True"
 GEOINTEGRAL="True"
 
-N_TRAIN=8000
+N_TRAIN=2000
 N_TEST=1000
 N_TWO_CIRCLES_TEST=1000
 
@@ -23,6 +23,7 @@ TO_DIVIDE_FACTOR=20.0
 BATCH_SIZE=8
 LAYERS=(64 64 64 64 64 64)
 ACT="gelu"
+GEO_ACT='softsign'
 
 K_MAX=32
 # =============================
@@ -34,7 +35,7 @@ mkdir -p ${LOG_DIR}
 
 source activate pytorch 
 
-python pcno_curve_geo_test.py \
+python mpcno_curve_test.py \
     --grad $GRAD \
     --geo $GEO \
     --geointegral $GEOINTEGRAL \
@@ -46,5 +47,6 @@ python pcno_curve_geo_test.py \
     --k_max $K_MAX \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
+    --geo_act $GEO_ACT \
     --bsz $BATCH_SIZE \
     > ${LOG_DIR}/k${K_MAX}_L10_bsz${BATCH_SIZE}_factor${TO_DIVIDE_FACTOR}_grad${GRAD}_geo${GEO}_geoint${GEOINTEGRAL}.log

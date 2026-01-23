@@ -13,7 +13,7 @@ from pcno_geo_mixed_3d_helper import gen_data_tensors
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from utility.normalizer import UnitGaussianNormalizer
 from utility.losses import LpLoss
-from pcno.pcno_geo import compute_Fourier_modes, PCNO
+from pcno.mpcno import compute_Fourier_modes, MPCNO
 
 FONTSIZE = 17
 
@@ -186,7 +186,7 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
     
     modes = compute_Fourier_modes(ndim, [k_max, k_max, k_max], Ls)
     modes = torch.tensor(modes, dtype=torch.float).to(device)
-    model = PCNO(ndim, modes, nmeasures=1, 
+    model = MPCNO(ndim, modes, nmeasures=1, 
     layer_selection = {'grad': "true", 'geo': "true", 'geointegral': "true"},
                 layers=[64,64,64,64,64,64],
                 fc_dim=128,

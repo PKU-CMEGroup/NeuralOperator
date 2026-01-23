@@ -29,18 +29,17 @@ parser = argparse.ArgumentParser(description='Train model with different configu
 parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
-parser.add_argument('--to_divide_factor', type=float, default=1.0)
+parser.add_argument('--to_divide_factor', type=float, default=20.0)
 parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--bsz', type=int, default=32)
 parser.add_argument('--ep', type=int, default=500)
-parser.add_argument('--n_train', type=int, default=900)
-parser.add_argument('--n_test', type=int, default=100)
+parser.add_argument('--n_train', type=int, default=2000)
+parser.add_argument('--n_test', type=int, default=1000)
 parser.add_argument('--act', type=str, default="gelu")
 parser.add_argument('--geo_act', type=str, default="softsign", choices=["softsign", "soft_identity"])
-parser.add_argument('--scale', type=float, default=0.0)
-parser.add_argument("--layer_sizes", type=str, default="128,128")
+parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 parser.add_argument('--n_two_circles_test', type=int, default=0)
-parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'fredholm_laplace', 'exterior_laplace_neumann'])
+parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann'])
 args = parser.parse_args()
 
 layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
@@ -50,7 +49,6 @@ train_inv_L_scale = False
 k_max = args.k_max
 ndim = 2
 L = 10
-scale = args.scale
 layers = [int(size) for size in args.layer_sizes.split(",")]
 act = args.act
 geo_act = args.geo_act

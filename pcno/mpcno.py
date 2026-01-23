@@ -295,6 +295,18 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     return f_gradients.permute(0,2,1)
     
 class GeoEmbedding(nn.Module):
+    """
+        Short-range Kernel Integral Approximation.
+        
+        This module approximates a local integral operator where the kernel is 
+        determined by geometric descriptors. To ensure numerical stability in 
+        point cloud processing, it employs a constrained projection:
+        
+        Logic: Output = W_out( geo_act(W_geo * geo) * (W_x * x) )
+        
+        The geo_act serves as a bounded attenuation function to prevent numerical 
+        explosion during the element-wise interaction between geometry and features.
+        """
     def __init__(self, geo_channels, in_channels, out_channels, geo_act='softsign'):
         super(GeoEmbedding, self).__init__()
         self.geo_wx = nn.Conv1d(geo_channels, out_channels, 1, bias=False)
@@ -303,9 +315,10 @@ class GeoEmbedding(nn.Module):
         self.geo_act = _get_act(geo_act) 
     def forward(self, geo, x):
         '''
-        geo: float[batch_size, geo_channels, nnodes]
-        x:  float[batch_size, in_channels, nnodes]
-        return: 
+        Input:
+            geo: float[batch_size, geo_channels, nnodes]
+            x:  float[batch_size, in_channels, nnodes]
+        Return: 
             float[batch_size, out_channels, nnodes]
         '''
         return self.w(self.geo_act(self.geo_wx(geo)) * self.wx(x))

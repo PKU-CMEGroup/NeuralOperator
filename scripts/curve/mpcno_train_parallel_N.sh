@@ -50,7 +50,7 @@ mkdir -p ${LOG_DIR}
 
 source activate pytorch 
 
-python pcno_curve_geo_test.py \
+python mpcno_curve_test.py \
     --grad $GRAD \
     --geo $GEO \
     --geointegral $GEOINTEGRAL \

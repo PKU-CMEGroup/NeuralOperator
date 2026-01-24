@@ -15,16 +15,16 @@ file name：mixed_3d.zip
 # replace ./Plane/J20/0418.npz by ./Plane/J20/0418.npz
 # replace ./Plane/P180/1401.npz by ./Plane/P180/1401.npz
 
-Step 1: sbatch pcno_preprocess_data.sh  
+Step 1: sbatch mpcno_preprocess_data.sh  
 Preprocess all data
 
-Setp 2: sbatch pcno_reduce_data.sh
+Setp 2: sbatch mpcno_reduce_data.sh
 Reduce data, random shuffle and save the first n_train data and the last n_test data to reduce data size for training 
 
 
-Setp 3: sbatch pcno_geo_mixed_3d_train.sh
+Setp 3: sbatch mpcno_mixed_3d_train.sh
 Training with a single GPU
 
 
-Setp 3: sbatch pcno_geo_mixed_3d_parallel_train.sh
+Setp 3: sbatch mpcno_mixed_3d_parallel_train.sh
 Training with multiple GPUs

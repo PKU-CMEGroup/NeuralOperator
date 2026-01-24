@@ -165,15 +165,15 @@ def generate_combined_figure():
     
     # 定义线条样式
     styles_fig1 = {
-        "1L-S": {"color": "blue", "ls": "-", "marker": "o", "label": "1L-S"},
-        "1L-D": {"color": "blue", "ls": "--", "marker": "s", "label": "1L-D"},
-        "5L-S": {"color": "red", "ls": "-", "marker": "o", "label": "5L-S"},
-        "5L-D": {"color": "red", "ls": "--", "marker": "s", "label": "5L-D"},
+        "1L-S": {"color": "C0", "ls": "-", "marker": "o", "label": "1L-S"},
+        "1L-D": {"color": "C0", "ls": "--", "marker": "s", "label": "1L-D"},
+        "5L-S": {"color": "C1", "ls": "-", "marker": "o", "label": "5L-S"},
+        "5L-D": {"color": "C1", "ls": "--", "marker": "s", "label": "5L-D"},
     }
     
     styles_fig2 = {
-        "5L-S": {"color": "red", "ls": "-", "marker": "o", "label": "5L-S"},
-        "5L-D": {"color": "red", "ls": "--", "marker": "s", "label": "5L-D"},
+        "5L-S": {"color": "C1", "ls": "-", "marker": "o", "label": "5L-S"},
+        "5L-D": {"color": "C1", "ls": "--", "marker": "s", "label": "5L-D"},
     }
     
     configs_fig1 = [
@@ -189,13 +189,13 @@ def generate_combined_figure():
     
     # 创建第一个图的图例元素（放在顶部）
     legend_elements_fig1 = [
-        Line2D([0], [0], color='blue', lw=2, linestyle='-'),
-        Line2D([0], [0], color='blue', lw=2, linestyle='--'),
-        Line2D([0], [0], color='red', lw=2, linestyle='-'),
-        Line2D([0], [0], color='red', lw=2, linestyle='--'),
+        Line2D([0], [0], color='C0', lw=2, linestyle='-', marker="o"),
+        Line2D([0], [0], color='C0', lw=2, linestyle='--', marker="s"),
+        Line2D([0], [0], color='C1', lw=2, linestyle='-', marker="o"),
+        Line2D([0], [0], color='C1', lw=2, linestyle='--', marker="s"),
     ]
     
-    legend_labels_fig1 = ['Single-layer linear model\n(Single-curve test)', 'Single-layer linear model\n(Two-curve test)', '5-layer M-PCNO\n(Single-curve test)', '5-layer M-PCNO\n(Two-curve test)']
+    legend_labels_fig1 = ['Single-layer linear model\n     (single-curve test)', 'Single-layer linear model\n       (two-curve test)', '  5-layer M-PCNO\n(single-curve test)', '5-layer M-PCNO\n(two-curve test)']
     
     # 第一行：Figure 1 (Varying p)
     for col_idx, kernel in enumerate(kernel_types):
@@ -268,12 +268,12 @@ def generate_combined_figure():
         # 设置标题和标签
         ax.set_title(formal_names[kernel], fontsize=20, pad=8, fontweight='bold')
         if col_idx == 0:
-            ax.set_ylabel('Test Error', fontsize=18)
+            ax.set_ylabel('Rel. test error', fontsize=18)
         else:
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft=False)
         
-        ax.set_xlabel('p', fontsize=18)
+        ax.set_xlabel(r'$p$', fontsize=18)
         
         # 添加网格
         ax.grid(True, linestyle=':', alpha=0.3)
@@ -357,12 +357,12 @@ def generate_combined_figure():
         
         # 设置标题和标签
         if col_idx == 0:
-            ax.set_ylabel('Test Error', fontsize=18)
+            ax.set_ylabel('Rel. test error', fontsize=18)
         else:
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft=False)
         
-        ax.set_xlabel('n', fontsize=18)
+        ax.set_xlabel(r'$n$', fontsize=18)
         
         # 添加网格
         ax.grid(True, linestyle=':', alpha=0.3)
@@ -380,17 +380,8 @@ def generate_combined_figure():
                handletextpad=0.5,
                columnspacing=1.5)
     
-    # 添加行标题
-    axes[0, 0].text(-0.32, 0.5, 'Varying truncated mode number p',
-                    fontsize=18, fontweight='bold',
-                    rotation=90, verticalalignment='center',
-                    transform=axes[0, 0].transAxes)
-    
-    axes[1, 0].text(-0.32, 0.5, 'Varying training data size N',
-                    fontsize=18, fontweight='bold',
-                    rotation=90, verticalalignment='center',
-                    transform=axes[1, 0].transAxes)
-    
+
+        
     # 调整布局
     plt.tight_layout(rect=[0.05, 0, 1, 0.92])  # 为顶部图例留出空间
     
@@ -530,4 +521,4 @@ def generate_exterior_laplacian_neumann_figure(fontsize=22):
     
 if __name__ == "__main__":
     generate_combined_figure()
-    generate_exterior_laplacian_neumann_figure()
+    # generate_exterior_laplacian_neumann_figure()

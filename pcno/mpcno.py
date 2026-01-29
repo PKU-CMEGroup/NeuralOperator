@@ -29,6 +29,14 @@ def _get_act(act):
         func = F.softsign
     elif act == 'soft_identity':
         func = lambda x: x/(1+0.01*x**2)
+    elif act == 'piecewise':
+        def piecewise_smooth(x):
+            return torch.where(
+                x > 10, 
+                10 + 5 * torch.tanh((x - 10) / 5), 
+                torch.where(x < -10, -10 + 5 * torch.tanh((x + 10) / 5), x)
+            )
+        func = piecewise_smooth
     elif act == "none":
         func = None
     else:
@@ -323,6 +331,33 @@ class GeoEmbedding(nn.Module):
         '''
         return self.w(self.geo_act(self.geo_wx(geo)) * self.wx(x))
 
+
+class GradientLayer(nn.Module):
+    """
+    Gradient Operator Approximation.
+    
+    This module computes the nodal gradients of a field using a least-squares 
+    approximation and maps them to the output channel space.
+    
+    Logic: Output = W_grad1( geo_act( W_grad2(compute_gradient(x) ) ))
+    """
+    def __init__(self, ndims, in_channels, out_channels, geo_act='softsign'):
+        super(GradientLayer, self).__init__()
+        self.gw1 = nn.Conv1d(out_channels, out_channels, 1, bias=False)
+        self.gw2 = nn.Conv1d(ndims * in_channels, out_channels, 1, bias=False)
+        self.geo_act = _get_act(geo_act)
+
+    def forward(self, x, directed_edges, edge_gradient_weights):
+        '''
+        Input:
+            x: float[batch_size, in_channels, nnodes]
+            directed_edges: Tensor int[batch_size, max_nedges, 2]
+            edge_gradient_weights: Tensor float[batch_size, max_nedges, ndim]
+        Return:
+            float[batch_size, out_channels, nnodes]
+        '''
+        return self.gw1(self.geo_act(self.gw2(compute_gradient(x, directed_edges, edge_gradient_weights))))
+
     
 class MPCNO(nn.Module):
     def __init__(
@@ -348,7 +383,7 @@ class MPCNO(nn.Module):
         2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
            linear functions  W: parameterized by self.ws; 
            integral operator K: parameterized by self.sp_convs with nmeasures different integrals
-           differential operator D: parameterized by self.gws
+           differential operator D: parameterized by self.grad_embs
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
         
             
@@ -480,9 +515,9 @@ class MPCNO(nn.Module):
         )
 
         # Gradient operator
-        self.gws = nn.ModuleList(
+        self.grad_layers = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1, bias = False)
+                GradientLayer(ndims, in_size, out_size, geo_act=geo_act)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         ) if layer_selection['grad'] else [None]*len(layers[1:])
@@ -521,7 +556,6 @@ class MPCNO(nn.Module):
             raise ValueError(f"{scaling_mode} is not supported")
 
         self.act = _get_act(act)
-        self.geo_act = _get_act(geo_act)
 
         self.normal_params = []  #  group of params which will be trained normally
         self.inv_L_scale_params = []    #  group of params which may be trained specially
@@ -546,7 +580,7 @@ class MPCNO(nn.Module):
         2. len(layers)-1 layers of the point cloud neural layers u' = u + act((W + K + D + G)(u)).
            linear functions  W: parameterized by self.ws; 
            integral operator K: parameterized by self.sp_convs with nmeasures different integrals
-           differential operator D: parameterized by self.gws
+           differential operator D: parameterized by self.grad_embs
            short-range geo layer G: parameterized by self.geo_embs
            
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
@@ -599,7 +633,7 @@ class MPCNO(nn.Module):
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
-        for i, (speconv, spw, spconvnw, spconvadjnw, w, gw, geo_emb) in enumerate(zip(self.sp_convs, self.sp_ws, self.sp_convs_nws, self.sp_convs_adj_nws, self.ws, self.gws, self.geo_embs)):
+        for i, (speconv, spw, spconvnw, spconvadjnw, w, grad_layer, geo_emb) in enumerate(zip(self.sp_convs, self.sp_ws, self.sp_convs_nws, self.sp_convs_adj_nws, self.ws, self.grad_layers, self.geo_embs)):
             
             if self.layer_selection['geointegral']:
                 x1 = speconv( spconvnw(  torch.cat([x] + [x * outward_normals[:, i:i+1, :] for i in range(outward_normals.size(1))], dim=1)  ), bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
@@ -612,7 +646,7 @@ class MPCNO(nn.Module):
 
 
             if self.layer_selection['grad']:
-                x_grad = gw(self.geo_act(compute_gradient(x, directed_edges, edge_gradient_weights)))
+                x_grad = grad_layer(x, directed_edges, edge_gradient_weights)
             else:
                 x_grad = 0
 

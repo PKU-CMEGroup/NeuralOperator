@@ -287,7 +287,9 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     
     return f_gradients.permute(0,2,1)
     
-    
+
+
+
 class PCNO(nn.Module):
     def __init__(
         self,
@@ -295,7 +297,6 @@ class PCNO(nn.Module):
         modes,
         nmeasures,
         layers,
-        local_modes = None,
         fc_dim=128,
         in_dim=3,
         out_dim=1,
@@ -319,10 +320,6 @@ class PCNO(nn.Module):
                     Dimensionality of the problem
                 modes : float[nmodes, ndims, nmeasures]
                     It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
-                    * We cannot have both k and -k
-                    * k is not integer, and it has the form 2pi*K/L0  (K in Z)
-                modes : float[nmodes, ndims, nmeasures]
-                    It contains nmodes modes k, for local spectral convolution
                     * We cannot have both k and -k
                     * k is not integer, and it has the form 2pi*K/L0  (K in Z)
                 nmeasures : int
@@ -372,7 +369,6 @@ class PCNO(nn.Module):
         """
         
         self.register_buffer('modes', modes) 
-        self.register_buffer('local_modes', local_modes) 
         self.nmeasures = nmeasures
         
 
@@ -392,12 +388,10 @@ class PCNO(nn.Module):
                 )
             ]
         )
-
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
         self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
 
-        
         self.ws = nn.ModuleList(
             [
                 nn.Conv1d(in_size, out_size, 1)
@@ -475,11 +469,10 @@ class PCNO(nn.Module):
 
         """
         length = len(self.ws)
-        normal_vectors = x[...,1:3]
 
         # nodes: float[batch_size, nnodes, ndims]
-        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights = aux
-        # bases: float[batch_size, nnodes, nmodes, nmeasures]
+        node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
+        # bases: float[batch_size, nnodes, nmodes]
         # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
         bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
         # node_weights: float[batch_size, nnodes, nmeasures]
@@ -489,7 +482,8 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
-
+        
+        
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
@@ -497,11 +491,9 @@ class PCNO(nn.Module):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
             x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            
+            x = x1 + x2 + x3
             if self.act is not None and i != length - 1:
-                x = x + self.act(x1 + x2 + x3) 
-            else:
-                x = x1 + x2 + x3
+                x = self.act(x) 
 
         x = x.permute(0, 2, 1)
 
@@ -651,18 +643,13 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
 
-    if model.local_modes is None:
-        if len(aux_train) < 7:
-            aux_train = (aux_train + (torch.zeros(aux_train[0].shape[0]),) * 7)[:7]
-            aux_test = (aux_test + (torch.zeros(aux_test[0].shape[0]),) * 7)[:7]
 
-
-    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  scaled_node_weights_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train, close_directed_edges_train,  scaled_node_weights_train), 
+    node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
-    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  scaled_node_weights_test = aux_test
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test, close_directed_edges_test,  scaled_node_weights_test), 
+    node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
     myloss = LpLoss(d=1, p=2, size_average=False)
@@ -698,12 +685,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         train_rel_l2 = 0
 
         model.train()
-        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights in train_loader:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), scaled_node_weights.to(device)
+        for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in train_loader:
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights)) #.reshape(batch_size_,  -1)
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
@@ -720,11 +707,11 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
         model.eval()
         with torch.no_grad():
-            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights in test_loader:
-                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges,  scaled_node_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), close_directed_edges.to(device), scaled_node_weights.to(device)
+            for x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights in test_loader:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device)
 
                 batch_size_ = x.shape[0]
-                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, close_directed_edges, scaled_node_weights)) #.reshape(batch_size_,  -1)
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights)) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
@@ -750,16 +737,15 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
               " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
               flush=True)
-        if (ep %100 == 99) or (ep == epochs -1):    
-            if save_model_name:
-                torch.save(model.state_dict(), save_model_name + ".pth")
+        if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:    
+            torch.save(model.state_dict(), save_model_name + ".pth")
 
-                torch.save({
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'scheduler_state_dict': scheduler.state_dict(),
-                    'current_epoch': ep,  # optional: to track training progress
-                }, "checkpoint.pth")
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'current_epoch': ep,  # optional: to track training progress
+            }, "checkpoint.pth")
 
             
     

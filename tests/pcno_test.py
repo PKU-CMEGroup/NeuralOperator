@@ -3,7 +3,6 @@ import torch
 from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights
 from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list, sample_close_node_pairs
 from pcno.pcno import compute_gradient, compute_Fourier_modes, compute_Fourier_bases
-from pcno.pcno import SpectralConv, SpectralConvLocal
 #####################################################################
 # PCNO CODE TESTS
 #####################################################################
@@ -477,104 +476,19 @@ def preprocess_data_mesh_test():
     assert(np.all(np.isclose(features_gradients.permute(0,2,1) - np.stack((np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), 
                                                                            np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])), axis=0), 0)))
     
-def speconv_test():
-    ndim, ndata = 2, 2
-    nodes = np.stack([np.array([[0.0, 0.0],[0.0, 1.0],[1.0, 1.0],[1.0, 0.0],[0.0, 0.0]]), 
-                      np.array([[0.0, 0.0],[0.0, 1.0],[1.0, 1.0],[1.0, 0.0],[0.5, 0.5]])], axis=0)
-    nnodes = np.array([4,5]) 
-    # nmeasure = 2
-    node_weights = np.repeat(np.stack([np.array([1.0,1.0,2.0,3.0,0.0]), 
-                             np.array([1.0,1.0,2.0,3.0,4.0])], axis=0)[:, :, np.newaxis], 2, axis=2)
-    dist_threshold = 10.0
-    max_nedges = 100
-    directed_edges, nedges, directed_edge_node_weights = sample_close_node_pairs(nodes, nnodes, node_weights, dist_threshold, max_nedges)
-    # assert np.array_equal(nedges, [[12, 12],[20,20]]), f"Expected [12, 20], but got {nedges}"
-    
-    kx_max, ky_max = 12, 12
-    Lx, Ly = 1.0, 2.0
-    modes = compute_Fourier_modes(ndim, [kx_max, ky_max, kx_max, ky_max], [Lx, Ly, Lx, Ly])
-    modes = torch.tensor(modes, dtype=torch.float32)
-    nodes = torch.tensor(nodes, dtype=torch.float32)
-    node_weights = torch.tensor(node_weights, dtype=torch.float32)
-    directed_edges = torch.tensor(directed_edges, dtype=torch.int64)
-    directed_edge_node_weights = torch.tensor(directed_edge_node_weights, dtype=torch.float32)
-    
-
-    bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, modes) 
-    wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
-    wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
-    wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
-            
-    in_channels, out_channels = 4, 4
-     
-    speconv = SpectralConv(in_channels, out_channels, modes)
-    speconvlocal = SpectralConvLocal(in_channels, out_channels, modes)
-    speconvlocal.weights_c, speconvlocal.weights_s, speconvlocal.weights_0 = speconv.weights_c, speconv.weights_s, speconv.weights_0
-    x = torch.rand(ndata, in_channels, max(nnodes)) # float[batch_size, in_channels, nnodes]
-    
-    x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-    x2 = speconvlocal(x, bases_c, bases_s, bases_0, directed_edges, directed_edge_node_weights)
-    diff = x1 - x2
-    error = 0.0
-    for i in range(ndata):
-        error += np.linalg.norm(diff[i, :, :nnodes[i]].detach().numpy())/np.linalg.norm(x1[i, :, :nnodes[i]].detach().numpy())
-    assert(error < 1.0e-6), f"Error is {error}"
-    
-
-# def speconv_test():
-#     ndim = 2
-#     nodes = np.array([[0.0, 0.0],[0.0, 1.0],[1.0, 1.0],[1.0, 0.0]]).reshape((1,-1,ndim))
-#     nnodes = np.array([4]) 
-#     # nmeasure = 2
-#     # node_weights = np.array([1.0,1.0,2.0,3.0]).reshape((1,-1,1))
-#     node_weights = np.array([1.0,1.0,1.0,1.0]).reshape((1,-1,1))
-#     dist_threshold = 10.0
-#     max_nedges = 100
-#     directed_edges, nedges, directed_edge_node_weights = sample_close_node_pairs(nodes, nnodes, node_weights, dist_threshold, max_nedges)
-#     # assert np.array_equal(nedges, [[12]]), f"Expected [12, 20], but got {nedges}"
-    
-#     kx_max, ky_max = 2, 2
-#     Lx, Ly = 1.0, 2.0
-#     modes = compute_Fourier_modes(ndim, [kx_max, ky_max], [Lx, Ly])
-#     modes = torch.tensor(modes, dtype=torch.float32)
-#     nodes = torch.tensor(nodes, dtype=torch.float32)
-#     node_weights = torch.tensor(node_weights, dtype=torch.float32)
-#     directed_edges = torch.tensor(directed_edges, dtype=torch.int64)
-#     directed_edge_node_weights = torch.tensor(directed_edge_node_weights, dtype=torch.float32)
-    
-
-#     bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, modes) 
-#     wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
-#     wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
-#     wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
-            
-#     in_channels, out_channels = 1, 1
-     
-#     speconv = SpectralConv(in_channels, out_channels, modes)
-#     speconvlocal = SpectralConvLocal(in_channels, out_channels, modes)
-#     speconvlocal.weights_c, speconvlocal.weights_s, speconvlocal.weights_0 = speconv.weights_c, speconv.weights_s, speconv.weights_0
-#     x = torch.rand(1, in_channels, 4) # float[batch_size, in_channels, nnodes]
-    
-#     x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-#     x2 = speconvlocal(x, bases_c, bases_s, bases_0, directed_edges, directed_edge_node_weights)
-#     print("x1 = ", x1)
-#     print("x2 = ", x2)
-#     print(x1 - x2)
-    
 if __name__ == "__main__":
-    speconv_test()
-    # node_measures_test()
-    # adjacent_list_test()
+    node_measures_test()
+    adjacent_list_test()
     
-    # test_convert_structured_data()
+    test_convert_structured_data()
 
-    # print("2d gradient test")
-    # gradient_test(ndims = 2)
-    # batch_gradient_test(ndims=2)
-    # print("3d gradient test")
-    # gradient_test(ndims = 3)
-    # batch_gradient_test(ndims=3)
+    print("2d gradient test")
+    gradient_test(ndims = 2)
+    batch_gradient_test(ndims=2)
+    print("3d gradient test")
+    gradient_test(ndims = 3)
+    batch_gradient_test(ndims=3)
 
-    # preprocess_data_mesh_test()
+    preprocess_data_mesh_test()
 
 

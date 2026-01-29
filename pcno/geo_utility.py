@@ -974,6 +974,8 @@ def sample_close_node_pairs(nodes:np.ndarray, nnodes:np.ndarray, node_weights:np
                         value will be considered as connected
             
             max_nedges (int): max number of edges
+
+            seed (int): seed for random downsampling
         
         Returns:
             directed_edges int[ndata, max_nedges, 2, nmeasures]: Directed edge array with distance less than dist, padding with 0.
@@ -992,16 +994,9 @@ def sample_close_node_pairs(nodes:np.ndarray, nnodes:np.ndarray, node_weights:np
     directed_edge_node_weights = np.zeros((ndata, max_nedges, nmeasures),dtype=float)
     for i in tqdm(range(ndata)):
         for m in range(nmeasures):
-            # TODO use all nodes for different measures temporarily
+            # TODO use all nodes for different measures temporarily, including self edge (j,j)
             ave_nedges = max_nedges // nnodes[i]
             tree = cKDTree(nodes[i, :nnodes[i], :])
-            # list of list, per_node_indexes[i] contains node i's neighbors
-            # pairs = tree.query_pairs(dist_threshold, p=2., eps=0, output_type='set')
-            # per_node_indexes = [[] for _ in range(nnodes[i])]
-            # for idx1, idx2 in pairs:
-            #     per_node_indexes[idx1].append(idx2)
-            #     per_node_indexes[idx2].append(idx1)
-            # TODO including self edge (j,j)
             per_node_indexes = tree.query_ball_tree(tree, dist_threshold, p=2., eps=0)
 
             per_node_nindexes = [len(indexes) for indexes in per_node_indexes]
@@ -1015,8 +1010,7 @@ def sample_close_node_pairs(nodes:np.ndarray, nnodes:np.ndarray, node_weights:np
                 directed_edges[i, nedges[i,m]:nedges[i,m]+per_node_nedges[j],:,m] = np.column_stack((np.full(per_node_nedges[j], j), neighbors))  # n by 2 array 
                 directed_edge_node_weights[i, nedges[i,m]:nedges[i,m]+per_node_nedges[j],m] = node_weights[i, neighbors, m] * scaled_factor     # n vector
                 nedges[i,m] += per_node_nedges[j]
-                
-            
+                          
     
     max_nedges = np.max(nedges)
 

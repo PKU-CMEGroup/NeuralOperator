@@ -1,9 +1,8 @@
 import numpy as np
 import torch
 from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights
-from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list
-from pcno.pcno import compute_gradient
-
+from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list, sample_close_node_pairs
+from pcno.pcno import compute_gradient, compute_Fourier_modes, compute_Fourier_bases
 #####################################################################
 # PCNO CODE TESTS
 #####################################################################
@@ -477,10 +476,7 @@ def preprocess_data_mesh_test():
     assert(np.all(np.isclose(features_gradients.permute(0,2,1) - np.stack((np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), 
                                                                            np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])), axis=0), 0)))
     
-
-
 if __name__ == "__main__":
-
     node_measures_test()
     adjacent_list_test()
     

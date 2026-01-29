@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH -o logs/MPCNO_preprocess_data_vertex_centered.out
+#SBATCH --qos=low
+#SBATCH -p C064M1024G
+#SBATCH -J MPCNO_preprocess_data_vertex_centered
+#SBATCH --nodes=1 
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --time=100:00:00
+
+module load conda
+source activate pytorch
+python mpcno_mixed_3d_preprocess_data.py --n_each 2000 \
+                                 --mesh_type "vertex_centered"  # "cell_centered" , "vertex_centered"

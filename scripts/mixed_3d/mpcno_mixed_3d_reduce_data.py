@@ -19,8 +19,8 @@ from scripts.mixed_3d.mpcno_mixed_3d_helper import (
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
 
-    parser.add_argument('--n_train', type=int, default=900)
-    parser.add_argument('--n_test', type=int, default=100)
+    parser.add_argument('--n_train', type=int, default=2000)
+    parser.add_argument('--n_test', type=int, default=500)
     
     # Specifies how the computational mesh is represented. 
     # “cell_centered” stores features at cell centers (control-volume based), 

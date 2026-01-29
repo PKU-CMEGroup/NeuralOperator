@@ -33,7 +33,7 @@ print(f"Using device: {device}")
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
     # Preprocess data n_each from each subcategories
-    parser.add_argument('--n_each', type=int, default=100)
+    parser.add_argument('--n_each', type=int, default=2000)
     
     # Specifies how the computational mesh is represented. 
     # “cell_centered” stores features at cell centers (control-volume based), 

@@ -10,14 +10,14 @@
 
 module load conda
 source activate pytorch
-python mpcno_mixed_3d_train.py   --grad True \
-                                    --geo True \
-                                    --geointegral True \
-                                    --k_max 16 \
-                                    --batch_size 5 \
-                                    --epochs 500 \
-                                    --n_train 1000 \
-                                    --n_test 500 \
-                                    --to_divide_factor 1.0 \
-                                    --mesh_type "vertex_centered" \
-                                    > logs/MPCNO_mixed_3d_grad_geo_vertex_centered.log
+python mpcno_mixed_3d_train.py  --grad True \
+                                --geo True \
+                                --geointegral True \
+                                --k_max 16 \
+                                --batch_size 5 \
+                                --epochs 500 \
+                                --n_train 2000 \
+                                --n_test 500 \
+                                --to_divide_factor 1.0 \
+                                --mesh_type "vertex_centered" \
+                                > logs/MPCNO_mixed_3d_grad_geo_vertex_centered.log

@@ -194,11 +194,11 @@ def main():
     parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--to_divide_factor', type=float, default=1.0)
     parser.add_argument('--k_max', type=int, default=16)
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=5)
     parser.add_argument('--epochs', type=int, default=500)
     # Preprocess data n_each from each subcategories
-    parser.add_argument('--n_train', type=int, default=900)
-    parser.add_argument('--n_test', type=int, default=100)
+    parser.add_argument('--n_train', type=int, default=2000)
+    parser.add_argument('--n_test', type=int, default=500)
     parser.add_argument('--act', type=str, default="gelu")
     parser.add_argument('--geo_act', type=str, default="softsign")
     parser.add_argument('--scale', type=float, default=0.0)
@@ -207,7 +207,7 @@ def main():
     # Specifies how the computational mesh is represented. 
     # “cell_centered” stores features at cell centers (control-volume based), 
     # while “vertex_centered” stores features at mesh vertices (node-based).
-    parser.add_argument('--mesh_type', type=str, default='cell_centered', choices=['cell_centered', 'vertex_centered'])
+    parser.add_argument('--mesh_type', type=str, default='vertex_centered', choices=['cell_centered', 'vertex_centered'])
     
 
     args = parser.parse_args()

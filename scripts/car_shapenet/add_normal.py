@@ -35,7 +35,7 @@ def compute_normals_with_open3d(nodes, elems):
     normals = np.asarray(mesh.vertex_normals)
     return normals
 
-# 提供可视化
+
 def visualize_mesh_with_normals(nodes, elems, normals):
     try:
         import open3d as o3d

@@ -199,7 +199,7 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
     checkpoint = torch.load('checkpoint_parallel.pth', map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
-    
+    model.eval()
     
     
     normalization_x = False
@@ -224,20 +224,32 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
     myloss = LpLoss(d=1, p=2, size_average=False)
 
     if data_ids is None:
+        print("data_ids is None. Start test." , flush = True)
         test_rel_l2 = np.zeros(n_test)
-        for i in range(n_test):
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x_test[[i],...], y_test[[i],...], aux_test[0][[i],...], aux_test[1][[i],...], aux_test[2][[i],...], aux_test[3][[i],...], aux_test[4][[i],...], aux_test[5][[i],...]
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
-
-            batch_size_ = x.shape[0]
-            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
-
-            if normalization_y:
-                out = y_normalizer.decode(out)
-                y = y_normalizer.decode(y)
-            out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
-            test_rel_l2[i] = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
         
+        with torch.no_grad():
+            for i in range(n_test):
+                start_time = time.time()
+
+            
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x_test[[i],...], y_test[[i],...], aux_test[0][[i],...], aux_test[1][[i],...], aux_test[2][[i],...], aux_test[3][[i],...], aux_test[4][[i],...], aux_test[5][[i],...]
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
+                
+                batch_size_ = x.shape[0]
+                out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
+
+                
+                if normalization_y:
+                    out = y_normalizer.decode(out)
+                    y = y_normalizer.decode(y)
+                out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                
+                test_rel_l2[i] = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                
+                end_time = time.time()
+                print("Test id ", i, ". Name is ", names_array[i+n_train], ". Error is : ", test_rel_l2[i], flush = True)
+                print(f"Evaluation time on {device} is : {end_time - start_time:.4f} s")
+            
         np.save('test_rel_l2.npy', test_rel_l2)
     
         largest_error_ind = np.argmax(test_rel_l2)
@@ -263,26 +275,26 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
         elems = raw_data["elems_list"]
         vertices = raw_data["nodes_list"]
         
-        
-        if data_id < n_train:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = (x_train[[data_id],...], y_train[[data_id],...], aux_train[0][[data_id],...], aux_train[1][[data_id],...], aux_train[2][[data_id],...], aux_train[3][[data_id],...], aux_train[4][[data_id],...], aux_train[5][[data_id],...])
-            print("Load training data ", data_id)
-        else:
-            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = (x_test[[data_id - n_train],...], y_test[[data_id - n_train],...], aux_test[0][[data_id - n_train],...], aux_test[1][[data_id - n_train],...], aux_test[2][[data_id - n_train],...], aux_test[3][[data_id - n_train],...], aux_test[4][[data_id - n_train],...], aux_test[5][[data_id - n_train],...])
-            print("Load test data ", data_id - n_train)
+        with torch.no_grad():
+            if data_id < n_train:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = (x_train[[data_id],...], y_train[[data_id],...], aux_train[0][[data_id],...], aux_train[1][[data_id],...], aux_train[2][[data_id],...], aux_train[3][[data_id],...], aux_train[4][[data_id],...], aux_train[5][[data_id],...])
+                print("Load training data ", data_id)
+            else:
+                x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = (x_test[[data_id - n_train],...], y_test[[data_id - n_train],...], aux_test[0][[data_id - n_train],...], aux_test[1][[data_id - n_train],...], aux_test[2][[data_id - n_train],...], aux_test[3][[data_id - n_train],...], aux_test[4][[data_id - n_train],...], aux_test[5][[data_id - n_train],...])
+                print("Load test data ", data_id - n_train)
 
-        x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
+            x, y, node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo = x.to(device), y.to(device), node_mask.to(device), nodes.to(device), node_weights.to(device), directed_edges.to(device), edge_gradient_weights.to(device), geo.to(device)
 
-        batch_size_ = x.shape[0]
-        
-        # evalution time
-        start_time = time.time()
-        out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
-        if normalization_y:
-            out = y_normalizer.decode(out)
-            y = y_normalizer.decode(y)
-        out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
-        end_time = time.time()
+            batch_size_ = x.shape[0]
+            
+            # evalution time
+            start_time = time.time()
+            out = model(x, (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, geo)) #.reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+            out=out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+            end_time = time.time()
 
         print(f"Evaluation time on {device} is : {end_time - start_time:.4f} s")
         print("Error is : ", myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item())
@@ -317,5 +329,5 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
         meshio.write(file_name+ ".vtk", mesh)
         
         
-predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 4000, n_test = 500, data_ids = [4011,4023,4300])
+predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 4000, n_test = 500, data_ids = [4000, 4001, 4004, 4005, 4052])
 # predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = "vertex_centered", n_train = 4000, n_test = 500, data_ids = None)

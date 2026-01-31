@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -o logs/PCNO_parallel_train_vertex_centered.out
+#SBATCH -o logs/MPCNO_parallel_train_vertex_centered.out
 #SBATCH --qos=low
-#SBATCH -J PCNO_parallel_train_vertex_centered
+#SBATCH -J MPCNO_parallel_train_vertex_centered
 #SBATCH -p GPU80G
 #SBATCH --nodes=1 
 #SBATCH --ntasks=32
@@ -27,10 +27,10 @@ torchrun --nproc_per_node=2 --nnodes=1 --node_rank=0  --master_addr=$MASTER_ADDR
                                     --geo True \
                                     --geointegral True \
                                     --k_max 16 \
-                                    --batch_size 5 \
+                                    --batch_size 4 \
                                     --epochs 500 \
                                     --n_train 2000 \
                                     --n_test 500 \
                                     --to_divide_factor 1.0 \
                                     --mesh_type "vertex_centered" \
-                                    > logs/PCNO_parallel_mixed_3d_grad_geo_vertex_centered.log
+                                    > logs/MPCNO_parallel_mixed_3d_vertex_centered.log

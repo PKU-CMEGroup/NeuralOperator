@@ -20,4 +20,4 @@ python mpcno_mixed_3d_train.py  --grad True \
                                 --n_test 500 \
                                 --to_divide_factor 1.0 \
                                 --mesh_type "vertex_centered" \
-                                > logs/MPCNO_mixed_3d_grad_geo_vertex_centered.log
+                                > logs/MPCNO_mixed_3d_vertex_centered.log

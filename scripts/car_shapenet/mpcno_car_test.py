@@ -51,8 +51,8 @@ layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() 
 
 train_inv_L_scale = False
 k_max = args.k_max
-ndim = 2
-Ls = [4.0,4.0,10.0]
+ndim = 3
+Ls = [2.0,2.0,5.0]
 layers = [int(size) for size in args.layer_sizes.split(",")]
 act = args.act
 geo_act = args.geo_act
@@ -136,7 +136,6 @@ else:  #OUTPUT == "normal":
 ###################################
 # load model and train
 ###################################
-ndim = 3
 modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max], Ls)
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 

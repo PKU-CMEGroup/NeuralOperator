@@ -14,7 +14,7 @@ enabling researchers to quickly and easily develop and test novel surrogate mode
 ## Code Structure
 * Utilities for all neural networks, such as optimizers and normalizers are in the *utility* folder.
 * State-of-the-art neural operators, including `fno.py`, are in the *baselines* folder.
-* The Point Cloud Neural Operator (PCNO) and its related utility files are in the *pcno* folder. If you plan to design a new neural operator, consider starting a dedicated folder similar to *pcno*.
+* The Point Cloud Neural Operator (PCNO), Multiscale Point Cloud Neural Operator (MPCNO), and their related utility files are in the *pcno* folder. If you plan to design a new neural operator, consider starting a dedicated folder similar to *pcno*.
 * Datasets should be downloaded into the *data* folder. Each subfolder contains one dataset, such as `darcy_square` for the Darcy flow problem in the unit square.
 * Test scripts are in the *scripts* folder. Each subfolder contains scripts for various neural operators applied to a specific dataset, with the folder name matching the corresponding dataset subfolder in the *data* folder.
 
@@ -31,6 +31,7 @@ enabling researchers to quickly and easily develop and test novel surrogate mode
 ├── pcno/
 │   ├── pcno.py
 │   ├── geo_utility.py
+|   ├── mpcno.py
 
 ├── tests/
 │   ├── __init__.py
@@ -54,6 +55,7 @@ Let's start! (⚠️ under construction)
 * Neural operator
     * [Fourier Neural Operator](docs/fno.ipynb)
     * [Point Cloud Neural Operator](docs/pcno.ipynb)
+    * [Multiscale Point Cloud Neural Operator](docs/mpcno.ipynb)
 * Example
     * [Advection-Diffusion Boundary Value Problem](scripts/adv_diff_bvp/README.md)  
         **Focus:** Adaptive meshing, Boundary layers, Different meshing strategies
@@ -71,6 +73,8 @@ Let's start! (⚠️ under construction)
         **Focus:** Benchmark, Three-dimensional, Large-scale
     * [Parachute Dynamics](scripts/parachute/README.md)  
         **Focus:** Three-dimensional, Unsteady problem
+    * [Curve Integral](scripts/curve/README.md)
+        **Focus:** Benchmark, Singular kernel integral on curves
       
 
 

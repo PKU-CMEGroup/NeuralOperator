@@ -75,7 +75,8 @@ Let's start! (⚠️ under construction)
         **Focus:** Three-dimensional, Unsteady problem
     * [Curve Integral](scripts/curve/README.md)
         **Focus:** Benchmark, Singular kernel integral on curves
-      
+    * [Mixed 3d](scripts/mixed_3d/README.md)
+        **Focus:** Benchmark, Three-dimensional
 
 
 ## Submit an issue

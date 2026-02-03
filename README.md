@@ -74,16 +74,17 @@ Let's start! (⚠️ under construction)
     * [Parachute Dynamics](scripts/parachute/README.md)  
         **Focus:** Three-dimensional, Unsteady problem
     * [Curve Integral](scripts/curve/README.md)  
-        **Focus:** Benchmark, Singular kernel integral on curves
+        **Focus:** Singular kernel integrals, geometric generalization
     * [Mixed 3d](scripts/mixed_3d/README.md)  
-        **Focus:** Benchmark, Three-dimensional
+        **Focus:** Three-dimensional, Parallelization
 
 
 ## Submit an issue
 You are welcome to submit an issue for any questions related to NeuralOperator. 
 
 ## Here are some research papers using NeuralOperator
-1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](http://arxiv.org/abs/2501.14475)." 
+1. Chenyu Zeng, Yanshu Zhang, Jiayi Zhou, Yuhan Wang, Zilin Wang, Yuhao Liu, Lei Wu, Daniel Zhengyu Huang, "[Point Cloud Neural Operator for Parametric PDEs on Complex and Variable Geometries](http://arxiv.org/abs/2501.14475)."
+2. Mingyu Han, Daniel Zhengyu Huang, Yuhan Wang, Yanshu Zhang, Jiayi Zhou, "[Geometric Generalization of Neural Operators from Kernel Integral Perspective](https://arxiv.org/abs/2602.01498)." 
 
 
 

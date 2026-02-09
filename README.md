@@ -74,7 +74,7 @@ Let's start! (⚠️ under construction)
     * [Parachute Dynamics](scripts/parachute/README.md)  
         **Focus:** Three-dimensional, Unsteady problem
     * [Curve Integral](scripts/curve/README.md)  
-        **Focus:** Singular kernel integrals, geometric generalization
+        **Focus:** Singular kernel integrals, Geometric generalization
     * [Mixed 3d](scripts/mixed_3d/README.md)  
         **Focus:** Three-dimensional, Parallelization
 

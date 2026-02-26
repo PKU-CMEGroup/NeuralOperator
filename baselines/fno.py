@@ -443,19 +443,11 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
     optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
                      lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
     
-    if config['train']['scheduler'] == "MultiStepLR":
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=config['train']['milestones'],
-                                                     gamma=config['train']['scheduler_gamma'])
-    elif config['train']['scheduler'] == "CosineAnnealingLR":
-        T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
-        eta_min  = 0.0
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
-    elif config["train"]["scheduler"] == "OneCycleLR":
+    if config["train"]["scheduler"] == "OneCycleLR":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=config['train']['base_lr'], 
             div_factor=2, final_div_factor=100,pct_start=0.2,
-            steps_per_epoch=1, epochs=config['train']['epochs'])
+            steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
     else:
         print("Scheduler ", config['train']['scheduler'], " has not implemented.")
 
@@ -483,6 +475,7 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
             loss.backward()
 
             optimizer.step()
+            scheduler.step()
             train_rel_l2 += loss.item()
 
         test_l2 = 0
@@ -503,7 +496,7 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
 
 
 
-        scheduler.step()
+        
 
         train_rel_l2/= n_train
         test_l2 /= n_test

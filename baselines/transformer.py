@@ -6,13 +6,24 @@ from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
 
-# -----------------------------
-# Positional encoding (fixed)
-# -----------------------------
+
 class SinCosPositionalEncoding(nn.Module):
     """
-    Standard sinusoidal positional encoding for length N sequences.
-    Works even if N varies between batches (up to max_len).
+    Fixed sinusoidal positional encoding (Vaswani et al.) for length-N token sequences.
+
+    Args:
+        d_model: Embedding dimension of each token.
+        max_len: Maximum supported sequence length N.
+
+    Returns:
+        In forward(), returns x + PE where PE is the sinusoidal positional encoding.
+
+    Math:
+        PE[pos, 2i]   = sin(pos / 10000^{2i/d_model})
+        PE[pos, 2i+1] = cos(pos / 10000^{2i/d_model})
+
+    Require:
+        0 < N <= max_len in forward().
     """
     def __init__(self, d_model: int, max_len: int = 4096):
         super().__init__()
@@ -25,25 +36,44 @@ class SinCosPositionalEncoding(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: [B, N, d_model]
+        Args:
+            x: Token embeddings of shape [B, N, d_model].
+
+        Returns:
+            Tensor of shape [B, N, d_model] with positional encoding added.
+
+        Require:
+            0 < N <= max_len (set in __init__).
         """
         N = x.size(1)
         return x + self.pe[:N].unsqueeze(0).to(x.dtype)
 
 
-# -----------------------------
-# Transformer model
-# transformer_schrodinger.py
-# Learn a map from (N x C_in) -> (N x C_out), e.g. [Re ψ0, Im ψ0] -> [Re ψt, Im ψt]
-# Periodic 1D grid; transformer operates on tokens = spatial points.
-# -----------------------------
+
 class Transformer(nn.Module):
     """
-    Encoder-only Transformer that maps a field on a 1D grid:
-      input:  [B, N, 2]
-      output: [B, N, 2]
+    Encoder-only Transformer that maps a field on a grid.
 
-    Tokens = spatial points.
+    Args:
+        in_channels:  Number of input channels per spatial point (token).
+        out_channels: Number of output channels per spatial point (token).
+        d_model:      Transformer embedding dimension.
+        nhead:        Number of attention heads.
+        num_layers:   Number of TransformerEncoder layers.
+        dim_feedforward: Hidden width of the MLP/FFN in each layer.
+        dropout:      Dropout probability in encoder layers.
+        max_len:      Maximum supported token length N for positional encoding.
+        use_coord_channel: If True, append a normalized coordinate x in [0,1) to each token.
+
+    Returns:
+        Forward maps u -> y with:
+          u: [B, N, in_channels]
+          y: [B, N, out_channels]
+
+    Notes:
+        - Tokens correspond to spatial points.
+        - batch_first=True so tensors are [B, N, d_model].
+        - norm_first=True uses pre-norm Transformer blocks (often more stable).
     """
     def __init__(
         self,
@@ -60,13 +90,16 @@ class Transformer(nn.Module):
         super().__init__()
         self.use_coord_channel = use_coord_channel
 
-        # If you want, concatenate x-coordinate (or sin/cos) as extra input channels.
-        # Here we add a single normalized coordinate channel in [0,1).
+        # Optionally append coordinate x as an extra channel
         input_dim = in_channels + (1 if use_coord_channel else 0)
 
+        # Project raw token features -> d_model
         self.input_proj = nn.Linear(input_dim, d_model)
+
+        # Fixed positional encoding
         self.pos_enc = SinCosPositionalEncoding(d_model, max_len=max_len)
 
+        # Transformer encoder layer: MHSA + FFN + residual/LN
         enc_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
@@ -76,13 +109,25 @@ class Transformer(nn.Module):
             activation="gelu",
             norm_first=True,
         )
+
+        # Stack layers
         self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
+
+        # Final normalization + projection to output channels
         self.norm = nn.LayerNorm(d_model)
         self.output_proj = nn.Linear(d_model, out_channels)
 
     def forward(self, u: torch.Tensor) -> torch.Tensor:
         """
-        u: [B, N, 2]  (e.g., Re/Im)
+        Args:
+            u: Input field on grid, shape [B, N, in_channels].
+
+        Returns:
+            Predicted field on grid, shape [B, N, out_channels].
+
+        Require:
+            If use_coord_channel=True, N must be the intended spatial resolution
+            (used to generate coordinate channel).
         """
         B, N, C = u.shape
         if self.use_coord_channel:
@@ -104,7 +149,7 @@ class Transformer(nn.Module):
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model"):
+def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./Transformer_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -139,19 +184,11 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
     optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
                      lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
     
-    if config['train']['scheduler'] == "MultiStepLR":
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=config['train']['milestones'],
-                                                     gamma=config['train']['scheduler_gamma'])
-    elif config['train']['scheduler'] == "CosineAnnealingLR":
-        T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
-        eta_min  = 0.0
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
-    elif config["train"]["scheduler"] == "OneCycleLR":
+    if config["train"]["scheduler"] == "OneCycleLR":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=config['train']['base_lr'], 
-            div_factor=2, final_div_factor=100,pct_start=0.2,
-            steps_per_epoch=1, epochs=config['train']['epochs'])
+            div_factor=2, final_div_factor=100, pct_start=0.2,
+            steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
     else:
         print("Scheduler ", config['train']['scheduler'], " has not implemented.")
 
@@ -179,6 +216,7 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
             loss.backward()
 
             optimizer.step()
+            scheduler.step()
             train_rel_l2 += loss.item()
 
         test_l2 = 0
@@ -199,7 +237,7 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
 
 
 
-        scheduler.step()
+        
 
         train_rel_l2/= n_train
         test_l2 /= n_test

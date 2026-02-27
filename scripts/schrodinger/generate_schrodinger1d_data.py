@@ -97,15 +97,15 @@ def solve_schrodinger1d_equation(f, g, V, L=2*np.pi, T=1.0, dt_max=0.01, check_c
     return psi.real, psi.imag
 
 
-def generate_initial_conditions(N, M, k_max = 10, L=2*np.pi, normalize=True, seed=None):
+def generate_initial_conditions(M, N, k_max = 10, L=2*np.pi, normalize=True, seed=None):
     """
     生成一维薛定谔方程的随机初始状态
     
     参数:
-    N: int
-       空间网格点数
     M: int
        生成初始状态的数量
+    N: int
+       空间网格点数
     k_max: int
        生成初始状态时包含的最大傅里叶模态数量（越大越复杂）
     L: float
@@ -127,10 +127,10 @@ def generate_initial_conditions(N, M, k_max = 10, L=2*np.pi, normalize=True, see
     
     for k in range(0, k_max):
         kk = np.sqrt(k)
-        psi_real += np.sin(2*np.pi*x*k/L)*np.random.randn(M, N)/(kk+1)
-        psi_real += np.cos(2*np.pi*x*k/L)*np.random.randn(M, N)/(kk+1)
-        psi_imag += np.sin(2*np.pi*x*k/L)*np.random.randn(M, N)/(kk+1)
-        psi_imag += np.cos(2*np.pi*x*k/L)*np.random.randn(M, N)/(kk+1)
+        psi_real += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
+        psi_real += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
+        psi_imag += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
+        psi_imag += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
     
 
     if normalize:
@@ -200,7 +200,7 @@ def set_default_params():
 def visualization():
     nT, T, k_max, N, L, V_type = set_default_params()
     
-    f,g = generate_initial_conditions(M = 1, N = N, k_max = k_max, seed=42)
+    f, g = generate_initial_conditions(M = 1, N = N, k_max = k_max, seed=42)
     fig, axs = plt.subplots(4, 5, figsize=(16, 8))
     axs[0,0].set_title("V")
     axs[0,1].set_title("real(psi)")
@@ -214,13 +214,16 @@ def visualization():
     for i in range(len(V_types)):
         V_type = V_types[i]
         
-        V = fixed_periodic_potential(N, L=2*np.pi, V_type=V_type)
+        V = fixed_periodic_potential(N, L=L, V_type=V_type)
         axs[i,0].plot(x, V)
         axs[i,0].set_xlabel("x")
-        u_ref = np.zeros((nT+1, N, 2))
-        u_ref[0,:,0], u_ref[0,:,1] = f, g
+
+        u_ref = np.zeros((nT+1, N, 4))
+        u_ref[:,:,2], u_ref[:,:,3] = V, x
+        u_ref[0,:,0], u_ref[0,:,1] = f[0,:], g[0,:]
+
         for j in range(nT):
-            u_ref[j+1,:] = np.concatenate(solve_schrodinger1d_equation(f=u_ref[j,:,0], g=u_ref[j,:,1], V=V, L=L, T=T, check_conservation=False))    
+            u_ref[j+1,:,0], u_ref[j+1,:,1] = solve_schrodinger1d_equation(f=u_ref[j,:,0], g=u_ref[j,:,1], V=V, L=L, T=T, check_conservation=False)   
         
         
     
@@ -246,6 +249,7 @@ def visualization():
     
     fig.tight_layout() 
     plt.show()
+    plt.savefig("schrodinger1d.pdf")
     
     
 def generate_data():

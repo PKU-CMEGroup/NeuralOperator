@@ -1,21 +1,28 @@
-from scripts.schrodinger.generate_schrodinger1d_data import fixed_periodic_potential
-from scripts.schrodinger.transformer_train import setup_model
-import torch
+import sys
+import os
+import math 
 import argparse
+import torch
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
-
 from timeit import default_timer
-from transformer import Transformer
-from gen_schr_eq_data import generate_initial_conditions, solve_schrodinger_equation, set_params
 
+# 获取当前文件所在的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 向上两级找到项目根目录
+project_root = os.path.dirname(os.path.dirname(current_dir))
+# 添加到路径
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+from scripts.schrodinger.generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
+from scripts.schrodinger.transformer_train import setup_model, preprocess_data
+from utility.normalizer import UnitGaussianNormalizer
 
 
 if __name__ == "__main__":
-    nT, T, k_max, N, L, V_type = set_params()
-    k_max = 20
+    nT, T, k_max, N, L, V_type = set_default_params()
     
     in_dim, out_dim = 3, 2 
  
@@ -27,24 +34,44 @@ if __name__ == "__main__":
     u_ref = np.zeros((nT+1, N, 2))
     u_ref[0,:,0], u_ref[0,:,1] = u_0, v_0
     for i in range(nT):
-        u_ref[i+1,:,0], u_ref[i+1,:,1] = solve_schrodinger_equation(f=u_ref[i,:,0], g=u_ref[i,:,1], V=V, L=L, T=T)
+        u_ref[i+1,:,0], u_ref[i+1,:,1] = solve_schrodinger1d_equation(f=u_ref[i,:,0], g=u_ref[i,:,1], V=V, L=L, T=T)
             
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = setup_model(in_dim, out_dim, device, checkpoint_path = "pth/TRANSFORMER_"+V_type+".pth")
+    model = setup_model(in_dim, out_dim, device, checkpoint_path = "Transformer_model_V"+V_type+".pth")
 
-  
+    
+    # normalizer
+    normalization_x = False
+    normalization_y = True
+    normalization_dim_x = []
+    normalization_dim_y = []
+    non_normalized_dim_x = 4
+    non_normalized_dim_y = 0
+    n_train, n_test = 10000, 500
+    data = np.load("../../data/schrodinger/schrodinger1d_"+V_type+"_data.npz")['u_refs']
+    x_train, _, y_train, _, _, _ = preprocess_data(data, n_train, n_test, device)
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
+        x_normalizer.to(device)
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
+        y_normalizer.to(device)
 
 
     x = np.linspace(0, L, N, endpoint=False)
     batch_size = 1
     u = torch.zeros((batch_size, nT+1, N, out_dim+2))
-    u[:,0,:,2], u[:,0,:,3] = torch.tensor(V), torch.tensor(x)
+    u[0,:,:,2], u[0,:,:,3] = torch.tensor(V), torch.tensor(x)
+    # initialization
     u[0,0,:,0], u[0,0,:,1] = torch.tensor(u_0), torch.tensor(v_0)
     u = u.to(device)  
     for i in range(nT):
-        u[:,i+1,:, 0:out_dim] = model(u[:, i,...], coords=u[:,i,:,3:4])
-    u = u.detach().cpu().numpy()[0,...]
+        
+        u[:,i+1,:, 0:out_dim] =  model( u = (x_normalizer.encode(u[:, i, :, 0:in_dim]) if normalization_x else u[:, i, :, 0:in_dim]), coords=u[:,i,:,3:4]) 
+        if normalization_y:
+            u[:,i+1,:, 0:out_dim] = y_normalizer.decode(u[:,i+1,:, 0:out_dim])
+    u = u.detach().cpu().numpy()[0,...,0:out_dim]
 
 
 

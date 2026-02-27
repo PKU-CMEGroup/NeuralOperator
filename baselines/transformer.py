@@ -192,7 +192,6 @@ class Transformer(nn.Module):
 
         # Combine field features + coordinate features
         h = torch.cat([u, c], dim=-1)              # [B, N, in_channels + d_coord]
-
         # Lift to model dimension
         h = self.input_proj(h)                     # [B, N, d_model]
 

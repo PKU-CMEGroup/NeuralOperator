@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
+from timeit import default_timer
 
 
 class SinCosPositionalEncoding(nn.Module):
@@ -199,6 +200,7 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
 
 
     for ep in range(epochs):
+        t1 = default_timer()
         train_rel_l2 = 0
 
         model.train()
@@ -221,6 +223,8 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
 
         test_l2 = 0
         test_rel_l2 = 0
+
+        model.eval()
         with torch.no_grad():
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
@@ -247,10 +251,151 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
     
+        t2 = default_timer()
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,flush=True)
+        
+        if (ep %100 == 99) or (ep == epochs -1):    
+            if save_model_name:
+                torch.save(model.state_dict(), save_model_name + ".pth")
 
-        if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
-            torch.save(model, save_model_name)
+
+    
+    
+    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
+
+
+
+
+
+# x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
+def Transformer_train_multidist(x_train, y_train, x_test_list, y_test_list, config, model, label_test_list, save_model_name="./Transformer_model"):
+    assert len(x_test_list) == len(y_test_list), "The length of x_test_list, y_test_list and aux_test_list should be the same"
+    n_distributions = len(x_test_list)
+    n_train= x_train.shape[0]
+    train_rel_l2_losses = []
+    test_rel_l2_losses = []
+    test_l2_losses = []
+    normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
+    normalization_dim_x, normalization_dim_y = config["train"]["normalization_dim_x"], config["train"]["normalization_dim_y"]
+    non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
+    
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+    if normalization_x:
+        x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
+        x_train = x_normalizer.encode(x_train)
+        for i in range(n_distributions):
+            x_test_list[i] = x_normalizer.encode(x_test_list[i])
+        x_normalizer.to(device)
+        
+    if normalization_y:
+        y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
+        y_train = y_normalizer.encode(y_train)
+        for i in range(n_distributions):
+            y_test_list[i] = y_normalizer.encode(y_test_list[i])
+        y_normalizer.to(device)
+
+
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+                                               batch_size=config['train']['batch_size'], shuffle=True)
+    
+    test_loaders = []
+
+    for i in range(n_distributions):
+        sub_dataset = torch.utils.data.TensorDataset(x_test_list[i], y_test_list[i])
+        sub_loader = torch.utils.data.DataLoader(sub_dataset, batch_size=config['train']['batch_size'], shuffle=False)
+        try:
+            name = label_test_list[i]
+        except:
+            name = f"Distribution_{i}"
+        test_loaders.append((name, sub_loader))
+  
+    
+    myloss = LpLoss(d=1, p=2, size_average=False)
+
+    optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
+                     lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
+    
+    
+    if config["train"]["scheduler"] == "OneCycleLR":
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=config['train']['base_lr'], 
+            div_factor=2, final_div_factor=100, pct_start=0.2,
+            steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
+    else:
+        print("Scheduler ", config['train']['scheduler'], " has not implemented.")
+    
+    epochs = config['train']['epochs']
+    
+    for ep in range(epochs):
+        t1 = default_timer()
+        train_rel_l2 = 0
+
+        model.train()
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
+
+            batch_size_ = x.shape[0]
+            optimizer.zero_grad()
+            out = model(x) #.reshape(batch_size_,  -1)
+            if normalization_y:
+                out = y_normalizer.decode(out)
+                y = y_normalizer.decode(y)
+
+            loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
+            loss.backward()
+
+            optimizer.step()
+            scheduler.step()
+            train_rel_l2 += loss.item()
+
+
+        test_rel_l2_dict = {}
+        test_l2_dict = {}
+
+        model.eval()
+        with torch.no_grad():
+            for name, loader in test_loaders:
+                test_l2 = 0
+                test_rel_l2 = 0
+
+                for x, y in loader:
+                    x, y = x.to(device), y.to(device)
+
+                    batch_size_ = x.shape[0]
+                    out = model(x) #.reshape(batch_size_,  -1)
+
+                    if normalization_y:
+                        out = y_normalizer.decode(out)
+                        y = y_normalizer.decode(y)
+
+                    test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                    test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
+                
+                test_l2 /= len(loader.dataset)
+                test_rel_l2 /= len(loader.dataset)
+                test_rel_l2_dict[name] = test_rel_l2
+                test_l2_dict[name] = test_l2
+    
+
+        
+
+        train_rel_l2/= n_train
+
+        train_rel_l2_losses.append(train_rel_l2)
+        test_rel_l2_losses.append(test_rel_l2_dict)
+        test_l2_losses.append(test_l2_dict)
+    
+
+        t2 = default_timer()
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2_dict, " Test L2 Loss : ", test_l2_dict, flush=True)
+        if (ep %100 == 99) or (ep == epochs -1):    
+            if save_model_name:
+                torch.save(model.state_dict(), save_model_name + ".pth")
+
+
+            
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

@@ -8,97 +8,153 @@ from utility.normalizer import UnitGaussianNormalizer
 from timeit import default_timer
 
 
-class SinCosPositionalEncoding(nn.Module):
+
+class CoordEmbedding(nn.Module):
     """
-    Fixed sinusoidal positional encoding (Vaswani et al.) for length-N token sequences.
+    Embed physical coordinates into feature vectors.
+
+    This module maps coordinates in R^{coord_dim} (e.g., 1D/2D/3D spatial coordinates)
+    to an embedding of dimension d_coord, which can then be concatenated with other
+    token features before feeding into a Transformer.
+
+    Two modes are supported:
+
+    1) "linear":
+        A simple learned linear projection:
+            emb = W coords + b
+
+    2) "fourier":
+        Random Fourier features followed by a learned linear projection.
+        Let B ∈ R^{coord_dim × num_frequencies} be a fixed random matrix.
+        Define:
+            xb = coords @ B
+            feats = [sin(xb), cos(xb)]   (and optionally coords itself)
+            emb = Linear(feats)
+
+        This is helpful for representing high-frequency spatial variation and for
+        operator/PDE learning tasks.
 
     Args:
-        d_model: Embedding dimension of each token.
-        max_len: Maximum supported sequence length N.
+        coord_dim: Dimension of the coordinate vector at each token (typically 1, 2, or 3).
+        d_coord: Output embedding dimension.
+        mode: Either "linear" or "fourier".
+        num_frequencies: Number of random Fourier frequencies (only used if mode="fourier").
+        scale: Frequency scale for the Fourier matrix B (only used if mode="fourier").
+               Larger values emphasize higher-frequency variation.
+        include_raw: If True, concatenates the raw coords to the Fourier feature vector.
 
     Returns:
-        In forward(), returns x + PE where PE is the sinusoidal positional encoding.
-
-    Math:
-        PE[pos, 2i]   = sin(pos / 10000^{2i/d_model})
-        PE[pos, 2i+1] = cos(pos / 10000^{2i/d_model})
+        In forward(), returns coord_emb of shape [B, N, d_coord].
 
     Require:
-        0 < N <= max_len in forward().
+        coords must have shape [B, N, coord_dim].
     """
-    def __init__(self, d_model: int, max_len: int = 4096):
+    def __init__(
+        self,
+        coord_dim: int,
+        d_coord: int,
+        mode: str = "fourier",
+        num_frequencies: int = 16,
+        scale: float = 2.0 * math.pi,
+        include_raw: bool = True,
+    ):
         super().__init__()
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)  # [max_len, 1]
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)  # even
-        pe[:, 1::2] = torch.cos(position * div_term)  # odd
-        self.register_buffer("pe", pe)  # [max_len, d_model]
+        assert mode in ["linear", "fourier"]
+        self.coord_dim = coord_dim
+        self.mode = mode
+        self.include_raw = include_raw
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if mode == "linear":
+            self.proj = nn.Linear(coord_dim, d_coord)
+        else:
+            # fixed random Fourier matrix
+            B = torch.randn(coord_dim, num_frequencies) * scale
+            self.register_buffer("B", B)  # [coord_dim, num_frequencies]
+            in_dim = 2 * num_frequencies + (coord_dim if include_raw else 0)
+            self.proj = nn.Linear(in_dim, d_coord)
+
+    def forward(self, coords: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Token embeddings of shape [B, N, d_model].
+            coords: Physical coordinates with shape [B, N, coord_dim].
 
         Returns:
-            Tensor of shape [B, N, d_model] with positional encoding added.
+            Embedded coordinates with shape [B, N, d_coord].
 
-        Require:
-            0 < N <= max_len (set in __init__).
+        Math (fourier mode):
+            xb = coords @ B
+            feats = [sin(xb), cos(xb)] (and optionally coords)
+            coord_emb = Linear(feats)
         """
-        N = x.size(1)
-        return x + self.pe[:N].unsqueeze(0).to(x.dtype)
+        assert coords.dim() == 3 and coords.size(-1) == self.coord_dim, \
+            f"coords should be [B,N,{self.coord_dim}] but got {tuple(coords.shape)}"
+
+        if self.mode == "linear":
+            return self.proj(coords)
+
+        xb = coords @ self.B                          # [B, N, num_frequencies]
+        feats = [torch.sin(xb), torch.cos(xb)]
+        if self.include_raw:
+            feats = [coords] + feats
+        feats = torch.cat(feats, dim=-1)              # [B, N, in_dim]
+        return self.proj(feats)                       # [B, N, d_coord]
 
 
 
 class Transformer(nn.Module):
     """
-    Encoder-only Transformer that maps a field on a grid.
+    Encoder-only Transformer conditioned on physical coordinates (no positional encoding).
+
+    Forward:
+        y = model(u, coords)
 
     Args:
-        in_channels:  Number of input channels per spatial point (token).
-        out_channels: Number of output channels per spatial point (token).
-        d_model:      Transformer embedding dimension.
-        nhead:        Number of attention heads.
-        num_layers:   Number of TransformerEncoder layers.
-        dim_feedforward: Hidden width of the MLP/FFN in each layer.
-        dropout:      Dropout probability in encoder layers.
-        max_len:      Maximum supported token length N for positional encoding.
-        use_coord_channel: If True, append a normalized coordinate x in [0,1) to each token.
+        in_channels: Number of input channels per token.
+        out_channels: Number of output channels per token.
+        coord_dim: Dimension of physical coordinates per token (1/2/3).
+        d_model: Transformer embedding dimension.
+        nhead: Number of attention heads.
+        num_layers: Number of TransformerEncoder layers.
+        dim_feedforward: Hidden width of the FFN in each encoder layer.
+        dropout: Dropout probability.
+        coord_mode: Coordinate embedding mode ("linear" or "fourier").
+        d_coord: Width of coordinate embedding.
+        num_frequencies: Number of Fourier frequencies (only used if coord_mode="fourier").
 
     Returns:
-        Forward maps u -> y with:
-          u: [B, N, in_channels]
-          y: [B, N, out_channels]
+        In forward(), returns y of shape [B, N, out_channels].
 
-    Notes:
-        - Tokens correspond to spatial points.
-        - batch_first=True so tensors are [B, N, d_model].
-        - norm_first=True uses pre-norm Transformer blocks (often more stable).
+    Require:
+        u has shape [B, N, in_channels]
+        coords has shape [B, N, coord_dim]
     """
     def __init__(
         self,
         in_channels: int = 2,
         out_channels: int = 2,
+        coord_dim: int = 1,
         d_model: int = 128,
         nhead: int = 8,
         num_layers: int = 6,
         dim_feedforward: int = 512,
         dropout: float = 0.0,
-        max_len: int = 4096,
-        use_coord_channel: bool = True,
+        coord_mode: str = "fourier",   # "linear" or "fourier"
+        d_coord: int = 64,
+        num_frequencies: int = 16,
     ):
         super().__init__()
-        self.use_coord_channel = use_coord_channel
 
-        # Optionally append coordinate x as an extra channel
-        input_dim = in_channels + (1 if use_coord_channel else 0)
+        # Embed coordinates: [B, N, coord_dim] -> [B, N, d_coord]
+        self.coord_emb = CoordEmbedding(
+            coord_dim=coord_dim,
+            d_coord=d_coord,
+            mode=coord_mode,
+            num_frequencies=num_frequencies,
+        )
 
-        # Project raw token features -> d_model
-        self.input_proj = nn.Linear(input_dim, d_model)
+        # Project concatenated features [u, coord_emb] -> d_model
+        self.input_proj = nn.Linear(in_channels + d_coord, d_model)
 
-        # Fixed positional encoding
-        self.pos_enc = SinCosPositionalEncoding(d_model, max_len=max_len)
 
         # Transformer encoder layer: MHSA + FFN + residual/LN
         enc_layer = nn.TransformerEncoderLayer(
@@ -118,39 +174,42 @@ class Transformer(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         self.output_proj = nn.Linear(d_model, out_channels)
 
-    def forward(self, u: torch.Tensor) -> torch.Tensor:
+    def forward(self, u: torch.Tensor, coords: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            u: Input field on grid, shape [B, N, in_channels].
+            u: Input token features, shape [B, N, in_channels].
+            coords: Physical coordinates, shape [B, N, coord_dim].
 
         Returns:
-            Predicted field on grid, shape [B, N, out_channels].
-
-        Require:
-            If use_coord_channel=True, N must be the intended spatial resolution
-            (used to generate coordinate channel).
+            y: Output token features, shape [B, N, out_channels].
         """
-        B, N, C = u.shape
-        if self.use_coord_channel:
-            # normalized coordinate in [0, 1)
-            x = torch.linspace(0.0, 1.0, N, device=u.device, dtype=u.dtype).view(1, N, 1).repeat(B, 1, 1)
-            inp = torch.cat([u, x], dim=-1)
-        else:
-            inp = u
 
-        h = self.input_proj(inp)        # [B, N, d_model]
-        h = self.pos_enc(h)             # add positional encoding
-        h = self.encoder(h)             # [B, N, d_model]
+        if coords is None:
+            raise ValueError("coords must be provided as [B, N, coord_dim].")
+
+        # Coordinate conditioning
+        c = self.coord_emb(coords)                 # [B, N, d_coord]
+
+        # Combine field features + coordinate features
+        h = torch.cat([u, c], dim=-1)              # [B, N, in_channels + d_coord]
+
+        # Lift to model dimension
+        h = self.input_proj(h)                     # [B, N, d_model]
+
+        # Global mixing via self-attention
+        h = self.encoder(h)                        # [B, N, d_model]
+
+        # Readout
         h = self.norm(h)
-        y = self.output_proj(h)         # [B, N, 2]
-        return y
+        return self.output_proj(h)                 # [B, N, out_channels]
+    
 
 
 
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./Transformer_model"):
+def Transformer_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./Transformer_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]
     train_rel_l2_losses = []
     test_rel_l2_losses = []
@@ -174,10 +233,11 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
         y_test = y_normalizer.encode(y_test)
         y_normalizer.to(device)
 
-
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+    node_mask_train, nodes_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test), 
+    node_mask_test, nodes_test = aux_test
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test), 
                                                batch_size=config['train']['batch_size'], shuffle=False)
     
     
@@ -204,16 +264,17 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
         train_rel_l2 = 0
 
         model.train()
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
+        for x, y, node_mask, nodes in train_loader:
+            x, y, node_mask, nodes = x.to(device), y.to(device), node_mask.to(device), nodes.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x) #.reshape(batch_size_,  -1)
+            out = model(x, coords = nodes) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
 
+            out = out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
             loss.backward()
 
@@ -226,15 +287,17 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
 
         model.eval()
         with torch.no_grad():
-            for x, y in test_loader:
-                x, y = x.to(device), y.to(device)
+            for x, y, node_mask, nodes in test_loader:
+                x, y, node_mask, nodes = x.to(device), y.to(device), node_mask.to(device), nodes.to(device)
                 batch_size_ = x.shape[0]
-                out = model(x) #.reshape(batch_size_,  -1)
+                out = model(x, coords = nodes) #.reshape(batch_size_,  -1)
 
                 if normalization_y:
                     out = y_normalizer.decode(out)
                     y = y_normalizer.decode(y)
 
+                out = out*node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+                
                 test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                 test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
 
@@ -268,8 +331,8 @@ def Transformer_train(x_train, y_train, x_test, y_test, config, model, save_mode
 
 
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
-def Transformer_train_multidist(x_train, y_train, x_test_list, y_test_list, config, model, label_test_list, save_model_name="./Transformer_model"):
-    assert len(x_test_list) == len(y_test_list), "The length of x_test_list, y_test_list and aux_test_list should be the same"
+def Transformer_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list, config, model, label_test_list, save_model_name="./Transformer_model"):
+    assert len(x_test_list) == len(y_test_list) == len(aux_test_list), "The length of x_test_list, y_test_list and aux_test_list should be the same"
     n_distributions = len(x_test_list)
     n_train= x_train.shape[0]
     train_rel_l2_losses = []
@@ -297,13 +360,15 @@ def Transformer_train_multidist(x_train, y_train, x_test_list, y_test_list, conf
         y_normalizer.to(device)
 
 
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train), 
+    node_mask_train, nodes_train = aux_train
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train), 
                                                batch_size=config['train']['batch_size'], shuffle=True)
     
     test_loaders = []
 
     for i in range(n_distributions):
-        sub_dataset = torch.utils.data.TensorDataset(x_test_list[i], y_test_list[i])
+        node_mask_test, nodes_test = aux_test_list[i]
+        sub_dataset = torch.utils.data.TensorDataset(x_test_list[i], y_test_list[i], node_mask_test, nodes_test)
         sub_loader = torch.utils.data.DataLoader(sub_dataset, batch_size=config['train']['batch_size'], shuffle=False)
         try:
             name = label_test_list[i]
@@ -333,16 +398,17 @@ def Transformer_train_multidist(x_train, y_train, x_test_list, y_test_list, conf
         train_rel_l2 = 0
 
         model.train()
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
+        for x, y, node_mask, nodes in train_loader:
+            x, y, node_mask, nodes = x.to(device), y.to(device), node_mask.to(device), nodes.to(device)
 
             batch_size_ = x.shape[0]
             optimizer.zero_grad()
-            out = model(x) #.reshape(batch_size_,  -1)
+            out = model(x, coords=nodes) #.reshape(batch_size_,  -1)
             if normalization_y:
                 out = y_normalizer.decode(out)
                 y = y_normalizer.decode(y)
-
+            out = out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
+            
             loss = myloss(out.view(batch_size_,-1), y.view(batch_size_,-1))
             loss.backward()
 
@@ -360,15 +426,16 @@ def Transformer_train_multidist(x_train, y_train, x_test_list, y_test_list, conf
                 test_l2 = 0
                 test_rel_l2 = 0
 
-                for x, y in loader:
-                    x, y = x.to(device), y.to(device)
+                for x, y, node_mask, nodes in loader:
+                    x, y, node_mask, nodes = x.to(device), y.to(device), node_mask.to(device), nodes.to(device)
 
                     batch_size_ = x.shape[0]
-                    out = model(x) #.reshape(batch_size_,  -1)
-
+                    out = model(x, coords=nodes) #.reshape(batch_size_,  -1)
+                    
                     if normalization_y:
                         out = y_normalizer.decode(out)
                         y = y_normalizer.decode(y)
+                    out = out * node_mask #mask the padded value with 0,(1 for node, 0 for padding)
 
                     test_rel_l2 += myloss(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()
                     test_l2 += myloss.abs(out.view(batch_size_,-1), y.view(batch_size_,-1)).item()

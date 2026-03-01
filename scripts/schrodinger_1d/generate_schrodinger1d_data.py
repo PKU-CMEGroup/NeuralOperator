@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -66,7 +67,7 @@ def solve_schrodinger1d_equation(f, g, V, L=2*np.pi, T=1.0, dt_max=0.01, check_c
         # dt_potential = CFL / V_max  
         # 取最小值并确保合理范围
         # dt = min(dt_kinetic, dt_potential, T - t, dt_max) 
-        dt = min(T - t, dt_max)
+        dt = min(T - t, dt_max, 0.5/V_max)
         
         
         
@@ -184,11 +185,12 @@ def fixed_periodic_potential(N, L=2*np.pi, V_type = "two_mode"):
     else:
         raise ValueError("V_type must be one of: 'constant', 'cosine', 'two_mode', 'lattice'")
 
+    V *= 100.0  #大势能情形
     return V
 
 def set_default_params():
     nT = 100
-    T = 0.2
+    T = 0.5
     k_max = 20
     N = 512
     L = 2*np.pi
@@ -254,36 +256,68 @@ def visualization():
     
 def generate_data():
     """
-    生成一维薛定谔方程的训练数据，保存在 data/schrodinger/schrodinger1d_{V_type}_data.npz 中
+    生成一维薛定谔方程的训练数据，保存在 data/schrodinger_1d/schrodinger1d_{V_type}_data.npz 中
     数据格式为一个 N by (nT+1) by N by 4 的数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
     """
-    nT, T, k_max, N, L, V_type = set_default_params()
+    nT, T, k_max, N, L, _ = set_default_params()
     x = np.linspace(0, L, N, endpoint=False)
     ndata = 1000
-    u_refs = []
     fs,gs = generate_initial_conditions(M = ndata, N = N, k_max = k_max, L=L, normalize=True, seed=None)
-    V = fixed_periodic_potential(N, L=L, V_type=V_type)
-    for i in range(ndata):
-        u_ref = np.zeros((nT+1, N, 4))
-        u_ref[:,:,2], u_ref[:,:,3] = V, x
-        u_ref[0,:,0], u_ref[0,:,1] = fs[i,:], gs[i,:]
-        for j in range(nT):
-            u_ref[j+1,:,0], u_ref[j+1,:,1] = solve_schrodinger1d_equation(f=u_ref[j,:,0], g=u_ref[j,:,1], V=V, L=L, T=T, check_conservation=False)
+
+    for V_type in ["constant",  "cosine", "two_mode", "lattice"]:
+        u_refs = []
+        V = fixed_periodic_potential(N, L=L, V_type=V_type)
+        for i in range(ndata):
+            u_ref = np.zeros((nT+1, N, 4))
+            u_ref[:,:,2], u_ref[:,:,3] = V, x
+            u_ref[0,:,0], u_ref[0,:,1] = fs[i,:], gs[i,:]
+            for j in range(nT):
+                u_ref[j+1,:,0], u_ref[j+1,:,1] = solve_schrodinger1d_equation(f=u_ref[j,:,0], g=u_ref[j,:,1], V=V, L=L, T=T, check_conservation=False)
+                
+            u_refs.append(u_ref)
             
-        u_refs.append(u_ref)
+        u_refs = np.array(u_refs)
+
+        Path('../../data/schrodinger_1d').mkdir(parents=True, exist_ok=True)
+        np.savez_compressed("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz", u_refs = u_refs)
+
+
+
+def extract_evolution_matrix():
+    """
+    生成一维薛定谔方程的训练数据，保存在 data/schrodinger_1d/schrodinger1d_{V_type}_data.npz 中
+    数据格式为一个 N by (nT+1) by N by 4 的数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
+    """
+    nT, T, k_max, N, L, _ = set_default_params()
+    x = np.linspace(0, L, N, endpoint=False)
+    n_train, n_test = 10000, 500
+    dim = 2
+    fig, axs = plt.subplots(4, figsize=(6, 24))
+    
+    for iV_type, V_type in enumerate(["constant", "cosine", "two_mode", "lattice"]):
+        data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
         
-    u_refs = np.array(u_refs)
+        
+        X, Y = [], []
+        for i in list(range(math.ceil(n_train / nT))) + list(range(-math.ceil(n_test / nT), 0)):
+            for j in range(nT):
+                X.append(data[i,j,  :,:dim])    #前一步的波函数实部和虚部 
+                Y.append(data[i,j+1,:,:dim])    #后一步的波函数实部和虚部
+        X, Y = np.array(X), np.array(Y)
+        X, Y = X.transpose(0, 2, 1).reshape(X.shape[0],-1), Y.transpose(0, 2, 1).reshape(Y.shape[0],-1)
+        evolution_matrix = np.linalg.lstsq(X, Y, rcond=None)[0]
+        print(evolution_matrix)
+        axs[iV_type].imshow(evolution_matrix,  cmap='viridis',  aspect='auto')
 
-    Path('../../data/schrodinger').mkdir(parents=True, exist_ok=True)
-    np.savez_compressed("../../data/schrodinger/schrodinger1d_"+V_type+"_data.npz", u_refs = u_refs)
+    plt.savefig("schrodinger1d_evolution_matrix.pdf")
 
-
-
+        
 
     
     
 if __name__ == "__main__":
     visualization()
     generate_data()
+    extract_evolution_matrix() 
     
 

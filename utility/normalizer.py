@@ -23,25 +23,24 @@ class UnitGaussianNormalizer(object):
         self.std  = torch.std(x[...,0:x.shape[-1]  - non_normalized_dim],  dim=normalization_dim)
         self.eps  = eps
 
-    def encode(self, x):
-        x[...,0:x.shape[-1] - self.non_normalized_dim] = (x[...,0:x.shape[-1]-self.non_normalized_dim] - self.mean) / (self.std + self.eps)
-        return x
-    
-
-    def decode(self, x):
+    def encode(self, x, inplace: bool = False):
         std = self.std + self.eps 
         mean = self.mean
-        x[...,0:x.shape[-1] - self.non_normalized_dim] = (x[...,0:x.shape[-1]-self.non_normalized_dim] * std) + mean
-        return x
+        y = x if inplace else x.clone()
+        y[...,0:x.shape[-1] - self.non_normalized_dim] = (x[...,0:x.shape[-1]-self.non_normalized_dim] - mean) / std
+        return y
+    
+
+    def decode(self, x, inplace: bool = False):
+        std = self.std + self.eps 
+        mean = self.mean
+        y = x if inplace else x.clone()
+        y[...,0:x.shape[-1] - self.non_normalized_dim] = (x[...,0:x.shape[-1]-self.non_normalized_dim] * std) + mean
+        return y
     
     
     def to(self, device):
-        if device == torch.device('cuda'):
-            self.mean = self.mean.cuda()
-            self.std = self.std.cuda()
-        else:
-            self.mean = self.mean.cpu()
-            self.std = self.std.cpu()
-
-
+        self.mean = self.mean.to(device)
+        self.std = self.std.to(device)
+        
 

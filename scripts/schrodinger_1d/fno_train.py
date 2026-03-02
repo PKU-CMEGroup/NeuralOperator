@@ -84,11 +84,11 @@ if __name__ == "__main__":
 
     print('batch_size', batch_size, '\n')
 
-    normalization_x = False
+    normalization_x = True
     normalization_y = True
-    normalization_dim_x = []
+    normalization_dim_x = [0,1] #channel-wise normalization
     normalization_dim_y = []
-    non_normalized_dim_x = 4
+    non_normalized_dim_x = 0
     non_normalized_dim_y = 0
 
     config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 

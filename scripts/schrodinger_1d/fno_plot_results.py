@@ -29,7 +29,6 @@ if __name__ == "__main__":
  
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu') 
 
-
     u_0, v_0 = generate_initial_conditions(M = 1, N = N, k_max = k_max, L=L, seed=101)
     V = fixed_periodic_potential(N, L=L, V_type=V_type)
     u_ref = np.zeros((nT+1, N, 2))
@@ -37,17 +36,15 @@ if __name__ == "__main__":
     for i in range(nT):
         u_ref[i+1,:,0], u_ref[i+1,:,1] = solve_schrodinger1d_equation(f=u_ref[i,:,0], g=u_ref[i,:,1], V=V, L=L, T=T)
             
-
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = setup_model(in_dim, out_dim, device, checkpoint_path = "FNO_model_V"+V_type+".pth")
 
   
     # normalizer
-    normalization_x = False
+    normalization_x = True
     normalization_y = True
-    normalization_dim_x = []
+    normalization_dim_x = [0,1] #channel-wise normalization
     normalization_dim_y = []
-    non_normalized_dim_x = 4
+    non_normalized_dim_x = 0
     non_normalized_dim_y = 0
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
@@ -58,6 +55,7 @@ if __name__ == "__main__":
     if normalization_y:
         y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
         y_normalizer.to(device)
+        
 
     x = np.linspace(0, L, N, endpoint=False)
     batch_size = 1

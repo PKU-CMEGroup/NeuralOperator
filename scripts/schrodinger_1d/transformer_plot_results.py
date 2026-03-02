@@ -43,10 +43,10 @@ if __name__ == "__main__":
     
     # normalizer
     normalization_x = False
-    normalization_y = True
-    normalization_dim_x = []
+    normalization_y = False
+    normalization_dim_x = [0,1] # channel-wise normalization
     normalization_dim_y = []
-    non_normalized_dim_x = 4
+    non_normalized_dim_x = 0
     non_normalized_dim_y = 0
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']

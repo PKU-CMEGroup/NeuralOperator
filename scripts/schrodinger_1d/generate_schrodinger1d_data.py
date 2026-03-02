@@ -1,7 +1,16 @@
 import math
+import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+# 获取当前文件所在的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 向上两级找到项目根目录
+project_root = os.path.dirname(os.path.dirname(current_dir))
+# 添加到路径
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+from utility.gaussian_random_fields import gaussian_random_field_1d
 
 def solve_schrodinger1d_equation(f, g, V, L=2*np.pi, T=1.0, dt_max=0.01, check_conservation=False):
     """
@@ -119,19 +128,21 @@ def generate_initial_conditions(M, N, k_max = 10, L=2*np.pi, normalize=True, see
     返回:
         2个N by M 矩阵，分别表示实部和虚部 
     """
-    np.random.seed(seed)
-    
     x = np.linspace(0, L, N, endpoint=False)
     dx = L/N
-    psi_real = np.zeros((M, N))
-    psi_imag = np.zeros((M, N))
+    grf = gaussian_random_field_1d(2*M, N, L, sigma=1.0, tau = 1.0, alpha = 1.5, bc_name = 'periodic', seed = seed, k_max = k_max)
+    psi_real, psi_imag = grf[:M,:], grf[M:,:]
     
-    for k in range(0, k_max):
-        kk = np.sqrt(k)
-        psi_real += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
-        psi_real += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
-        psi_imag += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
-        psi_imag += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
+    
+    # psi_real = np.zeros((M, N))
+    # psi_imag = np.zeros((M, N))
+    
+    # for k in range(0, k_max):
+    #     kk = np.sqrt(k)
+    #     psi_real += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
+    #     psi_real += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
+    #     psi_imag += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
+    #     psi_imag += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
     
 
     if normalize:
@@ -191,8 +202,10 @@ def fixed_periodic_potential(N, L=2*np.pi, V_type = "two_mode"):
 def set_default_params():
     nT = 100
     T = 0.5
-    k_max = 20
+    
     N = 512
+    k_max = 20
+
     L = 2*np.pi
     V_type = "two_mode"
     return nT, T, k_max, N, L, V_type

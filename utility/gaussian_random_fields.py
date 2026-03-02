@@ -12,7 +12,9 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         -- mean function m = 0
         -- covariance operator C = sigma^2 (-Delta + tau^2)^(-alpha),
     where Delta is the Laplacian with periodic, zero Dirichlet, or zero Neumann boundary conditions.
-    
+    We require sigma, tau > 0, alpha > d/2 = 1/2, such that C is in the trace class.
+    Generally, when alpha is larger or tau is smaller, the eigenvalues decay faster.
+
     Arguments:
         m :         (int),   number of samples
         n :         (int),   number of mesh points
@@ -31,8 +33,6 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
 
         k_max:      (int), maximum frequency number
 
-    Require:
-        sigma, tau > 0, alpha > d/2 = 1/2
 
     Output:
         grf: (m, n) numpy array, a GRF on the grid 
@@ -143,10 +143,10 @@ def gaussian_random_field_1d_test():
     m = 10000
     n = 512          # total grid points 
     L = 2*np.pi
-    tau = 1.0
-    alpha = 1.0
+    tau = 2.0
+    alpha = 2.0
     sigma = 1.0
-    k_max = n//3
+    k_max = n
     
     bc_name = "periodic"
     x = np.linspace(0, L, n, endpoint=False)
@@ -158,7 +158,7 @@ def gaussian_random_field_1d_test():
     svals_hat = svals_hat/np.sqrt(m)
     
     k = 2 * np.pi * np.arange(1, n//2+1) / L  # 2pi*0/L, 2pi*1/L, ... 2pi*(n/2)/L
-    filt = sigma * (k**2 + tau**2) ** (-0.5 * alpha) 
+    filt = sigma * (k**2 + tau**2) ** (-0.5 * alpha)
 
     print("sample eigvals: ", svals_hat[0:5])
     print("reference eigvals: ",filt[0:5])
@@ -187,7 +187,7 @@ def gaussian_random_field_1d_test():
     axes[2].legend()
     
     fig.tight_layout()
-    plt.show()
+    
 
 
     bc_name = "dirichlet"
@@ -225,7 +225,7 @@ def gaussian_random_field_1d_test():
     axes[2].set_title(f"Eigenvector comparison")
     axes[2].legend()
     fig.tight_layout()
-    plt.show()
+    
 
     
     

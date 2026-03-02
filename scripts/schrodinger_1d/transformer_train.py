@@ -96,7 +96,7 @@ if __name__ == "__main__":
     model = setup_model(in_dim, out_dim, device)
 
     n_train, n_test = 10000, 500
-    data = np.load("../../data/schrodinger/schrodinger1d_"+V_type+"_data.npz")['u_refs']
+    data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
     x_train, aux_train, y_train, x_test, aux_test, y_test = preprocess_data(data, n_train, n_test, device)
 
     epochs = 500

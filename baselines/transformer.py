@@ -100,7 +100,7 @@ class CoordEmbedding(nn.Module):
         return self.proj(feats)                       # [B, N, d_coord]
 
 
-
+    
 class Transformer(nn.Module):
     """
     Encoder-only Transformer conditioned on physical coordinates (no positional encoding).
@@ -207,6 +207,97 @@ class Transformer(nn.Module):
 
 
 
+
+
+class MinimalTransformerEncoderLayer(nn.Module):
+    """极简编码器层：自注意力 + FFN + 残差，无LayerNorm、无Dropout"""
+    def __init__(self, d_model, nhead, dim_feedforward=0):
+        super().__init__()
+        # 多头自注意力（dropout设为0）
+        self.self_attn = nn.MultiheadAttention(
+            d_model, nhead, dropout=0.0, batch_first=True
+        )
+        # 前馈网络（FFN）
+        self.dim_feedforward = dim_feedforward
+        if dim_feedforward > 0:
+            self.linear1 = nn.Linear(d_model, dim_feedforward)
+            self.activation = nn.GELU()
+            self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+    def forward(self, src, src_mask=None, src_key_padding_mask=None, is_causal=False):
+        # 1) 自注意力 + 残差（无LayerNorm）
+        attn_out, attn_weights = self.self_attn(
+            src, src, src,
+            attn_mask=src_mask,
+            key_padding_mask=src_key_padding_mask,
+            is_causal=is_causal
+        )
+        src = src + attn_out  # 残差连接
+
+        # 2) FFN + 残差（无LayerNorm）
+        if self.dim_feedforward > 0:
+            ffn_out = self.linear2(self.activation(self.linear1(src)))
+            src = src + ffn_out
+        return src, attn_weights
+
+class MinimalTransformerEncoder(nn.Module):
+    """堆叠多个极简编码器层"""
+    def __init__(self, encoder_layer, num_layers):
+        super().__init__()
+        self.layers = nn.ModuleList([encoder_layer for _ in range(num_layers)])
+
+    def forward(self, src, mask=None, src_key_padding_mask=None, is_causal=False):
+        attn_weights_list = []  # 存储每一层的注意力权重
+        for mod in self.layers:
+            src, attn_weights = mod(src, src_mask=mask, src_key_padding_mask=src_key_padding_mask, is_causal=is_causal)
+        return src, attn_weights_list
+
+class MinimalTransformer(nn.Module):
+    """极简Transformer模型（编码器部分），无LayerNorm、Dropout、位置编码"""
+    def __init__(self, 
+                 in_channels: int = 2,
+                 out_channels: int = 2,
+                 coord_dim: int = 1,
+                 d_model: int = 512, 
+                 nhead: int = 8, 
+                 num_layers: int = 6, 
+                 dim_feedforward: int = 2048):
+        super().__init__()
+        self.d_model = d_model
+        
+        # Project concatenated features [u, coord] -> d_model
+        self.coord_dim = coord_dim 
+        self.input_proj = nn.Linear(in_channels + coord_dim, d_model)
+
+        # 编码器
+        encoder_layer = MinimalTransformerEncoderLayer(d_model, nhead, dim_feedforward)
+        self.encoder = MinimalTransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        # 输出层
+        self.output_proj = nn.Linear(d_model, out_channels)
+
+
+
+    def forward(self, u: torch.Tensor, coords: torch.Tensor = None, return_attention: bool = False) -> torch.Tensor:
+        # 嵌入（无位置编码）
+        h = torch.cat([u, coords], dim=-1)  if self.coord_dim > 0 else u 
+            
+        h = self.input_proj(h)     
+        
+        # 编码器
+        h, attn_weights_list = self.encoder(h)
+
+        # 输出
+        output = self.output_proj(h)
+        
+        if return_attention:
+            return output, attn_weights_list
+        else:
+            return output
+    
+    
+    
+    
 # x_train, y_train, x_test, y_test are [n_data, n_x, n_channel] arrays
 def Transformer_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./Transformer_model"):
     n_train, n_test = x_train.shape[0], x_test.shape[0]

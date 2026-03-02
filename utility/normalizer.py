@@ -13,7 +13,7 @@ class UnitGaussianNormalizer(object):
                 normalization_dim  : list, which dimension to normalize
                                   when normalization_dim = [], global normalization 
                                   when normalization_dim = [0,1,...,len(x.shape)-2], and channel-by-channel normalization 
-                non_normalized_dim  : last non_normalized_dim channels are note normalized
+                non_normalized_dim  : last non_normalized_dim channels are not normalized
 
             Return :
                 UnitGaussianNormalizer : class 

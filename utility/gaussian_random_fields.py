@@ -6,7 +6,7 @@ from scipy.fft import idct, idst
 from scipy.interpolate import interp1d
 
 
-def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None):
+def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k_max = None):
     '''
     Return m samples of a Gaussian random field on [0,L] with: 
         -- mean function m = 0
@@ -28,6 +28,8 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None):
         bc_name:    (str), ``neumann'' for Neumann BCs or ``dirichlet'' for Dirichlet BCs or ``periodic'' for periodic BCs
         
         seed:       (int), random seed
+
+        k_max:      (int), maximum frequency number
 
     Require:
         sigma, tau > 0, alpha > d/2 = 1/2
@@ -55,6 +57,8 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None):
     '''
     
     rng = np.random.default_rng(seed)
+    if k_max is None:
+        k_max = n
 
     # Choose BCs
     if bc_name == 'neumann':  
@@ -64,6 +68,7 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None):
 
         k = np.pi * np.arange(n) / L
         filt = sigma * (k**2 + tau**2) ** (-0.5 * alpha)
+        filt[k_max+1:] = 0.0
 
         u_hat = rng.normal(size=(m, n)) * filt
         
@@ -86,6 +91,7 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None):
         # Dirichlet eigen-wavenumbers
         k = np.pi * np.arange(1, n - 1) / L
         filt = sigma * (k**2 + tau**2) ** (-0.5 * alpha)
+        filt[k_max:] = 0.0
 
         # Sample sine coefficients directly:
         # For orthonormal DST-I basis, just take N(0,1) and scale by filt.
@@ -108,6 +114,7 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None):
         
         k = 2.0 * np.pi * np.fft.rfftfreq(n, d=dx)  # 2pi*0/L, 2pi*1/L, ... 2pi*(n/2)/L
         filt = sigma * (k**2 + tau**2) ** (-0.5 * alpha) 
+        filt[k_max+1:] = 0.0
 
         # We'll sample u_hat so that (unitary) irfft gives the right real-space field
         u_hat = np.empty((m, k.size), dtype=np.complex128)
@@ -139,12 +146,13 @@ def gaussian_random_field_1d_test():
     tau = 1.0
     alpha = 1.0
     sigma = 1.0
+    k_max = n//3
     
     bc_name = "periodic"
     x = np.linspace(0, L, n, endpoint=False)
     dx = L/n
     # generate samples (interior only)
-    u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0)
+    u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u, compute_uv=True, full_matrices=False)
     svals_hat = svals_hat/np.sqrt(m)
@@ -186,7 +194,7 @@ def gaussian_random_field_1d_test():
     x = np.linspace(0, L, n, endpoint=True)
     dx = L/(n - 1)
     # generate samples (interior only)
-    u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0)
+    u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u, compute_uv=True, full_matrices=False)
     svals_hat = svals_hat/np.sqrt(m)
@@ -209,8 +217,8 @@ def gaussian_random_field_1d_test():
     axes[1].legend()
 
     k = 3
-    axes[2].plot(x, V[k,:], label=f"sample eigvec")
-    sinx = np.sin(np.pi*(k+1)*x/L)
+    axes[2].plot(x, V[k-1,:], label=f"sample eigvec")
+    sinx = np.sin(np.pi*(k)*x/L)
     sinx /= np.linalg.norm(sinx)
     axes[2].plot(x, sinx, '--', label=f"theory eigvec (sin{k}x)")
     axes[2].set_xlabel("x")
@@ -227,7 +235,7 @@ def gaussian_random_field_1d_test():
     x = np.linspace(0, L, n, endpoint=True)
     dx = L/(n-1)
     # generate samples (interior only)
-    u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0)
+    u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
 
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u, compute_uv=True, full_matrices=False)
@@ -251,8 +259,8 @@ def gaussian_random_field_1d_test():
     axes[1].legend()
 
     k = 3
-    axes[2].plot(x, V[k,:], label=f"sample eigvec")
-    cosx = np.cos(np.pi*(k+1)*x/L)
+    axes[2].plot(x, V[k-1,:], label=f"sample eigvec")
+    cosx = np.cos(np.pi*(k)*x/L)
     cosx /= np.linalg.norm(cosx)
     axes[2].plot(x, cosx, '--', label=f"theory eigvec (cos{k}x)")
     axes[2].set_xlabel("x")

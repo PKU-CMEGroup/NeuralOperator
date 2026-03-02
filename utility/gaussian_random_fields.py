@@ -43,16 +43,16 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         we generate random Gaussian {theta_k}, {theta'_k} ~ N(0,1)
 
         when bc_name is ``neumann'', the KL expansion is 
-            sum_k theta_k \sqrt{\lambda_k} cos(pi k x/L) 
-            where \lambda_k = sigma^2 / (tau^2 + (pi k/L)^2)^{-alpha}
+            sum_k theta_k sqrt{lambda_k} cos(pi k x/L) 
+            where lambda_k = sigma^2 / (tau^2 + (pi k/L)^2)^{-alpha}
 
         when bc_name is ``dirichlet'', the KL expansion is 
-            sum_k theta'_k \sqrt{\lambda_k} sin(pi k x/L)
-            where \lambda_k = sigma^2 / (tau^2 + (pi k/L)^2)^{-alpha}
+            sum_k theta'_k sqrt{lambda_k} sin(pi k x/L)
+            where lambda_k = sigma^2 / (tau^2 + (pi k/L)^2)^{-alpha}
 
         when bc_name is  ``periodic'', the KL expansion is 
-            sum_k theta_k \sqrt{\lambda_k} cos(2pi k x/L) + theta'_k \sqrt{\lambda_k} sin(2pi k x/L)
-            where \lambda_k = sigma^2 / (tau^2 + (2pi k/L)^2)^{-alpha}
+            sum_k theta_k sqrt{lambda_k} cos(2pi k x/L) + theta'_k sqrt{lambda_k} sin(2pi k x/L)
+            where lambda_k = sigma^2 / (tau^2 + (2pi k/L)^2)^{-alpha}
         
     '''
     

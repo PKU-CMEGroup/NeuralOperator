@@ -201,10 +201,10 @@ def fixed_periodic_potential(N, L=2*np.pi, V_type = "two_mode"):
 
 def set_default_params():
     nT = 100
-    T = 0.5
+    T = 0.2
     
     N = 512
-    k_max = 20
+    k_max = 256
 
     L = 2*np.pi
     V_type = "two_mode"

@@ -16,8 +16,8 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 # 添加到路径
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from scripts.schrodinger_1d.generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
-from scripts.schrodinger_1d.fno_train import setup_model, preprocess_data
+from generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
+from fno_train import setup_model, preprocess_data
 from utility.normalizer import UnitGaussianNormalizer
 
 

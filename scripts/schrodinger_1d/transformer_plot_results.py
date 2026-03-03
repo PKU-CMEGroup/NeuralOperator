@@ -16,8 +16,8 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 # 添加到路径
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from scripts.schrodinger_1d.generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
-from scripts.schrodinger_1d.transformer_train import setup_model, preprocess_data
+from generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
+from transformer_train import setup_model, preprocess_data
 from utility.normalizer import UnitGaussianNormalizer
 
 
@@ -42,8 +42,8 @@ if __name__ == "__main__":
 
     
     # normalizer
-    normalization_x = False
-    normalization_y = False
+    normalization_x = True
+    normalization_y = True
     normalization_dim_x = [0,1] # channel-wise normalization
     normalization_dim_y = []
     non_normalized_dim_x = 0

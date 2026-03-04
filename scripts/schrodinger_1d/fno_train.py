@@ -20,7 +20,7 @@ from generate_schrodinger1d_data import set_default_params
 
 
 
-def preprocess_data(data, n_train, n_test, device):
+def preprocess_data(data, n_train, n_test):
     '''
     参数：
     data: (ndata, nT+1, N, 4) 的 numpy 数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
@@ -37,7 +37,7 @@ def preprocess_data(data, n_train, n_test, device):
             X.append(data[i,j,  :,:in_dim])   #前一步的波函数实部、虚部、势能和位置
             Y.append(data[i,j+1,:,:out_dim])   #后一步的波函数实部和虚部
     X, Y = np.array(X), np.array(Y)
-    X, Y = torch.from_numpy(X.astype(np.float32)).to(device), torch.from_numpy(Y.astype(np.float32)).to(device)
+    X, Y = torch.from_numpy(X.astype(np.float32)), torch.from_numpy(Y.astype(np.float32))
     x_train, y_train  = X[:n_train,...], Y[:n_train,...] 
     x_test,  y_test   = X[-n_test:,...], Y[-n_test:,...] 
 
@@ -47,14 +47,14 @@ def preprocess_data(data, n_train, n_test, device):
 
 
 def setup_model(in_dim, out_dim, device, checkpoint_path = None):
-    nlayers = 6
+    nlayers = 2
     model = FNO1d([32]*nlayers, width=128,
                 layers=[128]*nlayers,
                 fc_dim=128,
                 in_dim=in_dim, out_dim=out_dim,
                 act='gelu',
                 pad_ratio=0, 
-                cnn_kernel_size=1).to(device)
+                cnn_kernel_size=1)
     
     if checkpoint_path is not None:
         model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
-    x_train, y_train, x_test, y_test = preprocess_data(data, n_train, n_test, device)
+    x_train, y_train, x_test, y_test = preprocess_data(data, n_train, n_test)
 
     epochs = 500
     base_lr = 5e-4 #0.001

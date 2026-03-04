@@ -11,11 +11,15 @@
 module load conda
 source activate pytorch 
 
-python fno_train.py > FNO_train.log
-python fno_plot_results.py  > FNO_test.log
 
-python transformer_train.py > TRANSFORMER_train.log
-python transformer_plot_results.py  > TRANSFORMER_test.log
+# python pcno_train.py > PCNO_train.log
+python pcno_plot_results.py  > PCNO_test.log
+
+# python fno_train.py > FNO_train.log
+# python fno_plot_results.py  > FNO_test.log
+
+# python transformer_train.py > TRANSFORMER_train.log
+# python transformer_plot_results.py  > TRANSFORMER_test.log
 
 
 

@@ -17,17 +17,17 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
-from transformer_train import setup_model, preprocess_data
+from pcno_train import setup_model, preprocess_periodic_data
 from utility.normalizer import UnitGaussianNormalizer
+
 
 
 if __name__ == "__main__":
     nT, T, k_max, N, L, V_type = set_default_params()
-    
-    in_dim, out_dim = 3, 2 
+
+    in_dim, out_dim = 4, 2 
  
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu') 
-
 
     u_0, v_0 = generate_initial_conditions(M = 1, N = N, k_max = k_max, L=L, seed=101)
     V = fixed_periodic_potential(N, L=L, V_type=V_type)
@@ -36,27 +36,26 @@ if __name__ == "__main__":
     for i in range(nT):
         u_ref[i+1,:,0], u_ref[i+1,:,1] = solve_schrodinger1d_equation(f=u_ref[i,:,0], g=u_ref[i,:,1], V=V, L=L, T=T)
             
+    model = setup_model(in_dim, out_dim, device, checkpoint_path = "PCNO_model_V"+V_type+".pth")
 
-    model = setup_model(in_dim, out_dim, device, checkpoint_path = "Transformer_model_V"+V_type+".pth")
-
-    
+  
     # normalizer
     normalization_x = True
     normalization_y = True
-    normalization_dim_x = [0,1] # channel-wise normalization
+    normalization_dim_x = [0,1] #channel-wise normalization
     normalization_dim_y = []
     non_normalized_dim_x = 0
     non_normalized_dim_y = 0
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
-    x_train, _, y_train, _, _, _ = preprocess_data(data, n_train, n_test)
+    x_train, aux_train, y_train, _, _, _ = preprocess_periodic_data(data, n_train, n_test)
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
         x_normalizer.to(device)
     if normalization_y:
         y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
         y_normalizer.to(device)
-
+        
 
     x = np.linspace(0, L, N, endpoint=False)
     batch_size = 1
@@ -65,11 +64,12 @@ if __name__ == "__main__":
     # initialization
     u[0,0,:,0], u[0,0,:,1] = torch.tensor(u_0), torch.tensor(v_0)
     u = u.to(device)  
+    aux = [aux_train[i][0:1,...].to(device) for i in range(len(aux_train))]
     for i in range(nT):
-        
-        u[:,i+1,:, 0:out_dim] =  model( u = (x_normalizer.encode(u[:, i, :, 0:in_dim]) if normalization_x else u[:, i, :, 0:in_dim]), coords=u[:,i,:,3:4]) 
+        u[:,i+1,:, 0:out_dim] =  model( x = (x_normalizer.encode(u[:, i, :, 0:in_dim]) if normalization_x else u[:, i, :, 0:in_dim]), aux = aux ) 
         if normalization_y:
-            u[:,i+1,:, 0:out_dim] = y_normalizer.decode(u[:,i+1,:, 0:out_dim])
+            u[:,i+1, :, 0:out_dim] = y_normalizer.decode(u[:,i+1,:, 0:out_dim])
+            
     u = u.detach().cpu().numpy()[0,...,0:out_dim]
 
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     axs[-1].plot(rel_error[:3], "-o", markerfacecolor="none", label = "rel. error")
     axs[-1].legend()
     axs[0].legend()
-    plt.savefig("Transformer_"+V_type+"_error.pdf")
+    plt.savefig("PCNO_"+V_type+"_error.pdf")
 
 
 
@@ -138,4 +138,8 @@ if __name__ == "__main__":
 
     print("error is ", error)
     plt.show()
-    plt.savefig("Transformer_"+V_type+str(nT)+"steps.pdf")
+    plt.savefig("PCNO_"+V_type+str(nT)+"steps.pdf")
+
+
+
+

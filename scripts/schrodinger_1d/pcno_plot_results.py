@@ -17,59 +17,64 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from generate_schrodinger1d_data import set_default_params, fixed_periodic_potential, generate_initial_conditions, solve_schrodinger1d_equation
-from transformer_train import setup_model, preprocess_data
+from pcno_train import setup_model, preprocess_data
 from utility.normalizer import UnitGaussianNormalizer
+
 
 
 if __name__ == "__main__":
     nT, T, k_max, N, L, V_type = set_default_params()
-    
-    in_dim, out_dim = 3, 2 
+
+    in_dim, out_dim = 4, 2 
  
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu') 
 
-
     u_0, v_0 = generate_initial_conditions(M = 1, N = N, k_max = k_max, L=L, seed=101)
+    u_0, v_0 = u_0[0,:], v_0[0,:]
     V = fixed_periodic_potential(N, L=L, V_type=V_type)
     u_ref = np.zeros((nT+1, N, 2))
     u_ref[0,:,0], u_ref[0,:,1] = u_0, v_0
     for i in range(nT):
         u_ref[i+1,:,0], u_ref[i+1,:,1] = solve_schrodinger1d_equation(f=u_ref[i,:,0], g=u_ref[i,:,1], V=V, L=L, T=T)
-            
+    # add information for the last point
+    u_ref = np.concatenate([u_ref, u_ref[:,0:1,:]], axis=1)
 
-    model = setup_model(in_dim, out_dim, device, checkpoint_path = "Transformer_model_V"+V_type+".pth")
 
-    
+
+    model = setup_model(in_dim, out_dim, device, checkpoint_path = "PCNO_model_V"+V_type+".pth")
     # normalizer
     normalization_x = True
     normalization_y = True
-    normalization_dim_x = [0,1] # channel-wise normalization
+    normalization_dim_x = [0,1] #channel-wise normalization
     normalization_dim_y = []
     non_normalized_dim_x = 0
     non_normalized_dim_y = 0
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
-    x_train, _, y_train, _, _, _ = preprocess_data(data, n_train, n_test)
+    x_train, aux_train, y_train, _, _, _ = preprocess_data(data, n_train, n_test, preprocess_data=False, pcno_data_file = "../../data/schrodinger_1d/pcno_schrodinger1d_"+V_type+"_data.npz")
+
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
         x_normalizer.to(device)
     if normalization_y:
         y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
         y_normalizer.to(device)
+        
 
-
-    x = np.linspace(0, L, N, endpoint=False)
+    x = np.linspace(0, L, N+1, endpoint=True)
+    V, u_0, v_0 = np.concatenate((V, [V[0]])), np.concatenate((u_0, [u_0[0]])), np.concatenate((v_0, [v_0[0]]))  
     batch_size = 1
-    u = torch.zeros((batch_size, nT+1, N, out_dim+2))
+    u = torch.zeros((batch_size, nT+1, N+1, out_dim+2))
     u[0,:,:,2], u[0,:,:,3] = torch.tensor(V), torch.tensor(x)
     # initialization
     u[0,0,:,0], u[0,0,:,1] = torch.tensor(u_0), torch.tensor(v_0)
     u = u.to(device)  
+    aux = [aux_train[i][0:1,...].to(device) for i in range(len(aux_train))]
     for i in range(nT):
-        
-        u[:,i+1,:, 0:out_dim] =  model( u = (x_normalizer.encode(u[:, i, :, 0:in_dim]) if normalization_x else u[:, i, :, 0:in_dim]), coords=u[:,i,:,3:4]) 
+        u[:,i+1,:, 0:out_dim] =  model( x = (x_normalizer.encode(u[:, i, :, 0:in_dim]) if normalization_x else u[:, i, :, 0:in_dim]), aux = aux ) 
         if normalization_y:
-            u[:,i+1,:, 0:out_dim] = y_normalizer.decode(u[:,i+1,:, 0:out_dim])
+            u[:,i+1, :, 0:out_dim] = y_normalizer.decode(u[:,i+1,:, 0:out_dim])
+            
     u = u.detach().cpu().numpy()[0,...,0:out_dim]
 
 
@@ -98,7 +103,7 @@ if __name__ == "__main__":
     axs[-1].plot(rel_error[:3], "-o", markerfacecolor="none", label = "rel. error")
     axs[-1].legend()
     axs[0].legend()
-    plt.savefig("Transformer_"+V_type+"_error.pdf")
+    plt.savefig("PCNO_"+V_type+"_error.pdf")
 
 
 
@@ -138,4 +143,8 @@ if __name__ == "__main__":
 
     print("error is ", error)
     plt.show()
-    plt.savefig("Transformer_"+V_type+str(nT)+"steps.pdf")
+    plt.savefig("PCNO_"+V_type+str(nT)+"steps.pdf")
+
+
+
+

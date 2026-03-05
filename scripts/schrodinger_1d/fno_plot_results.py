@@ -48,7 +48,7 @@ if __name__ == "__main__":
     non_normalized_dim_y = 0
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
-    x_train, y_train, _, _ = preprocess_data(data, n_train, n_test, device)
+    x_train, y_train, _, _ = preprocess_data(data, n_train, n_test)
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
         x_normalizer.to(device)

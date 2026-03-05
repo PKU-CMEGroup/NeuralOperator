@@ -185,14 +185,13 @@ def fixed_periodic_potential(N, L=2*np.pi, V_type = "two_mode"):
         V = a1*np.cos(2*np.pi*m1*x/L + phi1) + a2*np.cos(2*np.pi*m2*x/L + phi2)
 
     elif V_type == "lattice":
-        n_bumps, V0, sigma = 8, 2.0, 0.12 * L/(2*np.pi)  # sigma随L缩放
-        centers = (np.arange(n_bumps)/n_bumps) * L
-        V = np.zeros_like(x)
-        for c in centers:
-            d = np.minimum(np.abs(x-c), L-np.abs(x-c))  # 周期距离
-            V += V0 * np.exp(-0.5*(d/sigma)**2)
-        V -= V.mean()  # 去均值（可选）
-
+        rng = np.random.default_rng(seed=42)
+        k_max = 32
+        c = rng.uniform(low=-1, high=1, size=(2, k_max))
+        V = np.zeros(N)
+        for m in range(0, k_max):
+            V += c[0,m] * np.cos(2*np.pi*(m+1)*x/L) + c[1,m] * np.sin(2*np.pi*(m+1)*x/L)
+        
     else:
         raise ValueError("V_type must be one of: 'constant', 'cosine', 'two_mode', 'lattice'")
 
@@ -207,7 +206,7 @@ def set_default_params():
     k_max = 256
 
     L = 2*np.pi
-    V_type = "two_mode"
+    V_type = "lattice"
     return nT, T, k_max, N, L, V_type
 
 
@@ -277,7 +276,7 @@ def generate_data():
     ndata = 1000
     fs,gs = generate_initial_conditions(M = ndata, N = N, k_max = k_max, L=L, normalize=True, seed=None)
 
-    for V_type in ["constant",  "cosine", "two_mode", "lattice"]:
+    for V_type in ["lattice", "constant",  "cosine", "two_mode"]:
         u_refs = []
         V = fixed_periodic_potential(N, L=L, V_type=V_type)
         for i in range(ndata):
@@ -307,7 +306,7 @@ def extract_evolution_matrix():
     dim = 2
     fig, axs = plt.subplots(4, figsize=(6, 24))
     
-    for iV_type, V_type in enumerate(["constant", "cosine", "two_mode", "lattice"]):
+    for iV_type, V_type in enumerate(["lattice", "constant", "cosine", "two_mode"]):
         data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
         
         

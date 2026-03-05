@@ -21,7 +21,7 @@ from generate_schrodinger1d_data import set_default_params
 
 
 
-def preprocess_data(data, n_train, n_test, device):
+def preprocess_data(data, n_train, n_test):
     '''
     参数：
         data: (ndata, nT+1, N, 4) 的 numpy 数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
@@ -50,12 +50,12 @@ def preprocess_data(data, n_train, n_test, device):
             X.append(data[i,j,  ...])   #前一步的波函数实部、虚部、势能和位置
             Y.append(data[i,j+1,...])   #后一步的波函数实部和虚部
     X, Y = np.array(X), np.array(Y)
-    X, Y = torch.from_numpy(X.astype(np.float32)).to(device), torch.from_numpy(Y.astype(np.float32)).to(device)
+    X, Y = torch.from_numpy(X.astype(np.float32)), torch.from_numpy(Y.astype(np.float32))
     x_train, y_train  = X[:n_train,...,:in_dim], Y[:n_train,...,:out_dim] 
     x_test,  y_test   = X[-n_test:,...,:in_dim], Y[-n_test:,...,:out_dim] 
 
     
-    node_mask = torch.ones((X.shape[0], N, 1), dtype=torch.float32).to(device) # (ndata, N, 1)
+    node_mask = torch.ones((X.shape[0], N, 1), dtype=torch.float32) # (ndata, N, 1)
     nodes = X[..., 3:] # (ndata, N, 1)
     aux_train = (node_mask[:n_train,...], nodes[:n_train,...])
     aux_test = (node_mask[-n_test:,...], nodes[-n_test:,...])
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     n_train, n_test = 10000, 500
     data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
-    x_train, aux_train, y_train, x_test, aux_test, y_test = preprocess_data(data, n_train, n_test, device)
+    x_train, aux_train, y_train, x_test, aux_test, y_test = preprocess_data(data, n_train, n_test)
 
     epochs = 500
     base_lr = 5e-4 #0.001

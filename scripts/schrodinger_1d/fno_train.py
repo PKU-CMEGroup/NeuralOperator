@@ -47,7 +47,7 @@ def preprocess_data(data, n_train, n_test):
 
 
 def setup_model(in_dim, out_dim, device, checkpoint_path = None):
-    nlayers = 2
+    nlayers = 6
     model = FNO1d([32]*nlayers, width=128,
                 layers=[128]*nlayers,
                 fc_dim=128,

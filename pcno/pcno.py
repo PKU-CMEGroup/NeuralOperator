@@ -22,6 +22,8 @@ def _get_act(act):
         func = F.elu_
     elif act == "leaky_relu":
         func = F.leaky_relu_
+    elif act == "softsign":
+        func = F.softsign
     elif act == "none":
         func = None
     else:
@@ -289,6 +291,89 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     
 
 
+def smooth_conv(
+    x: torch.Tensor,
+    directed_edges: torch.Tensor,
+    iterations: int = 1,
+) -> torch.Tensor:
+    """
+    Graph smoothing / local averaging convolution.
+
+    Parameters
+    ----------
+    x : float Tensor[batch_size, channels, max_nnodes]
+        Node features.
+
+    directed_edges : int Tensor[batch_size, max_nedges, 2]
+        directed_edges[..., 0] = target node
+        directed_edges[..., 1] = source neighbor
+
+    iterations : int
+        iteration number
+
+    Returns
+    -------
+    y : float Tensor[batch_size, channels, max_nnodes]
+        Smoothed features.
+    """
+
+    x = x.permute(0, 2, 1)        # [B, N, C]
+    batch_size,  nnodes, in_channels =  x.shape
+    _, max_nedges, _ = directed_edges.shape
+    
+    device,dtype = x.device, x.dtype
+    batch_index = torch.arange(batch_size, device=device).unsqueeze(1)
+    
+    target, source = directed_edges[..., 0], directed_edges[..., 1]  # [B, E]
+
+    # aggregate weights to targets
+    w = torch.ones(batch_size, max_nedges, 1, dtype=dtype, device=device)
+    deg = torch.ones(batch_size,  nnodes, 1, dtype=dtype, device=device)
+    deg.scatter_add_(dim=1, index=target.unsqueeze(-1), src=w,)
+
+
+    # aggregate weighted sum to targets
+    y = x.clone()
+    
+    for _ in range(iterations):
+        # gather source features: [B, E, C]
+        y_source = y[batch_index, source]
+        y.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=y_source,)
+        y =  y / deg  # [B, N, C]
+
+    return y.permute(0, 2, 1)
+
+
+class GradientLayer(nn.Module):
+    """
+    Gradient Operator Approximation.
+    
+    This module computes the nodal gradients of a field using a least-squares 
+    approximation and maps them to the output channel space.
+    
+    Logic: Output = W_grad2( geo_act( W_grad1(compute_gradient(x) ) ))
+    
+    W_grad1 is a scaling factor
+    """
+    def __init__(self, ndims, in_channels, out_channels, geo_act='softsign', inv_length = 0.01):
+        super(GradientLayer, self).__init__()
+        self.gw1 = nn.Parameter(torch.tensor(inv_length))
+        self.gw2 = nn.Conv1d(ndims * in_channels, out_channels, 1, bias=False)
+        self.geo_act = _get_act(geo_act)
+
+    def forward(self, x, directed_edges, edge_gradient_weights):
+        '''
+        Input:
+            x: float[batch_size, in_channels, nnodes]
+            directed_edges: Tensor int[batch_size, max_nedges, 2]
+            edge_gradient_weights: Tensor float[batch_size, max_nedges, ndim]
+        Return:
+            float[batch_size, out_channels, nnodes]
+        '''
+        return self.gw2(self.geo_act(self.gw1 * (compute_gradient(x, directed_edges, edge_gradient_weights))))
+
+
+
 
 class PCNO(nn.Module):
     def __init__(
@@ -377,6 +462,7 @@ class PCNO(nn.Module):
 
         self.ndims = ndims
         self.in_dim = in_dim
+        self.out_dim = out_dim
 
         self.fc0 = nn.Linear(in_dim, layers[0])
 
@@ -398,10 +484,10 @@ class PCNO(nn.Module):
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
-
+        
         self.gws = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1)
+                GradientLayer(ndims, in_size, out_size, geo_act='softsign', inv_length = 0.01)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
@@ -483,17 +569,18 @@ class PCNO(nn.Module):
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
         
-        
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
         for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
-            x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x = x1 + x2 + x3
+            x3 = gw(x, directed_edges, edge_gradient_weights)
+            
             if self.act is not None and i != length - 1:
-                x = self.act(x) 
+                x = x + self.act(x1 + x2 + x3)
+            else:
+                x = x1 + x2 + x3
 
         x = x.permute(0, 2, 1)
 

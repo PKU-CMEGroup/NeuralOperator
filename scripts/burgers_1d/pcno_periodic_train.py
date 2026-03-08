@@ -1,0 +1,126 @@
+import sys
+import os
+import math 
+import argparse
+import torch
+import numpy as np
+import torch.nn as nn
+import torch.optim as optim
+from timeit import default_timer
+
+# 获取当前文件所在的目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 向上两级找到项目根目录
+project_root = os.path.dirname(os.path.dirname(current_dir))
+# 添加到路径
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+from pcno.pcno import PCNO, PCNO_train, compute_Fourier_modes 
+from generate_burgers1d_data import set_default_params
+
+
+
+def preprocess_periodic_data(data, n_train, n_test):
+    '''
+    参数：
+    data: (ndata, nT+1, N, 2) 的 numpy 数组，分别表示 nT+1 个时间步的u0和位置
+    n_train: 训练样本数量
+    n_test: 测试样本数量
+    '''
+    
+    in_dim, out_dim = 2, 1
+    ndata, nT, N, _ = data.shape
+    nT = nT - 1
+    
+    X, Y = [], []
+    for i in list(range(math.ceil(n_train / nT))) + list(range(-math.ceil(n_test / nT), 0)):
+        for j in range(nT):
+            X.append(data[i,j,  :,:in_dim])    #前一步的u0和位置
+            Y.append(data[i,j+1,:,:out_dim])   #后一步的u0
+    X, Y = np.array(X), np.array(Y)
+    X, Y = torch.from_numpy(X.astype(np.float32)), torch.from_numpy(Y.astype(np.float32))
+    x_train, y_train  = X[:n_train,...], Y[:n_train,...] 
+    x_test,  y_test   = X[-n_test:,...], Y[-n_test:,...] 
+
+    # periodic boundary condition treatment
+    node_mask = torch.ones((X.shape[0], N, 1), dtype=torch.float32) # (ndata, N, 1)
+    nodes = X[..., -1:] # (ndata, N, 1)
+    dx = nodes[0,1,0] - nodes[0,0,0]
+    L = (nodes[0,-1,0] - nodes[0,0,0]) + dx
+    node_weights = (torch.ones((X.shape[0], N, 1), dtype=torch.float32)) * dx / (L) # scaled by a constant
+    node_list = np.arange(N)
+    directed_edges = torch.from_numpy(np.tile(np.column_stack([ np.concatenate([node_list, node_list])  , np.concatenate([np.roll(node_list, -1), np.roll(node_list, 1)])]) , (X.shape[0],1,1))) 
+    edge_gradient_weights = torch.from_numpy(np.tile(np.concatenate([np.full(N, 1/(2.0*dx)), np.full(N, -1/(2.0*dx))])[...,np.newaxis] , (X.shape[0],1,1))) 
+ 
+    
+
+    aux_train  = (node_mask[0:n_train,...], nodes[0:n_train,...], node_weights[0:n_train,...], directed_edges[0:n_train,...], edge_gradient_weights[0:n_train,...])
+    aux_test   = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[-n_test:,...],  directed_edges[-n_test:,...],  edge_gradient_weights[-n_test:,...])
+    print("data.shape = ", data.shape)
+    print("x_train.shape = ", x_train.shape, "y_train.shape = ", y_train.shape)
+    
+    return x_train, aux_train, y_train, x_test, aux_test, y_test
+
+
+
+def setup_model(in_dim, out_dim, device, checkpoint_path = None, L = 2*np.pi):
+    nlayers = 6
+    ndim=1
+    modes = compute_Fourier_modes(ndim, [32], [L])
+    modes = torch.tensor(modes, dtype=torch.float).to(device)
+    model = PCNO(ndim, modes, nmeasures=1,
+               layers=[128]*nlayers,
+               fc_dim=128,
+               in_dim=in_dim, out_dim=out_dim,
+               inv_L_scale_hyper = [False, 0.5, 2.0],
+               act='gelu')
+    
+    if checkpoint_path is not None:
+        model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+
+    model = model.to(device)
+    return model
+
+if __name__ == "__main__":
+
+    nT, T, k_max, N, L = set_default_params()
+    in_dim, out_dim = 2, 1 
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    model = setup_model(in_dim, out_dim, device, L = L)
+    
+
+    n_train, n_test = 10000, 500
+    data = np.load("../../data/burgers_1d/burgers1d_data.npz")['u_refs']
+    x_train, aux_train, y_train, x_test, aux_test, y_test = preprocess_periodic_data(data, n_train, n_test)
+
+    epochs = 50
+    base_lr = 5e-4 #0.001
+    lr_ratio = 10
+    scheduler = "OneCycleLR"
+    weight_decay = 1.0e-4
+    batch_size = 8
+
+    print('batch_size', batch_size, '\n')
+
+    normalization_x = True
+    normalization_y = True
+    normalization_dim_x = [0,1] #channel-wise normalization
+    normalization_dim_y = []
+    non_normalized_dim_x = 0
+    non_normalized_dim_y = 0
+
+    config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+                        "normalization_x": normalization_x,"normalization_y": normalization_y, 
+                        "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
+                        "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
+                        }
+
+
+    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_periodic_model")
+    
+
+    
+
+
+

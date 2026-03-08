@@ -220,7 +220,7 @@ def _preprocess_boundary(nodes_list, elems_list, features_list):
     return nnodes, nodes, mask, measures, weights, equal_weights, rhos, equal_rhos, features
 
 
-def preprocess_data(nodes_all_list, elems_all_list, features_all_list, nodes_boundary_list, elems_boundary_list, features_boundary_list, radius, should_find_index=True, tol=1e-05):
+def preprocess_data_mesh(nodes_all_list, elems_all_list, features_all_list, nodes_boundary_list, elems_boundary_list, features_boundary_list, radius, should_find_index=True, tol=1e-05):
 
     ndata = len(nodes_all_list)
 

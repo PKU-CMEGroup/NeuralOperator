@@ -9,7 +9,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 
-from pcno.geo_utility import preprocess_data, convert_structured_data, compute_node_weights
+from pcno.geo_utility import preprocess_data_mesh, convert_structured_data, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
 
 
@@ -39,7 +39,7 @@ if PREPROCESS_DATA:
 
     nodes_list, elems_list, features_list = convert_structured_data([coordx, coordy], data_out[...,np.newaxis], nnodes_per_elem = 4, feature_include_coords = False)
     
-    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(nodes_list, elems_list, features_list)
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(nodes_list, elems_list, features_list, mesh_type="vertex_centered", adjacent_type="element")
     node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = True)
     np.savez_compressed(data_path+"pcno_quad_data.npz", \

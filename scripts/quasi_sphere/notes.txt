@@ -1,0 +1,21 @@
+k(x-y) = k(z) = sin\pi z
+fourier bases = sinz, sin2z, ...
+k = a1 sinz + a2 sin2z + ...
+
+fourier bases = sin3.1z, sin3.14z, ...
+k = sin3.14z + ...
+
+g = \int k(x-y)f(y) dy
+ = \int \sum_i ki(x)\bar{ki(y)} f(y) dy
+
+
+研究1/r kernel, 生成数据集g = \int k(x-y)f(y) dy,
+研究modes的选择对模型的影响是否与bases对kernel的近似效果有关
+
+
+
+
+
+9.30
+
+换一个kernel测试 g = \int \partial_ny k(x-y) f(y) dy

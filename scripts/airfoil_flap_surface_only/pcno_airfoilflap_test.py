@@ -7,7 +7,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 
-from pcno.geo_utility import preprocess_data, compute_node_weights
+from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
 from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train
 
 
@@ -61,8 +61,8 @@ data_path = "../../data/airfoil_flap/"
 if PREPROCESS_DATA:
     print("Loading data")
     nodes_list, elems_list, feats_list = load_data(data_path)
-    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data(
-        nodes_list, elems_list, feats_list)
+    nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(
+        nodes_list, elems_list, feats_list, mesh_type="vertex_centered", adjacent_type="element")
     print(f"nodes{nodes.shape}", flush=True)
     node_measures, node_weights = compute_node_weights(nnodes, node_measures_raw, equal_measure = False)
     node_equal_measures, node_equal_weights = compute_node_weights(nnodes, node_measures_raw, equal_measure = True)

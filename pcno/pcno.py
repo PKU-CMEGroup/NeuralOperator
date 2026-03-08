@@ -390,7 +390,7 @@ class PCNO(nn.Module):
         )
         self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
         # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
-        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max), device='cuda'), requires_grad = bool(self.train_inv_L_scale))
+        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
 
         self.ws = nn.ModuleList(
             [
@@ -737,7 +737,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
               " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
               flush=True)
-        if (ep %100 == 99) or (ep == epochs -1):    
+        if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:    
             torch.save(model.state_dict(), save_model_name + ".pth")
 
             torch.save({

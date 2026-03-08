@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
+from timeit import default_timer
 ## FNO 1D and 2D
 
 def add_padding(x, pad_nums):
@@ -443,19 +444,11 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
     optimizer = Adam(model.parameters(), betas=(0.9, 0.999),
                      lr=config['train']['base_lr'], weight_decay=config['train']['weight_decay'])
     
-    if config['train']['scheduler'] == "MultiStepLR":
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=config['train']['milestones'],
-                                                     gamma=config['train']['scheduler_gamma'])
-    elif config['train']['scheduler'] == "CosineAnnealingLR":
-        T_max = (config['train']['epochs']//10)*(n_train//config['train']['batch_size'])
-        eta_min  = 0.0
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min = eta_min)
-    elif config["train"]["scheduler"] == "OneCycleLR":
+    if config["train"]["scheduler"] == "OneCycleLR":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=config['train']['base_lr'], 
             div_factor=2, final_div_factor=100,pct_start=0.2,
-            steps_per_epoch=1, epochs=config['train']['epochs'])
+            steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
     else:
         print("Scheduler ", config['train']['scheduler'], " has not implemented.")
 
@@ -466,6 +459,7 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
 
 
     for ep in range(epochs):
+        t1 = default_timer()
         train_rel_l2 = 0
 
         model.train()
@@ -483,10 +477,12 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
             loss.backward()
 
             optimizer.step()
+            scheduler.step()
             train_rel_l2 += loss.item()
 
         test_l2 = 0
         test_rel_l2 = 0
+        model.eval()
         with torch.no_grad():
             for x, y in test_loader:
                 x, y = x.to(device), y.to(device)
@@ -503,7 +499,7 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
 
 
 
-        scheduler.step()
+        
 
         train_rel_l2/= n_train
         test_l2 /= n_test
@@ -513,10 +509,11 @@ def FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
     
-
-        if (ep %10 == 0) or (ep == epochs -1):
-            print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
-            torch.save(model, save_model_name)
+        t2 = default_timer()
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+        if (ep %100 == 99) or (ep == epochs -1):    
+            if save_model_name:
+                torch.save(model.state_dict(), save_model_name + ".pth")
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses

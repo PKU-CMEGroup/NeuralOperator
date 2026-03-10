@@ -75,7 +75,7 @@ if __name__ == "__main__":
     data = np.load("../../data/burgers_1d/burgers1d_data.npz")['u_refs']
     x_train, y_train, x_test, y_test = preprocess_data(data, n_train, n_test)
 
-    epochs = 50
+    epochs = 500
     base_lr = 5e-4 #0.001
     lr_ratio = 10
     scheduler = "OneCycleLR"

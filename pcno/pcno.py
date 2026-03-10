@@ -291,14 +291,30 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     
 
 
-def smooth_conv(
+
+
+def graph_diffusion_smooth(
     x: torch.Tensor,
     directed_edges: torch.Tensor,
+    nodes: torch.Tensor = None,
+    beta: float = 0.5,
+    distance_power: float = 1.0,
+    eps: float = 1.0e-12,
     iterations: int = 1,
 ) -> torch.Tensor:
     """
-    Graph smoothing / local averaging convolution.
+    Smooth node features on a directed graph by repeated weighted neighbor averaging.
 
+    This applies the iteration
+        y <- (1 - beta) * y + beta * A(y),
+    where A(y) is the weighted average of source-neighbor features at each target node.
+    
+    The graph is interpreted as:
+        directed_edges[..., 0] = target node i
+        directed_edges[..., 1] = source neighbor j
+    
+    so node i aggregates messages from its source neighbors j.    
+    
     Parameters
     ----------
     x : float Tensor[batch_size, channels, max_nnodes]
@@ -308,13 +324,101 @@ def smooth_conv(
         directed_edges[..., 0] = target node
         directed_edges[..., 1] = source neighbor
 
-    iterations : int
-        iteration number
+    nodes : float Tensor[batch_size, max_nnodes, ndims], optional
+        Node coordinates. If provided, edge weights are computed from distance:
+            w_ij = 1 / (||x_j - x_i||^distance_power + eps)
+
+    beta : float
+        Smoothing strength. Must satisfy 0 <= beta <= 1.
+        - beta = 0: no smoothing
+        - beta = 1: replace by pure weighted neighbor average each iteration
+
+    distance_power : float, default=1.0
+        Power p used in distance-based weights when `nodes` is provided.
+
+    eps : float
+        Small constant for numerical stability.
+
+    iterations : int, default=1
+        Number of smoothing iterations.   
 
     Returns
     -------
     y : float Tensor[batch_size, channels, max_nnodes]
         Smoothed features.
+        
+    Notes
+    -----
+    - Nodes with no incoming neighbors remain unchanged, because their weighted degree is zero.
+    - This is a graph diffusion / neighbor-averaging operator, not a learned convolution.
+    """
+
+    x = x.permute(0, 2, 1)
+    batch_size,  nnodes, in_channels =  x.shape
+    _, max_nedges, _ = directed_edges.shape
+    
+    device,dtype = x.device, x.dtype
+    batch_index = torch.arange(batch_size, device=device).unsqueeze(1)
+    
+    target, source = directed_edges[..., 0], directed_edges[..., 1]  # [B, E]
+
+    # aggregate weights to targets
+    w = torch.ones(batch_size, max_nedges, 1, dtype=dtype, device=device)
+    if nodes is not None:  
+        dist = torch.norm(nodes[batch_index, source] - nodes[batch_index, target], dim=-1)  # [B, E]
+        w[...,0] = 1.0 / (dist.pow(distance_power) + eps)       # [B, E, 1]    
+    
+    deg = torch.zeros(batch_size,  nnodes, 1, dtype=dtype, device=device)
+    deg.scatter_add_(dim=1, index=target.unsqueeze(-1), src=w,)
+ 
+
+    # aggregate weighted sum to targets
+    y = x.clone()
+
+    for _ in range(iterations):
+        # gather source features and compute weighted messages
+        msg = w * y[batch_index, source]  # [B, E, C]
+        # aggregate weighted sum to targets
+        agg = torch.zeros(batch_size,  nnodes, in_channels, dtype=dtype, device=device)
+        agg.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=msg,)
+
+        y = torch.where(deg > 0, (1.0 - beta) * y + beta * agg / (deg + eps), y)
+    
+    return y.permute(0, 2, 1)
+
+
+def graph_neighbor_average(
+    x: torch.Tensor,
+    directed_edges: torch.Tensor,
+    iterations: int = 1,
+) -> torch.Tensor:
+    """
+    Repeated self-plus-neighbor averaging on a directed graph.
+
+    Each iteration applies
+        y_i <- (y_i + sum_{j in N(i)} y_j) / (1 + deg(i)),
+    where N(i) is the set of source neighbors of target node i.
+
+    Parameters
+    ----------
+    x : Tensor[batch_size, channels, nnodes]
+        Input node features.
+
+    directed_edges : int Tensor[batch_size, max_nedges, 2]
+        directed_edges[..., 0] = target node
+        directed_edges[..., 1] = source neighbor
+
+    iterations : int, default=1
+        Number of averaging iterations.
+
+    Returns
+    -------
+    Tensor[batch_size, channels, nnodes]
+        Smoothed node features.
+
+    Notes
+    -----
+    This is a special case of graph smoothing with uniform weights and implicit self-inclusion.
     """
 
     x = x.permute(0, 2, 1)        # [B, N, C]
@@ -334,11 +438,10 @@ def smooth_conv(
 
     # aggregate weighted sum to targets
     y = x.clone()
-    
+
     for _ in range(iterations):
-        # gather source features: [B, E, C]
-        y_source = y[batch_index, source]
-        y.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=y_source,)
+        # gather source features y[batch_index, source] and then scatter add: [B, E, C]
+        y.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=y[batch_index, source],)
         y =  y / deg  # [B, N, C]
 
     return y.permute(0, 2, 1)
@@ -370,7 +473,12 @@ class GradientLayer(nn.Module):
         Return:
             float[batch_size, out_channels, nnodes]
         '''
-        return self.gw2(self.geo_act(self.gw1 * (compute_gradient(x, directed_edges, edge_gradient_weights))))
+        return self.gw2(self.geo_act(self.gw1 * (
+            graph_neighbor_average(compute_gradient(x, directed_edges, edge_gradient_weights),directed_edges, iterations=2)
+            )))
+        # return self.gw2(self.geo_act(self.gw1 * (
+        #     compute_gradient(graph_neighbor_average(x, directed_edges, iterations=2), directed_edges, edge_gradient_weights)
+        #     )))
 
 
 

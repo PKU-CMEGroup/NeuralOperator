@@ -49,8 +49,14 @@ def preprocess_periodic_data(data, n_train, n_test):
     L = (nodes[0,-1,0] - nodes[0,0,0]) + dx
     node_weights = (torch.ones((X.shape[0], N, 1), dtype=torch.float32)) * dx / (L) # scaled by a constant
     node_list = np.arange(N)
+
+    # all edges
     directed_edges = torch.from_numpy(np.tile(np.column_stack([ np.concatenate([node_list, node_list])  , np.concatenate([np.roll(node_list, -1), np.roll(node_list, 1)])]) , (X.shape[0],1,1))) 
     edge_gradient_weights = torch.from_numpy(np.tile(np.concatenate([np.full(N, 1/(2.0*dx)), np.full(N, -1/(2.0*dx))])[...,np.newaxis] , (X.shape[0],1,1))) 
+    
+    # upwind edges
+    # directed_edges = torch.from_numpy(np.tile(np.column_stack([ node_list , np.roll(node_list, -1)]) , (X.shape[0],1,1))) 
+    # edge_gradient_weights = torch.from_numpy(np.tile(np.full(N, 1/(dx))[...,np.newaxis] , (X.shape[0],1,1))) 
  
     
 
@@ -94,7 +100,7 @@ if __name__ == "__main__":
     data = np.load("../../data/burgers_1d/burgers1d_data.npz")['u_refs']
     x_train, aux_train, y_train, x_test, aux_test, y_test = preprocess_periodic_data(data, n_train, n_test)
 
-    epochs = 50
+    epochs = 500
     base_lr = 5e-4 #0.001
     lr_ratio = 10
     scheduler = "OneCycleLR"

@@ -254,7 +254,24 @@ class PanelGeometry:
             coeffs = coeffs/(2*math.pi)
             Q = np.stack([self.panel_cosines, self.panel_sines, -self.panel_sines, self.panel_cosines], axis=-1).reshape(self.n_panels, 2,2)  # n_panels, 2,2
             coeffs = np.einsum('pdk,Npd->Npk', Q, coeffs)  # N, n_panels, 2
-
+        elif kernel_type == "weighted_sp_laplace": 
+            #  k(x,y) = y_1 * ln(|x-y|) * (-1/2pi) 
+            # 1. I_sp = \int_0^L ln|r(s)| ds
+            I_sp = (self.panel_lengths[None,...]  - x0_stars)*np.log(r_lengths_roll)  + x0_stars*np.log(r_lengths) - self.panel_lengths[None,...]
+            I_sp[~collinear_mask] += y0_stars[~collinear_mask] * (np.arctan(((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask]) / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])) 
+            
+            # 2. \int s ln|r| ds = 1/2 \Delta(r^2 ln(r)) - 1/4 \Delta(r^2) + x0* I_sp
+            delta_r2_ln_r = (r_lengths_roll**2)*np.log(r_lengths_roll) - (r_lengths**2)*np.log(r_lengths)
+            delta_r2 = r_lengths_roll**2 - r_lengths**2
+            
+            I_s = 0.5 * delta_r2_ln_r - 0.25 * delta_r2 + x0_stars * I_sp
+            
+            # 3. y_x(s) = v_start_x + s * cos(theta)
+            v_start_x = self.vertices[None, self.elems[:,1], 0]  # (1, n_panels)
+            
+            # \int y_x ln|r| ds = v_start_x * I_sp + cos(theta) * I_s
+            coeffs = v_start_x * I_sp + self.panel_cosines[None,...] * I_s
+            coeffs = -coeffs[...,np.newaxis]/(2*math.pi)
         return coeffs
     
     def compute_kernel_integral(self, points: np.ndarray, f: np.ndarray, kernel_type: str):
@@ -268,7 +285,7 @@ class PanelGeometry:
         Returns:
             g: (n_panels, n_features) 
         '''    
-        if kernel_type in ["sp_laplace" , "dp_laplace" , "adjoint_dp_laplace"]:
+        if kernel_type in ["sp_laplace" , "dp_laplace" , "adjoint_dp_laplace", "weighted_sp_laplace"]:
             coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
             coeffs = coeffs[...,0]  # N, n_panels
             g = np.einsum('Np,pk->Nk', coeffs, f)  # N, n_features
@@ -372,13 +389,16 @@ class PanelGeometry:
             g = np.dot(coeffs_s, sigma)  
         return g
 
-def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = []):
+def generate_curves_data_panel(n_data, N, r0_scale=0, freq_scale=0.5, k_curve=4, f_random_config = ["2d"],kernel_type='sp_laplace', deform = True, deform_configs = [], fix_nodes = False):
     nodes_list = []
     elems_list = []
     features_list = []
 
     for index in tqdm(range(n_data), desc="Generating curves data single"):
-        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
+        if index == 0 or not fix_nodes:
+            nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale, freq_scale=freq_scale, deform = deform, deform_configs= deform_configs)
+        else:
+            nodes = nodes.copy()
         if kernel_type in ['exterior_laplace_dirichlet']:
             nodes = nodes[::-1]
         elems = np.stack([np.full(N, 1, dtype=int), np.arange(N), (np.arange(N) + 1) % N], axis=1)
@@ -579,13 +599,13 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
     
 if __name__ == "__main__":
     seed = 1000
-    n_data = 10000
+    n_data = 1000
     N = 1000
     r0_scale = 1
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'interior_laplace_dirichlet' or 'exterior_laplace_dirichlet' or 'exterior_laplace_neumann'
+    kernel_type = 'weighted_sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'interior_laplace_dirichlet' or 'exterior_laplace_dirichlet' or 'exterior_laplace_neumann' or 'weighted_sp_laplace'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
@@ -593,7 +613,8 @@ if __name__ == "__main__":
     visualization = True
     save_data_to_pcno_format = True
     
-    two_circles = True  # generate two circles data for interaction kernel testing
+    two_circles = False  # generate two circles data for interaction kernel testing
+    fix_nodes = True  # fix the nodes for all data samples
 
     np.random.seed(seed)
     if not two_circles:
@@ -601,7 +622,8 @@ if __name__ == "__main__":
                 n_data, N, r0_scale=r0_scale, freq_scale=freq_scale, k_curve=k_curve, f_random_config = f_random_config,
                                                                 kernel_type = kernel_type,
                                                                 deform = deform, 
-                                                                deform_configs = deform_configs)
+                                                                deform_configs = deform_configs,
+                                                                fix_nodes = fix_nodes)
     else:
         if kernel_type in ['interior_laplace_dirichlet']:
             nodes_list, elems_list, features_list = generate_curves_data_panel_hole(
@@ -626,8 +648,13 @@ if __name__ == "__main__":
 
 
     if visualization:
-        visualize_curve(nodes_list[0], features_at_nodes_list[0], elems_list[0], kernel_type
-                        , figurename = f'panel.png'
+        index = 0
+        visualize_curve(nodes_list[index], features_at_nodes_list[index], elems_list[index], kernel_type
+                        , figurename = f'panel{index}.png'
+                        )
+        index = 1
+        visualize_curve(nodes_list[index], features_at_nodes_list[index], elems_list[index], kernel_type
+                        , figurename = f'panel{index}.png'
                         )
 
     if save_data_to_pcno_format:

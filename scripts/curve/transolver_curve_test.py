@@ -54,7 +54,8 @@ def run_epoch(model, loader, device, optimizer=None, scheduler=None):
         model.train()
     else:
         model.eval()
-
+    if loader is None:
+        return 0.0
     losses = []
     for x, y, pos in loader:
         x = x.to(device)
@@ -82,9 +83,10 @@ def run_epoch(model, loader, device, optimizer=None, scheduler=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann'])
+    parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann', 'weighted_sp_laplace'])
     parser.add_argument("--train_n", type=int, default=2000)
     parser.add_argument("--test_n", type=int, default=1000)
+    parser.add_argument("--twocircle_test_n", type=int, default=1000)
     parser.add_argument("--n_layers", type=int, default=4)
     parser.add_argument("--n_hidden", type=int, default=256)
     parser.add_argument("--epochs", type=int, default=500)
@@ -99,21 +101,27 @@ def main():
     data_file_path = data_path+f"pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel"
     curve1_data = np.load(data_file_path + ".npz", mmap_mode="r")
     n1 = curve1_data["nodes"].shape[0]
-    curve2_data = np.load(data_file_path + "_two_circles.npz", mmap_mode="r")
-    n2 = curve2_data["nodes"].shape[0]
+    if args.twocircle_test_n > 0:
+        curve2_data = np.load(data_file_path + "_two_circles.npz", mmap_mode="r")
+        n2 = curve2_data["nodes"].shape[0]
 
 
     train_indices = np.arange(0, args.train_n)
     test1_indices = np.arange(n1 - args.test_n, n1)
-    test2_indices = np.arange(n2 - args.test_n, n2)
+    if args.twocircle_test_n > 0:
+        test2_indices = np.arange(n2 - args.twocircle_test_n, n2)
 
     train_ds = CurveDataset(data_file_path + ".npz", train_indices)
     test1_ds = CurveDataset(data_file_path + ".npz", test1_indices)
-    test2_ds = CurveDataset(data_file_path + "_two_circles.npz", test2_indices)
+    if args.twocircle_test_n > 0:
+        test2_ds = CurveDataset(data_file_path + "_two_circles.npz", test2_indices)
 
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     test1_loader = DataLoader(test1_ds, batch_size=args.batch_size, shuffle=False)
-    test2_loader = DataLoader(test2_ds, batch_size=args.batch_size, shuffle=False)
+    if args.twocircle_test_n > 0:
+        test2_loader = DataLoader(test2_ds, batch_size=args.batch_size, shuffle=False)
+    else:
+        test2_loader = None
 
     model = Model(
         space_dim=2,
@@ -143,8 +151,9 @@ def main():
         train_loss = run_epoch(model, train_loader, device, optimizer=optimizer, scheduler=scheduler)
         test1_loss = run_epoch(model, test1_loader, device, optimizer=None)
         test2_loss = run_epoch(model, test2_loader, device, optimizer=None)
+
         epoch_time = time.time() - start_t
-        print(f"Epoch {epoch} train loss: {train_loss}, test loss curve1: {test1_loss}, test loss curve2: {test2_loss}, time: {epoch_time:.2f}s",flush=True)
+        print(f"Epoch {epoch} , time: {epoch_time:.3f}, train loss: {train_loss}, test loss curve1: {test1_loss}, test loss curve2: {test2_loss}",flush=True)
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ parser.add_argument('--act', type=str, default="gelu")
 parser.add_argument('--geo_act', type=str, default="softsign")
 parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 parser.add_argument('--n_two_circles_test', type=int, default=0)
-parser.add_argument('--kernel_type', type=str, default='dp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann'])
+parser.add_argument('--kernel_type', type=str, default='dp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann','weighted_sp_laplace'])
 args = parser.parse_args()
 
 f_in_dim = 2 if args.kernel_type in ['stokes'] else 1

@@ -598,8 +598,8 @@ def visualize_curve(nodes, features, elems, kernel_type, figurename = ''):
 
     
 if __name__ == "__main__":
-    seed = 1000
-    n_data = 1000
+    seed = 74286
+    n_data = 3000
     N = 1000
     r0_scale = 1
     freq_scale = 1
@@ -610,7 +610,7 @@ if __name__ == "__main__":
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
 
-    visualization = True
+    visualization = False
     save_data_to_pcno_format = True
     
     two_circles = False  # generate two circles data for interaction kernel testing

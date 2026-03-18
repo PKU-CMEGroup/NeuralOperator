@@ -39,7 +39,8 @@ parser.add_argument('--act', type=str, default="gelu")
 parser.add_argument('--geo_act', type=str, default="softsign")
 parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 parser.add_argument('--n_two_circles_test', type=int, default=0)
-parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann','weighted_sp_laplace'])
+parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace',
+                                                                               'exterior_laplace_neumann','weighted_sp_laplace','weighted_dp_laplace'])
 args = parser.parse_args()
 
 layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}

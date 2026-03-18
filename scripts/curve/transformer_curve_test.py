@@ -10,11 +10,9 @@ import numpy as np
 from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.mpcno import compute_Fourier_modes
-from transformers.mpcformer import MPCFormer, MPCFormer_train_multidist
-
+from baselines.transformer import Transformer, Transformer_train_multidist
 torch.set_printoptions(precision=16)
+
 
 
 torch.manual_seed(0)
@@ -29,30 +27,21 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
 
 
-parser.add_argument('--to_divide_factor', type=float, default=20.0)
-parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--bsz', type=int, default=32)
 parser.add_argument('--ep', type=int, default=500)
 parser.add_argument('--n_train', type=int, default=2000)
 parser.add_argument('--n_test', type=int, default=1000)
-parser.add_argument('--act', type=str, default="gelu")
-parser.add_argument('--geo_act', type=str, default="softsign")
 parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 parser.add_argument('--n_two_circles_test', type=int, default=0)
-parser.add_argument('--kernel_type', type=str, default='dp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace',
+parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace',
                                                                                'exterior_laplace_neumann','weighted_sp_laplace','weighted_dp_laplace'])
 args = parser.parse_args()
 
 f_in_dim = 2 if args.kernel_type in ['stokes'] else 1
 f_out_dim = 2 if args.kernel_type in ['modified_dp_laplace','stokes'] else 1
-train_inv_L_scale = False
-k_max = args.k_max
 ndim = 2
-L = 10
 layers = [int(size) for size in args.layer_sizes.split(",")]
-act = args.act
-geo_act = args.geo_act
-to_divide_factor = args.to_divide_factor
+
 
 ###################################
 # load data
@@ -127,8 +116,7 @@ def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, dir
     x = torch.cat((features[data_indices][...,:f_in_dim+2],
                             nodes_input[data_indices, ...]), -1)
     y = features[data_indices][...,-f_out_dim:]
-    nx = features[data_indices][...,f_in_dim:f_in_dim+2]
-    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], nx.permute(0,2,1))
+    aux = (node_mask[data_indices], nodes[data_indices])
     
     return x, y, aux
 
@@ -136,7 +124,7 @@ data_path = "../../data/curve/"
 
 n_train, n_test, n_two_circles_test = args.n_train, args.n_test, args.n_two_circles_test
 data_file_path = data_path+f"/pcno_curve_data_1_1_5_2d_{args.kernel_type}_panel.npz"
-nnodes, node_mask, nodes, node_weights, node_rhos, features, directed_edges, edge_gradient_weights, to_divide = load_data_to_torch(data_file_path, to_divide = None, factor = to_divide_factor)
+nnodes, node_mask, nodes, node_weights, node_rhos, features, directed_edges, edge_gradient_weights, to_divide = load_data_to_torch(data_file_path, to_divide = None)
 
 x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights)
 x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights)
@@ -162,35 +150,26 @@ print('Domain range per dimension: ',torch.amax(nodes, dim = [0,1]) - torch.amin
 # load model and train
 ###################################
 
-modes = compute_Fourier_modes(ndim, [k_max,k_max], [L,L])
 
 print('------Parameters------')
-print(f'kmax = {k_max}')
 print(f'n_train = {n_train}, n_test = {n_test}')
-print(f'L = {L}')
-print(f'Shape of Fourier modes: ', modes.shape)
 print(f'layers = {layers}')
-print(f'activation = {act}')
-print(f'geo_activation = {geo_act}')
 
 
-modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = MPCFormer(ndim, modes, 
-               d_model=layers[0], num_layers=len(layers)-1, dim_feedforward=4*layers[0],
-               in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               dropout = 0.0,
-               act = act,
-               geo_act = geo_act,
+model = Transformer(coord_dim=ndim, 
+               in_channels=x_train.shape[-1], out_channels=y_train.shape[-1],
+               d_model = layers[0],
+               dim_feedforward=layers[0]*4,
                 ).to(device)
 
 
 
 epochs = args.ep
 base_lr = 5e-4 #0.001
-lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = args.bsz
+print('base_lr', base_lr, '\n')
 print('batch_size', batch_size, '\n')
 
 normalization_x = False
@@ -201,14 +180,13 @@ non_normalized_dim_x = 4
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }
 
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = MPCFormer_train_multidist(
-    x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list, config, model, label_test_list=label_list,
-     save_model_name = None,
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = Transformer_train_multidist(
+    x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list, config, model, label_list, save_model_name = None,
 )

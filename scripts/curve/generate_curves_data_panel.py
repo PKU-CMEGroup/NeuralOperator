@@ -272,6 +272,27 @@ class PanelGeometry:
             # \int y_x ln|r| ds = v_start_x * I_sp + cos(theta) * I_s
             coeffs = v_start_x * I_sp + self.panel_cosines[None,...] * I_s
             coeffs = -coeffs[...,np.newaxis]/(2*math.pi)
+        elif kernel_type == "weighted_dp_laplace": 
+            # k(x,y) = y_x * (y-x)ny /|x-y|^2  * (-1/2pi)
+            I_dp = np.zeros_like(x0_stars)  # N, n_panels
+            I_dp[~collinear_mask] = np.arctan((self.panel_lengths[None,...]  - x0_stars)[~collinear_mask] / y0_stars[~collinear_mask]) + np.arctan(x0_stars[~collinear_mask] / y0_stars[~collinear_mask])
+            
+            delta_ln_r = np.log(r_lengths_roll) - np.log(r_lengths)
+            
+            v_start_x = self.vertices[None, self.elems[:,1], 0]
+            
+            cos_theta = np.broadcast_to(self.panel_cosines[None, ...], x0_stars.shape)
+            v_x_broadcast = np.broadcast_to(v_start_x, x0_stars.shape)
+            
+
+            coeffs = np.zeros_like(x0_stars)
+            coeffs[~collinear_mask] = v_x_broadcast[~collinear_mask] * I_dp[~collinear_mask] + \
+                                      cos_theta[~collinear_mask] * (
+                                          y0_stars[~collinear_mask] * delta_ln_r[~collinear_mask] + 
+                                          x0_stars[~collinear_mask] * I_dp[~collinear_mask]
+                                      )
+
+            coeffs = -coeffs[...,np.newaxis]/(2*math.pi)
         return coeffs
     
     def compute_kernel_integral(self, points: np.ndarray, f: np.ndarray, kernel_type: str):
@@ -285,7 +306,7 @@ class PanelGeometry:
         Returns:
             g: (n_panels, n_features) 
         '''    
-        if kernel_type in ["sp_laplace" , "dp_laplace" , "adjoint_dp_laplace", "weighted_sp_laplace"]:
+        if kernel_type in ["sp_laplace" , "dp_laplace" , "adjoint_dp_laplace", "weighted_sp_laplace", "weighted_dp_laplace"]:
             coeffs = self.compute_points_kernel_coeffs(points, kernel_type) # N, n_panels, dim_kernel
             coeffs = coeffs[...,0]  # N, n_panels
             g = np.einsum('Np,pk->Nk', coeffs, f)  # N, n_features

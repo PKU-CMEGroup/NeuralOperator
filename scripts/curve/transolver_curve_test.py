@@ -83,7 +83,8 @@ def run_epoch(model, loader, device, optimizer=None, scheduler=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace', 'exterior_laplace_neumann', 'weighted_sp_laplace'])
+    parser.add_argument('--kernel_type', type=str, default='sp_laplace', choices=['sp_laplace', 'dp_laplace', 'adjoint_dp_laplace', 'stokes', 'modified_dp_laplace',
+                                                                                   'exterior_laplace_neumann', 'weighted_sp_laplace',  'weighted_dp_laplace'])
     parser.add_argument("--train_n", type=int, default=2000)
     parser.add_argument("--test_n", type=int, default=1000)
     parser.add_argument("--twocircle_test_n", type=int, default=1000)

@@ -40,7 +40,7 @@ def lap_hat(phi_hat, k2):
     return -(k2) * phi_hat
     
     
-def vorticity_hat(u, v, ikx, iky):
+def vorticity_hat_from_uv(u, v, ikx, iky):
     """ω̂ = i kx v̂ - i ky û."""
     uh = fft2(u)
     vh = fft2(v)
@@ -72,7 +72,7 @@ def vorticity_from_uv(u, v, ikx, iky):
     Returns:
         omega: [N,N] real array.
     """
-    omega_hat = vorticity_hat(u, v, ikx, iky)
+    omega_hat = vorticity_hat_from_uv(u, v, ikx, iky)
     return np.real(np.fft.ifft2(omega_hat))
 
 def kinetic_energy(u, v):
@@ -161,7 +161,7 @@ def pressure_from_uv(u, v, kx, ky, k2, fx=None, fy=None):
 
 
 
-def solve_navierstokes2d_vorticity(omega0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_max=0.01, CFL = 1.0, check_conservation=False):
+def solve_navierstokes2d_vorticity(omega0, f_omega, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_max=0.01, CFL = 0.5, check_conservation=False):
     """
     求解二维周期边界不可压 Navier–Stokes（采用伪谱 / vorticity–streamfunction 形式）。
 
@@ -169,16 +169,16 @@ def solve_navierstokes2d_vorticity(omega0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_
         ω = ∂_x v - ∂_y u
         Δψ = -ω
         u =  ∂_y ψ,   v = -∂_x ψ
-        ω_t + u ∂_x ω + v ∂_y ω = ν Δω + f
+        ω_t + u ∂_x ω + v ∂_y ω = ν Δω + f_omega
 
-    其中 f 被解释为“涡度方程”的外力项（标量，形状 [N,N]）。
+    其中 f_omega 被解释为“涡度方程”的外力项（标量，形状 [N,N]）。
     若你希望输入的是动量方程中的向量力 F=(F_x,F_y)，请告诉我，我可以改成投影法（velocity-pressure form）。
 
     Args:
         u0: np.ndarray, shape (N, N) 或者 (3, N, N) 
             初始状态 (ω)
             或者 初始状态 (u, v, p)。此实现仅使用 u0[0], u0[1] 作为初始速度；u0[2] (压强) 将被忽略。
-        f: np.ndarray, shape (N, N)
+        f_omega: np.ndarray, shape (N, N)
             涡度方程外力项。
         L: float
             周期长度（x,y ∈ [0,L)）。
@@ -195,15 +195,15 @@ def solve_navierstokes2d_vorticity(omega0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_
             最终状态 (u, v, p)。其中 p 在此实现中返回 0（因为涡度形式不显式求压强）。
 
     Require:
-        - u0.shape == (3, N, N), f.shape == (N, N)
+        - omega0.shape == (N, N), f_omega.shape == (N, N)
         - 周期边界
     """
 
     omega0 = np.asarray(omega0, dtype=np.float64)
-    f = np.asarray(f, dtype=np.float64)
+    f_omega = np.asarray(f_omega, dtype=np.float64)
     assert omega0.ndim == 2 and omega0.shape[0] == omega0.shape[1], "omega0 must be (N,N)"
     N = omega0.shape[0]
-    assert f.shape == (N, N), "f must be (N,N)"
+    assert f_omega.shape == (N, N), "f_omega must be (N,N)"
 
 
     dx = dy = L / N
@@ -217,14 +217,14 @@ def solve_navierstokes2d_vorticity(omega0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_
     omega_hat *= dealias
     omega_hat[0, 0] = 0.0
     # Forcing in spectral space
-    f_hat = fft2(f) * dealias
+    f_omega_hat = fft2(f_omega) * dealias
 
     # ----------------------------
     # RHS of vorticity equation
     # ----------------------------
     def rhs_omega_hat(omega_hat_local):
         """
-        ω_t = - u·∇ω + νΔω + f
+        ω_t = - u·∇ω + νΔω + f_omega
         computed pseudo-spectrally with 2/3 de-aliasing on nonlinear term.
         """
         # velocity from ω
@@ -242,7 +242,7 @@ def solve_navierstokes2d_vorticity(omega0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_
 
         # diffusion and forcing (in spectral space)
         diff_hat = -nu * k2 * omega_hat_local
-        return -(adv_hat) + diff_hat + f_hat
+        return -(adv_hat) + diff_hat + f_omega_hat
 
     # ----------------------------
     # time integration: RK4
@@ -286,7 +286,7 @@ def solve_navierstokes2d_vorticity(omega0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_
 
 
 
-def solve_navierstokes2d_equation(u0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_max=0.01, CFL = 1.0, check_conservation=False):
+def solve_navierstokes2d_equation(u0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_max=0.01, CFL = 0.5, check_conservation=False):
     """
     求解二维周期边界不可压 Navier–Stokes（采用伪谱 / vorticity–streamfunction 形式）。
 
@@ -341,7 +341,7 @@ def solve_navierstokes2d_equation(u0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_max=0
     # initialize with velocity
     u_init = np.asarray(u0[0], dtype=np.float64)
     v_init = np.asarray(u0[1], dtype=np.float64)
-    omega0_hat = vorticity_hat(u_init, v_init, ikx, iky)
+    omega0_hat = vorticity_hat_from_uv(u_init, v_init, ikx, iky)
     omega0 = np.real(ifft2(omega0_hat))
 
     f = np.asarray(f, dtype=np.float64)
@@ -350,9 +350,6 @@ def solve_navierstokes2d_equation(u0, f, nu = 1.0e-3, L=2*np.pi, T=1.0, dt_max=0
     fy = np.asarray(f[1], dtype=np.float64)
     # forcing in spectral space (assumed vorticity forcing)
     f_omega = vorticity_forcing(fx, fy, ikx, iky)
-
-
-
 
 
     # ----------------------------
@@ -457,6 +454,33 @@ def test_taylor_green(solve_fn, N=128, nu=1e-3, T=1.0, dt_max=1e-3, L=2*np.pi):
 # solution and can transition to turbulence at higher Reynolds numbers. 
 # Useful for testing solvers on forced flows and bifurcations.
 ########################################################################################################################################
+def kolmogorov_momentum_forcing(N, n=4, A=1.0, L=2*np.pi):
+    """
+    Kolmogorov forcing in the momentum equation on Ω=[0,L)^2 (periodic).
+
+    Momentum forcing (velocity-pressure form):
+        ∂_t u + (u·∇)u = -∇p + νΔu + F,   ∇·u = 0,
+    with
+        F(x,y) = (A sin(ny), 0).
+
+    Args:
+        N: Grid resolution (N x N).
+        n: Forcing wavenumber (in y-direction).
+        A: Forcing amplitude.
+        L: Domain length.
+
+    Returns:
+        Fx, Fy: arrays of shape [N, N].
+
+    Require:
+        Periodic boundary conditions on [0,L)^2.
+    """
+    y = np.linspace(0.0, L, N, endpoint=False)
+    Y = np.tile(y.reshape(1, N), (N, 1))  # [N,N], constant in x, varies in y
+    fx = A * np.sin(n * Y)
+    fy = np.zeros_like(fx)
+    return fx, fy
+
 
 def kolmogorov_vorticity_forcing(N, n=4, A=1.0, L=2*np.pi):
     """
@@ -566,40 +590,34 @@ def test_kolmogorov(
       If you add snapshot output to your solver, we can avoid rerunning.
     """
     # --- initial condition ---
+    print(f"[Kolmogorov] N={N}, nu={nu}, T={T}, dt_max={dt_max}, n={n}, A={A}")
+    kx, ky, ikx, iky, k2 = compute_wavenumbers(L, N)
+
 
     eps = 1e-3
     u0 = eps * np.random.randn(N, N)
     v0 = eps * np.random.randn(N, N)
-    p0 = np.zeros((N, N), dtype=np.float64)
-    u0_state = np.stack([u0, v0, p0], axis=0)
-
-    # --- forcing in vorticity equation ---
-    f = kolmogorov_vorticity_forcing(N, n=n, A=A, L=L)
-    
-    kx, ky, ikx, iky, k2 = compute_wavenumbers(L, N)
-
-    print(f"[Kolmogorov] N={N}, nu={nu}, T={T}, dt_max={dt_max}, n={n}, A={A}")
-
     # ω at t=0
     omega0 = vorticity_from_uv(u0, v0, ikx, iky)
+    # --- forcing in vorticity equation ---
+    f_omega = kolmogorov_vorticity_forcing(N, n=n, A=A, L=L)
+    
 
     # run to T/2
-    omega_half = solve_fn(omega0, f, nu=nu, L=L, T=0.5*T, dt_max=dt_max, check_conservation=False)
-    
+    omega_half = solve_fn(omega0, f_omega, nu=nu, L=L, T=0.5*T, dt_max=dt_max, check_conservation=False)
     # continue to run to T
-    omega_T = solve_fn(omega_half, f, nu=nu, L=L, T=0.5*T, dt_max=dt_max, check_conservation=True)
-    
-    omegaT_hat = fft2(omega_T)
+    omegaT = solve_fn(omega_half, f_omega, nu=nu, L=L, T=0.5*T, dt_max=dt_max, check_conservation=True)
+    omegaT_hat = fft2(omegaT)
     # final velocity
-    u_T = velocity_from_omega_hat(omegaT_hat, ikx, iky, k2)
+    uT = velocity_from_omega_hat(omegaT_hat, ikx, iky, k2)
+
 
     # spectrum at T
-    k_centers, E = radial_energy_spectrum_uv(u_T[0], u_T[1], L=2*np.pi, dealias_mask=None)
+    k_centers, E = radial_energy_spectrum_uv(uT[0], uT[1], L=2*np.pi, dealias_mask=None)
     # --- plotting: 2 rows x 3 cols (last subplot hidden) ---
     fig, axes = plt.subplots(2, 3, figsize=(14, 8), constrained_layout=True)
-
     # 1) forcing
-    im0 = axes[0, 0].imshow(f, origin="lower", aspect="equal")
+    im0 = axes[0, 0].imshow(f_omega, origin="lower", aspect="equal")
     axes[0, 0].set_title(fr"Forcing $f_\omega(x,y)=-{A:.2f} \times {n}\cos({n}y)$")
     axes[0, 0].set_xticks([]); axes[0, 0].set_yticks([])
     fig.colorbar(im0, ax=axes[0, 0], fraction=0.046, pad=0.04)
@@ -617,7 +635,7 @@ def test_kolmogorov(
     fig.colorbar(im2, ax=axes[0, 2], fraction=0.046, pad=0.04)
 
     # 4) omega at T
-    im3 = axes[1, 0].imshow(omega_T, origin="lower", aspect="equal")
+    im3 = axes[1, 0].imshow(omegaT, origin="lower", aspect="equal")
     axes[1, 0].set_title(r"Vorticity $\omega$ at $t={T:.2f}$")
     axes[1, 0].set_xticks([]); axes[1, 0].set_yticks([])
     fig.colorbar(im3, ax=axes[1, 0], fraction=0.046, pad=0.04)
@@ -661,148 +679,87 @@ def generate_initial_conditions(M, N, k_max = 10, L=2*np.pi, normalize=True, see
     """
     x = np.linspace(0, L, N, endpoint=False)
     dx = L/N
-    grf = gaussian_random_field_2d(M, [N,N], [L,L], sigma=1.0, tau = 1.0, alpha = 2.0, bc_name = 'periodic', seed = seed, k_max = [k_max,k_max])
-    
+    grf = gaussian_random_field_2d(M, [N,N], [L,L], sigma=200.0, tau = 1.0, alpha = 2.0, bc_name = 'periodic', seed = seed, k_max = [k_max,k_max])
     return grf
 
 
 
 def set_default_params():
     nT = 100
-    T = 0.2
-    N = 512
+    T = 0.5
+    N = 256
     k_max = 256
     L = 2*np.pi
 
     # viscosity and forcing parameters
     nu = 1e-3
-    A = 1.0
+    A = 1.0/4
     n = 4
     return nT, T, k_max, N, L, nu, A, n
 
 
 
-# def visualization():
-#     nT, T, k_max, N, L, V_type = set_default_params()
-    
-#     f, g = generate_initial_conditions(M = 1, N = N, k_max = k_max, seed=42)
-#     fig, axs = plt.subplots(4, 5, figsize=(16, 8))
-#     axs[0,0].set_title("V")
-#     axs[0,1].set_title("real(psi)")
-#     axs[0,2].set_title("imag(psi)")
-#     axs[0,3].set_title("real(psi) samples")
-#     axs[0,4].set_title("imag(psi) samples")
+def visualization():
+    nT, T, k_max, N, L, nu, A, n = set_default_params()
+    M = 3
+    omega0 = generate_initial_conditions(M = M, N = N, k_max = k_max, seed=42)
+    frames = [0, 1, nT//4, nT//4+1, nT//2, nT//2+1, nT-1, nT]
+    fig, axs = plt.subplots(M, len(frames)+1, figsize=(20, 12))
 
-#     V_types =  ["constant",  "cosine", "two_mode", "lattice"]
-#     x = np.linspace(0, L, N, endpoint=False)
+    axs[0,0].set_title("f_omega")
+    for j in range(len(frames)):
+        axs[0,j+1].set_title(f"t = {T*frames[j]:.1f}")
     
-#     for i in range(len(V_types)):
-#         V_type = V_types[i]
-        
-#         V = fixed_periodic_potential(N, L=L, V_type=V_type)
-#         axs[i,0].plot(x, V)
-#         axs[i,0].set_xlabel("x")
+    f_omega = kolmogorov_vorticity_forcing(N, n=n, A=A, L=L)
+    for i in range(M):
+        axs[i,0].imshow(f_omega, origin="lower", aspect="equal")
 
-#         u_ref = np.zeros((nT+1, N, 4))
-#         u_ref[:,:,2], u_ref[:,:,3] = V, x
-#         u_ref[0,:,0], u_ref[0,:,1] = f[0,:], g[0,:]
+        omega_ref = np.zeros((nT+1, N, N))
+        omega_ref[0,...] = omega0[i,...]
 
-#         for j in range(nT):
-#             u_ref[j+1,:,0], u_ref[j+1,:,1] = solve_schrodinger1d_equation(f=u_ref[j,:,0], g=u_ref[j,:,1], V=V, L=L, T=T, check_conservation=False)   
+        for j in range(nT):
+            omega_ref[j+1,:,:] = solve_navierstokes2d_vorticity(omega_ref[j,:,:], f_omega, nu, L=L, T=T, check_conservation=False)   
         
         
-    
-#         axs[i,1].imshow(u_ref[:,:,0], cmap='viridis',  aspect='auto')
-#         axs[i,1].set_xlabel("x")
-#         axs[i,1].set_ylabel("time steps")
-#         axs[i,2].imshow(u_ref[:,:,1],  cmap='viridis',  aspect='auto')
-#         axs[i,2].set_xlabel("x")
-#         axs[i,2].set_ylabel("time steps")
-        
-#         axs[i,3].plot(x, u_ref[0, :, 0],  color="C0", label="initial")
-#         axs[i,3].plot(x, u_ref[1, :, 0],  color="C1", label="step 1")
-#         axs[i,3].plot(x, u_ref[2, :, 0],  color="C2", label="step 2")
-#         axs[i,3].plot(x, u_ref[nT,:, 0],  color="C3", label="step %d" %nT)
-#         axs[i,3].set_xlabel("x")
-        
-#         axs[i,4].plot(x, u_ref[0, :, 1],  color="C0", label="initial")
-#         axs[i,4].plot(x, u_ref[1, :, 1],  color="C1", label="step 1")
-#         axs[i,4].plot(x, u_ref[2, :, 1],  color="C2", label="step 2")
-#         axs[i,4].plot(x, u_ref[nT,:, 1],  color="C3", label="step %d" %nT)
-#         axs[i,4].set_xlabel("x")
-#         axs[i,4].legend()
-    
-#     fig.tight_layout() 
-#     plt.show()
-#     plt.savefig("schrodinger1d.pdf")
+        vmin = min(np.min(omega_ref[t, ...]) for t in frames)
+        vmax = max(np.max(omega_ref[t, ...]) for t in frames)
+        for j in range(len(frames)):
+            im = axs[i,j+1].imshow(omega_ref[frames[j],...], cmap='viridis',  aspect='equal', vmin=vmin, vmax=vmax)
+        fig.colorbar(im, ax=axs[i,-1], fraction=0.046, pad=0.04)
+
+    fig.tight_layout() 
+    plt.show()
+    plt.savefig("kolmogorovflow2d.pdf")
     
     
-# def generate_data():
-#     """
-#     生成一维薛定谔方程的训练数据，保存在 data/schrodinger_1d/schrodinger1d_{V_type}_data.npz 中
-#     数据格式为一个 N by (nT+1) by N by 4 的数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
-#     """
-#     nT, T, k_max, N, L, _ = set_default_params()
-#     x = np.linspace(0, L, N, endpoint=False)
-#     ndata = 1000
-#     fs,gs = generate_initial_conditions(M = ndata, N = N, k_max = k_max, L=L, normalize=True, seed=None)
+def generate_data():
+    """
+    生成二维Navier-Stokes方程的训练数据，保存在 data/navier_stokes_square/kolmogorovflow2d_data_XXXX.npz 中
+    每个数据格式为 (nT+1) by N by N 的数组，分别表示 nT+1 个时间步的vorticity
+    """
+    nT, T, k_max, N, L, nu, A, n = set_default_params()
+    ndata = 1000
+    omega0 = generate_initial_conditions(M = ndata, N = N, k_max = k_max, seed=42)
+    f_omega = kolmogorov_vorticity_forcing(N, n=n, A=A, L=L)
+    Path('../../data/navier_stokes_square').mkdir(parents=True, exist_ok=True)
 
-#     for V_type in ["lattice", "constant",  "cosine", "two_mode"]:
-#         u_refs = []
-#         V = fixed_periodic_potential(N, L=L, V_type=V_type)
-#         for i in range(ndata):
-#             u_ref = np.zeros((nT+1, N, 4))
-#             u_ref[:,:,2], u_ref[:,:,3] = V, x
-#             u_ref[0,:,0], u_ref[0,:,1] = fs[i,:], gs[i,:]
-#             for j in range(nT):
-#                 u_ref[j+1,:,0], u_ref[j+1,:,1] = solve_schrodinger1d_equation(f=u_ref[j,:,0], g=u_ref[j,:,1], V=V, L=L, T=T, check_conservation=False)
-                
-#             u_refs.append(u_ref)
-            
-#         u_refs = np.array(u_refs)
-
-#         Path('../../data/schrodinger_1d').mkdir(parents=True, exist_ok=True)
-#         np.savez_compressed("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz", u_refs = u_refs)
-
-
-
-# def extract_evolution_matrix():
-#     """
-#     生成一维薛定谔方程的训练数据，保存在 data/schrodinger_1d/schrodinger1d_{V_type}_data.npz 中
-#     数据格式为一个 N by (nT+1) by N by 4 的数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
-#     """
-#     nT, T, k_max, N, L, _ = set_default_params()
-#     x = np.linspace(0, L, N, endpoint=False)
-#     n_train, n_test = 10000, 500
-#     dim = 2
-#     fig, axs = plt.subplots(4, figsize=(6, 24))
-    
-#     for iV_type, V_type in enumerate(["lattice", "constant", "cosine", "two_mode"]):
-#         data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
+    for i in range(ndata):
+        omega_ref = np.zeros((nT+1, N, N))
+        omega_ref[0,...] = omega0[i,...]
+        for j in range(nT):
+            omega_ref[j+1,:,:] = solve_navierstokes2d_vorticity(omega_ref[j,:,:], f_omega, nu, L=L, T=T, check_conservation=False)   
         
-        
-#         X, Y = [], []
-#         for i in list(range(math.ceil(n_train / nT))) + list(range(-math.ceil(n_test / nT), 0)):
-#             for j in range(nT):
-#                 X.append(data[i,j,  :,:dim])    #前一步的波函数实部和虚部 
-#                 Y.append(data[i,j+1,:,:dim])    #后一步的波函数实部和虚部
-#         X, Y = np.array(X), np.array(Y)
-#         X, Y = X.transpose(0, 2, 1).reshape(X.shape[0],-1), Y.transpose(0, 2, 1).reshape(Y.shape[0],-1)
-#         evolution_matrix = np.linalg.lstsq(X, Y, rcond=None)[0]
-#         print(evolution_matrix)
-#         axs[iV_type].imshow(evolution_matrix,  cmap='viridis',  aspect='auto')
+        np.save(f"../../data/navier_stokes_square/kolmogorovflow2d_data_{i:04d}.npy", omega_ref)
 
-#     plt.savefig("schrodinger1d_evolution_matrix.pdf")
 
-        
 
     
     
 if __name__ == "__main__":
     
-    test_taylor_green(solve_navierstokes2d_equation, N=128, nu=1e-1, T=5.0, dt_max=1e-3)
-    test_kolmogorov(solve_navierstokes2d_vorticity, N=128, nu=1e-3, n=4, A=1.0, T=10.0, dt_max=2e-3, L=2*np.pi)
+    # test_taylor_green(solve_navierstokes2d_equation, N=128, nu=1e-1, T=5.0, dt_max=1e-3)
+    # test_kolmogorov(solve_navierstokes2d_vorticity, N=128, nu=1e-3, n=4, A=1.0, T=10.0, dt_max=2e-3, L=2*np.pi)
 
     # visualization()
-    # generate_data()
+    generate_data()
     # extract_evolution_matrix() 

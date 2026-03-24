@@ -7,13 +7,45 @@ This benchmark involves 3D models of cars and aircraft:
 
 Details:
 
-- **Meshes**: All surface meshes are converted to triangular meshes and decimated to about 40,000 elements and isotropically scaled to fit within the bounding box $[-1, 1]^3$.
-- **Features**: Surface pressure coefficients ($C_p$) was calculated using the panel method with a freestream inflow condition $v_{\infty} = [1,\,0,\,0]$.
+- **Meshes**: All surface meshes are converted to triangular meshes and decimated to about 40,000 elements and isotropically scaled to fit within the bounding box $[-1,1]^3$.
+- **Features**: Surface pressure coefficients ($C_p$) was calculated using the panel method with a freestream inflow condition $v_{\infty} = [1,0,0]$.
 
 ## Download Dataset
 
 [Click to download](https://disk.pku.edu.cn/link/AA581EA0843A6441E8BC6CDBE18DE5EA15)
-file name：mixed_3d_add_elem_features.zip
+
+File Name：mixed_3d_add_elem_features.zip
+
+### Dataset Info
+
+Unzip `mixed_3d_add_elem_features.zip` into `data/mixed_3d_add_elem_features`. The folder structure is as follows:
+
+```txt
+data/mixed_3d_add_elem_features/
+├── DrivAerNet/
+│   ├── E_S_WWC_WM/
+│   ├── E_S_WW_WM/
+│   ├── F_D_WM_WW/
+│   ├── F_S_WWC_WM/
+│   ├── F_S_WWS_WM/
+│   ├── N_S_WWC_WM/
+│   ├── N_S_WWS_WM/
+│   └── N_S_WW_WM/
+└── Plane/
+    ├── boeing737/
+    ├── erj/
+    ├── J20/
+    └── P180/
+```
+
+Each `xxxx.npz` file in a subfolder corresponds to one car or aircraft sample and contains four keys:
+
+- `nodes_list`: list of nodes
+- `elems_list`: list of mesh elements
+- `features_list`: list of node features
+- `elem_features_list`: list of features for each mesh element
+
+For dataset loading, please refer to the [*load_data* function](https://github.com/PKU-CMEGroup/NeuralOperator/blob/main/scripts/mixed_3d/mpcno_mixed_3d_helper.py#L32) in `mpcno_mixed_3d_helper.py`.
 
 ## Get Started
 

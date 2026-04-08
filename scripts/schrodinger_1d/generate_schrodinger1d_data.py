@@ -130,19 +130,8 @@ def generate_initial_conditions(M, N, k_max = 10, L=2*np.pi, normalize=True, see
     """
     x = np.linspace(0, L, N, endpoint=False)
     dx = L/N
-    grf = gaussian_random_field_1d(2*M, N, L, sigma=1.0, tau = 1.0, alpha = 1.5, bc_name = 'periodic', seed = seed, k_max = k_max)
+    grf = gaussian_random_field_1d(2*M, N, L, sigma=1.0, tau = L, alpha = 1.0, bc_name = 'periodic', seed = seed, k_max = k_max)
     psi_real, psi_imag = grf[:M,:], grf[M:,:]
-    
-    
-    # psi_real = np.zeros((M, N))
-    # psi_imag = np.zeros((M, N))
-    
-    # for k in range(0, k_max):
-    #     kk = np.sqrt(k)
-    #     psi_real += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
-    #     psi_real += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
-    #     psi_imag += np.outer(np.random.randn(M)/(kk+1), np.sin(2*np.pi*x*k/L))
-    #     psi_imag += np.outer(np.random.randn(M)/(kk+1), np.cos(2*np.pi*x*k/L))
     
 
     if normalize:
@@ -186,7 +175,7 @@ def fixed_periodic_potential(N, L=2*np.pi, V_type = "two_mode"):
 
     elif V_type == "lattice":
         rng = np.random.default_rng(seed=42)
-        k_max = 32
+        k_max = 64
         c = rng.uniform(low=-1, high=1, size=(2, k_max))
         V = np.zeros(N)
         for m in range(0, k_max):
@@ -202,8 +191,8 @@ def set_default_params():
     nT = 100
     T = 0.2
     
-    N = 512
-    k_max = 256
+    N = 1024
+    k_max = N//2
 
     L = 2*np.pi
     V_type = "lattice"
@@ -222,7 +211,7 @@ def visualization():
     axs[0,3].set_title("real(psi) samples")
     axs[0,4].set_title("imag(psi) samples")
 
-    V_types =  ["constant",  "cosine", "two_mode", "lattice"]
+    V_types =  ["lattice", "constant",  "cosine", "two_mode"]
     x = np.linspace(0, L, N, endpoint=False)
     
     for i in range(len(V_types)):

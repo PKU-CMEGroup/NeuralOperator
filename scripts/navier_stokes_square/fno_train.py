@@ -15,27 +15,32 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 # 添加到路径
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from baselines.fno import FNO1d, FNO_train
-from generate_schrodinger1d_data import set_default_params
+from baselines.fno import FNO2d, FNO_train
+from generate_kolmogorovflow2d_data import set_default_params
 
 
 
-def preprocess_data(data, n_train, n_test):
+def preprocess_data(n_train, n_test):
     '''
     参数：
-    data: (ndata, nT+1, N, 4) 的 numpy 数组，分别表示 nT+1 个时间步的波函数实部、虚部、势能和位置
     n_train: 训练样本数量
     n_test: 测试样本数量
     '''
-    in_dim, out_dim = 4, 2
-    ndata, nT, N, _ = data.shape
-    nT = nT - 1
+    in_dim, out_dim = 3, 1
+    ndata = 1000
+    nT, T, k_max, N, L, nu, A, n = set_default_params()
+    
+    
+    x = np.linspace(0.0, L, N, endpoint=False)
+    y = np.linspace(0.0, L, N, endpoint=False)
+    x_grid, y_grid = np.meshgrid(x, y, indexing="ij")
     
     X, Y = [], []
-    for i in list(range(math.ceil(n_train / nT))) + list(range(-math.ceil(n_test / nT), 0)):
+    for i in list(range(math.ceil(n_train / nT))) + [ndata + x for x in range(-math.ceil(n_test / nT), 0)]:
+        data = np.load(f"../../data/navier_stokes_square/kolmogorovflow2d_data_{i:04d}.npy")
         for j in range(nT):
-            X.append(data[i,j,  :,:in_dim])   #前一步的波函数实部、虚部、势能和位置
-            Y.append(data[i,j+1,:,:out_dim])   #后一步的波函数实部和虚部
+            X.append(np.stack([data[j,  :,:], x_grid, y_grid], axis=2))    #前一步的vorticity
+            Y.append(data[j+1,:,:,np.newaxis])                             #后一步的vorticity
     X, Y = np.array(X), np.array(Y)
     X, Y = torch.from_numpy(X.astype(np.float32)), torch.from_numpy(Y.astype(np.float32))
     x_train, y_train  = X[:n_train,...], Y[:n_train,...] 
@@ -48,7 +53,7 @@ def preprocess_data(data, n_train, n_test):
 
 def setup_model(in_dim, out_dim, device, checkpoint_path = None):
     nlayers = 6
-    model = FNO1d([12]*nlayers, width=128,
+    model = FNO2d([12]*nlayers, [12]*nlayers, width=128,
                 layers=[128]*nlayers,
                 fc_dim=128,
                 in_dim=in_dim, out_dim=out_dim,
@@ -65,15 +70,14 @@ def setup_model(in_dim, out_dim, device, checkpoint_path = None):
 
 if __name__ == "__main__":
 
-    nT, T, k_max, N, L, V_type = set_default_params()
-    in_dim, out_dim = 4, 2 
+    nT, T, k_max, N, L, nu, A, n = set_default_params()
+    in_dim, out_dim = 3, 1
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     model = setup_model(in_dim, out_dim, device)
 
     n_train, n_test = 10000, 500
-    data = np.load("../../data/schrodinger_1d/schrodinger1d_"+V_type+"_data.npz")['u_refs']
-    x_train, y_train, x_test, y_test = preprocess_data(data, n_train, n_test)
+    x_train, y_train, x_test, y_test = preprocess_data(n_train, n_test)
 
     epochs = 500
     base_lr = 5e-4 #0.001
@@ -98,7 +102,7 @@ if __name__ == "__main__":
                         }
 
 
-    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model_V"+V_type)
+    train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = FNO_train(x_train, y_train, x_test, y_test, config, model, save_model_name="./FNO_model")
     
 
     

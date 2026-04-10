@@ -91,6 +91,7 @@ model = FNO2d(modes1=[kx_max,kx_max,kx_max,kx_max], modes2=[ky_max,ky_max,ky_max
                         fc_dim=128,
                         # 4 fourier layers
                         layers=[128,128,128,128,128],
+                        proj_layers=[128],
                         in_dim=2+2, 
                         out_dim=1,
                         act="gelu",

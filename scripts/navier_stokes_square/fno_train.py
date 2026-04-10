@@ -55,6 +55,7 @@ def setup_model(in_dim, out_dim, device, checkpoint_path = None):
     nlayers = 6
     model = FNO2d([12]*nlayers, [12]*nlayers, width=128,
                 layers=[128]*nlayers,
+                proj_layers=[128],
                 fc_dim=128,
                 in_dim=in_dim, out_dim=out_dim,
                 act='gelu',

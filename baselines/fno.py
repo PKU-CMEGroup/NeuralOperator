@@ -100,35 +100,21 @@ def remove_padding(x, pad_nums):
 
     return res
 
-
 def _get_act(act):
-    """
-    Get activation function by name.
-    
-    Args:
-        act: String name of activation function. Options:
-             'tanh', 'gelu', 'relu', 'elu', 'leaky_relu', 'none'
-    
-    Returns:
-        Activation function callable or None
-    """
     if act == "tanh":
-        func = F.tanh
+        return nn.Tanh()
     elif act == "gelu":
-        func = F.gelu
+        return nn.GELU()
     elif act == "relu":
-        func = F.relu_
+        return nn.ReLU(inplace=True)   # 与原 F.relu_ 行为一致
     elif act == "elu":
-        func = F.elu_
+        return nn.ELU(inplace=True)
     elif act == "leaky_relu":
-        func = F.leaky_relu_
+        return nn.LeakyReLU(inplace=True)
     elif act == "none":
-        func = None
+        return None   # 不加激活
     else:
         raise ValueError(f"{act} is not supported")
-    return func
-
-
 
 @torch.jit.script
 def compl_mul1d(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
@@ -335,7 +321,43 @@ class SpectralConv2d(nn.Module):
         return x
     
 
+class StructuredNN(nn.Module):
+    def __init__(self, in_dim, mid_layers, out_dim, act=nn.ReLU()):
+        """
+        Network structure: input -> mid_layers[0] -> ... -> mid_layers[-1] -> output
+        
+        Args:
+            in_dim: Input dimension
+            mid_layers: List of middle layer dimensions
+            out_dim: Output dimension
+            act: Activation function
+        """
+        super(StructuredNN, self).__init__()
 
+        self.act = act
+        self.mid_layers = mid_layers
+
+        # Build the middle layers
+        layers = []
+        
+        if len(mid_layers) == 0:
+            # If no middle layers, directly connect input to output
+            layers.append(nn.Linear(in_dim, out_dim))
+        else:
+            # Input to first middle layer
+            layers.append(nn.Linear(in_dim, mid_layers[0]))
+            layers.append(self.act)
+            # Intermediate middle layers
+            for i in range(len(mid_layers) - 1):
+                layers.append(nn.Linear(mid_layers[i], mid_layers[i+1]))
+                layers.append(self.act)
+            # Final output layer
+            layers.append(nn.Linear(mid_layers[-1], out_dim))
+            
+        self.network = nn.Sequential(*layers)
+    
+    def forward(self, x):
+        return self.network(x)
 
 # ============================================================================
 # Fourier Neural Operator (FNO) Models
@@ -354,9 +376,9 @@ class FNO1d(nn.Module):
     by parameterizing the integral kernel in Fourier space.
     """
     def __init__(self,
-                 modes, width=32,
-                 layers=None,
-                 fc_dim=128,
+                 modes,
+                 layers=[32,32,32,32],
+                 proj_layers=[128],
                  in_dim=2, out_dim=1,
                  act='gelu',
                  pad_ratio=0, 
@@ -366,10 +388,10 @@ class FNO1d(nn.Module):
         
         Args:
             modes: Number of Fourier modes to retain
-            width: Channel width (used if layers is None)
-            layers: List of channel sizes for each Fourier layer.
-                   If None, uses [width] * 4 (4 layers of same width)
-            fc_dim: Dimension of fully connected hidden layer. If <=0, skip FC layer.
+            layers: List of channel sizes for each Fourier layer, the first one is the input channel size.
+                   Default, [32,32,32,32] (3 FNO layers of same width)
+            proj_layers: List of middle layers width for the projection operator
+                   Default, [128] (1 layers of same width)
             in_dim: Input feature dimension
             out_dim: Output feature dimension
             act: Activation function name
@@ -379,15 +401,8 @@ class FNO1d(nn.Module):
         super(FNO1d, self).__init__()
 
         self.modes1 = modes
-        self.width = width
-        
-        # Set up layer sizes
-        if layers is None:
-            layers = [width] * 4   # Default: 4 layers with same channel width
-        else:
-            self.layers = layers
+
         self.pad_ratio = pad_ratio
-        self.fc_dim = fc_dim
         
         # Layer 1: Lift input to higher-dimensional channel space
         # Input shape: (batch, spatial_points, in_dim)
@@ -403,16 +418,12 @@ class FNO1d(nn.Module):
         # Using padding='same' via manual padding to preserve spatial dimensions
         self.ws = nn.ModuleList([nn.Conv1d(in_size, out_size, kernel_size=cnn_kernel_size, padding=(cnn_kernel_size//2))
                                  for in_size, out_size in zip(layers, layers[1:])])
-        
-        # Output projection layers
-        # if fc_dim = 0, we do not have nonlinear layer
-        if fc_dim > 0:
-            self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim) 
-        else:
-            self.fc2 = nn.Linear(layers[-1], out_dim)
             
         self.act = _get_act(act)
+
+        # Output projection layers
+        self.proj = StructuredNN(in_dim=layers[-1], mid_layers=proj_layers, out_dim=out_dim, act=self.act)
+
 
     def forward(self, x):
         """
@@ -461,12 +472,7 @@ class FNO1d(nn.Module):
         x = x.permute(0, 2, 1)
 
         # Step 7: Project to output dimension
-        if self.fc_dim > 0:
-            x = self.fc1(x)
-            if self.act is not None:
-                x = self.act(x)
-            
-        x = self.fc2(x)
+        x = self.proj(x)
         
         
         return x
@@ -484,9 +490,8 @@ class FNO2d(nn.Module):
         self,
         modes1,  
         modes2,
-        width=64,
-        layers=None,
-        fc_dim=128,
+        layers=[32,32,32,32],
+        proj_layers=[128],
         in_dim=3,
         out_dim=1,
         act="gelu",
@@ -501,9 +506,10 @@ class FNO2d(nn.Module):
         Args:
             modes1: Number of Fourier modes in height dimension
             modes2: Number of Fourier modes in width dimension
-            width: Channel width (used if layers is None)
-            layers: List of channel sizes for each Fourier layer
-            fc_dim: Dimension of fully connected hidden layer. If <=0, skip FC layer.
+            layers: List of channel sizes for each Fourier layer, the first one is the input channel size.
+                   Default, [32,32,32,32] (3 FNO layers of same width)
+            proj_layers: List of middle layers width for the projection operator
+                   Default, [128] (1 layers of same width)
             in_dim: Input feature dimension (typically 3: coefficient + x + y)
             out_dim: Output feature dimension
             act: Activation function name
@@ -513,15 +519,7 @@ class FNO2d(nn.Module):
 
         self.modes1 = modes1
         self.modes2 = modes2
-        self.width = width
-        
-        # Set up layer sizes
-        if layers is None:
-            self.layers = [width] * 4
-        else:
-            self.layers = layers
         self.pad_ratio = pad_ratio
-        self.fc_dim = fc_dim
         
         # Layer 1: Lift input to channel space
         # Input shape: (batch, height, width, in_dim)
@@ -544,14 +542,14 @@ class FNO2d(nn.Module):
             ]
         )
 
-        # Output projection
-        if fc_dim > 0:
-            self.fc1 = nn.Linear(layers[-1], fc_dim)
-            self.fc2 = nn.Linear(fc_dim, out_dim)
-        else:
-            self.fc2 = nn.Linear(layers[-1], out_dim)
-
         self.act = _get_act(act)
+
+        # Output projection layers
+        self.proj = StructuredNN(in_dim=layers[-1], mid_layers=proj_layers, out_dim=out_dim, act=self.act)
+
+
+
+        
 
     def forward(self, x):
         """
@@ -598,13 +596,9 @@ class FNO2d(nn.Module):
         # (batch, channels, height, width) -> (batch, height, width, channels)
         x = x.permute(0, 2, 3, 1)
 
-        # Step 7: Project to output
-        if self.fc_dim > 0:
-            x = self.fc1(x)
-            if self.act is not None:
-                x = self.act(x)
-
-        x = self.fc2(x)
+        # Step 7: Project to output dimension
+        x = self.proj(x)
+        
         return x
 
 

@@ -59,7 +59,7 @@ k_max = 32
 cnn_kernel_size=1
 model = FNO1d(modes=[k_max,k_max,k_max,k_max],
                layers=[128,128,128,128,128],
-               fc_dim=128,
+               proj_layers=[128],
                in_dim=2, 
                out_dim=1,
                act='gelu',

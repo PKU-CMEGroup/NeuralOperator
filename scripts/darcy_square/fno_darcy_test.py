@@ -91,7 +91,6 @@ print("y_train.shape: ",y_train.shape)
 k_max = 16
 cnn_kernel_size=1
 model = FNO2d(modes1=[k_max,k_max,k_max,k_max], modes2=[k_max,k_max,k_max,k_max],
-                        fc_dim=128,
                         # 4 fourier layers
                         layers=[128,128,128,128,128],
                         proj_layers=[128],

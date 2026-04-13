@@ -262,7 +262,8 @@ def generate_data():
     """
     nT, T, k_max, N, L, _ = set_default_params()
     x = np.linspace(0, L, N, endpoint=False)
-    ndata = 1000
+    # ndata = 1000
+    ndata = 100
     fs,gs = generate_initial_conditions(M = ndata, N = N, k_max = k_max, L=L, normalize=True, seed=None)
 
     for V_type in ["lattice", "constant",  "cosine", "two_mode"]:

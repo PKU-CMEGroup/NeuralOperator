@@ -88,7 +88,6 @@ cnn_kernel_size = 1
 #construct model and train
 ###################################
 model = FNO2d(modes1=[kx_max,kx_max,kx_max,kx_max], modes2=[ky_max,ky_max,ky_max,ky_max],
-                        fc_dim=128,
                         # 4 fourier layers
                         layers=[128,128,128,128,128],
                         proj_layers=[128],

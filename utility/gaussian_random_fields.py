@@ -75,13 +75,16 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         # zero_mean:
         u_hat[:, 0] = 0.0
 
-        # idct automatically normalized with sqrt(n/2)
+        # idct normalized with sqrt(n/L)
         grf = idct(u_hat, type=2, norm="ortho", axis=-1)
+        grf *= np.sqrt(n/L)
         # since grf uses cell center grid xc
         # interpolate to physical grid x containing the boundary of the domain [0, L]
         xc = np.arange(1/(2*n), (2*n+1)/(2*n), 1/n) * L # IDCT grid
         func_interp = interp1d(xc, grf, kind='cubic', fill_value='extrapolate')
         grf = func_interp(x)
+        
+        
 
         
     elif bc_name == 'dirichlet':  
@@ -100,9 +103,10 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         # Transform back to interior values
         grf = np.zeros((m, n), dtype=float)
 
-        # idct automatically normalized with sqrt(n-1/2)
+        # idst normalized with sqrt((n-1)/L)
         grf[:, 1:-1] = idst(u_hat, type=1, norm="ortho", axis=-1)
-   
+
+        grf[:, 1:-1] /= np.sqrt(dx)
     
     
         
@@ -123,14 +127,15 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         u_hat[:, 0] = 0.0 
         
         idx = np.arange(1, k.size - 1)
-        u_hat[:, -1] = rng.normal(size=m) * eigs[-1] + 0j
+        # Exclude Nyquist mode
+        u_hat[:, -1] = 0.0
         re = rng.normal(size=(m, idx.size)) * (eigs[idx] * np.sqrt(n/2.0))
         im = rng.normal(size=(m, idx.size)) * (eigs[idx] * np.sqrt(n/2.0))
         u_hat[:, idx] = re + 1j * im
 
         # Transform back to real-space samples
         grf = np.fft.irfft(u_hat, axis=-1)
-    
+        grf /= np.sqrt(dx)
     else:
         raise ValueError(f"bc_name '{bc_name}' is not in ['neumann', 'dirichlet', 'periodic']")
 
@@ -141,7 +146,7 @@ def gaussian_random_field_1d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
 def gaussian_random_field_1d_test():        
     # parameters
     m = 10000
-    n = 512          # total grid points 
+    n = 1024          # total grid points 
     L = 2*np.pi
     tau = 2.0
     alpha = 2.0
@@ -150,12 +155,12 @@ def gaussian_random_field_1d_test():
     
     bc_name = "periodic"
     x = np.linspace(0, L, n, endpoint=False)
-    dx = L/n
+    dx = L / n
     # generate samples (interior only)
     u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u, compute_uv=True, full_matrices=False)
-    svals_hat = svals_hat/np.sqrt(m)
+    svals_hat = svals_hat/np.sqrt(m)*np.sqrt(dx)
     
     k = 2 * np.pi * np.arange(1, n//2+1) / L  # 2pi*0/L, 2pi*1/L, ... 2pi*(n/2)/L
     eigs = sigma * (k**2 + tau**2) ** (-0.5 * alpha)
@@ -192,12 +197,12 @@ def gaussian_random_field_1d_test():
 
     bc_name = "dirichlet"
     x = np.linspace(0, L, n, endpoint=True)
-    dx = L/(n - 1)
+    dx = L / (n-1)
     # generate samples (interior only)
     u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u, compute_uv=True, full_matrices=False)
-    svals_hat = svals_hat/np.sqrt(m)
+    svals_hat = svals_hat/np.sqrt(m)*np.sqrt(dx)
     
     k = np.pi * np.arange(1, n - 1) / L  # 2pi*0/L, 2pi*1/L, ... 2pi*(n-2)/L
     eigs = sigma * (k**2 + tau**2) ** (-0.5 * alpha) 
@@ -233,13 +238,12 @@ def gaussian_random_field_1d_test():
 
     bc_name = "neumann"
     x = np.linspace(0, L, n, endpoint=True)
-    dx = L/(n-1)
     # generate samples (interior only)
     u = gaussian_random_field_1d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
 
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u, compute_uv=True, full_matrices=False)
-    svals_hat = svals_hat/np.sqrt(m)
+    svals_hat = svals_hat/np.sqrt(m)*np.sqrt(L/n)
     
     k = np.pi * np.arange(1, n) / L  # 2pi*1/L, ... 2pi*(n - 1)/L
     eigs = sigma * (k**2 + tau**2) ** (-0.5 * alpha) 
@@ -329,9 +333,7 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
     if bc_name == 'neumann':  
         # grid 
         n1, n2 = n 
-        assert(n1 % 2 == 0 and n2 % 2 == 0)
         L1, L2 = L
-        dx1, dx2 = L1 / n1, L2 / n2
         x1, x2 = np.linspace(0, L1, n1, endpoint=True), np.linspace(0, L2, n2, endpoint=True)
 
         k1 = np.pi * np.arange(n1) / L1   #0, pi*1/L1, pi*1/L1, ... pi*(n1-1)/L1
@@ -347,8 +349,10 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         # zero_mean:
         u_hat[:, 0, 0] = 0.0
 
-        # idct automatically normalized with sqrt(n/2)
+        # idct normalized with sqrt(n/L)
         grf = idctn(u_hat, type=2, norm="ortho", axes=(-2,-1))
+        grf *= np.sqrt(n1/L1 * n2/L2)
+        
         # since grf uses cell center grid xc
         # interpolate to physical grid x containing the boundary of the domain [0,L]
         x1c, x2c = np.arange(1/(2*n1), (2*n1+1)/(2*n1), 1/n1) * L1, np.arange(1/(2*n2), (2*n2+1)/(2*n2), 1/n2) * L2  # IDCT grid
@@ -364,14 +368,12 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
 
         
     elif bc_name == 'dirichlet':
-
         # grid
         n1, n2 = n 
-        assert(n1 % 2 == 0 and n2 % 2 == 0)
         L1, L2 = L
-        dx1, dx2 = L1 / n1, L2 / n2
         x1, x2 = np.linspace(0, L1, n1, endpoint=True), np.linspace(0, L2, n2, endpoint=True)
-
+        dx1, dx2 = L1 / (n1 - 1), L2 / (n2 - 1)
+        
         k1 = np.pi * np.arange(1, n1 - 1) / L1   #pi*1/L1, ... pi*(n1-2)/L1
         k2 = np.pi * np.arange(1, n2 - 1) / L2   #pi*1/L2, ... pi*(n2-2)/L2
         # Make 2D frequency grids of shape (n1-2, n2-2)
@@ -385,9 +387,9 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         # Transform back to interior values
         grf = np.zeros((m, n1, n2), dtype=float)
 
-        # idct automatically normalized with sqrt(n-1/2)
+        # idstn normalized with sqrt(n-1/L)
         grf[:, 1:-1, 1:-1] = idstn(u_hat, type=1, norm="ortho", axes=(-2,-1))
-
+        grf /= np.sqrt(dx1 * dx2)
  
         
     elif bc_name == 'periodic': 
@@ -422,21 +424,21 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
         im = rng.normal(size=(m, idx1.size)) * (eigs[idx1,0] * np.sqrt(n1*n2/2))
         u_hat[:, idx1, 0]  = re + 1j * im
         u_hat[:, -idx1, 0] = re - 1j * im
-        u_hat[:, n1//2, 0]  = rng.normal(size=(m)) * (eigs[n1//2,0] * np.sqrt(n1*n2/2))
+        u_hat[:, n1//2, 0]  = rng.normal(size=(m)) * (eigs[n1//2,0] * np.sqrt(n1*n2))
 
         # n2//2 Nyquist frequency is also special since it's real-valued
         re = rng.normal(size=(m, idx1.size)) * (eigs[idx1,-1] * np.sqrt(n1*n2/2))
         im = rng.normal(size=(m, idx1.size)) * (eigs[idx1,-1] * np.sqrt(n1*n2/2))
         u_hat[:, idx1, -1]  = re + 1j * im
         u_hat[:, -idx1, -1] = re - 1j * im
-        u_hat[:, n1//2, -1]  = rng.normal(size=(m)) * (eigs[n1//2,-1] * np.sqrt(n1*n2/2))
+        u_hat[:, n1//2, -1]  = rng.normal(size=(m)) * (eigs[n1//2,-1] * np.sqrt(n1*n2))
         
         # zero-mean
         u_hat[:, 0, 0] = 0.0 
 
         # Transform back to real-space samples
         grf = np.fft.irfft2(u_hat, axes=(-2, -1))
-    
+        grf /= np.sqrt(dx1 * dx2)
     else:
         raise ValueError(f"bc_name '{bc_name}' is not in ['neumann', 'dirichlet', 'periodic']")
 
@@ -445,8 +447,9 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
 def gaussian_random_field_2d_test():   
     print("gaussian_random_field_2d_test")     
     # parameters
-    m = 10000
+    m = 100
     n1, n2 = 128, 64
+    n1, n2 = 512, 64
     L1, L2 = 2*np.pi, 2*np.pi
     k1, k2 = 64, 32
     n = [n1, n2]          # total grid points 
@@ -463,7 +466,7 @@ def gaussian_random_field_2d_test():
     u = gaussian_random_field_2d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u.reshape(-1,n1*n2), compute_uv=True, full_matrices=False)
-    svals_hat = svals_hat/np.sqrt(m)
+    svals_hat = svals_hat/np.sqrt(m)*np.sqrt(dx1*dx2)
     
     # Make 2D frequency grids of shape (n2, n1)
     k1 = 2.0 * np.pi * np.fft.fftfreq(n1, d=dx1)   # 2pi*0/L1, 2pi*1/L1, ... -2pi*(n1/2)/L1, -2pi*(n1/2-1)/L1, ..., -2pi*1/L1
@@ -478,7 +481,8 @@ def gaussian_random_field_2d_test():
     print("reference eigvals: ",eigs_seq[0:5])
     
     fig, axes = plt.subplots(1,2, figsize = (12, 6))
-    axes[0].pcolormesh(x1, x2, u[0,:,:].T)
+    im = axes[0].pcolormesh(x1, x2, u[0,:,:].T)
+    plt.colorbar(im, ax=axes[0])
     axes[0].set_xlabel("x_1")
     axes[0].set_ylabel("x_2")
     axes[0].set_title(f"Gaussian random field with {bc_name}")
@@ -500,7 +504,7 @@ def gaussian_random_field_2d_test():
     u = gaussian_random_field_2d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u.reshape(-1,n1*n2), compute_uv=True, full_matrices=False)
-    svals_hat = svals_hat/np.sqrt(m)
+    svals_hat = svals_hat/np.sqrt(m)*np.sqrt(dx1*dx2)
     
     k1 = np.pi * np.arange(1, n1 - 1) / L1   #pi*1/L1, ... pi*(n1-2)/L1
     k2 = np.pi * np.arange(1, n2 - 1) / L2   #pi*1/L2, ... pi*(n2-2)/L2
@@ -516,7 +520,8 @@ def gaussian_random_field_2d_test():
     print("reference eigvals: ",eigs_seq[0:5])
 
     fig, axes = plt.subplots(1,2, figsize = (12, 6))
-    axes[0].pcolormesh(x1, x2, u[0,:,:].T)
+    im = axes[0].pcolormesh(x1, x2, u[0,:,:].T)
+    plt.colorbar(im, ax=axes[0])
     axes[0].set_xlabel("x_1")
     axes[0].set_ylabel("x_2")
     axes[0].set_title(f"Gaussian random field with {bc_name}")
@@ -539,7 +544,7 @@ def gaussian_random_field_2d_test():
     u = gaussian_random_field_2d(m=m, n=n, L=L, sigma=sigma, tau=tau, alpha=alpha, bc_name = bc_name, seed=0, k_max = k_max)
     # sample covariance in physical space
     U, svals_hat, V = np.linalg.svd(u.reshape(-1,n1*n2), compute_uv=True, full_matrices=False)
-    svals_hat = svals_hat/np.sqrt(m)
+    svals_hat = svals_hat/np.sqrt(m)*np.sqrt(L1*L2/n1/n2)
     
     k1 = np.pi * np.arange(n1) / L1   #0, pi*1/L1, pi*1/L1, ... pi*(n1-1)/L1
     k2 = np.pi * np.arange(n2) / L2   #0, pi*1/L2, pi*1/L2, ... pi*(n2-1)/L2
@@ -555,7 +560,8 @@ def gaussian_random_field_2d_test():
     print("reference eigvals: ",eigs_seq[0:5])
 
     fig, axes = plt.subplots(1,2, figsize = (12, 6))
-    axes[0].pcolormesh(x1, x2, u[0,:,:].T)
+    im = axes[0].pcolormesh(x1, x2, u[0,:,:].T)
+    plt.colorbar(im, ax=axes[0])
     axes[0].set_xlabel("x_1")
     axes[0].set_ylabel("x_2")
     axes[0].set_title(f"Gaussian random field with {bc_name}")
@@ -570,5 +576,6 @@ def gaussian_random_field_2d_test():
     plt.show()
 
 if __name__ == "__main__":
-    gaussian_random_field_1d_test()
+    # gaussian_random_field_1d_test()
+    
     gaussian_random_field_2d_test()

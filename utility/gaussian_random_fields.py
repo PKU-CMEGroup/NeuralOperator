@@ -147,7 +147,7 @@ def gaussian_random_field_1d_test():
     # parameters
     m = 10000
     n = 1024          # total grid points 
-    L = 2*np.pi
+    L = 1.5
     tau = 2.0
     alpha = 2.0
     sigma = 1.0
@@ -447,9 +447,8 @@ def gaussian_random_field_2d(m, n, L, sigma, tau, alpha, bc_name, seed = None, k
 def gaussian_random_field_2d_test():   
     print("gaussian_random_field_2d_test")     
     # parameters
-    m = 100
+    m = 10000
     n1, n2 = 128, 64
-    n1, n2 = 512, 64
     L1, L2 = 2*np.pi, 2*np.pi
     k1, k2 = 64, 32
     n = [n1, n2]          # total grid points 
@@ -576,6 +575,5 @@ def gaussian_random_field_2d_test():
     plt.show()
 
 if __name__ == "__main__":
-    # gaussian_random_field_1d_test()
-    
+    gaussian_random_field_1d_test()
     gaussian_random_field_2d_test()

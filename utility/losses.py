@@ -2,7 +2,182 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+class LpLoss(object):
+    """
+    Lp loss function with support for absolute and relative errors.
+    
+    This loss function computes the Lp norm of the difference between predictions
+    and targets, either as an absolute error or relative to the target magnitude.
+    It assumes the data lives on a uniform grid and properly scales the norm by
+    the grid spacing to approximate continuous integrals.
+    
+    Mathematical formulation for absolute loss:
+        L_abs = (h^d)^(1/p) * ||x - y||_p
+        where h is grid spacing, d is dimension, and ||·||_p is the discrete p-norm
+    
+    For relative loss:
+        L_rel = ||x - y||_p / ||y||_p
+    
+    The scaling by h^(d/p) ensures that the loss approximates the continuous
+    integral: (∫ |x-y|^p dΩ)^(1/p)
+    
+    Attributes:
+        d (int): Spatial dimension of the domain (1, 2, or 3)
+        p (int): Exponent in Lp norm (1 for MAE, 2 for MSE-like)
+        reduction (bool): Whether to reduce batch dimension
+        size_average (bool): If True, average over batch; if False, sum
+    """
+    def __init__(self, d=2, p=2, size_average=True, reduction=True):
+        """
+        Initialize Lp loss function.
+        
+        Args:
+            d: Spatial dimension of the domain (1, 2, or 3). Used to compute
+               proper scaling factor for grid spacing. Default: 2
+            p: Exponent in Lp norm. Common choices:
+               - p=1: Mean Absolute Error (MAE) / L1 norm
+               - p=2: Root Mean Square Error (RMSE) / L2 norm
+               Default: 2
+            size_average: If True, average loss over batch dimension.
+                         If False, sum over batch dimension.
+                         Only applies when reduction=True. Default: True
+            reduction: If True, reduce batch dimension (average or sum).
+                      If False, return per-sample losses. Default: True
+        
+        Examples:
+            >>> # L2 loss for 2D problems (e.g., image data)
+            >>> loss_fn = LpLoss(d=2, p=2)
+            >>> 
+            >>> # L1 loss for 1D problems with per-sample output
+            >>> loss_fn = LpLoss(d=1, p=1, reduction=False)
+            >>> 
+            >>> # Relative L2 loss (scale-invariant)
+            >>> predictions = model(x)
+            >>> rel_loss = loss_fn(predictions, targets)  # Uses rel() by default
+            >>> abs_loss = loss_fn.abs(predictions, targets)
+        """
+        super(LpLoss, self).__init__()
 
+        #Dimension and Lp-norm type are postive
+        assert d > 0 and p > 0
+
+        self.d = d
+        self.p = p
+        self.reduction = reduction
+        self.size_average = size_average
+
+    def abs(self, x, y):
+        """
+        Compute absolute Lp loss with proper scaling for continuous domain.
+        
+        The loss approximates: (∫_Ω |x - y|^p dΩ)^(1/p)
+        For discrete points on uniform grid, this becomes:
+            L_abs = (h^d)^(1/p) * (∑|x_i - y_i|^p)^(1/p)
+        
+        Args:
+            x: Prediction tensor of shape (batch_size, n_points, ...)
+            y: Target tensor of shape (batch_size, n_points, ...)
+               Must be broadcastable to x's shape.
+        
+        Returns:
+            If reduction=True: Scalar loss value (averaged or summed over batch)
+            If reduction=False: Tensor of per-sample losses of shape (batch_size,)
+        
+        Examples:
+            >>> loss_fn = LpLoss(d=2, p=2)
+            >>> pred = torch.randn(32, 4096, 1)  # 32 samples, 64x64 grid
+            >>> target = torch.randn(32, 4096, 1)
+            >>> abs_loss = loss_fn.abs(pred, target)
+        """
+        
+        num_examples = x.size()[0]
+
+        #Assume uniform mesh, the first dim is the batch size
+        h = 1.0 / (x.size()[1] - 1.0)
+
+        all_norms = (h**(self.d/self.p))*torch.norm(x.view(num_examples,-1) - y.view(num_examples,-1), self.p, 1)
+
+        if self.reduction:
+            if self.size_average:
+                return torch.mean(all_norms)
+            else:
+                return torch.sum(all_norms)
+
+        return all_norms
+
+    def rel(self, x, y):
+        """
+        Compute relative Lp loss (scale-invariant).
+        
+        The relative loss is defined as:
+            L_rel = ||x - y||_p / ||y||_p
+        
+        This loss is scale-invariant and often preferred for PDE problems
+        where the magnitude of the solution can vary significantly across
+        different input parameters.
+        
+        Args:
+            x: Prediction tensor of shape (batch_size, n_points, ...)
+            y: Target tensor of shape (batch_size, n_points, ...)
+               Must be broadcastable to x's shape.
+        
+        Returns:
+            If reduction=True: Scalar loss value (averaged or summed over batch)
+            If reduction=False: Tensor of per-sample relative losses
+        
+        Examples:
+            >>> loss_fn = LpLoss(d=2, p=2)
+            >>> pred = torch.randn(32, 4096, 1)
+            >>> target = torch.randn(32, 4096, 1)
+            >>> 
+            >>> # Relative loss (scale-invariant)
+            >>> rel_loss = loss_fn.rel(pred, target)
+            >>> 
+            >>> # This is the same as calling loss_fn directly
+            >>> rel_loss = loss_fn(pred, target)
+        
+        """
+        num_examples = x.size()[0]
+
+        diff_norms = torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
+        y_norms = torch.norm(y.reshape(num_examples,-1), self.p, 1)
+
+        if self.reduction:
+            if self.size_average:
+                return torch.mean(diff_norms/y_norms)
+            else:
+                return torch.sum(diff_norms/y_norms)
+
+        return diff_norms/y_norms
+
+    def __call__(self, x, y):
+        """
+        Compute relative loss.
+        
+        Args:
+            x: Prediction tensor
+            y: Target tensor
+        
+        Returns:
+            Loss value (scalar if reduction=True, else per-sample tensor)
+        
+        Examples:
+            >>> loss_fn = LpLoss(d=2, p=2)
+            >>> 
+            >>> # Default: relative loss
+            >>> loss = loss_fn(pred, target)
+        """
+        return self.rel(x, y)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 def FDM_Darcy(u, a, D=1):
     batchsize = u.size(0)
     size = u.size(1)
@@ -149,53 +324,7 @@ def AD_loss(u, u0, grid, index_ic=None, p=None, q=None):
     return loss_ic, loss_f
 
 
-class LpLoss(object):
-    '''
-    loss function with rel/abs Lp loss
-    '''
-    def __init__(self, d=2, p=2, size_average=True, reduction=True):
-        super(LpLoss, self).__init__()
 
-        #Dimension and Lp-norm type are postive
-        assert d > 0 and p > 0
-
-        self.d = d
-        self.p = p
-        self.reduction = reduction
-        self.size_average = size_average
-
-    def abs(self, x, y):
-        num_examples = x.size()[0]
-
-        #Assume uniform mesh
-        h = 1.0 / (x.size()[1] - 1.0)
-
-        all_norms = (h**(self.d/self.p))*torch.norm(x.view(num_examples,-1) - y.view(num_examples,-1), self.p, 1)
-
-        if self.reduction:
-            if self.size_average:
-                return torch.mean(all_norms)
-            else:
-                return torch.sum(all_norms)
-
-        return all_norms
-
-    def rel(self, x, y):
-        num_examples = x.size()[0]
-
-        diff_norms = torch.norm(x.reshape(num_examples,-1) - y.reshape(num_examples,-1), self.p, 1)
-        y_norms = torch.norm(y.reshape(num_examples,-1), self.p, 1)
-
-        if self.reduction:
-            if self.size_average:
-                return torch.mean(diff_norms/y_norms)
-            else:
-                return torch.sum(diff_norms/y_norms)
-
-        return diff_norms/y_norms
-
-    def __call__(self, x, y):
-        return self.rel(x, y)
 
 
 def FDM_Burgers(u, D=1, v=1/100):

@@ -713,7 +713,7 @@ def convert_structured_data(coords_list:List[np.ndarray], features:np.ndarray, n
     ndata, *dims = coords_list[0].shape
     nnodes = prod(dims)
     # construct nodes
-    nodes = np.stack((coords_list[i].reshape((ndata, nnodes)) for i in range(ndims)), axis=2)
+    nodes = np.stack([coords_list[i].reshape((ndata, nnodes)) for i in range(ndims)], axis=2)
     # construct features
     if feature_include_coords :
         nfeatures = features.shape[-1] + ndims
@@ -731,11 +731,11 @@ def convert_structured_data(coords_list:List[np.ndarray], features:np.ndarray, n
         for i in range(nx-1):
             for j in range(ny-1):
                 ie = i*(ny-1) + j   #element id
-                #node ids clockwise
-                #   1 ---------2
+                #node ids counterclockwise
+                #   3 ---------2
                 #  /          /
-                # 0 -------- 3
-                ins = [i*ny+j, i*ny+j+1, (i+1)*ny+j+1, (i+1)*ny+j]  
+                # 0 -------- 1
+                ins = [i*ny+j, (i+1)*ny+j, (i+1)*ny+j+1, i*ny+j+1]  
                 if nnodes_per_elem == 4:
                     elems[ie, :] = 2, ins[0], ins[1], ins[2], ins[3]
                 else:

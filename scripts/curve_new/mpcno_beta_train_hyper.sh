@@ -10,10 +10,10 @@
 #SBATCH --array=0-3 
 
 # ========== params ==========
-KERNEL_TYPE="fourier_param-10"
+KERNEL_TYPE="fourier_param-8"
 
-GRAD="True"
-GEO="True"
+GRAD="False"
+GEO="False"
 GEOINTEGRAL="False"
 
 N_TRAIN=8000
@@ -28,7 +28,7 @@ GEO_ACT='softsign'
 PROJ_ACT='gelu'
 
 # 新增 beta 范围参数
-BETA_LOW=1.0
+BETA_LOW=0.5
 BETA_HIGH=1.0
 
 K_MAX_VALUES=(4 8 16 32)
@@ -57,6 +57,6 @@ python mpcno_curve_beta_test_hyper.py \
     --layer_sizes $LAYER_SIZES_STR \
     --act $ACT \
     --bsz $BATCH_SIZE \
-    --data_path "mpcno_curve_data_1.0_1.0_5_beta(1.0, 1.0)_2d_fourier_param_k_max_8_beta_random_panel_single.npz" \
-    --two_circles_data_path "mpcno_curve_data_1.0_1.0_5_beta(1.0, 1.0)_2d_fourier_param_k_max_8_beta_random_panel_two_curves.npz" \
+    --data_path "mpcno_curve_data_1.0_1.0_5_beta(0.5, 1.0)_2d_fourier_param_k_max_8_beta_random_panel_single.npz" \
+    --two_circles_data_path "mpcno_curve_data_1.0_1.0_5_beta(0.5, 1.0)_2d_fourier_param_k_max_8_beta_random_panel_two_curves.npz" \
     > ${LOG_DIR}/k${K_MAX}_L10_bsz${BATCH_SIZE}_factor${TO_DIVIDE_FACTOR}_grad${GRAD}_geo${GEO}_geoint${GEOINTEGRAL}_beta${BETA_LOW}-${BETA_HIGH}.log

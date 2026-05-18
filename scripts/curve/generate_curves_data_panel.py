@@ -585,7 +585,7 @@ if __name__ == "__main__":
     freq_scale = 1
     k_curve = 5
     f_random_config = ["2d"]
-    kernel_type = 'sp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'interior_laplace_dirichlet' or 'exterior_laplace_dirichlet' or 'exterior_laplace_neumann'
+    kernel_type = 'dp_laplace'  # 'sp_laplace' or 'dp_laplace' or 'adjoint_dp_laplace' or 'stokes' or 'modified_dp_laplace' or 'fredholm_laplace' or 'interior_laplace_dirichlet' or 'exterior_laplace_dirichlet' or 'exterior_laplace_neumann'
 
     deform = True
     deform_configs = [200, 1, 0.1, [-2.5,2.5,-2.5,2.5]]   # M, sigma, epsilon, bbox
@@ -593,7 +593,7 @@ if __name__ == "__main__":
     visualization = True
     save_data_to_pcno_format = True
     
-    two_circles = True  # generate two circles data for interaction kernel testing
+    two_circles = False  # generate two circles data for interaction kernel testing
 
     np.random.seed(seed)
     if not two_circles:

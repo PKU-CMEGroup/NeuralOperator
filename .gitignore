@@ -6,3 +6,5 @@ utility/__pycache__/
 models/__pycache__/
 mytest/__pycache__/
 baselines/__pycache__/
+scripts/curve_beta/log/
+scripts/curve_new/log/

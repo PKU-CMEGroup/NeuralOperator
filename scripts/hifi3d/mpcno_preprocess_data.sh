@@ -26,9 +26,22 @@ set -euo pipefail
 #   SEED=0
 #   CONDA_ENV=pytorch
 #   DATASET=BlendedNet            # process only one dataset
+#   REPO_ROOT=/path/to/NeuralOperator
 
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+if [[ -n "${REPO_ROOT:-}" ]]; then
+    REPO_ROOT="$(cd "${REPO_ROOT}" && pwd)"
+elif [[ -f "${SUBMIT_DIR}/scripts/hifi3d/preprocess_hifi3d.py" ]]; then
+    REPO_ROOT="$(cd "${SUBMIT_DIR}" && pwd)"
+elif [[ -f "${SCRIPT_DIR}/preprocess_hifi3d.py" ]]; then
+    REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+else
+    echo "Error: could not infer NeuralOperator repository root." >&2
+    echo "Submit from the repository root or set REPO_ROOT=/path/to/NeuralOperator." >&2
+    exit 2
+fi
 cd "${REPO_ROOT}"
 
 DATA_ROOT="${DATA_ROOT:-data/HiFi3D}"

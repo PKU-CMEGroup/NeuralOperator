@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 AUTO_MU_FIELDS = {
     "AirCraft": ["Ma", "alpha", "beta"],
-    "NACA-CRM": ["Mach", "AlphaMean", "aileronInboard", "aileronOutboard", "elevator", "htp"],
+    "NACA-CRM": ["Mach", "AlphaMean"],
     "BlendedNet": ["M_inf", "alpha_deg", "log10_Re", "alt_kft"],
 }
 
@@ -89,6 +89,7 @@ def main() -> None:
     parser.add_argument("--layer_sizes", type=str, default="16,16,16")
     parser.add_argument("--fc_dim", type=int, default=32)
     parser.add_argument("--lr", type=float, default=5.0e-4)
+    parser.add_argument("--weight_decay", type=float, default=1.0e-4)
     parser.add_argument("--grad", type=str, default="True", choices=["True", "False"])
     parser.add_argument("--geo", type=str, default="True", choices=["True", "False"])
     parser.add_argument("--geointegral", type=str, default="True", choices=["True", "False"])
@@ -97,6 +98,7 @@ def main() -> None:
     parser.add_argument("--Ls", type=str, default="")
     parser.add_argument("--train_inv_L_scale", type=str, default="False", choices=["False", "together", "independently"])
     parser.add_argument("--save_model_name", type=str, default="")
+    parser.add_argument("--split_mode", type=str, default="random", choices=["random", "metadata"])
     parser.add_argument("--use_mu", type=str, default="False", choices=["True", "False"])
     parser.add_argument("--metadata_dir", type=Path, default=Path("data/HiFi3D_metadata"))
     parser.add_argument(
@@ -118,13 +120,29 @@ def main() -> None:
     data = np.load(args.data_npz)
     names = np.load(args.names, allow_pickle=True) if args.names.exists() else None
     ndata = data["nodes"].shape[0]
-    if args.n_train + args.n_test > ndata:
+    use_mu = args.use_mu.lower() == "true"
+    if args.split_mode == "random" and args.n_train + args.n_test > ndata:
         raise ValueError(f"Need n_train+n_test <= {ndata}, got {args.n_train + args.n_test}")
+    if (use_mu or args.split_mode == "metadata") and names is None:
+        raise ValueError("--use_mu True or --split_mode metadata requires a valid --names file")
 
-    rng = np.random.default_rng(args.seed)
-    order = rng.permutation(ndata)
-    train_idx = order[: args.n_train]
-    test_idx = order[args.n_train : args.n_train + args.n_test]
+    metadata = None
+    if use_mu or args.split_mode == "metadata":
+        metadata = _load_metadata(args.metadata_dir)
+
+    if args.split_mode == "metadata":
+        train_idx, test_idx = _split_from_metadata(
+            names,
+            metadata,
+            n_train=args.n_train,
+            n_test=args.n_test,
+            seed=args.seed,
+        )
+    else:
+        rng = np.random.default_rng(args.seed)
+        order = rng.permutation(ndata)
+        train_idx = order[: args.n_train]
+        test_idx = order[args.n_train : args.n_train + args.n_test]
 
     if names is not None:
         print("Train datasets:", _count_datasets(names[train_idx]), flush=True)
@@ -132,10 +150,7 @@ def main() -> None:
 
     node_weights_array = _make_node_weights(data, args.weight_mode, args.weight_factor)
     mu_array = None
-    if args.use_mu.lower() == "true":
-        if names is None:
-            raise ValueError("--use_mu True requires a valid --names file")
-        metadata = _load_metadata(args.metadata_dir)
+    if use_mu:
         mu_fields = _resolve_mu_fields(args.mu_fields, names)
         mu_array = _build_mu_array(names, metadata, mu_fields, missing=args.mu_missing)
         if args.mu_normalize.lower() == "true":
@@ -214,7 +229,7 @@ def main() -> None:
         "train": {
             "base_lr": args.lr,
             "lr_ratio": 10,
-            "weight_decay": 1.0e-4,
+            "weight_decay": args.weight_decay,
             "epochs": args.epochs,
             "scheduler": "OneCycleLR",
             "batch_size": args.batch_size,
@@ -250,6 +265,48 @@ def _count_datasets(names: np.ndarray) -> dict[str, int]:
         dataset = str(name).rsplit("-", 1)[0]
         counts[dataset] = counts.get(dataset, 0) + 1
     return counts
+
+
+def _split_from_metadata(
+    names: np.ndarray,
+    metadata: dict[str, dict[str, str]],
+    *,
+    n_train: int,
+    n_test: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    train_idx: list[int] = []
+    test_idx: list[int] = []
+    for i, raw_name in enumerate(names):
+        name = str(raw_name)
+        row = metadata.get(name)
+        if row is None:
+            raise KeyError(f"Missing metadata row for {name}")
+        split = row.get("split", "")
+        if split == "train":
+            train_idx.append(i)
+        elif split == "test":
+            test_idx.append(i)
+        else:
+            raise ValueError(f"Metadata row for {name} has no train/test split")
+
+    rng = np.random.default_rng(seed)
+    train_idx_array = np.asarray(train_idx, dtype=np.int64)
+    test_idx_array = np.asarray(test_idx, dtype=np.int64)
+    rng.shuffle(train_idx_array)
+    rng.shuffle(test_idx_array)
+    if n_train > len(train_idx_array):
+        raise ValueError(f"Requested n_train={n_train}, but metadata split has {len(train_idx_array)} train samples")
+    if n_test > len(test_idx_array):
+        raise ValueError(f"Requested n_test={n_test}, but metadata split has {len(test_idx_array)} test samples")
+    train_idx_array = train_idx_array[:n_train]
+    test_idx_array = test_idx_array[:n_test]
+    print(
+        f"Using metadata split: train={len(train_idx_array)}/{len(train_idx)}, "
+        f"test={len(test_idx_array)}/{len(test_idx)}",
+        flush=True,
+    )
+    return train_idx_array, test_idx_array
 
 
 def _load_metadata(metadata_dir: Path) -> dict[str, dict[str, str]]:

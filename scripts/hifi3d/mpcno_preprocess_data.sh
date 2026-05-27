@@ -18,21 +18,26 @@ set -euo pipefail
 # runs six array tasks, one per dataset, and writes one full cache per dataset.
 #
 # Useful overrides:
-#   DATA_ROOT=data/HiFi3D
-#   OUTPUT_DIR=data/HiFi3D_processed/cache
+#   REPO_ROOT=/lustre/home/2200010815/neuralop/NeuralOperator
+#   DATA_ROOT=${REPO_ROOT}/data/HiFi3D
+#   OUTPUT_DIR=${REPO_ROOT}/data/hifi3d_processed/cache
 #   MESH_TYPE=cell_centered       # cell_centered or vertex_centered
 #   ADJACENT_TYPE=edge            # node, edge, or face
 #   N_EACH=0                      # 0 means full dataset
 #   SEED=0
-#   CONDA_ENV=pytorch
+#   CONDA_ENV=geometry
+#   PYTHON=/lustre/home/2200010815/software/miniconda3/envs/geometry/bin/python
 #   DATASET=BlendedNet            # process only one dataset
-#   REPO_ROOT=/path/to/NeuralOperator
 
 SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_REPO_ROOT="/lustre/home/2200010815/neuralop/NeuralOperator"
+DEFAULT_PYTHON="/lustre/home/2200010815/software/miniconda3/envs/geometry/bin/python"
 
 if [[ -n "${REPO_ROOT:-}" ]]; then
     REPO_ROOT="$(cd "${REPO_ROOT}" && pwd)"
+elif [[ -f "${DEFAULT_REPO_ROOT}/scripts/hifi3d/preprocess_hifi3d.py" ]]; then
+    REPO_ROOT="${DEFAULT_REPO_ROOT}"
 elif [[ -f "${SUBMIT_DIR}/scripts/hifi3d/preprocess_hifi3d.py" ]]; then
     REPO_ROOT="$(cd "${SUBMIT_DIR}" && pwd)"
 elif [[ -f "${SCRIPT_DIR}/preprocess_hifi3d.py" ]]; then
@@ -44,14 +49,14 @@ else
 fi
 cd "${REPO_ROOT}"
 
-DATA_ROOT="${DATA_ROOT:-data/HiFi3D}"
-OUTPUT_DIR="${OUTPUT_DIR:-data/HiFi3D_processed/cache}"
+DATA_ROOT="${DATA_ROOT:-${REPO_ROOT}/data/HiFi3D}"
+OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/data/hifi3d_processed/cache}"
 MESH_TYPE="${MESH_TYPE:-cell_centered}"
 ADJACENT_TYPE="${ADJACENT_TYPE:-edge}"
 N_EACH="${N_EACH:-0}"
 SEED="${SEED:-0}"
-CONDA_ENV="${CONDA_ENV:-pytorch}"
-PYTHON_BIN="${PYTHON:-python}"
+CONDA_ENV="${CONDA_ENV:-geometry}"
+PYTHON_BIN="${PYTHON:-${DEFAULT_PYTHON}}"
 
 DATASETS=(
     "AirCraft"
@@ -63,6 +68,10 @@ DATASETS=(
 )
 
 load_conda_env() {
+    if [[ -x "${PYTHON_BIN}" ]]; then
+        return 0
+    fi
+
     if command -v module >/dev/null 2>&1; then
         module load conda || true
     fi
@@ -73,6 +82,10 @@ load_conda_env() {
         conda activate "${CONDA_ENV}"
     elif command -v source >/dev/null 2>&1; then
         source activate "${CONDA_ENV}"
+    fi
+
+    if [[ ! -x "${PYTHON_BIN}" ]]; then
+        PYTHON_BIN="$(command -v python)"
     fi
 }
 
@@ -99,6 +112,12 @@ validate_settings() {
         echo "Error: DATA_ROOT not found: ${DATA_ROOT}" >&2
         exit 2
     fi
+
+    if [[ ! -x "${PYTHON_BIN}" ]]; then
+        echo "Error: Python executable not found or not executable: ${PYTHON_BIN}" >&2
+        echo "Set PYTHON=/path/to/python or CONDA_ENV=${CONDA_ENV}." >&2
+        exit 2
+    fi
 }
 
 process_dataset() {
@@ -122,6 +141,7 @@ process_dataset() {
     echo "============================================================"
     echo "HiFi3D MPCNO preprocessing"
     echo "Repository: ${REPO_ROOT}"
+    echo "Data root: ${DATA_ROOT}"
     echo "Dataset: ${dataset}"
     echo "Input dir: ${mesh_dir}"
     echo "Input files: ${file_count}"
@@ -131,11 +151,12 @@ process_dataset() {
     echo "Adjacent type: ${ADJACENT_TYPE}"
     echo "N_EACH: ${N_EACH} (0 means full dataset)"
     echo "Seed: ${SEED}"
+    echo "Conda env: ${CONDA_ENV}"
     echo "Python: ${PYTHON_BIN}"
     echo "Started: $(date '+%Y-%m-%d %H:%M:%S')"
     echo "============================================================"
 
-    "${PYTHON_BIN}" scripts/hifi3d/preprocess_hifi3d.py \
+    "${PYTHON_BIN}" "${REPO_ROOT}/scripts/hifi3d/preprocess_hifi3d.py" \
         --data_root "${DATA_ROOT}" \
         --datasets "${dataset}" \
         --n_each "${N_EACH}" \
@@ -149,8 +170,8 @@ process_dataset() {
 }
 
 main() {
-    validate_settings
     load_conda_env
+    validate_settings
 
     export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
     export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"

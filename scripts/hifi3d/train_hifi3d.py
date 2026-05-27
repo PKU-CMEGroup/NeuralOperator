@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import os
 import sys
 from pathlib import Path
@@ -10,8 +11,35 @@ import torch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+AUTO_MU_FIELDS = {
+    "AirCraft": ["Ma", "alpha", "beta"],
+    "NACA-CRM": ["Mach", "AlphaMean", "aileronInboard", "aileronOutboard", "elevator", "htp"],
+    "BlendedNet": ["M_inf", "alpha_deg", "log10_Re", "alt_kft"],
+}
 
-def _make_tensors(data: np.lib.npyio.NpzFile, indices: np.ndarray, model_name: str, node_weights_array: np.ndarray):
+LEAKY_MU_FIELDS = {
+    "CA",
+    "CN",
+    "CZ",
+    "Cl",
+    "Cn",
+    "Cm",
+    "CD",
+    "CL",
+    "CMy",
+    "c_d",
+    "c_l",
+    "c_my",
+}
+
+
+def _make_tensors(
+    data: np.lib.npyio.NpzFile,
+    indices: np.ndarray,
+    model_name: str,
+    node_weights_array: np.ndarray,
+    mu_array: np.ndarray | None,
+):
     node_mask = torch.from_numpy(data["node_mask"][indices].astype(np.float32))
     nodes = torch.from_numpy(data["nodes"][indices].astype(np.float32))
     node_weights = torch.from_numpy(node_weights_array[indices].astype(np.float32))
@@ -21,6 +49,11 @@ def _make_tensors(data: np.lib.npyio.NpzFile, indices: np.ndarray, model_name: s
 
     normals = features[..., :3]
     x = torch.cat([normals, nodes], dim=-1)
+    if mu_array is not None:
+        mu = torch.from_numpy(mu_array[indices].astype(np.float32))
+        mu_nodes = mu[:, None, :].expand(-1, nodes.shape[1], -1)
+        x = torch.cat([x, mu_nodes], dim=-1)
+        x = x * node_mask
     y = features[..., -1:]
     if model_name == "mpcno":
         aux = (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, normals.permute(0, 2, 1))
@@ -64,6 +97,19 @@ def main() -> None:
     parser.add_argument("--Ls", type=str, default="")
     parser.add_argument("--train_inv_L_scale", type=str, default="False", choices=["False", "together", "independently"])
     parser.add_argument("--save_model_name", type=str, default="")
+    parser.add_argument("--use_mu", type=str, default="False", choices=["True", "False"])
+    parser.add_argument("--metadata_dir", type=Path, default=Path("data/HiFi3D_metadata"))
+    parser.add_argument(
+        "--mu_fields",
+        type=str,
+        default="auto",
+        help=(
+            "Comma-separated metadata fields to append as sample-level inputs. "
+            "Use 'auto' for dataset defaults."
+        ),
+    )
+    parser.add_argument("--mu_normalize", type=str, default="True", choices=["True", "False"])
+    parser.add_argument("--mu_missing", type=str, default="error", choices=["error", "zero"])
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -85,8 +131,23 @@ def main() -> None:
         print("Test datasets:", _count_datasets(names[test_idx]), flush=True)
 
     node_weights_array = _make_node_weights(data, args.weight_mode, args.weight_factor)
-    x_train, y_train, aux_train = _make_tensors(data, train_idx, args.model, node_weights_array)
-    x_test, y_test, aux_test = _make_tensors(data, test_idx, args.model, node_weights_array)
+    mu_array = None
+    if args.use_mu.lower() == "true":
+        if names is None:
+            raise ValueError("--use_mu True requires a valid --names file")
+        metadata = _load_metadata(args.metadata_dir)
+        mu_fields = _resolve_mu_fields(args.mu_fields, names)
+        mu_array = _build_mu_array(names, metadata, mu_fields, missing=args.mu_missing)
+        if args.mu_normalize.lower() == "true":
+            mu_array, mu_mean, mu_std = _normalize_mu(mu_array, train_idx)
+            print("Using normalized mu fields:", mu_fields, flush=True)
+            print("mu mean:", np.array2string(mu_mean, precision=6), flush=True)
+            print("mu std:", np.array2string(mu_std, precision=6), flush=True)
+        else:
+            print("Using raw mu fields:", mu_fields, flush=True)
+
+    x_train, y_train, aux_train = _make_tensors(data, train_idx, args.model, node_weights_array, mu_array)
+    x_test, y_test, aux_test = _make_tensors(data, test_idx, args.model, node_weights_array, mu_array)
     print(
         f"x_train={tuple(x_train.shape)} y_train={tuple(y_train.shape)} "
         f"x_test={tuple(x_test.shape)} y_test={tuple(y_test.shape)}",
@@ -189,6 +250,106 @@ def _count_datasets(names: np.ndarray) -> dict[str, int]:
         dataset = str(name).rsplit("-", 1)[0]
         counts[dataset] = counts.get(dataset, 0) + 1
     return counts
+
+
+def _load_metadata(metadata_dir: Path) -> dict[str, dict[str, str]]:
+    paths = _metadata_paths(metadata_dir)
+    records: dict[str, dict[str, str]] = {}
+    for path in paths:
+        with path.open(newline="", encoding="utf-8") as stream:
+            reader = csv.DictReader(stream, delimiter="\t")
+            if reader.fieldnames is None or "name" not in reader.fieldnames:
+                raise ValueError(f"Metadata file must contain a 'name' column: {path}")
+            for row in reader:
+                name = row["name"]
+                if name in records:
+                    raise ValueError(f"Duplicate metadata row for {name}")
+                records[name] = row
+    print(f"Loaded metadata rows: {len(records)} from {len(paths)} file(s) under {metadata_dir}", flush=True)
+    return records
+
+
+def _metadata_paths(metadata_dir: Path) -> list[Path]:
+    if metadata_dir.is_file():
+        return [metadata_dir]
+    if not metadata_dir.is_dir():
+        raise FileNotFoundError(f"Metadata path not found: {metadata_dir}")
+
+    patterns = [
+        "*_metadata.tsv",
+        "hifi3d_metadata.tsv",
+        "*/data/hifi3d_metadata.tsv",
+        "datasets/*/data/hifi3d_metadata.tsv",
+    ]
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for pattern in patterns:
+        for path in sorted(metadata_dir.glob(pattern)):
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            paths.append(path)
+    if not paths:
+        raise FileNotFoundError(f"No metadata TSV files found under {metadata_dir}")
+    return paths
+
+
+def _resolve_mu_fields(mu_fields: str, names: np.ndarray) -> list[str]:
+    if mu_fields != "auto":
+        fields = [field.strip() for field in mu_fields.split(",") if field.strip()]
+    else:
+        fields = []
+        for dataset in _count_datasets(names):
+            for field in AUTO_MU_FIELDS.get(dataset, []):
+                if field not in fields:
+                    fields.append(field)
+        if not fields:
+            raise ValueError("No auto mu fields are defined for the selected datasets")
+
+    risky = sorted(set(fields).intersection(LEAKY_MU_FIELDS))
+    if risky:
+        print(f"Warning: selected mu fields look like output coefficients and may leak labels: {risky}", flush=True)
+    return fields
+
+
+def _build_mu_array(
+    names: np.ndarray,
+    metadata: dict[str, dict[str, str]],
+    fields: list[str],
+    *,
+    missing: str,
+) -> np.ndarray:
+    mu = np.zeros((len(names), len(fields)), dtype=np.float32)
+    missing_items: list[str] = []
+    for i, raw_name in enumerate(names):
+        name = str(raw_name)
+        row = metadata.get(name)
+        if row is None:
+            if missing == "zero":
+                missing_items.append(name)
+                continue
+            raise KeyError(f"Missing metadata row for {name}")
+        for j, field in enumerate(fields):
+            value = row.get(field, "")
+            if value == "":
+                if missing == "zero":
+                    missing_items.append(f"{name}:{field}")
+                    continue
+                raise KeyError(f"Missing metadata field '{field}' for {name}")
+            mu[i, j] = float(value)
+
+    if missing_items:
+        preview = ", ".join(missing_items[:5])
+        print(f"Filled {len(missing_items)} missing mu values with zero. Examples: {preview}", flush=True)
+    return mu
+
+
+def _normalize_mu(mu: np.ndarray, train_idx: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    mu_mean = mu[train_idx].mean(axis=0)
+    mu_std = mu[train_idx].std(axis=0)
+    mu_std = np.where(mu_std > 1.0e-6, mu_std, 1.0)
+    return (mu - mu_mean) / mu_std, mu_mean, mu_std
 
 
 if __name__ == "__main__":

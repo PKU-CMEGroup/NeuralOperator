@@ -5,6 +5,7 @@ import csv
 import os
 import sys
 from pathlib import Path
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -98,7 +99,15 @@ def main() -> None:
     parser.add_argument("--Ls", type=str, default="")
     parser.add_argument("--train_inv_L_scale", type=str, default="False", choices=["False", "together", "independently"])
     parser.add_argument("--save_model_name", type=str, default="")
-    parser.add_argument("--split_mode", type=str, default="random", choices=["random", "metadata"])
+    parser.add_argument(
+        "--split_mode",
+        type=str,
+        default="random",
+        choices=["random", "metadata", "metadata_group", "metadata_condition"],
+    )
+    parser.add_argument("--split_group_field", type=str, default="geom_idx")
+    parser.add_argument("--condition_fields", type=str, default="Ma,alpha,beta")
+    parser.add_argument("--test_condition", type=str, default="")
     parser.add_argument("--use_mu", type=str, default="False", choices=["True", "False"])
     parser.add_argument("--metadata_dir", type=Path, default=Path("data/HiFi3D_metadata"))
     parser.add_argument(
@@ -121,19 +130,39 @@ def main() -> None:
     names = np.load(args.names, allow_pickle=True) if args.names.exists() else None
     ndata = data["nodes"].shape[0]
     use_mu = args.use_mu.lower() == "true"
+    metadata_split_modes = {"metadata", "metadata_group", "metadata_condition"}
     if args.split_mode == "random" and args.n_train + args.n_test > ndata:
         raise ValueError(f"Need n_train+n_test <= {ndata}, got {args.n_train + args.n_test}")
-    if (use_mu or args.split_mode == "metadata") and names is None:
-        raise ValueError("--use_mu True or --split_mode metadata requires a valid --names file")
+    if (use_mu or args.split_mode in metadata_split_modes) and names is None:
+        raise ValueError("--use_mu True or metadata-based split modes require a valid --names file")
 
     metadata = None
-    if use_mu or args.split_mode == "metadata":
+    if use_mu or args.split_mode in metadata_split_modes:
         metadata = _load_metadata(args.metadata_dir)
 
     if args.split_mode == "metadata":
         train_idx, test_idx = _split_from_metadata(
             names,
             metadata,
+            n_train=args.n_train,
+            n_test=args.n_test,
+            seed=args.seed,
+        )
+    elif args.split_mode == "metadata_group":
+        train_idx, test_idx = _split_by_metadata_group(
+            names,
+            metadata,
+            group_field=args.split_group_field,
+            n_train=args.n_train,
+            n_test=args.n_test,
+            seed=args.seed,
+        )
+    elif args.split_mode == "metadata_condition":
+        train_idx, test_idx = _split_by_metadata_condition(
+            names,
+            metadata,
+            fields=[field.strip() for field in args.condition_fields.split(",") if field.strip()],
+            test_condition=args.test_condition,
             n_train=args.n_train,
             n_test=args.n_test,
             seed=args.seed,
@@ -307,6 +336,151 @@ def _split_from_metadata(
         flush=True,
     )
     return train_idx_array, test_idx_array
+
+
+def _split_by_metadata_group(
+    names: np.ndarray,
+    metadata: dict[str, dict[str, str]],
+    *,
+    group_field: str,
+    n_train: int,
+    n_test: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    groups: dict[str, list[int]] = defaultdict(list)
+    for i, raw_name in enumerate(names):
+        name = str(raw_name)
+        row = metadata.get(name)
+        if row is None:
+            raise KeyError(f"Missing metadata row for {name}")
+        value = row.get(group_field, "")
+        if value == "":
+            raise KeyError(f"Missing metadata group field '{group_field}' for {name}")
+        groups[value].append(i)
+
+    rng = np.random.default_rng(seed)
+    group_keys = np.asarray(sorted(groups, key=_sort_key), dtype=object)
+    rng.shuffle(group_keys)
+
+    test_idx: list[int] = []
+    train_idx: list[int] = []
+    test_groups: list[str] = []
+    train_groups: list[str] = []
+    for group_key in group_keys:
+        group = groups[str(group_key)]
+        if len(test_idx) + len(group) <= n_test:
+            test_idx.extend(group)
+            test_groups.append(str(group_key))
+        else:
+            train_idx.extend(group)
+            train_groups.append(str(group_key))
+
+    if len(test_idx) != n_test:
+        raise ValueError(
+            f"metadata_group split created {len(test_idx)} test samples, "
+            f"but n_test={n_test}. Choose n_test compatible with group sizes."
+        )
+    if len(train_idx) < n_train:
+        raise ValueError(f"metadata_group split has only {len(train_idx)} train samples, but n_train={n_train}")
+
+    train_idx_array = np.asarray(train_idx, dtype=np.int64)
+    test_idx_array = np.asarray(test_idx, dtype=np.int64)
+    rng.shuffle(train_idx_array)
+    rng.shuffle(test_idx_array)
+    train_idx_array = train_idx_array[:n_train]
+    print(
+        f"Using metadata group split on '{group_field}': "
+        f"train_samples={len(train_idx_array)}, test_samples={len(test_idx_array)}, "
+        f"train_groups={len(train_groups)}, test_groups={len(test_groups)}, "
+        f"test_group_values={sorted(test_groups, key=_sort_key)}",
+        flush=True,
+    )
+    return train_idx_array, test_idx_array
+
+
+def _split_by_metadata_condition(
+    names: np.ndarray,
+    metadata: dict[str, dict[str, str]],
+    *,
+    fields: list[str],
+    test_condition: str,
+    n_train: int,
+    n_test: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    if not fields:
+        raise ValueError("--condition_fields must contain at least one field")
+    condition = _parse_condition(fields, test_condition)
+    train_idx: list[int] = []
+    test_idx: list[int] = []
+    for i, raw_name in enumerate(names):
+        name = str(raw_name)
+        row = metadata.get(name)
+        if row is None:
+            raise KeyError(f"Missing metadata row for {name}")
+        if all(_same_metadata_value(row.get(field, ""), value) for field, value in condition.items()):
+            test_idx.append(i)
+        else:
+            train_idx.append(i)
+
+    if len(train_idx) < n_train:
+        raise ValueError(f"metadata_condition split has only {len(train_idx)} train samples, but n_train={n_train}")
+    if len(test_idx) < n_test:
+        raise ValueError(f"metadata_condition split has only {len(test_idx)} test samples, but n_test={n_test}")
+
+    rng = np.random.default_rng(seed)
+    train_idx_array = np.asarray(train_idx, dtype=np.int64)
+    test_idx_array = np.asarray(test_idx, dtype=np.int64)
+    rng.shuffle(train_idx_array)
+    rng.shuffle(test_idx_array)
+    train_idx_array = train_idx_array[:n_train]
+    test_idx_array = test_idx_array[:n_test]
+    print(
+        f"Using metadata condition split: train_samples={len(train_idx_array)}, "
+        f"test_samples={len(test_idx_array)}, test_condition={condition}",
+        flush=True,
+    )
+    return train_idx_array, test_idx_array
+
+
+def _parse_condition(fields: list[str], test_condition: str) -> dict[str, str]:
+    if not test_condition:
+        raise ValueError("--test_condition is required for --split_mode metadata_condition")
+    if "=" in test_condition:
+        pairs = [item.strip() for item in test_condition.split(",") if item.strip()]
+        condition: dict[str, str] = {}
+        for pair in pairs:
+            key, sep, value = pair.partition("=")
+            if sep != "=" or not key.strip():
+                raise ValueError(f"Invalid condition item: {pair}")
+            condition[key.strip()] = value.strip()
+    else:
+        values = [value.strip() for value in test_condition.split(",") if value.strip()]
+        if len(values) != len(fields):
+            raise ValueError(
+                f"Expected {len(fields)} values in --test_condition for fields {fields}, got {values}"
+            )
+        condition = dict(zip(fields, values))
+    missing = [field for field in fields if field not in condition]
+    if missing:
+        raise ValueError(f"Condition is missing fields: {missing}")
+    return {field: condition[field] for field in fields}
+
+
+def _same_metadata_value(actual: str, expected: str) -> bool:
+    if actual == expected:
+        return True
+    try:
+        return abs(float(actual) - float(expected)) < 1.0e-9
+    except ValueError:
+        return False
+
+
+def _sort_key(value: str) -> tuple[int, float | str]:
+    try:
+        return (0, float(value))
+    except ValueError:
+        return (1, value)
 
 
 def _load_metadata(metadata_dir: Path) -> dict[str, dict[str, str]]:

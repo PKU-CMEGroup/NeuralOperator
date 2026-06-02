@@ -683,7 +683,7 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
     scheduler = Combinedscheduler_OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'], lr_ratio=config["train"]["lr_ratio"],
         div_factor=2, final_div_factor=100, pct_start=0.2,
-        steps_per_epoch=1, epochs=config['train']['epochs'])
+        steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
 
     current_epoch, epochs = 0, config['train']['epochs']
 
@@ -714,6 +714,7 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
             loss.backward()
 
             optimizer.step()
+            scheduler.step()
             train_rel_l2 += loss.item()
 
         test_rel_l2_dict = {}
@@ -740,8 +741,6 @@ def PCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_list
                 test_rel_l2 /= len(loader.dataset)
                 test_rel_l2_dict[name] = test_rel_l2
                 test_l2_dict[name] = test_l2
-
-        scheduler.step()
 
         train_rel_l2 /= n_train
         train_rel_l2_losses.append(train_rel_l2)
@@ -911,5 +910,3 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
-
-

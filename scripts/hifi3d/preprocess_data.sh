@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -o MPCNO_hifi3d_preprocess_%A_%a.out
+#SBATCH -o hifi3d_preprocess_%A_%a.out
 #SBATCH --qos=low
 #SBATCH -p C064M1024G
-#SBATCH -J MPCNO_hifi3d_preprocess
+#SBATCH -J hifi3d_preprocess
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -11,11 +11,15 @@
 
 set -euo pipefail
 
-# Preprocess HiFi3D VTP meshes for PCNO/M-PCNO.
+# Preprocess HiFi3D VTP meshes into training caches.
 #
 # Default behavior under Slurm:
-#   sbatch scripts/hifi3d/mpcno_preprocess_data.sh
+#   sbatch scripts/hifi3d/preprocess_data.sh
 # runs six array tasks, one per dataset, and writes one full cache per dataset.
+#
+# Subset selection is handled directly by preprocess_data.py. Run that Python
+# entrypoint with --prepare_subsets when you need symlink subsets or manifests;
+# this Slurm launcher intentionally stays focused on full per-dataset caches.
 #
 # Useful overrides:
 #   REPO_ROOT=/lustre/home/2200010815/neuralop/NeuralOperator
@@ -36,11 +40,11 @@ DEFAULT_PYTHON="/lustre/home/2200010815/software/miniconda3/envs/geometry/bin/py
 
 if [[ -n "${REPO_ROOT:-}" ]]; then
     REPO_ROOT="$(cd "${REPO_ROOT}" && pwd)"
-elif [[ -f "${DEFAULT_REPO_ROOT}/scripts/hifi3d/preprocess_hifi3d.py" ]]; then
+elif [[ -f "${DEFAULT_REPO_ROOT}/scripts/hifi3d/preprocess_data.py" ]]; then
     REPO_ROOT="${DEFAULT_REPO_ROOT}"
-elif [[ -f "${SUBMIT_DIR}/scripts/hifi3d/preprocess_hifi3d.py" ]]; then
+elif [[ -f "${SUBMIT_DIR}/scripts/hifi3d/preprocess_data.py" ]]; then
     REPO_ROOT="$(cd "${SUBMIT_DIR}" && pwd)"
-elif [[ -f "${SCRIPT_DIR}/preprocess_hifi3d.py" ]]; then
+elif [[ -f "${SCRIPT_DIR}/preprocess_data.py" ]]; then
     REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 else
     echo "Error: could not infer NeuralOperator repository root." >&2
@@ -139,7 +143,7 @@ process_dataset() {
     mkdir -p "${OUTPUT_DIR}"
 
     echo "============================================================"
-    echo "HiFi3D MPCNO preprocessing"
+    echo "HiFi3D preprocessing"
     echo "Repository: ${REPO_ROOT}"
     echo "Data root: ${DATA_ROOT}"
     echo "Dataset: ${dataset}"
@@ -156,7 +160,7 @@ process_dataset() {
     echo "Started: $(date '+%Y-%m-%d %H:%M:%S')"
     echo "============================================================"
 
-    "${PYTHON_BIN}" "${REPO_ROOT}/scripts/hifi3d/preprocess_hifi3d.py" \
+    "${PYTHON_BIN}" "${REPO_ROOT}/scripts/hifi3d/preprocess_data.py" \
         --data_root "${DATA_ROOT}" \
         --datasets "${dataset}" \
         --n_each "${N_EACH}" \

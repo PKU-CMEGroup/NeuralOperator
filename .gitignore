@@ -6,3 +6,19 @@ utility/__pycache__/
 models/__pycache__/
 mytest/__pycache__/
 baselines/__pycache__/
+
+# time-dependent-no local/private state and generated outputs
+LOCAL_CONTEXT.md
+AGENTS.local.md
+docs/**/PRIVATE_*.md
+docs/**/LOCAL_*.md
+.env
+.env.*
+artifacts/
+runs/
+checkpoints/
+wandb/
+
+# Python test/cache outputs
+__pycache__/
+.pytest_cache/

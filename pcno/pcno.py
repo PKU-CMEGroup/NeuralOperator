@@ -8,7 +8,7 @@ from timeit import default_timer
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
-
+from .interpolation import interp
     
 
 def _get_act(act):
@@ -288,6 +288,85 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     return f_gradients.permute(0,2,1)
     
 
+def compute_cross_gradient(f_in, f_out, directed_edges_cross, edge_gradient_weights_cross):
+    """
+    Cross-grid version of compute_gradient.
+
+    Parameters:
+        f_in : Tensor [batch_size, in_channels, n_in]
+            Feature on input/coarse nodes.
+
+        f_out : Tensor [batch_size, in_channels, n_out]
+            Feature on output/fine nodes.
+
+        directed_edges_cross : LongTensor [batch_size, max_nedges, 2]
+            directed_edges_cross[..., 0] = target_out
+            directed_edges_cross[..., 1] = source_in
+
+        edge_gradient_weights_cross : Tensor [batch_size, max_nedges, ndims]
+            Cross-edge gradient weights.
+
+    Returns:
+        f_gradients : Tensor [batch_size, in_channels * ndims, n_out]
+            Gradient-like feature accumulated on output/fine nodes.
+    """
+    # [B, C, N] -> [B, N, C]
+    f_in = f_in.permute(0, 2, 1)
+    f_out = f_out.permute(0, 2, 1)
+
+    batch_size, n_out, in_channels = f_out.shape
+    n_in = f_in.shape[1]
+    _, max_nedges, ndims = edge_gradient_weights_cross.shape
+
+    target, source = directed_edges_cross[..., 0], directed_edges_cross[..., 1]
+
+    valid = (
+        (target >= 0)
+        & (target < n_out)
+        & (source >= 0)
+        & (source < n_in)
+    )
+
+    safe_target = torch.where(valid, target, torch.zeros_like(target))
+    safe_source = torch.where(valid, source, torch.zeros_like(source))
+
+    safe_weights = torch.where(
+        valid.unsqueeze(-1),
+        edge_gradient_weights_cross,
+        torch.zeros_like(edge_gradient_weights_cross),
+    )
+
+    batch_index = torch.arange(batch_size, device=f_in.device).unsqueeze(1)
+
+    # source value on coarse/input nodes
+    f_source = f_in[batch_index, safe_source]      # [B, E, C]
+
+    # target value on fine/output nodes
+    f_target = f_out[batch_index, safe_target]     # [B, E, C]
+
+    # message: [B, E, C * ndims]
+    message = torch.einsum(
+        "bed,bec->becd",
+        safe_weights,
+        f_source - f_target,
+    ).reshape(batch_size, max_nedges, in_channels * ndims)
+
+    # scatter to output/fine target nodes
+    f_gradients = torch.zeros(
+        batch_size,
+        n_out,
+        in_channels * ndims,
+        dtype=message.dtype,
+        device=message.device,
+    )
+
+    f_gradients.scatter_add_(
+        dim=1,
+        src=message,
+        index=safe_target.unsqueeze(2).repeat(1, 1, in_channels * ndims),
+    )
+
+    return f_gradients.permute(0, 2, 1)
 
 
 class PCNO(nn.Module):
@@ -431,7 +510,7 @@ class PCNO(nn.Module):
                     raise ValueError(f"{self.train_inv_L_scale} is not supported")
         
 
-    def forward(self, x, aux):
+    def forward(self, x, aux, aux_cross=None, interp_type="taylor", post_interp=True):
         """
         Forward evaluation. 
         1. Lift the input to the desire channel dimension by self.fc0 .
@@ -482,16 +561,57 @@ class PCNO(nn.Module):
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
         
-        
+        enable_cross = False if aux_cross is None else True
         
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
         for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
-            x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
-            x2 = w(x)
-            x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x = x1 + x2 + x3
+            if enable_cross and i == length - 1:
+                node_mask_out, nodes_out, directed_edges_cross, edge_gradient_weights_cross, idx_corr = aux_cross
+                bases_out_c, bases_out_s, bases_out_0 = compute_Fourier_bases(nodes_out, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min, self.inv_L_scale_max)))
+                
+                x1 = speconv(x, bases_out_c, bases_out_s, bases_out_0, wbases_c, wbases_s, wbases_0)
+                if post_interp:
+                    x2_coarse = w(x)
+                    x2 = interp(x2_coarse, interp_type, nodes, nodes_out, 
+                                in_bases=(bases_c, bases_s, bases_0),
+                                in_wbases=(wbases_c, wbases_s, wbases_0),
+                                out_bases=(bases_out_c, bases_out_s, bases_out_0),
+                                directed_edges=directed_edges_cross,
+                                idx_corr=idx_corr,
+                                n_out=nodes_out.shape[1])
+                    x3_coarse = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
+                    x3 = interp(x3_coarse, interp_type, nodes, nodes_out, 
+                                in_bases=(bases_c, bases_s, bases_0),
+                                in_wbases=(wbases_c, wbases_s, wbases_0),
+                                out_bases=(bases_out_c, bases_out_s, bases_out_0),
+                                directed_edges=directed_edges_cross,
+                                idx_corr=idx_corr,
+                                n_out=nodes_out.shape[1])
+                else:
+                    x_fine = interp(
+                        x,
+                        interp_type,
+                        nodes,
+                        nodes_out,
+                        in_bases=(bases_c, bases_s, bases_0),
+                        in_wbases=(wbases_c, wbases_s, wbases_0),
+                        out_bases=(bases_out_c, bases_out_s, bases_out_0),
+                        directed_edges=directed_edges_cross,
+                        idx_corr=idx_corr,
+                        n_out=nodes_out.shape[1],
+                    )
+                    x2 = w(x_fine)
+                    x3 = gw(self.softsign(compute_cross_gradient(x, x_fine, directed_edges_cross, edge_gradient_weights_cross)))
+
+                x = x1 + x2 + x3
+            else:
+                x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
+                x2 = w(x)
+                x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
+                x = x1 + x2 + x3
+                
             if self.act is not None and i != length - 1:
                 x = self.act(x) 
 

@@ -23,6 +23,18 @@ python scripts/time_dependent_no/inspect_cpg_euler_dataset.py /path/to/train.h5 
 
 Tests live in `tests/time_dependent_no/`.
 
+## Current Dataset State
+
+The first copied real dataset has been inspected on AutoDL. Its folder label is `forward_300`, but the extracted files indicate it is the supersonic bump dataset:
+
+- 300 train trajectories and 20 test trajectories;
+- 80 HDF5 time steps per trajectory;
+- roughly 19k to 23k nodes per trajectory;
+- expected CPG keys are present;
+- extracted test cases contain `Bump.jl`, `Bump.msh`, `Bump.inp`, `Mach.txt`, `params.txt`, and VTU snapshots.
+
+See `docs/time_dependent_no/BUMP_300_DATASET_AUDIT.md` for the schema audit. Exact AutoDL paths remain in the ignored `LOCAL_CONTEXT.md`.
+
 ## What Is Not Ported
 
 The raw `cpggnspdes` training scripts are not vendored into this branch. They are compact research scripts with hard-coded paths, hard-coded CUDA use, and shutdown side effects. This branch keeps their benchmark contract and model mechanism as reference documentation, then reimplements needed pieces cleanly.
@@ -31,8 +43,15 @@ FNO, PCNO, and MPCNO baselines should use the implementations already present in
 
 ## First Milestone
 
-1. Inspect the real CPG Euler `train.h5` and `test.h5` on AutoDL.
-2. Confirm schema, trajectory count, node counts, node types, and whether mesh weights or geometric factors are available.
-3. Run synthetic fixture tests locally.
-4. Build the first PCNO/MPCNO/FNO data adapters only after the real dataset schema is verified.
+Completed:
 
+1. Create branch-local context and docs.
+2. Port NumPy-first CPG Euler data and diagnostic utilities.
+3. Verify synthetic fixture tests locally.
+4. Inspect the first copied real dataset schema on AutoDL.
+
+Next:
+
+1. Add a real-data frame smoke script.
+2. Choose PCNO/MPCNO adapter-first versus FNO remeshing-sanity-first.
+3. Run the smallest no-training data adapter gate before launching any GPU job.

@@ -21,6 +21,38 @@ Primitive variable order is `[rho, v1, v2, pres]`.
 Conservative variable order is `[rho, rho_v1, rho_v2, energy]`.
 Use `gamma = 1.4` unless a dataset-specific config says otherwise.
 
+## Observed Supersonic Bump Dataset
+
+The first copied dataset was inspected on 2026-06-25. The local folder label is `forward_300`, but the extracted test cases are `Bump.*` files with `chordLength` and `heightFrac` parameters, so this should be treated as the supersonic bump dataset unless a separate forward-step dataset is provided.
+
+Observed HDF5 facts:
+
+| File | Groups | Time steps | Node-count range | Edge-count range |
+| --- | ---: | ---: | ---: | ---: |
+| `train.h5` | `300` | `80` | `19345 .. 23359` | `38320 .. 46346` |
+| `test.h5` | `20` | `80` | `19529 .. 23417` | `38688 .. 46462` |
+
+Observed keys are exactly:
+
+```text
+Mach, edges, node_type, pos, pres, rho, v1, v2
+```
+
+Representative group shapes:
+
+```text
+pos       (80, N, 2)
+edges     (80, E, 2)
+node_type (80, N, 1)
+rho       (80, N, 1)
+v1        (80, N, 1)
+v2        (80, N, 1)
+pres      (80, N, 1)
+Mach      (80, N, 1)
+```
+
+The HDF5 schema does not expose explicit cell areas, face normals, edge lengths, or cell volumes as top-level keys. Conservation diagnostics should state whether they use equal-node weights, approximate geometric weights, or recovered mesh weights.
+
 ## Node Types
 
 | Code | Meaning |
@@ -46,6 +78,11 @@ future_primitives = primitive states from t+1 through t+num_steps
 
 ## Inspection Command
 
+Use the real dataset path from ignored `LOCAL_CONTEXT.md`.
+
 ```bash
-python scripts/time_dependent_no/inspect_cpg_euler_dataset.py /path/to/train.h5 --max-trajectories 2 --output artifacts/time_dependent_no/train_schema.json
+python scripts/time_dependent_no/inspect_cpg_euler_dataset.py /path/to/train.h5 \
+  --max-trajectories 2 \
+  --metadata-only \
+  --output artifacts/time_dependent_no/train_schema_metadata.json
 ```

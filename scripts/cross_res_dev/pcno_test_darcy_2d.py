@@ -248,6 +248,7 @@ if __name__ == "__main__":
     features_coarse = np.load("./data/darcy/features_coarse.npy").astype(np.float32)
     nodes_fine = np.load("./data/darcy/nodes_fine.npy").astype(np.float32)
     elems_fine = np.load("./data/darcy/elems_fine.npy").astype(np.int64)
+    features_fine = np.load("./data/darcy/features_fine.npy").astype(np.float32)
 
     print("Loaded meshes:")
     print(f"  coarse nodes: {nodes_coarse.shape}, coarse elems: {elems_coarse.shape}")
@@ -277,7 +278,9 @@ if __name__ == "__main__":
 
     # scalar_feature = torch.ones(nodes_c.shape[0], nodes_c.shape[1], 1, dtype=nodes_c.dtype, device=device)
     features_coarse = torch.from_numpy(features_coarse).to(device)
+    features_fine = torch.from_numpy(features_fine).to(device)
     x_cross = torch.cat((features_coarse[None, :, 0:1], nodes_c, node_rhos_coarse),-1)
+    x_fine = torch.cat((features_fine[None, :, 0:1], nodes_f, node_rhos_fine),-1)
 
     ndim = 2
     k_max = 16
@@ -308,12 +311,18 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         y_coarse = model(x_cross, aux_coarse)
+        y_fine = model(x_fine, aux_fine)
 
     print("\nCoarse forward result:")
     print(f"  y_coarse shape: {tuple(y_coarse.shape)}")
     print(f"  y_coarse min/max: {float(y_coarse.min()):.6e}, {float(y_coarse.max()):.6e}")
+    
+    print("\nFine forward result:")
+    print(f"  y_fine shape: {tuple(y_fine.shape)}")
+    print(f"  y_fine min/max: {float(y_fine.min()):.6e}, {float(y_fine.max()):.6e}")
 
     y_coarse_plot = y_coarse[0, :, 0].detach().cpu().numpy()
+    y_fine_plot = y_fine[0, :, 0].detach().cpu().numpy()
 
     cross_outputs = {}
     comparison_items = [
@@ -329,37 +338,48 @@ if __name__ == "__main__":
             "nodes": nodes_coarse,
             "elems": elems_coarse,
             "values": y_coarse_plot,
-            "title": "coarse",
+            "title": "pred_coarse",
+        }
+    )
+    comparison_items.append(
+        {
+            "nodes": nodes_fine,
+            "elems": elems_fine,
+            "values": y_fine_plot,
+            "title": "pred_fine",
         }
     )
 
-    post_interp = True
-    for interp_method in interp_methods:
-        with torch.no_grad():
-            y_cross = model(
-                x_cross,
-                aux_coarse,
-                aux_cross=aux_cross,
-                interp_type=interp_method,
-                post_interp=True,
+
+    for interp_method in interp_methods:   
+        for post_interp in [True, False]:
+            with torch.no_grad():
+                y_cross = model(
+                    x_cross,
+                    aux_coarse,
+                    aux_cross=aux_cross,
+                    interp_type=interp_method,
+                    post_interp=post_interp,
+                )
+
+            cross_outputs[interp_method] = y_cross
+
+            print(f"\nCross forward result ({interp_method}):")
+            print(f"  y_cross shape: {tuple(y_cross.shape)}")
+            print(f"  y_cross min/max: {float(y_cross.min()):.6e}, {float(y_cross.max()):.6e}")
+            print(f"  y_cross mean/std: {float(y_cross.mean()):.6e}, {float(y_cross.std()):.6e}")
+            
+            interp_indicate_str = "_post_interp" if post_interp else "_pre_interp"
+
+            y_plot = y_cross[0, :, 0].detach().cpu().numpy()
+            comparison_items.append(
+                {
+                    "nodes": nodes_fine,
+                    "elems": elems_fine,
+                    "values": y_plot,
+                    "title": "pred_" + interp_method + interp_indicate_str,
+                }
             )
-
-        cross_outputs[interp_method] = y_cross
-
-        print(f"\nCross forward result ({interp_method}):")
-        print(f"  y_cross shape: {tuple(y_cross.shape)}")
-        print(f"  y_cross min/max: {float(y_cross.min()):.6e}, {float(y_cross.max()):.6e}")
-        print(f"  y_cross mean/std: {float(y_cross.mean()):.6e}, {float(y_cross.std()):.6e}")
-
-        y_plot = y_cross[0, :, 0].detach().cpu().numpy()
-        comparison_items.append(
-            {
-                "nodes": nodes_fine,
-                "elems": elems_fine,
-                "values": y_plot,
-                "title": interp_method,
-            }
-        )
 
     plot_outputs(
         items=comparison_items,

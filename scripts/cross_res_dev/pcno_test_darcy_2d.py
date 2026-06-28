@@ -213,12 +213,6 @@ def make_aux_from_mesh(nodes_np, elems_np, Ls, device):
 
     measure_dims = np.array([2], dtype=np.int64)
 
-    # node_measures, node_weights = compute_unnormalized_node_measures(
-    #     nnodes,
-    #     node_measures_raw,
-    #     measure_dims=measure_dims,
-    #     Ls=Ls,
-    # )
     node_measures, node_weights = compute_node_weights(nnodes,  node_measures_raw,  equal_measure = False)
 
     node_measures_raw = torch.from_numpy(node_measures_raw).to(device)
@@ -231,7 +225,12 @@ def make_aux_from_mesh(nodes_np, elems_np, Ls, device):
 
     node_mask = torch.from_numpy(node_mask).to(device)
     nodes = torch.from_numpy(nodes.astype(np.float32)).to(device)
-    node_weights = node_weights.to(device)
+    
+    
+    Lx, Ly = Ls
+    to_divide = Lx* Ly
+    node_weights = node_measures / to_divide
+
     node_rhos = node_rhos.to(device)
     directed_edges = torch.from_numpy(directed_edges.astype(np.int64)).to(device)
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32)).to(device)
@@ -243,8 +242,6 @@ def make_aux_from_mesh(nodes_np, elems_np, Ls, device):
 if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(f"device = {device}")
-    
-    data = np.load("./data/darcy/median_data.npz")
 
     nodes_coarse = np.load("./data/darcy/nodes_coarse.npy").astype(np.float32)
     elems_coarse = np.load("./data/darcy/elems_coarse.npy").astype(np.int64)
@@ -258,7 +255,7 @@ if __name__ == "__main__":
     print(f"  coarse elems with dim marker: {add_elem_dim(elems_coarse).shape}")
     print(f"  fine elems with dim marker  : {add_elem_dim(elems_fine).shape}")
 
-    Lx, Ly = 1.0, 1.0
+    Lx, Ly = 3.0, 3.0
     Ls = [Lx, Ly]
     aux_coarse, node_rhos_coarse = make_aux_from_mesh(nodes_coarse, elems_coarse, Ls, device)
     aux_fine, node_rhos_fine = make_aux_from_mesh(nodes_fine, elems_fine, Ls, device)
@@ -279,7 +276,8 @@ if __name__ == "__main__":
         idx_corr = idx_corr.unsqueeze(0)
 
     # scalar_feature = torch.ones(nodes_c.shape[0], nodes_c.shape[1], 1, dtype=nodes_c.dtype, device=device)
-    x_cross = torch.from_numpy(features_coarse[None, :, :3]).to(device)
+    features_coarse = torch.from_numpy(features_coarse).to(device)
+    x_cross = torch.cat((features_coarse[None, :, 0:1], nodes_c, node_rhos_coarse),-1)
 
     ndim = 2
     k_max = 16
@@ -288,11 +286,13 @@ if __name__ == "__main__":
 
     model = PCNO(ndim, modes, nmeasures=1,
                  layers=[128, 128, 128, 128, 128],
-                 fc_dim=32,
+                 fc_dim=128,
                  inv_L_scale_hyper=[False, 0.5, 2.0],
-                 in_dim=3,
+                 in_dim=4,
                  out_dim=1,
                  act='gelu').to(device)
+    checkpoint = torch.load("./checkpoint.pth", map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()
 
@@ -363,13 +363,13 @@ if __name__ == "__main__":
 
     plot_outputs(
         items=comparison_items,
-        save_path="./figs/x_shared_cb.png",
+        save_path="./figs/darcy/x_shared_cb.png",
         title="PCNO coarse and cross outputs, shared colorbar",
     )
 
     plot_outputs_separate_colorbars(
         items=comparison_items,
-        save_path="./figs/x_separate_cb.png",
+        save_path="./figs/darcy/x_separate_cb.png",
         title="PCNO coarse and cross outputs, separate colorbars",
     )
 

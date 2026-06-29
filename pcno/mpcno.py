@@ -44,46 +44,6 @@ def _get_act(act):
     return func
 
 
-def scaled_sigmoid(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
-    """
-    Applies a sigmoid function scaled to output values in the range [min_val, max_val].
-    This transformation maps any real-valued input to a specified bounded interval,
-    maintaining gradient flow for backpropagation. Useful for constraining network outputs.
-    
-    Math:
-        output = min_val + (max_val - min_val) * σ(x)
-        where σ(x) = 1/(1 + exp(-x)) is the standard sigmoid function
-    
-    Require:
-        max_val >= min_val
-    """
-    return min_val + (max_val - min_val) * torch.sigmoid(x)
-
-
-def scaled_logit(y: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
-    """
-    Inverse of scaled_sigmoid - maps values from [min_val, max_val] back to unbounded space.
-    
-    Also known as the generalized logit transform. Handles numerical stability at boundaries.
-    
-    Args:
-        y: Input tensor (values must be in (min_val, max_val) range)
-        min_val: Lower bound of input range (exclusive)
-        max_val: Upper bound of input range (exclusive)
-        
-    Returns:
-        Tensor of same shape as input with unbounded real values
-    
-    Math:
-        output = log( (y - min_val) / (max_val - y) )
-        This is the inverse operation of scaled_sigmoid()
-  
-    Require:
-        min_val < y <  max_val
-    """
-    return torch.log((y - min_val)/(max_val - y))
-
-
 def compute_Fourier_modes_helper(ndims, nks, Ls):
     '''
     Compute Fourier modes number k
@@ -370,7 +330,7 @@ class MPCNO(nn.Module):
         fc_dim=128,
         in_dim=3,
         out_dim=1,
-        inv_L_scale_hyper = ['independently', 0.5, 2.0],
+        inv_L_scale_hyper=None,
         scaling_mode = 'inv',
         act="gelu",
         geo_act='softsign',
@@ -418,24 +378,6 @@ class MPCNO(nn.Module):
                 out_dim : int 
                     The number of channels for the output function
 
-                inv_L_scale_hyper: 3 element hyperparameter list
-                    Controls the update behavior of the length scale (L) for Fourier modes. The modes are scaled elementwise as:
-                    k = k * inv_L_scale (where each spatial direction or measure may be scaled differently).
-                    since k = 2pi K /L0, inv_L_scale is the inverse scale, 1/L = inv_L_scale * 1/L0 
-                    Hyperparameters: 
-                        train_inv_L_scale (bool or str): Update policy for inv_L_scale:
-                            False: Disable training (fixed scaling).
-                            'together': Train jointly with other parameters (shared optimizer).
-                            'independently': Train with a separate optimizer.
-
-                        inv_L_scale_min (float): Lower bound for scaling factor.
-
-                        inv_L_scale_max (float): Upper bound for scaling factor.
-
-                    Implementation Notes:
-                        The effective scaling factor is computed via a sigmoid constraint:
-                        inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
-                        This ensures inv_L_scale stays within [inv_L_scale_min, inv_L_scale_max] during optimization.
                 scaling_mode : string (default "inv")
                     Strategy to scale the combined output of multiple branches.
                     Options:
@@ -537,12 +479,6 @@ class MPCNO(nn.Module):
         else:
             self.fc2 = nn.Linear(layers[-1], out_dim)
 
-
-        self.train_inv_L_scale, self.inv_L_scale_min, self.inv_L_scale_max  = inv_L_scale_hyper[0], inv_L_scale_hyper[1], inv_L_scale_hyper[2]
-        # latent variable for inv_L_scale = inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min) * sigmoid(inv_L_scale_latent)
-        self.inv_L_scale_latent = nn.Parameter(torch.full((ndims, nmeasures), scaled_logit(torch.tensor(1.0), self.inv_L_scale_min, self.inv_L_scale_max)), requires_grad = bool(self.train_inv_L_scale))
-        
-        
         num_branches = 2 
         if layer_selection['grad']: num_branches += 1
         if layer_selection['geo']: num_branches += 1
@@ -557,20 +493,7 @@ class MPCNO(nn.Module):
 
         self.act = _get_act(act)
 
-        self.normal_params = []  #  group of params which will be trained normally
-        self.inv_L_scale_params = []    #  group of params which may be trained specially
-        for _, param in self.named_parameters():
-            if param is not self.inv_L_scale_latent :
-                self.normal_params.append(param)
-            else:
-                if self.train_inv_L_scale == 'together':
-                    self.normal_params.append(param)
-                elif self.train_inv_L_scale == 'independently':
-                    self.inv_L_scale_params.append(param)
-                elif self.train_inv_L_scale == False:
-                    continue
-                else:
-                    raise ValueError(f"{self.train_inv_L_scale} is not supported")
+        self.normal_params = list(self.parameters())  #  group of params which will be trained normally
         
 
     def forward(self, x, aux):
@@ -619,8 +542,7 @@ class MPCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights, outward_normals = aux
         # bases: float[batch_size, nnodes, nmodes]
-        # scale the modes k  = k * ( inv_L_scale_min + (inv_L_scale_max - inv_L_scale_min)/(1 + exp(-self.inv_L_scale_latent) ))
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes * (scaled_sigmoid(self.inv_L_scale_latent, self.inv_L_scale_min , self.inv_L_scale_max))) 
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes) 
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
@@ -842,7 +764,7 @@ def MPCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_lis
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
+    optimizer = CombinedOptimizer(model.normal_params, [],
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],
@@ -932,7 +854,6 @@ def MPCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_lis
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2_dict, " Test L2 Loss : ", test_l2_dict,
-              " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
               flush=True)
         if (ep %100 == 99) or (ep == epochs -1):    
             if save_model_name:
@@ -996,7 +917,7 @@ def MPCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, m
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = CombinedOptimizer(model.normal_params, model.inv_L_scale_params,
+    optimizer = CombinedOptimizer(model.normal_params, [],
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],
@@ -1079,7 +1000,6 @@ def MPCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, m
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
-              " inv_L_scale: ",[round(float(x[0]), 3) for x in (scaled_sigmoid(model.inv_L_scale_latent, model.inv_L_scale_min, model.inv_L_scale_max)).cpu().tolist()],
               flush=True)
         if (ep %100 == 99) or (ep == epochs -1):    
             if save_model_name:
@@ -1164,7 +1084,7 @@ def MPCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, 
 
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = CombinedOptimizer(model.module.normal_params, model.module.inv_L_scale_params,
+    optimizer = CombinedOptimizer(model.module.normal_params, [],
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         lr_ratio = config["train"]["lr_ratio"],

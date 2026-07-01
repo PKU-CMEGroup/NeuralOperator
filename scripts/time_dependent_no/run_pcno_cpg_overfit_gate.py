@@ -31,6 +31,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trajectory", default=None, help="Trajectory group name")
     parser.add_argument("--start-frame", type=int, default=0)
     parser.add_argument("--num-frames", type=int, default=2)
+    parser.add_argument(
+        "--eval-trajectory",
+        default=None,
+        help="Optional held-out trajectory group name. Defaults to --trajectory.",
+    )
+    parser.add_argument(
+        "--eval-start-frame",
+        type=int,
+        default=None,
+        help="Optional held-out start frame. Defaults to start-frame + num-frames.",
+    )
+    parser.add_argument(
+        "--eval-num-frames",
+        type=int,
+        default=0,
+        help="Number of held-out frames to evaluate. Zero reuses train frames.",
+    )
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--k-max", type=int, default=4)
@@ -77,36 +94,57 @@ def main() -> None:
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    frames, source = _load_frames(args)
-    batch = _stack_batches(
+    train_frames, eval_frames, source = _load_frames(args)
+    train_batch = _stack_batches(
         [
             make_pcno_frame_batch(frame, rcond=args.rcond)
-            for frame in frames
+            for frame in train_frames
         ]
     )
+    eval_batch = (
+        _stack_batches(
+            [
+                make_pcno_frame_batch(frame, rcond=args.rcond)
+                for frame in eval_frames
+            ]
+        )
+        if eval_frames
+        else train_batch
+    )
     device = _select_device(args.device)
-    model = _make_model(batch, args).to(device)
-    tensors = _to_tensors(batch, device)
+    model = _make_model(train_batch, args).to(device)
+    train_tensors = _to_tensors(train_batch, device)
+    eval_tensors = _to_tensors(eval_batch, device)
 
     t0 = default_timer()
-    initial = _evaluate(model, tensors, args.batch_size)
-    history: list[dict[str, float | int]] = []
+    train_initial = _evaluate(model, train_tensors, args.batch_size)
+    eval_initial = _evaluate(model, eval_tensors, args.batch_size)
+    history: list[dict[str, Any]] = []
     if args.dry_run:
-        final = initial
+        train_final = train_initial
+        eval_final = eval_initial
     else:
-        history = _train(model, tensors, args)
-        final = _evaluate(model, tensors, args.batch_size)
+        history = _train(model, train_tensors, eval_tensors, args)
+        train_final = _evaluate(model, train_tensors, args.batch_size)
+        eval_final = _evaluate(model, eval_tensors, args.batch_size)
     elapsed = default_timer() - t0
+    train_shapes = _batch_shapes(train_batch)
+    eval_shapes = _batch_shapes(eval_batch)
 
     payload: dict[str, Any] = {
         "kind": "pcno_cpg_overfit_gate",
         "source": source,
+        "eval_is_train": not bool(eval_frames),
         "dry_run": bool(args.dry_run),
         "device": str(device),
         "seed": int(args.seed),
         "config": {
             "num_frames": int(args.num_frames),
             "start_frame": int(args.start_frame),
+            "eval_num_frames": int(args.eval_num_frames),
+            "eval_start_frame": (
+                None if args.eval_start_frame is None else int(args.eval_start_frame)
+            ),
             "epochs": int(args.epochs),
             "batch_size": int(args.batch_size),
             "k_max": int(args.k_max),
@@ -117,17 +155,18 @@ def main() -> None:
             "rcond": float(args.rcond),
         },
         "shapes": {
-            "x": list(batch.x.shape),
-            "y": list(batch.y.shape),
-            "node_mask": list(batch.node_mask.shape),
-            "nodes": list(batch.nodes.shape),
-            "node_weights": list(batch.node_weights.shape),
-            "directed_edges": list(batch.directed_edges.shape),
-            "edge_gradient_weights": list(batch.edge_gradient_weights.shape),
+            **train_shapes,
+            "train": train_shapes,
+            "eval": eval_shapes,
         },
-        "adapter_metadata": batch.metadata,
-        "initial": initial,
-        "final": final,
+        "adapter_metadata": train_batch.metadata,
+        "eval_adapter_metadata": eval_batch.metadata,
+        "initial": train_initial,
+        "final": train_final,
+        "train_initial": train_initial,
+        "train_final": train_final,
+        "eval_initial": eval_initial,
+        "eval_final": eval_final,
         "history": history,
         "elapsed_seconds": float(elapsed),
         "model_parameter_count": int(sum(p.numel() for p in model.parameters())),
@@ -143,9 +182,24 @@ def main() -> None:
 
     print(f"source: {source}")
     print(f"device: {device}")
-    print(f"x: {payload['shapes']['x']}  y: {payload['shapes']['y']}")
-    print(f"initial rel_l2: {initial['rel_l2']:.6g}  mse: {initial['mse']:.6g}")
-    print(f"final rel_l2: {final['rel_l2']:.6g}  mse: {final['mse']:.6g}")
+    print(f"train x: {payload['shapes']['train']['x']}  y: {payload['shapes']['train']['y']}")
+    print(f"eval x: {payload['shapes']['eval']['x']}  y: {payload['shapes']['eval']['y']}")
+    print(
+        f"train initial rel_l2: {train_initial['rel_l2']:.6g}  "
+        f"mse: {train_initial['mse']:.6g}"
+    )
+    print(
+        f"train final rel_l2: {train_final['rel_l2']:.6g}  "
+        f"mse: {train_final['mse']:.6g}"
+    )
+    print(
+        f"eval initial rel_l2: {eval_initial['rel_l2']:.6g}  "
+        f"mse: {eval_initial['mse']:.6g}"
+    )
+    print(
+        f"eval final rel_l2: {eval_final['rel_l2']:.6g}  "
+        f"mse: {eval_final['mse']:.6g}"
+    )
     print(f"saved: {args.output}")
 
 
@@ -154,6 +208,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("path is required unless --synthetic is set")
     if args.num_frames <= 0:
         raise SystemExit("--num-frames must be positive")
+    if args.eval_num_frames < 0:
+        raise SystemExit("--eval-num-frames must be nonnegative")
     if args.epochs < 0:
         raise SystemExit("--epochs must be nonnegative")
     if args.batch_size <= 0:
@@ -164,12 +220,28 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--width and --num-layers must be positive")
 
 
-def _load_frames(args: argparse.Namespace) -> tuple[list[dict[str, np.ndarray]], dict[str, Any]]:
+def _load_frames(
+    args: argparse.Namespace,
+) -> tuple[list[dict[str, np.ndarray]], list[dict[str, np.ndarray]], dict[str, Any]]:
+    train_range = list(range(args.start_frame, args.start_frame + args.num_frames))
+    eval_start = (
+        args.start_frame + args.num_frames
+        if args.eval_start_frame is None
+        else args.eval_start_frame
+    )
+    eval_range = (
+        list(range(eval_start, eval_start + args.eval_num_frames))
+        if args.eval_num_frames
+        else []
+    )
+
     if args.synthetic:
+        max_frame = max(train_range + eval_range) if eval_range else max(train_range)
         group = make_synthetic_cpg_trajectory(
-            SyntheticEuler2DConfig(nx=8, ny=6, num_steps=args.start_frame + args.num_frames + 2)
+            SyntheticEuler2DConfig(nx=8, ny=6, num_steps=max_frame + 2)
         )
-        trajectory = "synthetic"
+        train_trajectory = "synthetic"
+        eval_trajectory = "synthetic"
         path = None
     else:
         try:
@@ -177,24 +249,49 @@ def _load_frames(args: argparse.Namespace) -> tuple[list[dict[str, np.ndarray]],
         except ModuleNotFoundError as exc:
             raise RuntimeError("h5py is required for real HDF5 overfit gates") from exc
         handle = h5py.File(args.path, "r")
-        trajectory = args.trajectory or sorted(handle.keys())[0]
-        group = handle[trajectory]
+        train_trajectory = args.trajectory or sorted(handle.keys())[0]
+        eval_trajectory = args.eval_trajectory or train_trajectory
+        group = handle[train_trajectory]
+        eval_group = handle[eval_trajectory]
 
     try:
-        frames = [
+        train_frames = [
             make_cpg_graph_frame(group, frame, num_steps=1)
-            for frame in range(args.start_frame, args.start_frame + args.num_frames)
+            for frame in train_range
+        ]
+        eval_frames = [
+            make_cpg_graph_frame(
+                eval_group if not args.synthetic else group,
+                frame,
+                num_steps=1,
+            )
+            for frame in eval_range
         ]
     finally:
         if not args.synthetic:
             handle.close()
 
-    return frames, {
+    return train_frames, eval_frames, {
         "path": str(path if args.synthetic else args.path),
         "synthetic": bool(args.synthetic),
-        "trajectory": trajectory,
-        "frames": list(range(args.start_frame, args.start_frame + args.num_frames)),
+        "trajectory": train_trajectory,
+        "frames": train_range,
+        "eval_trajectory": eval_trajectory if eval_range else None,
+        "eval_frames": eval_range,
     }
+
+
+def _batch_shapes(batch: PcnoFrameBatch) -> dict[str, list[int]]:
+    return {
+        "x": list(batch.x.shape),
+        "y": list(batch.y.shape),
+        "node_mask": list(batch.node_mask.shape),
+        "nodes": list(batch.nodes.shape),
+        "node_weights": list(batch.node_weights.shape),
+        "directed_edges": list(batch.directed_edges.shape),
+        "edge_gradient_weights": list(batch.edge_gradient_weights.shape),
+    }
+
 
 
 def _stack_batches(batches: list[PcnoFrameBatch]) -> PcnoFrameBatch:
@@ -282,10 +379,11 @@ def _to_tensors(batch: PcnoFrameBatch, device: torch.device) -> dict[str, torch.
 def _train(
     model: PCNO,
     tensors: dict[str, torch.Tensor],
+    eval_tensors: dict[str, torch.Tensor],
     args: argparse.Namespace,
-) -> list[dict[str, float | int]]:
+) -> list[dict[str, Any]]:
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    history: list[dict[str, float | int]] = []
+    history: list[dict[str, Any]] = []
     num_samples = int(tensors["x"].shape[0])
     for epoch in range(args.epochs):
         model.train()
@@ -300,13 +398,20 @@ def _train(
             loss.backward()
             optimizer.step()
             epoch_loss += float(loss.item()) * int(idx.numel())
-        metrics = _evaluate(model, tensors, args.batch_size)
-        metrics["epoch"] = epoch
-        metrics["train_mse_epoch"] = epoch_loss / float(num_samples)
-        history.append(metrics)
+        train_metrics = _evaluate(model, tensors, args.batch_size)
+        eval_metrics = _evaluate(model, eval_tensors, args.batch_size)
+        epoch_item = {
+            "epoch": epoch,
+            "train": train_metrics,
+            "eval": eval_metrics,
+            "train_mse_epoch": epoch_loss / float(num_samples),
+        }
+        history.append(epoch_item)
         print(
-            f"epoch {epoch}: rel_l2={metrics['rel_l2']:.6g} "
-            f"mse={metrics['mse']:.6g}",
+            f"epoch {epoch}: train_rel_l2={train_metrics['rel_l2']:.6g} "
+            f"train_mse={train_metrics['mse']:.6g} "
+            f"eval_rel_l2={eval_metrics['rel_l2']:.6g} "
+            f"eval_mse={eval_metrics['mse']:.6g}",
             flush=True,
         )
     return history

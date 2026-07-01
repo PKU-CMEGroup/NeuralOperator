@@ -9,7 +9,7 @@ from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
 
-    
+
 
 def _get_act(act):
     if act == "tanh":
@@ -22,6 +22,8 @@ def _get_act(act):
         func = F.elu_
     elif act == "leaky_relu":
         func = F.leaky_relu_
+    elif act == "softsign":
+        func = F.softsign
     elif act == "none":
         func = None
     else:
@@ -35,7 +37,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
     Fourier bases are cos(kx), sin(kx), 1
     * We cannot have both k and -k, cannot have 0
 
-        Parameters:  
+        Parameters:
             ndims : int
             nks   : int[ndims]
             Ls    : float[ndims]
@@ -43,7 +45,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
         Return :
             k_pairs : float[nmodes, ndims]
     '''
-    assert(len(nks) == len(Ls) == ndims)    
+    assert(len(nks) == len(Ls) == ndims)
     if ndims == 1:
         nk, Lx = nks[0], Ls[0]
         k_pairs    = np.zeros((nk, ndims))
@@ -63,7 +65,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
         i = 0
         for kx in range(-nx, nx + 1):
             for ky in range(0, ny + 1):
-                if (ky==0 and kx<=0): 
+                if (ky==0 and kx<=0):
                     continue
 
                 k_pairs[i, :] = 2*np.pi/Lx*kx, 2*np.pi/Ly*ky
@@ -80,7 +82,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
         for kx in range(-nx, nx + 1):
             for ky in range(-ny, ny + 1):
                 for kz in range(0, nz + 1):
-                    if (kz==0 and (ky<0  or (ky==0 and kx<=0))): 
+                    if (kz==0 and (ky<0  or (ky==0 and kx<=0))):
                         continue
 
                     k_pairs[i, :] = 2*np.pi/Lx*kx, 2*np.pi/Ly*ky, 2*np.pi/Lz*kz
@@ -88,7 +90,7 @@ def compute_Fourier_modes_helper(ndims, nks, Ls):
                     i += 1
     else:
         raise ValueError(f"{ndims} in compute_Fourier_modes is not supported")
-    
+
     k_pairs = k_pairs[np.argsort(k_pair_mag, kind='stable'), :]
     return k_pairs
 
@@ -99,7 +101,7 @@ def compute_Fourier_modes(ndims, nks, Ls):
     Fourier bases are cos(kx), sin(kx), 1
     * We cannot have both k and -k
 
-        Parameters:  
+        Parameters:
             ndims : int
             nks   : int[ndims * nmeasures]
             Ls    : float[ndims * nmeasures]
@@ -110,7 +112,7 @@ def compute_Fourier_modes(ndims, nks, Ls):
     assert(len(nks) == len(Ls))
     nmeasures = len(nks) // ndims
     k_pairs = np.stack([compute_Fourier_modes_helper(ndims, nks[i*ndims:(i+1)*ndims], Ls[i*ndims:(i+1)*ndims]) for i in range(nmeasures)], axis=-1)
-    
+
     return k_pairs
 
 
@@ -119,19 +121,19 @@ def compute_Fourier_bases(nodes, modes):
     Compute Fourier bases for the whole space
     Fourier bases are cos(kx), sin(kx), 1
 
-        Parameters:  
+        Parameters:
             nodes        : float[batch_size, nnodes, ndims]
             modes        : float[nmodes, ndims, nmeasures]
-            
+
         Return :
             bases_c, bases_s : float[batch_size, nnodes, nmodes, nmeasures]
             bases_0 : float[batch_size, nnodes, 1, nmeasures]
     '''
     # temp : float[batch_size, nnodes, nmodes, nmeasures]
-    temp  = torch.einsum("bxd,kdw->bxkw", nodes, modes) 
-    
-    bases_c = torch.cos(temp) 
-    bases_s = torch.sin(temp) 
+    temp  = torch.einsum("bxd,kdw->bxkw", nodes, modes)
+
+    bases_c = torch.cos(temp)
+    bases_s = torch.sin(temp)
     batch_size, nnodes, _, nmeasures = temp.shape
     bases_0 = torch.ones(batch_size, nnodes, 1, nmeasures, dtype=temp.dtype, device=temp.device)
     return bases_c, bases_s, bases_0
@@ -172,7 +174,7 @@ class SpectralConv(nn.Module):
     def forward(self, x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0):
         '''
         Compute Fourier neural layer
-            Parameters:  
+            Parameters:
                 x                   : float[batch_size, in_channels, nnodes]
                 bases_c, bases_s    : float[batch_size, nnodes, nmodes, nmeasures]
                 bases_0             : float[batch_size, nnodes, 1, nmeasures]
@@ -181,21 +183,21 @@ class SpectralConv(nn.Module):
 
             Return :
                 x                   : float[batch_size, out_channels, nnodes]
-        '''    
+        '''
         x_c_hat =  torch.einsum("bix,bxkw->bikw", x, wbases_c)
         x_s_hat = -torch.einsum("bix,bxkw->bikw", x, wbases_s)
         x_0_hat =  torch.einsum("bix,bxkw->bikw", x, wbases_0)
 
         weights_c, weights_s, weights_0 = self.weights_c, self.weights_s, self.weights_0
-        
+
         f_c_hat = torch.einsum("bikw,iokw->bokw", x_c_hat, weights_c) - torch.einsum("bikw,iokw->bokw", x_s_hat, weights_s)
         f_s_hat = torch.einsum("bikw,iokw->bokw", x_s_hat, weights_c) + torch.einsum("bikw,iokw->bokw", x_c_hat, weights_s)
-        f_0_hat = torch.einsum("bikw,iokw->bokw", x_0_hat, weights_0) 
+        f_0_hat = torch.einsum("bikw,iokw->bokw", x_0_hat, weights_0)
 
-        x = torch.einsum("bokw,bxkw->box", f_0_hat, bases_0)  + 2*torch.einsum("bokw,bxkw->box", f_c_hat, bases_c) -  2*torch.einsum("bokw,bxkw->box", f_s_hat, bases_s) 
-        
+        x = torch.einsum("bokw,bxkw->box", f_0_hat, bases_0)  + 2*torch.einsum("bokw,bxkw->box", f_c_hat, bases_c) -  2*torch.einsum("bokw,bxkw->box", f_s_hat, bases_s)
+
         return x
-    
+
 
 def compute_gradient(f, directed_edges, edge_gradient_weights):
     '''
@@ -208,24 +210,24 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
        :      gradient f(x)   =         :
        :                                :
     xj - x                        f(xj) - f(x)
-    
+
     in matrix form   dx  nable f(x)   = df.
-    
+
     The pseudo-inverse of dx is pinvdx.
     Then gradient f(x) for any function f, is pinvdx * df
     directed_edges stores directed edges (x, x1), (x, x2), ..., (x, xj)
     edge_gradient_weights stores its associated weight pinvdx[:,1], pinvdx[:,2], ..., pinvdx[:,j]
 
-    Then the gradient can be computed 
-    gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)] 
+    Then the gradient can be computed
+    gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)]
     with scatter_add for each edge
-    
-    
-        Parameters: 
+
+
+        Parameters:
             f : float[batch_size, in_channels, nnodes]
-            directed_edges : int[batch_size, max_nedges, 2] 
+            directed_edges : int[batch_size, max_nedges, 2]
             edge_gradient_weights : float[batch_size, max_nedges, ndims]
-            
+
         Returns:
             x_gradients : float Tensor[batch_size, in_channels*ndims, max_nnodes]
             * in_channels*ndims dimension is gradient[x_1], gradient[x_2], gradient[x_3]......
@@ -240,13 +242,204 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
 
     target, source = directed_edges[...,0], directed_edges[...,1]  # source and target nodes of edges
     message = torch.einsum('bed,bec->becd', edge_gradient_weights, f[torch.arange(batch_size).unsqueeze(1), source] - f[torch.arange(batch_size).unsqueeze(1), target]).reshape(batch_size, max_nedges, in_channels*ndims)
-    
+
     # f_gradients : float Tensor[batch_size, max_nnodes, in_channels*ndims]
     f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype, device=message.device)
     f_gradients.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels*ndims))
-    
+
     return f_gradients.permute(0,2,1)
-    
+
+
+
+
+
+def graph_diffusion_smooth(
+    x: torch.Tensor,
+    directed_edges: torch.Tensor,
+    nodes: torch.Tensor = None,
+    beta: float = 0.5,
+    distance_power: float = 1.0,
+    eps: float = 1.0e-12,
+    iterations: int = 1,
+) -> torch.Tensor:
+    """
+    Smooth node features on a directed graph by repeated weighted neighbor averaging.
+
+    This applies the iteration
+        y <- (1 - beta) * y + beta * A(y),
+    where A(y) is the weighted average of source-neighbor features at each target node.
+
+    The graph is interpreted as:
+        directed_edges[..., 0] = target node i
+        directed_edges[..., 1] = source neighbor j
+
+    so node i aggregates messages from its source neighbors j.
+
+    Parameters
+    ----------
+    x : float Tensor[batch_size, channels, max_nnodes]
+        Node features.
+
+    directed_edges : int Tensor[batch_size, max_nedges, 2]
+        directed_edges[..., 0] = target node
+        directed_edges[..., 1] = source neighbor
+
+    nodes : float Tensor[batch_size, max_nnodes, ndims], optional
+        Node coordinates. If provided, edge weights are computed from distance:
+            w_ij = 1 / (||x_j - x_i||^distance_power + eps)
+
+    beta : float
+        Smoothing strength. Must satisfy 0 <= beta <= 1.
+        - beta = 0: no smoothing
+        - beta = 1: replace by pure weighted neighbor average each iteration
+
+    distance_power : float, default=1.0
+        Power p used in distance-based weights when `nodes` is provided.
+
+    eps : float
+        Small constant for numerical stability.
+
+    iterations : int, default=1
+        Number of smoothing iterations.
+
+    Returns
+    -------
+    y : float Tensor[batch_size, channels, max_nnodes]
+        Smoothed features.
+
+    Notes
+    -----
+    - Nodes with no incoming neighbors remain unchanged, because their weighted degree is zero.
+    - This is a graph diffusion / neighbor-averaging operator, not a learned convolution.
+    """
+
+    x = x.permute(0, 2, 1)
+    batch_size,  nnodes, in_channels =  x.shape
+    _, max_nedges, _ = directed_edges.shape
+
+    device,dtype = x.device, x.dtype
+    batch_index = torch.arange(batch_size, device=device).unsqueeze(1)
+
+    target, source = directed_edges[..., 0], directed_edges[..., 1]  # [B, E]
+
+    # aggregate weights to targets
+    w = torch.ones(batch_size, max_nedges, 1, dtype=dtype, device=device)
+    if nodes is not None:
+        dist = torch.norm(nodes[batch_index, source] - nodes[batch_index, target], dim=-1)  # [B, E]
+        w[...,0] = 1.0 / (dist.pow(distance_power) + eps)       # [B, E, 1]
+
+    deg = torch.zeros(batch_size,  nnodes, 1, dtype=dtype, device=device)
+    deg.scatter_add_(dim=1, index=target.unsqueeze(-1), src=w,)
+
+
+    # aggregate weighted sum to targets
+    y = x.clone()
+
+    for _ in range(iterations):
+        # gather source features and compute weighted messages
+        msg = w * y[batch_index, source]  # [B, E, C]
+        # aggregate weighted sum to targets
+        agg = torch.zeros(batch_size,  nnodes, in_channels, dtype=dtype, device=device)
+        agg.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=msg,)
+
+        y = torch.where(deg > 0, (1.0 - beta) * y + beta * agg / (deg + eps), y)
+
+    return y.permute(0, 2, 1)
+
+
+def graph_neighbor_average(
+    x: torch.Tensor,
+    directed_edges: torch.Tensor,
+    iterations: int = 1,
+) -> torch.Tensor:
+    """
+    Repeated self-plus-neighbor averaging on a directed graph.
+
+    Each iteration applies
+        y_i <- (y_i + sum_{j in N(i)} y_j) / (1 + deg(i)),
+    where N(i) is the set of source neighbors of target node i.
+
+    Parameters
+    ----------
+    x : Tensor[batch_size, channels, nnodes]
+        Input node features.
+
+    directed_edges : int Tensor[batch_size, max_nedges, 2]
+        directed_edges[..., 0] = target node
+        directed_edges[..., 1] = source neighbor
+
+    iterations : int, default=1
+        Number of averaging iterations.
+
+    Returns
+    -------
+    Tensor[batch_size, channels, nnodes]
+        Smoothed node features.
+
+    Notes
+    -----
+    This is a special case of graph smoothing with uniform weights and implicit self-inclusion.
+    """
+
+    x = x.permute(0, 2, 1)        # [B, N, C]
+    batch_size,  nnodes, in_channels =  x.shape
+    _, max_nedges, _ = directed_edges.shape
+
+    device,dtype = x.device, x.dtype
+    batch_index = torch.arange(batch_size, device=device).unsqueeze(1)
+
+    target, source = directed_edges[..., 0], directed_edges[..., 1]  # [B, E]
+
+    # aggregate weights to targets
+    w = torch.ones(batch_size, max_nedges, 1, dtype=dtype, device=device)
+    deg = torch.ones(batch_size,  nnodes, 1, dtype=dtype, device=device)
+    deg.scatter_add_(dim=1, index=target.unsqueeze(-1), src=w,)
+
+
+    # aggregate weighted sum to targets
+    y = x.clone()
+
+    for _ in range(iterations):
+        # gather source features y[batch_index, source] and then scatter add: [B, E, C]
+        y.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=y[batch_index, source],)
+        y =  y / deg  # [B, N, C]
+
+    return y.permute(0, 2, 1)
+
+
+class GradientLayer(nn.Module):
+    """
+    Gradient Operator Approximation.
+
+    This module computes the nodal gradients of a field using a least-squares
+    approximation and maps them to the output channel space.
+
+    Logic: Output = W_grad2( geo_act( W_grad1(compute_gradient(x) ) ))
+
+    W_grad1 is a scaling factor
+    """
+    def __init__(self, ndims, in_channels, out_channels, geo_act='softsign', inv_length = 0.01):
+        super(GradientLayer, self).__init__()
+        self.gw1 = nn.Parameter(torch.tensor(inv_length))
+        self.gw2 = nn.Conv1d(ndims * in_channels, out_channels, 1, bias=False)
+        self.geo_act = _get_act(geo_act)
+
+    def forward(self, x, directed_edges, edge_gradient_weights):
+        '''
+        Input:
+            x: float[batch_size, in_channels, nnodes]
+            directed_edges: Tensor int[batch_size, max_nedges, 2]
+            edge_gradient_weights: Tensor float[batch_size, max_nedges, ndim]
+        Return:
+            float[batch_size, out_channels, nnodes]
+        '''
+        return self.gw2(self.geo_act(self.gw1 * (
+            graph_neighbor_average(compute_gradient(x, directed_edges, edge_gradient_weights),directed_edges, iterations=2)
+            )))
+        # return self.gw2(self.geo_act(self.gw1 * (
+        #     compute_gradient(graph_neighbor_average(x, directed_edges, iterations=2), directed_edges, edge_gradient_weights)
+        #     )))
+
 
 
 
@@ -266,20 +459,20 @@ class PCNO(nn.Module):
         super(PCNO, self).__init__()
 
         """
-        The overall network. 
+        The overall network.
         1. Lift the input to the desire channel dimension by self.fc0 .
         2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
-           linear functions  W: parameterized by self.ws; 
+           linear functions  W: parameterized by self.ws;
            integral operator K: parameterized by self.sp_convs with nmeasures different integrals
            differential operator D: parameterized by self.gws
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
-        
-            
-            Parameters: 
-                ndims : int 
+
+
+            Parameters:
+                ndims : int
                     Dimensionality of the problem
                 modes : float[nmodes, ndims, nmeasures]
-                    It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1  
+                    It contains nmodes modes k, and Fourier bases include : cos(k x), sin(k x), 1
                     * We cannot have both k and -k
                     * k is not integer, and it has the form 2pi*K/L0  (K in Z)
                 nmeasures : int
@@ -292,32 +485,33 @@ class PCNO(nn.Module):
                     ...
                     The nlayers Fourier layer maps between layers[nlayers-1] and layers[nlayers]
                     The number of Fourier layers is len(layers) - 1
-                fc_dim : int 
+                fc_dim : int
                     hidden layers for the projection layer, when fc_dim > 0, otherwise there is no hidden layer
-                in_dim : int 
+                in_dim : int
                     The number of channels for the input function
                     For example, when the coefficient function and locations (a(x, y), x, y) are inputs, in_dim = 3
-                out_dim : int 
+                out_dim : int
                     The number of channels for the output function
 
                 act : string (default gelu)
                     The activation function
 
-            
+
             Returns:
                 Point cloud neural operator
 
         """
-        
-        self.register_buffer('modes', modes) 
+
+        self.register_buffer('modes', modes)
         self.nmeasures = nmeasures
-        
+
 
         self.layers = layers
         self.fc_dim = fc_dim
 
         self.ndims = ndims
         self.in_dim = in_dim
+        self.out_dim = out_dim
 
         self.fc0 = nn.Linear(in_dim, layers[0])
 
@@ -338,7 +532,7 @@ class PCNO(nn.Module):
 
         self.gws = nn.ModuleList(
             [
-                nn.Conv1d(ndims*in_size, out_size, 1)
+                GradientLayer(ndims, in_size, out_size, geo_act='softsign', inv_length = 0.01)
                 for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         )
@@ -353,42 +547,42 @@ class PCNO(nn.Module):
         self.softsign = F.softsign
 
         self.normal_params = list(self.parameters())  #  group of params which will be trained normally
-        
+
 
     def forward(self, x, aux):
         """
-        Forward evaluation. 
+        Forward evaluation.
         1. Lift the input to the desire channel dimension by self.fc0 .
         2. len(layers)-1 layers of the point cloud neural layers u' = (W + K + D)(u).
-           linear functions  W: parameterized by self.ws; 
+           linear functions  W: parameterized by self.ws;
            integral operator K: parameterized by self.sp_convs with nmeasures different integrals
            differential operator D: parameterized by self.gws
         3. Project from the channel space to the output space by self.fc1 and self.fc2 .
-            
-            Parameters: 
-                x : Tensor float[batch_size, max_nnomdes, in_dim] 
+
+            Parameters:
+                x : Tensor float[batch_size, max_nnomdes, in_dim]
                     Input data
                 aux : list of Tensor, containing
-                    node_mask : Tensor int[batch_size, max_nnomdes, 1]  
+                    node_mask : Tensor int[batch_size, max_nnomdes, 1]
                                 1: node; otherwise 0
 
-                    nodes : Tensor float[batch_size, max_nnomdes, ndim]  
+                    nodes : Tensor float[batch_size, max_nnomdes, ndim]
                             nodal coordinate; padding with 0
 
-                    node_weights  : Tensor float[batch_size, max_nnomdes, nmeasures]  
+                    node_weights  : Tensor float[batch_size, max_nnomdes, nmeasures]
                                     rho(x)dx used for nmeasures integrations; padding with 0
 
-                    directed_edges : Tensor int[batch_size, max_nedges, 2]  
-                                     direted edge pairs; padding with 0  
-                                     gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)] 
+                    directed_edges : Tensor int[batch_size, max_nedges, 2]
+                                     direted edge pairs; padding with 0
+                                     gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)]
 
-                    edge_gradient_weights      : Tensor float[batch_size, max_nedges, ndim] 
-                                                 pinvdx on each directed edge 
-                                                 gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)] 
+                    edge_gradient_weights      : Tensor float[batch_size, max_nedges, ndim]
+                                                 pinvdx on each directed edge
+                                                 gradient f(x) = sum_i pinvdx[:,i] * [f(xi) - f(x)]
 
-            
+
             Returns:
-                G(x) : Tensor float[batch_size, max_nnomdes, out_dim] 
+                G(x) : Tensor float[batch_size, max_nnomdes, out_dim]
                        Output data
 
         """
@@ -397,26 +591,27 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes) 
+        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes)
         # node_weights: float[batch_size, nnodes, nmeasures]
         # wbases: float[batch_size, nnodes, nmodes, nmeasures]
         # set nodes with zero measure to 0
         wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
         wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
         wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
-        
-        
-        
+
+
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
 
         for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
-            x3 = gw(self.softsign(compute_gradient(x, directed_edges, edge_gradient_weights)))
-            x = x1 + x2 + x3
+            x3 = gw(x, directed_edges, edge_gradient_weights)
+
             if self.act is not None and i != length - 1:
-                x = self.act(x) 
+                x = x + self.act(x1 + x2 + x3)
+            else:
+                x = x1 + x2 + x3
 
         x = x.permute(0, 2, 1)
 
@@ -427,9 +622,9 @@ class PCNO(nn.Module):
 
         x = self.fc2(x)
 
-       
-        return x 
-    
+
+        return x
+
 
 
 ################################################################
@@ -463,7 +658,7 @@ class CombinedOptimizer:
         self.optimizer1.step()
         if self.optimizer2:
             self.optimizer2.step()
-    
+
     def zero_grad(self):
         self.optimizer1.zero_grad()
         if self.optimizer2:
@@ -486,7 +681,7 @@ class CombinedOptimizer:
             # Load the state of the second optimizer
             self.optimizer2.load_state_dict(state_dict['optimizer2'])
 
-        
+
 
 
 class Combinedscheduler_OneCycleLR:
@@ -534,7 +729,7 @@ class Combinedscheduler_OneCycleLR:
             # Load the state of the second scheduler
             self.scheduler2.load_state_dict(state_dict['scheduler2'])
 
-        
+
 
 
 
@@ -548,18 +743,18 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     normalization_x, normalization_y = config["train"]["normalization_x"], config["train"]["normalization_y"]
     normalization_dim_x, normalization_dim_y = config["train"]["normalization_dim_x"], config["train"]["normalization_dim_y"]
     non_normalized_dim_x, non_normalized_dim_y = config["train"]["non_normalized_dim_x"], config["train"]["non_normalized_dim_y"]
-    
+
     ndims = model.ndims # n_train, size, n_channel
     print("In PCNO_train, ndims = ", ndims)
-    
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
+
     if normalization_x:
         x_normalizer = UnitGaussianNormalizer(x_train, non_normalized_dim = non_normalized_dim_x, normalization_dim=normalization_dim_x)
         x_train = x_normalizer.encode(x_train)
         x_test = x_normalizer.encode(x_test)
         x_normalizer.to(device)
-        
+
     if normalization_y:
         y_normalizer = UnitGaussianNormalizer(y_train, non_normalized_dim = non_normalized_dim_y, normalization_dim=normalization_dim_y)
         y_train = y_normalizer.encode(y_train)
@@ -568,13 +763,13 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
     node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train = aux_train
-    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train), 
+    train_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_train, y_train, node_mask_train, nodes_train, node_weights_train, directed_edges_train, edge_gradient_weights_train),
                                                batch_size=config['train']['batch_size'], shuffle=True)
-    
+
     node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test = aux_test
-    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test), 
+    test_loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x_test, y_test, node_mask_test, nodes_test, node_weights_test, directed_edges_test, edge_gradient_weights_test),
                                                batch_size=config['train']['batch_size'], shuffle=False)
-    
+
     myloss = LpLoss(d=1, p=2, size_average=False)
 
     optimizer = CombinedOptimizer(model.normal_params, [],
@@ -583,14 +778,14 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         lr_ratio = config["train"]["lr_ratio"],
         weight_decay=config["train"]["weight_decay"],
         )
-    
+
     scheduler = Combinedscheduler_OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'], lr_ratio = config["train"]["lr_ratio"],
         div_factor=2, final_div_factor=100,pct_start=0.2,
-        steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
-    
+        steps_per_epoch=1, epochs=config['train']['epochs'])
+
     current_epoch, epochs = 0, config['train']['epochs']
-    
+
     if checkpoint_path:
         checkpoint = torch.load(checkpoint_path, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -622,8 +817,6 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
             loss.backward()
 
             optimizer.step()
-            scheduler.step()
-            
             train_rel_l2 += loss.item()
 
         test_l2 = 0
@@ -648,7 +841,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
 
-        
+        scheduler.step()
 
         train_rel_l2/= n_train
         test_l2 /= n_test
@@ -656,12 +849,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
-    
+
 
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
               flush=True)
-        if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:    
+        if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:
             torch.save(model.state_dict(), save_model_name + ".pth")
 
             torch.save({
@@ -671,11 +864,10 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
                 'current_epoch': ep,  # optional: to track training progress
             }, "checkpoint.pth")
 
-            
-    
-    
-    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
 
+
+
+    return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
 
 
 

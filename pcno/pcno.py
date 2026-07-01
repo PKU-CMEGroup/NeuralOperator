@@ -627,6 +627,22 @@ class PCNO(nn.Module):
 
 
 
+class euler2d_PCNO(PCNO):
+    """PCNO with positive Euler density and energy/pressure output channels."""
+
+    def forward(self, x, aux):
+        x = super().forward(x, aux)
+        if x.shape[-1] < 2:
+            raise ValueError("euler2d_PCNO requires at least two output channels")
+        return torch.cat(
+            [
+                torch.exp(x[..., :1]),
+                x[..., 1:-1],
+                torch.exp(x[..., -1:]),
+            ],
+            dim=-1,
+        )
+
 ################################################################
 # Training (Optimization)
 ################################################################
@@ -868,7 +884,6 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
-
 
 
 

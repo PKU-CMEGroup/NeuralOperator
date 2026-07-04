@@ -1,15 +1,23 @@
-﻿import numpy as np
+import numpy as np
 
 from utility.time_dependent_no.euler2d_metrics import (
     boundary_leakage_metrics,
     conservation_drift,
     conservation_totals,
+    front_centroid_distance,
+    front_distance_metrics,
+    front_overlap_metrics,
+    front_region_masks,
+    local_shift_alignment_metrics,
+    median_edge_length,
     near_shock_error,
     node_variation_score,
     positivity_metrics,
     rollout_relative_l2_by_time,
     rollout_rmse_by_time,
+    shift_grid,
     shock_centroid_distance,
+    shock_front_masks,
     shock_indicator,
     shock_region_metrics,
     summarize_euler2d_rollout,
@@ -145,3 +153,71 @@ def test_summarize_euler2d_rollout_returns_scalar_diagnostics():
     assert "max_relative_energy_drift" in summary
     assert "target_final_shock_fraction" in summary
 
+
+def test_front_overlap_distance_and_regions_track_shifted_pressure_jump():
+    truth = np.ones((1, 6, 4), dtype=np.float64)
+    prediction = truth.copy()
+    truth[0, :, 3] = np.array([1.0, 1.0, 4.0, 4.0, 4.0, 4.0])
+    prediction[0, :, 3] = np.array([1.0, 1.0, 1.0, 4.0, 4.0, 4.0])
+    edges = np.array([[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]], dtype=np.int64)
+    normal = np.array([True, True, True, True, True, False])
+    positions = np.stack((np.arange(6, dtype=np.float64), np.zeros(6)), axis=-1)
+
+    fronts = shock_front_masks(
+        prediction,
+        truth,
+        edges,
+        quantile=0.8,
+        node_mask=normal,
+    )
+    overlap = front_overlap_metrics(fronts["prediction_mask"], fronts["target_mask"])
+    distances = front_distance_metrics(
+        fronts["prediction_mask"], fronts["target_mask"], positions
+    )
+    centroid = front_centroid_distance(
+        fronts["prediction_mask"], fronts["target_mask"], positions
+    )
+    regions = front_region_masks(
+        fronts["prediction_mask"], fronts["target_mask"], node_mask=normal
+    )
+
+    np.testing.assert_allclose(overlap["iou"], np.array([1.0 / 3.0]))
+    np.testing.assert_allclose(overlap["f1"], np.array([0.5]))
+    np.testing.assert_allclose(distances["symmetric_chamfer_mean"], np.array([0.5]))
+    np.testing.assert_allclose(centroid, np.array([1.0]))
+    assert np.count_nonzero(regions["front_overlap"]) == 1
+    assert np.count_nonzero(regions["predicted_front_only"]) == 1
+    assert np.count_nonzero(regions["target_front_only"]) == 1
+    assert not np.any(regions["smooth"][..., ~normal])
+
+
+def test_local_shift_alignment_reduces_displaced_front_error():
+    positions = np.stack((np.arange(6, dtype=np.float64), np.zeros(6)), axis=-1)
+    truth = np.ones((1, 6, 4), dtype=np.float64)
+    prediction = truth.copy()
+    truth[0, :, 3] = np.array([1.0, 1.0, 4.0, 4.0, 4.0, 4.0])
+    prediction[0, :, 3] = np.array([1.0, 1.0, 1.0, 4.0, 4.0, 4.0])
+    region = np.ones((1, 6), dtype=bool)
+    shifts = shift_grid(1.0, grid_size=3, dim=2)
+
+    metrics = local_shift_alignment_metrics(
+        prediction,
+        truth,
+        positions,
+        region,
+        shifts,
+        scalar_index=3,
+    )
+
+    assert metrics["best_shift_rmse"][0] < metrics["baseline_rmse"][0]
+    assert metrics["relative_rmse_reduction"][0] > 0.0
+    np.testing.assert_allclose(metrics["best_shift"][0, 0], -1.0)
+
+
+def test_median_edge_length_uses_physical_positions():
+    positions = np.array(
+        [[0.0, 0.0], [2.0, 0.0], [2.0, 3.0], [6.0, 3.0]], dtype=np.float64
+    )
+    edges = np.array([[0, 1], [1, 2], [2, 3]], dtype=np.int64)
+
+    assert median_edge_length(positions, edges) == 3.0

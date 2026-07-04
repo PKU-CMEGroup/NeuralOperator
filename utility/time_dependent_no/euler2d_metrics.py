@@ -1,4 +1,4 @@
-﻿"""Diagnostics for 2D Euler primitive-variable rollouts.
+"""Diagnostics for 2D Euler primitive-variable rollouts.
 
 The functions here are intentionally representation-light. They operate on
 primitive arrays with last dimension ``[rho, v1, v2, pres]`` and optional graph
@@ -211,6 +211,331 @@ def shock_indicator(
     scores = node_variation_score(scalar, edges)
     threshold = np.quantile(scores, quantile, axis=-1, keepdims=True)
     return (scores >= threshold) & (scores > 0.0)
+
+
+def shock_front_scores(
+    primitive: ArrayLike,
+    edges: ArrayLike,
+    *,
+    scalar_index: int = 3,
+) -> np.ndarray:
+    """Return graph-gradient scores for a scalar primitive field."""
+
+    prim = _validate_primitive(primitive)
+    return node_variation_score(prim[..., scalar_index], edges)
+
+
+def shock_front_mask_from_scores(
+    scores: ArrayLike,
+    *,
+    quantile: float = 0.9,
+    node_mask: ArrayLike | None = None,
+) -> np.ndarray:
+    """Return high-gradient front masks from per-node shock scores.
+
+    The quantile is computed on ``node_mask`` only when a mask is provided, but
+    the returned array keeps the original node axis and clears nodes outside
+    that mask.
+    """
+
+    if not 0.0 <= quantile <= 1.0:
+        raise ValueError("quantile must be in [0, 1]")
+    values = np.asarray(scores, dtype=np.float64)
+    if values.ndim < 1:
+        raise ValueError("scores must include a node axis")
+    if node_mask is None:
+        mask = np.ones(values.shape[-1], dtype=bool)
+    else:
+        mask = _as_node_mask(node_mask)
+        if mask.shape[0] != values.shape[-1]:
+            raise ValueError("node_mask must match the score node axis")
+    if not np.any(mask):
+        raise ValueError("node_mask must select at least one node")
+
+    selected = values[..., mask]
+    threshold = np.quantile(selected, quantile, axis=-1)
+    front = (values >= np.expand_dims(threshold, axis=-1)) & (values > 0.0)
+    return front & mask
+
+
+def shock_front_masks(
+    prediction: ArrayLike,
+    target: ArrayLike,
+    edges: ArrayLike,
+    *,
+    scalar_index: int = 3,
+    quantile: float = 0.9,
+    node_mask: ArrayLike | None = None,
+) -> dict[str, np.ndarray]:
+    """Return predicted and target front masks from graph pressure gradients."""
+
+    pred, truth = _matching_arrays(prediction, target)
+    num_nodes = pred.shape[-2]
+    edge_index = _validate_edges(edges, num_nodes=num_nodes)
+    pred_scores = shock_front_scores(pred, edge_index, scalar_index=scalar_index)
+    target_scores = shock_front_scores(truth, edge_index, scalar_index=scalar_index)
+    return {
+        "prediction_scores": pred_scores,
+        "target_scores": target_scores,
+        "prediction_mask": shock_front_mask_from_scores(
+            pred_scores, quantile=quantile, node_mask=node_mask
+        ),
+        "target_mask": shock_front_mask_from_scores(
+            target_scores, quantile=quantile, node_mask=node_mask
+        ),
+    }
+
+
+def front_overlap_metrics(
+    prediction_mask: ArrayLike,
+    target_mask: ArrayLike,
+) -> dict[str, np.ndarray]:
+    """Return IoU/F1-style overlap metrics for front masks over the node axis."""
+
+    pred, truth = _matching_masks(prediction_mask, target_mask)
+    intersection = np.count_nonzero(pred & truth, axis=-1)
+    union = np.count_nonzero(pred | truth, axis=-1)
+    pred_count = np.count_nonzero(pred, axis=-1)
+    target_count = np.count_nonzero(truth, axis=-1)
+    precision = _safe_divide(intersection, pred_count)
+    recall = _safe_divide(intersection, target_count)
+    f1 = _safe_divide(2.0 * precision * recall, precision + recall)
+    iou = _safe_divide(intersection, union)
+    return {
+        "intersection_count": intersection,
+        "union_count": union,
+        "prediction_count": pred_count,
+        "target_count": target_count,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "iou": iou,
+    }
+
+
+def front_region_masks(
+    prediction_mask: ArrayLike,
+    target_mask: ArrayLike,
+    *,
+    node_mask: ArrayLike | None = None,
+) -> dict[str, np.ndarray]:
+    """Split nodes into overlap, displaced-front, and smooth regions."""
+
+    pred, truth = _matching_masks(prediction_mask, target_mask)
+    if node_mask is None:
+        base = np.ones(pred.shape[-1], dtype=bool)
+    else:
+        base = _as_node_mask(node_mask)
+        if base.shape[0] != pred.shape[-1]:
+            raise ValueError("node_mask must match the front mask node axis")
+    base = _broadcast_node_mask(base, pred.ndim)
+    pred = pred & base
+    truth = truth & base
+    overlap = pred & truth
+    pred_only = pred & ~truth
+    target_only = truth & ~pred
+    union = pred | truth
+    return {
+        "target_front": truth,
+        "predicted_front": pred,
+        "front_overlap": overlap,
+        "front_union": union,
+        "predicted_front_only": pred_only,
+        "target_front_only": target_only,
+        "smooth": base & ~union,
+    }
+
+
+def front_centroid(
+    front_mask: ArrayLike,
+    positions: ArrayLike,
+    *,
+    weights: ArrayLike | None = None,
+) -> np.ndarray:
+    """Return front centroids in physical coordinates."""
+
+    mask = np.asarray(front_mask, dtype=bool)
+    if mask.ndim < 1:
+        raise ValueError("front_mask must include a node axis")
+    pos = _validate_positions(positions, num_nodes=mask.shape[-1])
+    if weights is None:
+        weighted_mask = mask.astype(np.float64)
+    else:
+        weight_values = np.asarray(weights, dtype=np.float64)
+        if weight_values.shape != mask.shape:
+            raise ValueError("weights must have the same shape as front_mask")
+        weighted_mask = np.where(mask, weight_values, 0.0)
+    total = np.sum(weighted_mask, axis=-1)
+    centroid = np.einsum("...n,nd->...d", weighted_mask, pos)
+    out = np.full(centroid.shape, np.nan, dtype=np.float64)
+    valid = total > 0.0
+    out[valid] = centroid[valid] / total[valid, None]
+    return out
+
+
+def front_centroid_distance(
+    prediction_mask: ArrayLike,
+    target_mask: ArrayLike,
+    positions: ArrayLike,
+    *,
+    prediction_weights: ArrayLike | None = None,
+    target_weights: ArrayLike | None = None,
+) -> np.ndarray:
+    """Return physical distance between predicted and target front centroids."""
+
+    pred, truth = _matching_masks(prediction_mask, target_mask)
+    pred_centroid = front_centroid(pred, positions, weights=prediction_weights)
+    target_centroid = front_centroid(truth, positions, weights=target_weights)
+    return np.linalg.norm(pred_centroid - target_centroid, axis=-1)
+
+
+def front_distance_metrics(
+    prediction_mask: ArrayLike,
+    target_mask: ArrayLike,
+    positions: ArrayLike,
+) -> dict[str, np.ndarray]:
+    """Return nearest-front and symmetric Chamfer distances in physical units."""
+
+    pred, truth = _matching_masks(prediction_mask, target_mask)
+    pos = _validate_positions(positions, num_nodes=pred.shape[-1])
+    prefix = pred.shape[:-1]
+    pred_flat = pred.reshape((-1, pred.shape[-1]))
+    truth_flat = truth.reshape((-1, truth.shape[-1]))
+
+    pred_to_target = np.full(pred_flat.shape[0], np.nan, dtype=np.float64)
+    target_to_pred = np.full(pred_flat.shape[0], np.nan, dtype=np.float64)
+    pred_to_target_max = np.full(pred_flat.shape[0], np.nan, dtype=np.float64)
+    target_to_pred_max = np.full(pred_flat.shape[0], np.nan, dtype=np.float64)
+    pred_counts = np.count_nonzero(pred_flat, axis=1)
+    target_counts = np.count_nonzero(truth_flat, axis=1)
+
+    for index, (pred_row, truth_row) in enumerate(
+        zip(pred_flat, truth_flat, strict=True)
+    ):
+        if not np.any(pred_row) or not np.any(truth_row):
+            continue
+        p2t = _nearest_distances(pos[pred_row], pos[truth_row])
+        t2p = _nearest_distances(pos[truth_row], pos[pred_row])
+        pred_to_target[index] = np.mean(p2t)
+        target_to_pred[index] = np.mean(t2p)
+        pred_to_target_max[index] = np.max(p2t)
+        target_to_pred_max[index] = np.max(t2p)
+
+    chamfer = 0.5 * (pred_to_target + target_to_pred)
+    hausdorff = np.maximum(pred_to_target_max, target_to_pred_max)
+    return {
+        "prediction_count": pred_counts.reshape(prefix),
+        "target_count": target_counts.reshape(prefix),
+        "prediction_to_target_mean": pred_to_target.reshape(prefix),
+        "target_to_prediction_mean": target_to_pred.reshape(prefix),
+        "symmetric_chamfer_mean": chamfer.reshape(prefix),
+        "hausdorff": hausdorff.reshape(prefix),
+    }
+
+
+def median_edge_length(positions: ArrayLike, edges: ArrayLike) -> float:
+    """Return the median physical edge length for a graph."""
+
+    pos = np.asarray(positions, dtype=np.float64)
+    if pos.ndim != 2:
+        raise ValueError("positions must have shape (num_nodes, dim)")
+    edge_index = _validate_edges(edges, num_nodes=pos.shape[0])
+    if edge_index.size == 0:
+        return 0.0
+    lengths = np.linalg.norm(pos[edge_index[:, 0]] - pos[edge_index[:, 1]], axis=-1)
+    return float(np.median(lengths))
+
+
+def shift_grid(
+    max_shift: float,
+    *,
+    grid_size: int = 5,
+    dim: int = 2,
+) -> np.ndarray:
+    """Return a Cartesian translation grid centered on zero."""
+
+    if max_shift < 0.0:
+        raise ValueError("max_shift must be nonnegative")
+    if grid_size < 1:
+        raise ValueError("grid_size must be positive")
+    if dim < 1:
+        raise ValueError("dim must be positive")
+    if max_shift == 0.0 or grid_size == 1:
+        return np.zeros((1, dim), dtype=np.float64)
+    axes = [np.linspace(-max_shift, max_shift, grid_size, dtype=np.float64)] * dim
+    mesh = np.meshgrid(*axes, indexing="ij")
+    return np.stack([item.reshape(-1) for item in mesh], axis=-1)
+
+
+def local_shift_alignment_metrics(
+    prediction: ArrayLike,
+    target: ArrayLike,
+    positions: ArrayLike,
+    region_mask: ArrayLike,
+    shifts: ArrayLike,
+    *,
+    scalar_index: int = 3,
+) -> dict[str, np.ndarray]:
+    """Measure how much scalar error drops after small spatial translations.
+
+    For each candidate shift, predicted node values are sampled at target node
+    positions by nearest neighbor from ``positions + shift``. A large RMSE
+    reduction after a small shift is evidence for front displacement rather
+    than pure amplitude error.
+    """
+
+    pred, truth = _matching_arrays(prediction, target)
+    pos = _validate_positions(positions, num_nodes=pred.shape[-2])
+    mask = np.asarray(region_mask, dtype=bool)
+    if mask.shape != pred.shape[:-1]:
+        raise ValueError("region_mask must match prediction without variable axis")
+    shift_values = np.asarray(shifts, dtype=np.float64)
+    if shift_values.ndim != 2 or shift_values.shape[1] != pos.shape[1]:
+        raise ValueError("shifts must have shape (num_shifts, coordinate_dim)")
+    if shift_values.shape[0] == 0:
+        raise ValueError("shifts must contain at least one candidate")
+
+    mappings = [_nearest_indices(pos, pos + shift) for shift in shift_values]
+    pred_scalar = pred[..., scalar_index]
+    target_scalar = truth[..., scalar_index]
+    prefix = pred_scalar.shape[:-1]
+    pred_flat = pred_scalar.reshape((-1, pred_scalar.shape[-1]))
+    target_flat = target_scalar.reshape((-1, target_scalar.shape[-1]))
+    mask_flat = mask.reshape((-1, mask.shape[-1]))
+
+    baseline = np.full(pred_flat.shape[0], np.nan, dtype=np.float64)
+    best = np.full(pred_flat.shape[0], np.nan, dtype=np.float64)
+    best_index = np.full(pred_flat.shape[0], -1, dtype=np.int64)
+    selected_count = np.count_nonzero(mask_flat, axis=1)
+
+    for row_index, (pred_row, target_row, mask_row) in enumerate(
+        zip(pred_flat, target_flat, mask_flat, strict=True)
+    ):
+        if not np.any(mask_row):
+            continue
+        baseline[row_index] = _rmse_1d(pred_row[mask_row], target_row[mask_row])
+        candidate_errors = np.array(
+            [
+                _rmse_1d(pred_row[mapping][mask_row], target_row[mask_row])
+                for mapping in mappings
+            ],
+            dtype=np.float64,
+        )
+        best_index[row_index] = int(np.nanargmin(candidate_errors))
+        best[row_index] = candidate_errors[best_index[row_index]]
+
+    best_shift = np.full((pred_flat.shape[0], pos.shape[1]), np.nan, dtype=np.float64)
+    valid = best_index >= 0
+    best_shift[valid] = shift_values[best_index[valid]]
+    reduction = _safe_divide(baseline - best, baseline)
+    return {
+        "selected_count": selected_count.reshape(prefix),
+        "baseline_rmse": baseline.reshape(prefix),
+        "best_shift_rmse": best.reshape(prefix),
+        "relative_rmse_reduction": reduction.reshape(prefix),
+        "best_shift": best_shift.reshape(prefix + (pos.shape[1],)),
+        "best_shift_norm": np.linalg.norm(best_shift, axis=-1).reshape(prefix),
+    }
 
 
 def shock_region_metrics(
@@ -448,6 +773,21 @@ def _matching_arrays(
     return pred, truth
 
 
+def _matching_masks(
+    prediction_mask: ArrayLike,
+    target_mask: ArrayLike,
+) -> tuple[np.ndarray, np.ndarray]:
+    pred = np.asarray(prediction_mask, dtype=bool)
+    truth = np.asarray(target_mask, dtype=bool)
+    if pred.shape != truth.shape:
+        raise ValueError(
+            f"prediction and target masks must match, got {pred.shape} and {truth.shape}"
+        )
+    if pred.ndim < 1:
+        raise ValueError("front masks must include a node axis")
+    return pred, truth
+
+
 def _validate_primitive(value: ArrayLike) -> np.ndarray:
     array = np.asarray(value, dtype=np.float64)
     if array.ndim < 2 or array.shape[-1] != 4:
@@ -484,6 +824,75 @@ def _validate_edges(edges: ArrayLike, *, num_nodes: int) -> np.ndarray:
     return edge_index
 
 
+def _validate_positions(positions: ArrayLike, *, num_nodes: int) -> np.ndarray:
+    pos = np.asarray(positions, dtype=np.float64)
+    if pos.ndim != 2 or pos.shape[0] != num_nodes:
+        raise ValueError("positions must have shape (num_nodes, coordinate_dim)")
+    if pos.shape[1] < 1:
+        raise ValueError("positions must include at least one coordinate")
+    return pos
+
+
+def _broadcast_node_mask(mask: np.ndarray, ndim: int) -> np.ndarray:
+    return mask.reshape((1,) * (ndim - 1) + (mask.shape[0],))
+
+
+def _safe_divide(numerator: ArrayLike, denominator: ArrayLike) -> np.ndarray:
+    num = np.asarray(numerator, dtype=np.float64)
+    den = np.asarray(denominator, dtype=np.float64)
+    out = np.full(np.broadcast_shapes(num.shape, den.shape), np.nan, dtype=np.float64)
+    num_b = np.broadcast_to(num, out.shape)
+    den_b = np.broadcast_to(den, out.shape)
+    valid = den_b != 0.0
+    out[valid] = num_b[valid] / den_b[valid]
+    return out
+
+
+def _nearest_distances(query: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    if query.size == 0 or reference.size == 0:
+        return np.empty((0,), dtype=np.float64)
+    try:
+        from scipy.spatial import cKDTree  # type: ignore[import-not-found]
+
+        distances, _ = cKDTree(reference).query(query, k=1)
+        return np.asarray(distances, dtype=np.float64)
+    except ModuleNotFoundError:
+        return _nearest_distances_chunked(query, reference)
+
+
+def _nearest_indices(query: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    if query.ndim != 2 or reference.ndim != 2 or query.shape[1] != reference.shape[1]:
+        raise ValueError("query and reference must have shape (num_points, dim)")
+    try:
+        from scipy.spatial import cKDTree  # type: ignore[import-not-found]
+
+        _, indices = cKDTree(reference).query(query, k=1)
+        return np.asarray(indices, dtype=np.int64)
+    except ModuleNotFoundError:
+        distances = _pairwise_distances_chunked(query, reference)
+        return np.argmin(distances, axis=1).astype(np.int64)
+
+
+def _nearest_distances_chunked(query: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    return np.min(_pairwise_distances_chunked(query, reference), axis=1)
+
+
+def _pairwise_distances_chunked(
+    query: np.ndarray,
+    reference: np.ndarray,
+    chunk_size: int = 4096,
+) -> np.ndarray:
+    chunks = []
+    for start in range(0, query.shape[0], chunk_size):
+        diff = query[start : start + chunk_size, None, :] - reference[None, :, :]
+        chunks.append(np.linalg.norm(diff, axis=-1))
+    return np.concatenate(chunks, axis=0)
+
+
+def _rmse_1d(prediction: np.ndarray, target: np.ndarray) -> float:
+    return float(np.sqrt(np.mean((prediction - target) ** 2)))
+
+
 def _relative_active_fraction(
     scores: np.ndarray,
     max_scores: np.ndarray,
@@ -493,4 +902,3 @@ def _relative_active_fraction(
     threshold = relative_threshold * max_scores[..., None]
     active = (scores >= threshold) & (scores > 0.0)
     return np.mean(active, axis=-1)
-

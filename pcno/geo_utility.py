@@ -534,7 +534,7 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
                     we have both line segments and triangles, the padding values are
                     -1 or any negative integers.
 
-            features_list  : list of float[nelems, nfeatures]
+            features_list  : list of float[nelems, nfeatures] or float[n_times, nelems, nfeatures]
                     Node features (on vertices or cell centers) depending on mesh_type.
 
             mesh_type : str
@@ -560,7 +560,7 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
                     Node coordinates (vertex positions or cell centers). Padded with 0.
             node_measures : float[ndata, max_nnodes, nmeasures] 
                     Node measures (length, area, volume). Padded with NaN.             
-            features : float[ndata, max_nnodes, nfeatures]  
+            features : float[ndata, max_nnodes, nfeatures] or float[ndata, n_times, max_nnodes, nfeatures]
                     Node (on vertices or cell centers) features. Padded with 0.  
             directed_edges :  float[ndata, max_nedges, 2]         
                     Directed edges between nodes for gradient computation. Padded with 0.  
@@ -569,7 +569,15 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
     '''
 
     ndata = len(vertices_list)
-    ndims, nfeatures = vertices_list[0].shape[1], features_list[0].shape[1]
+    ndims = vertices_list[0].shape[1]
+    # 修改：feature 既支持原来的 [nnodes, nfeatures]，也支持含时的 [n_times, nnodes, nfeatures]
+    feature_ndim = features_list[0].ndim
+    if feature_ndim == 2:
+        nfeatures = features_list[0].shape[1]
+    elif feature_ndim == 3:
+        n_times, _, nfeatures = features_list[0].shape
+    else:
+        raise ValueError(f"features_list entries must be 2D or 3D, got shape {features_list[0].shape}")
     
     # Determine number of nodes per sample
     if mesh_type == "vertex_centered":
@@ -616,9 +624,15 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
     node_measures = node_measures[...,:nmeasures]
 
     print("Preprocessing data : computing features")
-    features = np.zeros((ndata, max_nnodes, nfeatures))
-    for i in range(ndata):
-        features[i,:nnodes[i],:] = features_list[i] 
+    # 修改：二维 feature 维持原输出；含时 feature 在 node 维加 padding/mask，输出 [ndata, n_times, max_nnodes, nfeatures]
+    if feature_ndim == 2:
+        features = np.zeros((ndata, max_nnodes, nfeatures))
+        for i in range(ndata):
+            features[i,:nnodes[i],:] = features_list[i]
+    else:
+        features = np.zeros((ndata, n_times, max_nnodes, nfeatures))
+        for i in range(ndata):
+            features[i,:,:nnodes[i],:] = features_list[i]
 
     print("Preprocessing data : computing directed_edges and edge_gradient_weights")
     directed_edges_list, edge_gradient_weights_list = [], []

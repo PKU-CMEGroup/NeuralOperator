@@ -16,7 +16,7 @@ import torch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-from pcno.pcno import compute_Fourier_modes, euler2d_PCNO
+from pcno.pcno import compute_Fourier_modes, euler2d_PCNO, PCNO
 
 
 FEATURE_NAMES = ("rho", "u", "v", "p")
@@ -114,7 +114,7 @@ def build_euler2d_pcno_from_data(
     data: dict,
     model_path: Union[str, Path],
     device: Optional[Union[str, torch.device]] = None,
-    k_max: int = 12,
+    k_max: int = 8,
     domain_lengths: Sequence[float] = (6.0, 2.0),
     layers: Sequence[int] = (128, 128, 128, 128, 128),
     fc_dim: int = 128,
@@ -145,7 +145,7 @@ def build_euler2d_pcno_from_data(
     )
     modes = torch.tensor(modes, dtype=torch.float32, device=device)
 
-    model = euler2d_PCNO(
+    model = euler2d_PCNO(#PCNO
         ndim,
         modes,
         nmeasures=nmeasures,
@@ -602,12 +602,12 @@ def rollout_and_plot_euler2d_sample(
 
 def run_from_internal_config():
     # Modify the values in this block, then run this file directly.
-    index = 0
+    index = 99
     n_time = 60
     feature_index = "rho"  # one of: "rho", "u", "v", "p"; or use 0, 1, 2, 3
-    model_path = "PCNO_forward_euler_exp_model.pth"
+    model_path = "PCNO_forward_euler_exp_model.pth" #"PCNO_forward_euler_exp_model.pth"
     data_path = DEFAULT_DATA_PATH
-    output_dir = "euler2d_rollout_outputs"
+    output_dir = "euler2d_rollout_outputs_exp"
     start_time = 0
     snapshot_steps = [1, 10, 30, 60]
     animation_name = None  # e.g. "sample_0_rho_rollout.gif" or "sample_0_rho_rollout.mp4"
@@ -615,8 +615,8 @@ def run_from_internal_config():
     device = None  # None uses cuda:0 if available, otherwise cpu
     equal_weights = False
     error_kind = "absolute"  # "absolute" or "signed"
-    field_color_limits = None  # e.g. (0.8, 1.8), shared by truth and prediction
-    error_color_limits = None  # e.g. (0.0, 0.2) for absolute, or (-0.2, 0.2) for signed
+    field_color_limits = (-1, 4)  # e.g. (0.8, 1.8), shared by truth and prediction
+    error_color_limits = (-0.5, 0.5)  # e.g. (0.0, 0.2) for absolute, or (-0.2, 0.2) for signed
     field_cmap = "viridis"
     abs_error_cmap = "magma"
     signed_error_cmap = "coolwarm"

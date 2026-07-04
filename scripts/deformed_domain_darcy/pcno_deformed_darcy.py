@@ -40,13 +40,11 @@ parser.add_argument('--equal_weight', type=str, default='False', help='Specify w
 
 parser.add_argument('--Lx', type=float, default=2.0, help='Initial value for the length of the x dimension')
 parser.add_argument('--Ly', type=float, default=2.0, help='Initial value for the length of the y dimension')
-parser.add_argument('--train_inv_L_scale', type=str, default='independently', choices=['False', 'together', 'independently'], help='type of train_inv_L_scale (False, together, independently)')
 
 parser.add_argument('--normalization_x', type=str, default='False', help='Whether to normalize the x dimension (True/False)')
 parser.add_argument('--normalization_y', type=str, default='False', help='Whether to normalize the y dimension (True/False)')
 
 
-parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_inv_L_scale is set to `independently`')
 parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
 
 
@@ -176,9 +174,6 @@ y_train, y_test = features[rows_train, :, 1:2],       features[rows_test_fine, :
 
 k_max = 16
 ndim = 2
-if args.train_inv_L_scale == 'False':
-    args.train_inv_L_scale = False
-train_inv_L_scale = args.train_inv_L_scale
 Lx, Ly = args.Lx, args.Ly
 
 modes = compute_Fourier_modes(ndim, [k_max,k_max], [Lx,Ly])
@@ -186,7 +181,6 @@ modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
-               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                in_dim=4, out_dim=1,
                act='gelu').to(device)
 
@@ -197,7 +191,6 @@ base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = args.batch_size
-lr_ratio = args.lr_ratio
 
 normalization_x = args.normalization_x.lower() == "true"
 normalization_y = args.normalization_y.lower() == "true"
@@ -207,8 +200,7 @@ non_normalized_dim_x = 2
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, "lr_ratio" : lr_ratio,
-                     "normalization_x": normalization_x,"normalization_y": normalization_y, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,"normalization_x": normalization_x,"normalization_y": normalization_y,
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }

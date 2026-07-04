@@ -192,7 +192,6 @@ def predict_error(folder = "../../data/mixed_3d_add_elem_features", mesh_type = 
                 layers=[64,64,64,64,64,64],
                 fc_dim=128,
                 in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-                inv_L_scale_hyper = [False, 0.5, 2.0],
                 act = 'gelu',
                 ).to(device)
     

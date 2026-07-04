@@ -54,7 +54,6 @@ if __name__ == "__main__":
     layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
     f_in_dim = 0
     f_out_dim = 1
-    train_inv_L_scale = False
     k_max = args.k_max
     ndim = 3
     scale = args.scale
@@ -147,7 +146,6 @@ if __name__ == "__main__":
                 layers=layers,
                 fc_dim=128,
                 in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                 act = act,
                 geo_act = geo_act,
                 scaling_mode='sqrt_inv',
@@ -157,7 +155,6 @@ if __name__ == "__main__":
 
     epochs = args.epochs
     base_lr = 5e-4
-    lr_ratio = 10
     scheduler = "OneCycleLR"
     weight_decay = 1.0e-4
     batch_size = args.batch_size
@@ -171,7 +168,7 @@ if __name__ == "__main__":
     non_normalized_dim_y = 0
 
 
-    config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+    config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,
                         "normalization_x": normalization_x,"normalization_y": normalization_y, 
                         "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                         "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}

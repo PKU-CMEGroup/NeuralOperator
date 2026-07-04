@@ -61,10 +61,7 @@ parser.add_argument('--n_test', type=int, default=200, help='Number of testing s
 parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
 
 parser.add_argument('--L', type=float, default=15.0, help='Initial value for the length scale parameter L')
-parser.add_argument('--train_inv_L_scale', type=str, default='False', choices=['False' , 'together' , 'independently'],
-                    help='type of train_inv_L_scale (False, together, independently )')
 
-parser.add_argument('--lr_ratio', type=float, default=10, help='Learning rate ratio of main parameters and L parameters when train_inv_L_scale is set to `independently`')
 parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
 
 
@@ -109,13 +106,10 @@ else:
 
 
 
-if args.train_inv_L_scale == 'False':
-    args.train_inv_L_scale = False
 train_distribution = args.train_distribution
 n_train = args.n_train
 n_test = args.n_test
-train_inv_L_scale = args.train_inv_L_scale
-print(f'train_distribution = {train_distribution}, n_train = {n_train}, train_inv_L_scale = {train_inv_L_scale}')
+print(f'train_distribution = {train_distribution}, n_train = {n_train}')
 
 
 print("Casting to tensor")
@@ -158,14 +152,12 @@ model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                act='gelu').to(device)
 
 
 
 epochs = 500
 base_lr = 0.001
-lr_ratio = args.lr_ratio
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = args.batch_size
@@ -178,17 +170,16 @@ non_normalized_dim_x = 2
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
                      }
-print(f'Start training , train_inv_L_scale = {train_inv_L_scale}, lr_ratio = {lr_ratio}')
+print("Start training")
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
-    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}/{train_distribution}_{train_inv_L_scale}_{equal_weights}"
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name=f"model/pcno_adv_{n_train}/{train_distribution}_{equal_weights}"
 )
-
 
 
 

@@ -100,7 +100,6 @@ aux_test        = (node_mask[-n_test:,...],  nodes[-n_test:,...],  node_weights[
 y_train, y_test = features[:n_train, :, :1],     features[-n_test:, :, :1]
 
 print('length of each dim: ',torch.amax(nodes_input, dim = [0,1]) - torch.amin(nodes_input, dim = [0,1]), flush = True)
-train_inv_L_scale = False
 k_max = 8
 print(f'kmax = {k_max}')
 ndim = 3
@@ -110,14 +109,12 @@ model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                act='gelu').to(device)
 
 
 
 epochs = 500
 base_lr = 5e-4 #0.001
-lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = 8
@@ -130,7 +127,7 @@ non_normalized_dim_x = 4
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}

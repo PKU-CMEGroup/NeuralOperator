@@ -10,4 +10,4 @@
 
 module load conda
 conda activate pytorch 
-python pcno_deformed_darcy.py --train_type mixed  --n_train 500 --Lx 2.0 --Ly 2.0 --lr_ratio 5 > mixed_500.log
+python pcno_deformed_darcy.py --train_type mixed  --n_train 500 --Lx 2.0 --Ly 2.0 > mixed_500.log

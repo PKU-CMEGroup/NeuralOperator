@@ -98,8 +98,6 @@ parser.add_argument('--n_train', type=int, default=1000, help='Number of trainin
 parser.add_argument('--n_test', type=int, default=400, help='Number of testing samples')
 parser.add_argument('--train_type', type=str, default='mixed', choices=['standard', 'flap', 'mixed'], help='Type of training data')
 parser.add_argument('--feature_type', type=str, default='pressure', choices=['pressure', 'mach'], help='Type of feature to use')
-parser.add_argument('--train_inv_L_scale', type=str, default='independently', choices=['False', 'together', 'independently'], help='Type of train_inv_L_scale')
-parser.add_argument('--lr_ratio', type=float, default=10.0, help='Learning rate ratio of L-parameters to main parameters')
 
 
 args = parser.parse_args()
@@ -182,9 +180,6 @@ print(
 ###################################
 kx_max, ky_max = 16, 16
 ndim = 2
-if args.train_inv_L_scale == 'False':
-    args.train_inv_L_scale = False
-train_inv_L_scale = args.train_inv_L_scale
 Lx, Ly = 1, 0.5
 print("Lx, Ly = ", Lx, Ly)
 modes = compute_Fourier_modes(ndim, [kx_max, ky_max], [Lx, Ly])
@@ -193,7 +188,6 @@ model = PCNO(ndim, modes, nmeasures=1,
              layers=[128, 128, 128, 128, 128],
              fc_dim=128,
              in_dim=3, out_dim=1,
-             inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
              act='gelu').to(device)
 
 epochs = 500
@@ -201,7 +195,6 @@ base_lr = 0.001
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = 8
-lr_ratio = args.lr_ratio
 
 normalization_x = False
 normalization_y = True
@@ -211,7 +204,7 @@ non_normalized_dim_x = 0
 non_normalized_dim_y = 0
 
 
-config = {"train": {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler, "batch_size": batch_size,
+config = {"train": {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler, "batch_size": batch_size,
                     "normalization_x": normalization_x, "normalization_y": normalization_y,
                     "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y,
                     "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}

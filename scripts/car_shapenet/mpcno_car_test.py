@@ -49,7 +49,6 @@ args = parser.parse_args()
 
 layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
 
-train_inv_L_scale = False
 k_max = args.k_max
 ndim = 3
 Ls = [2.0,2.0,5.0]
@@ -154,7 +153,6 @@ model = MPCNO(ndim, modes, nmeasures=1,
                layer_selection=layer_selection,
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                scaling_mode='sqrt_inv',
                act=act, geo_act=geo_act).to(device)
 
@@ -162,7 +160,6 @@ model = MPCNO(ndim, modes, nmeasures=1,
 
 epochs = 500
 base_lr = 5e-4 #0.001
-lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size=args.bsz
@@ -176,7 +173,7 @@ non_normalized_dim_x = 4
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}

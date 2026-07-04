@@ -49,10 +49,7 @@ except IndexError:
 
 parser = argparse.ArgumentParser(description='Train model with different types.')
 parser.add_argument('--equal_weight', type=str, default='False', help='Specify whether to use equal weight')
-parser.add_argument('--train_inv_L_scale', type=str, default='False', choices=['False' , 'together' , 'independently'],
-                    help='type of train_inv_L_scale (False, together, independently )')
 
-parser.add_argument('--lr_ratio', type=float, default=10, help='lr ratio for independent training for L')
 parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
 if not PREPROCESS_DATA:
     args = parser.parse_args()
@@ -136,23 +133,18 @@ modes = compute_Fourier_modes(ndim, [k_max,k_max,k_max, k_max,k_max,k_max], [9.0
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
-if args.train_inv_L_scale == 'False':
-    args.train_inv_L_scale = False
-train_inv_L_scale = args.train_inv_L_scale
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
 # model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
-               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                act='gelu').to(device)
 
 
 
 epochs = 500
 base_lr = 5e-4 #0.001
-lr_ratio = args.lr_ratio
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = args.batch_size
@@ -165,7 +157,7 @@ non_normalized_dim_x = 4
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}

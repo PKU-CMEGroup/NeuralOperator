@@ -35,10 +35,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser(description="Train model with different types.")
 parser.add_argument("--problem_type", type=str, default="Laplace", choices=["Poisson" , "Laplace"], help="Specify the problem type")
 parser.add_argument("--equal_weight", type=str, default="False", help="Specify whether to use equal weight")
-parser.add_argument("--train_inv_L_scale", type=str, default="False", choices=["False" , "together" , "independently"],
-                    help="type of train_inv_L_scale (False, together, independently )")
 parser.add_argument("--feature_SDF", type=str, default="False", choices=["False", "True"])
-parser.add_argument("--lr_ratio", type=float, default=10, help="lr ratio for independent training for L")
 parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
 
 args = parser.parse_args()
@@ -117,13 +114,11 @@ ndim = 2
 modes = compute_Fourier_modes(ndim, [k_max,k_max, k_max,k_max], [4.0,4.0, 4.0,4.0])
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 
-train_inv_L_scale = False if args.train_inv_L_scale == "False" else args.train_inv_L_scale
 #!! compress measures
 model = PCNO(ndim, modes, nmeasures=2,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1], 
-               inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                act="gelu").to(device)
 model.load_state_dict(torch.load("PCNO_" + args.problem_type + "_"+str(ndata_list[0])+"_model.pth", weights_only=True))
 model = model.to(device)

@@ -116,14 +116,12 @@ model = PCNO(ndim, modes, nmeasures=1,
                layers=[128,128,128,128,128],
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
-               inv_L_scale_hyper = ["independently", 0.5, 2.0], #"together" if downsample_ratio = 1
                act='gelu').to(device)
 
 
 
 epochs = 1000
 base_lr = 5e-4 #0.001
-lr_ratio = 10
 scheduler = "OneCycleLR"
 weight_decay = 1.0e-4
 batch_size = 8 # 4 if downsample_ratio = 1
@@ -136,7 +134,7 @@ non_normalized_dim_x = 3
 non_normalized_dim_y = 0
 
 
-config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size, 
+config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs": epochs, "scheduler": scheduler,  "batch_size": batch_size,
                      "normalization_x": normalization_x,"normalization_y": normalization_y, 
                      "normalization_dim_x": normalization_dim_x, "normalization_dim_y": normalization_dim_y, 
                      "non_normalized_dim_x": non_normalized_dim_x, "non_normalized_dim_y": non_normalized_dim_y}
@@ -151,5 +149,4 @@ train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model, save_model_name="./PCNO_darcy_model", checkpoint_path="./checkpoint.pth"
 )
 """
-
 

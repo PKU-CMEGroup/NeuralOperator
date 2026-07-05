@@ -185,6 +185,74 @@ def make_pcno_frame_batch(
     )
 
 
+def make_pcno_euler7_frame_batch(
+    frame: dict[str, np.ndarray],
+    *,
+    current_primitives: ArrayLike | None = None,
+    node_rho_policy: str = "ones",
+    make_undirected: bool = True,
+    rcond: float = 1.0e-3,
+) -> PcnoFrameBatch:
+    """Convert a CPG frame to the original Euler PCNO 7-channel layout.
+
+    The collaborator checkpoint follows ``scripts/2d_Euler_eq/forward_train.py``:
+    ``x = [x, y, node_rho, rho, v1, v2, pres]``.  CPG HDF5 files do not expose
+    validated cell measures, so ``node_rho_policy='ones'`` is the conservative
+    default for the integration-density feature while equal normalized node
+    weights are still used in the PCNO auxiliary measure.
+    """
+
+    positions = np.asarray(frame["pos"], dtype=np.float32)
+    target = np.asarray(frame["y"], dtype=np.float32)
+    if current_primitives is None:
+        current = np.asarray(frame["current_primitives"], dtype=np.float32)
+    else:
+        current = np.asarray(current_primitives, dtype=np.float32)
+    if positions.ndim != 2 or positions.shape[1] != 2:
+        raise ValueError("frame['pos'] must have shape (N, 2)")
+    if current.shape != target.shape or current.ndim != 2 or current.shape[1] != 4:
+        raise ValueError("current_primitives and frame['y'] must have shape (N, 4)")
+    if positions.shape[0] != current.shape[0]:
+        raise ValueError("positions and primitives disagree on node count")
+
+    num_nodes = positions.shape[0]
+    node_weights = make_equal_node_weights(num_nodes)
+    if node_rho_policy == "ones":
+        node_rho = np.ones((num_nodes, 1), dtype=np.float32)
+    elif node_rho_policy == "node_weights":
+        node_rho = node_weights.astype(np.float32)
+    else:
+        raise ValueError("node_rho_policy must be 'ones' or 'node_weights'")
+    directed_edges, edge_gradient_weights = compute_graph_edge_gradient_weights(
+        positions,
+        frame["edges"],
+        make_undirected=make_undirected,
+        rcond=rcond,
+    )
+    x_features = np.concatenate((positions, node_rho, current), axis=-1)
+    metadata = {
+        "num_nodes": int(num_nodes),
+        "num_edges_input": int(normalize_edge_array(frame["edges"], num_nodes=num_nodes).shape[0]),
+        "num_directed_edges": int(directed_edges.shape[0]),
+        "ndim": 2,
+        "x_layout": "pos2_node_rho1_primitives4",
+        "node_rho_policy": node_rho_policy,
+        "node_weight_policy": "equal_normalized",
+        "edge_gradient_policy": "least_squares_from_graph_edges",
+        "make_undirected": bool(make_undirected),
+        "rcond": float(rcond),
+    }
+    return PcnoFrameBatch(
+        x=x_features[None, ...],
+        y=target[None, ...],
+        node_mask=np.ones((1, num_nodes, 1), dtype=np.float32),
+        nodes=positions[None, ...],
+        node_weights=node_weights[None, ...],
+        directed_edges=directed_edges[None, ...],
+        edge_gradient_weights=edge_gradient_weights.astype(np.float32)[None, ...],
+        metadata=metadata,
+    )
+
 def _least_squares_gradient_weights(
     dx: np.ndarray,
     *,

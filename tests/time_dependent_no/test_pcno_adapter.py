@@ -9,6 +9,7 @@ from utility.time_dependent_no.euler2d_synthetic import (
 )
 from utility.time_dependent_no.pcno_adapter import (
     compute_graph_edge_gradient_weights,
+    make_pcno_euler7_frame_batch,
     make_pcno_frame_batch,
 )
 
@@ -45,3 +46,34 @@ def test_graph_gradient_weights_recover_linear_field_on_structured_fixture():
 
     expected = np.tile(np.array([2.0, -3.0]), (positions.shape[0], 1))
     np.testing.assert_allclose(gradients, expected, atol=1.0e-10)
+
+def test_pcno_euler7_frame_batch_matches_checkpoint_feature_layout():
+    config = SyntheticEuler2DConfig(nx=6, ny=4, num_steps=4)
+    group = make_synthetic_cpg_trajectory(config)
+    frame = make_cpg_graph_frame(group, 1, num_steps=1)
+
+    batch = make_pcno_euler7_frame_batch(frame)
+
+    num_nodes = config.nx * config.ny
+    assert batch.x.shape == (1, num_nodes, 7)
+    np.testing.assert_allclose(batch.x[0, :, :2], frame["pos"].astype(np.float32))
+    np.testing.assert_allclose(batch.x[0, :, 2], 1.0)
+    np.testing.assert_allclose(batch.x[0, :, 3:], frame["current_primitives"].astype(np.float32))
+    assert batch.y.shape == (1, num_nodes, 4)
+    assert batch.metadata["x_layout"] == "pos2_node_rho1_primitives4"
+
+
+def test_pcno_euler7_frame_batch_allows_autoregressive_current_override():
+    config = SyntheticEuler2DConfig(nx=5, ny=4, num_steps=4)
+    group = make_synthetic_cpg_trajectory(config)
+    frame = make_cpg_graph_frame(group, 1, num_steps=1)
+    override = frame["current_primitives"] + np.array([0.1, 0.2, 0.3, 0.4])
+
+    batch = make_pcno_euler7_frame_batch(
+        frame,
+        current_primitives=override,
+        node_rho_policy="node_weights",
+    )
+
+    np.testing.assert_allclose(batch.x[0, :, 2], batch.node_weights[0, :, 0])
+    np.testing.assert_allclose(batch.x[0, :, 3:], override.astype(np.float32))

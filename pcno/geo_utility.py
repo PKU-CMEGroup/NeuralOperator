@@ -7,6 +7,8 @@ from scipy.spatial import cKDTree
 def compute_triangle_area_(points:np.ndarray) -> float:
     ab = points[1, :] - points[0,:]
     ac = points[2, :] - points[0,:]
+    if points.shape[1] == 2:
+        return 0.5 * abs(ab[0] * ac[1] - ab[1] * ac[0])
     cross_product = np.cross(ab, ac)
     return 0.5 * np.linalg.norm(cross_product)
 
@@ -569,7 +571,7 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
     '''
 
     ndata = len(vertices_list)
-    ndims, nfeatures = vertices_list[0].shape[1], features_list[0].shape[1]
+    ndims = vertices_list[0].shape[1]
     
     # Determine number of nodes per sample
     if mesh_type == "vertex_centered":
@@ -616,9 +618,42 @@ def preprocess_data_mesh(vertices_list:List[np.ndarray], elems_list:List[np.ndar
     node_measures = node_measures[...,:nmeasures]
 
     print("Preprocessing data : computing features")
-    features = np.zeros((ndata, max_nnodes, nfeatures))
-    for i in range(ndata):
-        features[i,:nnodes[i],:] = features_list[i] 
+    first_features = np.asarray(features_list[0])
+    if first_features.ndim < 2:
+        raise ValueError(f"features must have at least two dimensions, got {first_features.shape}")
+    if first_features.shape[0] == nnodes[0]:
+        feature_tail = first_features.shape[1:]
+        features = np.zeros((ndata, max_nnodes, *feature_tail))
+        for i in range(ndata):
+            sample_features = np.asarray(features_list[i])
+            if sample_features.shape[0] != nnodes[i] or sample_features.shape[1:] != feature_tail:
+                raise ValueError(
+                    f"node-major features for sample {i} must have shape "
+                    f"({nnodes[i]}, {feature_tail}), got {sample_features.shape}"
+                )
+            features[i, :nnodes[i], ...] = sample_features
+    elif first_features.ndim >= 3 and first_features.shape[1] == nnodes[0]:
+        time_steps = first_features.shape[0]
+        feature_tail = first_features.shape[2:]
+        features = np.zeros((ndata, time_steps, max_nnodes, *feature_tail))
+        for i in range(ndata):
+            sample_features = np.asarray(features_list[i])
+            if (
+                sample_features.ndim < 3
+                or sample_features.shape[0] != time_steps
+                or sample_features.shape[1] != nnodes[i]
+                or sample_features.shape[2:] != feature_tail
+            ):
+                raise ValueError(
+                    f"time-node-major features for sample {i} must have shape "
+                    f"({time_steps}, {nnodes[i]}, {feature_tail}), got {sample_features.shape}"
+                )
+            features[i, :, :nnodes[i], ...] = sample_features
+    else:
+        raise ValueError(
+            "features must be node-major [N, ...] or time-node-major [T, N, ...]; "
+            f"got first sample shape {first_features.shape} for nnodes={nnodes[0]}"
+        )
 
     print("Preprocessing data : computing directed_edges and edge_gradient_weights")
     directed_edges_list, edge_gradient_weights_list = [], []

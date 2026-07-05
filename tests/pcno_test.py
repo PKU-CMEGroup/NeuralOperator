@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights
+from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights, compute_triangle_area_
 from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list, sample_close_node_pairs
 from pcno.pcno import compute_gradient, compute_Fourier_modes, compute_Fourier_bases
 #####################################################################
@@ -8,6 +8,27 @@ from pcno.pcno import compute_gradient, compute_Fourier_modes, compute_Fourier_b
 #####################################################################
 
 
+
+def test_compute_triangle_area_supports_2d_and_3d_points():
+    points_2d = np.array([[0.0, 0.0], [2.0, 0.0], [0.0, 3.0]])
+    points_3d = np.array([[0.0, 0.0, 1.0], [2.0, 0.0, 1.0], [0.0, 3.0, 1.0]])
+
+    assert np.isclose(compute_triangle_area_(points_2d), 3.0)
+    assert np.isclose(compute_triangle_area_(points_3d), 3.0)
+
+
+def test_preprocess_data_mesh_preserves_time_node_major_features():
+    nodes_list = [np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])]
+    elems_list = [np.array([[2, 0, 1, 2, 3]], dtype=np.int64)]
+    features_list = [np.arange(2 * 4 * 3, dtype=float).reshape(2, 4, 3)]
+
+    nnodes, node_mask, nodes, node_measures, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(
+        nodes_list, elems_list, features_list, mesh_type="vertex_centered", adjacent_type="element"
+    )
+
+    assert nnodes.tolist() == [4]
+    assert features.shape == (1, 2, 4, 3)
+    np.testing.assert_allclose(features[0], features_list[0])
 
 
 def test_convert_structured_data():

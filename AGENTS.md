@@ -1,4 +1,4 @@
-﻿# Codex Instructions For The time-dependent-no Branch
+# Codex Instructions For The time-dependent-no Branch
 
 This branch is for the summer 2026 time-dependent neural-operator project in the PKU-CME NeuralOperator codebase.
 
@@ -13,10 +13,11 @@ Do not treat this as a generic cleanup branch. Keep unrelated NeuralOperator exa
 At the start of a coding session in this branch:
 
 1. Read this file.
-2. Read `docs/time_dependent_no/STATUS.md`.
-3. Read `docs/time_dependent_no/README.md`.
-4. If `LOCAL_CONTEXT.md` exists, read it. It is private local context and must not be committed.
-5. Inspect `git status --short --branch` before editing.
+2. Read `docs/time_dependent_no/README.md`.
+3. Read `docs/time_dependent_no/HANDOFF.md`.
+4. Read `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md` when the task concerns experiment history or current diagnostic status.
+5. If `LOCAL_CONTEXT.md` exists, read it. It is private local context and must not be committed or quoted.
+6. Inspect `git status --short --branch` before editing.
 
 ## Implementation Discipline
 

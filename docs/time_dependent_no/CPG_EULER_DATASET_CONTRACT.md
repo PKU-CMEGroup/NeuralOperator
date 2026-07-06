@@ -1,4 +1,4 @@
-﻿# CPG Euler Dataset Contract
+# CPG Euler Dataset Contract
 
 The first benchmark source is the CPG-style data used by the Structure-Preserving Graph Neural Solver for 2D Euler / hyperbolic conservation laws.
 
@@ -76,13 +76,6 @@ edges = edges_t
 future_primitives = primitive states from t+1 through t+num_steps
 ```
 
-## Inspection Command
+## Inspection Convention
 
-Use the real dataset path from ignored `LOCAL_CONTEXT.md`.
-
-```bash
-python scripts/time_dependent_no/inspect_cpg_euler_dataset.py /path/to/train.h5 \
-  --max-trajectories 2 \
-  --metadata-only \
-  --output artifacts/time_dependent_no/train_schema_metadata.json
-```
+Use the real dataset path from ignored local context. The active reusable API is `utility.time_dependent_no.euler2d.inspect_cpg_hdf5_file`; one-off inspection CLIs were removed from the tracked tree after the schema facts above were recorded.

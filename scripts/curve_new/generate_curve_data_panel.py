@@ -293,10 +293,11 @@ class PanelGeometryBeta:
         g = np.einsum('Np,pk->Nk', coeffs, f)               # (N, 1)
         return g
 
-    def compute_kernel_integral_fourier_param(
+    def compute_kernel_integral_fourier(
             self,
             points: np.ndarray,
             f: np.ndarray,
+            kernel_type: str,
             beta: float | None = None,
             k_max: int = 16,
             domain_lengths: tuple[float, float] = (10.0, 10.0)):
@@ -343,8 +344,160 @@ class PanelGeometryBeta:
 
         # K_hat_k(beta) = 1 / (1 + beta |k|^2)
         k_norm2 = kx ** 2 + ky ** 2
-        K_hat = 1.0 / (1.0 + beta * k_norm2)  # (K,)
+        if kernel_type == "fourier_param":
+            # K_hat_k(beta) = 1 / (1 + beta |k|^2)
+            k_norm2 = kx ** 2 + ky ** 2
+            K_hat = 1.0 / (1.0 + beta * k_norm2)  # (K,)
+        elif kernel_type == "quasi_laplace":
+            # K_hat_k(beta) = 1 / (1 + kx^2 + beta*ky^2)
+            k_norm2 = kx ** 2 + beta * ky ** 2
+            K_hat = 1.0 / (1.0 + k_norm2)  # (K,)
+        elif kernel_type == "laplace":
+            # K_hat_k(beta) = 1 / (kx^2 + beta*ky^2)
+            k_norm2 = kx **2 + beta * ky ** 2
+            not_zero = k_norm2 >= 1e-10
+            K_hat = np.zeros_like(k_norm2)
+            K_hat[not_zero] = 1.0 / k_norm2[not_zero]
+        else:
+            raise ValueError(f"{kernel_type}: No such KERNEL TYPE!!!")
+        # Panel geometry terms for analytic panel Fourier integral.
+        m = self.panel_midpoints   # (P,2)
+        d = self.panel_vectors     # (P,2)
+        Lj = self.panel_lengths    # (P,)
 
+        # t_panel[j,k] = k·d_j/L
+        t_panel = np.outer(d[:, 0] / Lx, kx) + np.outer(d[:, 1] / Ly, ky)      # (P,K)
+        phase_panel = 2.0 * np.pi * (
+            np.outer(m[:, 0] / Lx, kx) + np.outer(m[:, 1] / Ly, ky)
+        )                                                                         # (P,K)
+        I_jk = Lj[:, None] * np.exp(-1j * phase_panel) * np.sinc(t_panel)         # (P,K)
+
+        # a_hat[k] = sum_j f_j I_{j,k}
+        a_panel = f[:, 0].astype(np.float64)                                      # (P,)
+        a_hat = np.einsum('p,pk->k', a_panel, I_jk)                               # (K,)
+
+        # Evaluate g at requested points.
+        pts = points.astype(np.float64)
+        phase_eval = 2.0 * np.pi * (
+            np.outer(pts[:, 0] / Lx, kx) + np.outer(pts[:, 1] / Ly, ky)
+        )                                                                         # (N,K)
+        basis_eval = np.exp(1j * phase_eval)                                      # (N,K)
+
+        g_complex = np.einsum('k,nk,k->n', K_hat, basis_eval, a_hat)             # (N,)
+        g = np.real(g_complex)[:, None]                                           # (N,1)
+        return g
+
+
+class PanelGeometryBetaDouble:
+    """
+    Panel geometry for beta as two dim variable
+    """
+
+    def __init__(self, vertices: np.ndarray, elems: np.ndarray,
+                 beta: tuple[float, float] = (1.0, 1.0),
+                 panel_component_ids: np.ndarray | None = None):
+        """
+        Args:
+            vertices (ndarray): (n, 2)
+            elems (ndarray): (m, 3), dtype int; each row [dummy, start_idx, end_idx]
+            beta (float): anisotropy parameter beta > 0
+            panel_component_ids (ndarray or None): (m,) component labels
+        """
+        self.beta = beta
+        self.betax = beta[0]
+        self.betay = beta[1]
+        assert beta[0] > 0 and beta[1] > 0
+        self.n_panels = elems.shape[0]
+        self.elems = elems
+        self.vertices = vertices
+        self.panel_component_ids = panel_component_ids
+        if self.panel_component_ids is not None:
+            self.panel_component_ids = np.asarray(self.panel_component_ids, dtype=int)
+            assert self.panel_component_ids.shape[0] == self.n_panels
+        self._compute_panel_properties()
+
+    def _compute_panel_properties(self):
+        """
+        Compute geometric properties of each panel in *original* coordinates.
+
+        Also precompute the scaled-coordinate counterparts needed for the
+        anisotropic kernel integration.
+        """
+        vertices = self.vertices
+        elems = self.elems
+
+        # ---- original-coordinate properties --------------------------------
+        self.panel_midpoints = (vertices[elems[:, 1]] + vertices[elems[:, 2]]) / 2
+        d = vertices[elems[:, 2]] - vertices[elems[:, 1]]           # (m, 2)
+        self.panel_vectors = d
+        self.panel_lengths = np.sqrt(d[:, 0] ** 2 + d[:, 1] ** 2)  # (m,)
+        self.panel_cosines = d[:, 0] / self.panel_lengths
+        self.panel_sines   = d[:, 1] / self.panel_lengths
+        self.out_normals   = np.column_stack((self.panel_sines, -self.panel_cosines))
+
+    # ------------------------------------------------------------------
+    # Core integration formula
+    # ------------------------------------------------------------------
+
+    def compute_kernel_integral_fourier(
+            self,
+            points: np.ndarray,
+            f: np.ndarray,
+            kernel_type: str = "fourier_twoparam",
+            beta: float | tuple[float, float] | None = None,
+            k_max: int = 16,
+            domain_lengths: tuple[float, float] = (10.0, 10.0)):
+        """
+        Compute panel-constant Fourier-kernel operator required by the PDF:
+
+            K_hat_k(beta) = 1 / (1 + beta * |k|^2)
+
+        with panel integral formula
+
+            I_{j,k} = L_j * exp(2*pi*i*k·m_j/L) * sinc(k·d_j/L),
+
+        where sinc(t) = sin(pi t)/(pi t), and
+            k·x/L := kx*x/Lx + ky*y/Ly.
+
+        Then
+            a_hat_k = sum_j f_j * I_{j,k},
+            g(x_i)  = sum_k K_hat_k(beta) * exp(2*pi*i*k·x_i/L) * a_hat_k.
+
+        Args:
+            points: (N_eval, 2), evaluation points (typically panel midpoints)
+            f:      (n_panels, 1), panel-constant input
+            beta:   scalar parameter. If None, uses self.beta.
+            k_max:  use modes kx,ky in [-k_max, ..., k_max]
+            domain_lengths: (Lx, Ly) periodic lengths in x/y.
+
+        Returns:
+            g: (N_eval, 1), real-valued output.
+        """
+        if beta is None:
+            beta = self.beta
+        betax = beta[0]
+        betay = beta[1]
+        assert betax > 0 and betay > 0, "beta must be positive"
+        assert f.ndim == 2 and f.shape[1] == 1, "f must have shape (n_panels, 1)"
+
+        Lx, Ly = float(domain_lengths[0]), float(domain_lengths[1])
+        assert Lx > 0 and Ly > 0, "domain_lengths must be positive"
+
+        # Integer lattice modes over a symmetric square.
+        ks = np.arange(-k_max, k_max + 1, dtype=np.float64)
+        kx_grid, ky_grid = np.meshgrid(ks, ks, indexing='ij')
+        kx = kx_grid.reshape(-1)  # (K,)
+        ky = ky_grid.reshape(-1)  # (K,)
+        nmodes = kx.shape[0]
+
+        # K_hat_k(beta) = 1 / (1 + beta |k|^2)
+        if kernel_type == "fourier_twoparam":
+            # K_hat_k(beta) = (betax*kx^2+betay*ky^2) / (1+betax*kx^4+betay*ky^4)
+            k_norm4 = betax * kx**4 + betay * ky**4
+            k_norm2 = betax * kx**2 + betay * ky**2
+            K_hat = (k_norm2) / (1.0 + k_norm4)  # (K,)
+        else:
+            raise ValueError(f"{kernel_type}: No such KERNEL TYPE!!!")
         # Panel geometry terms for analytic panel Fourier integral.
         m = self.panel_midpoints   # (P,2)
         d = self.panel_vectors     # (P,2)
@@ -405,42 +558,76 @@ def generate_curves_data_panel_beta(
     betas_list    = []
 
     beta_min, beta_max = beta_range
-    for _ in tqdm(range(n_data), desc=f"Generating curves (beta~U[{beta_min},{beta_max}])"):
-        beta = float(np.random.uniform(beta_min, beta_max))
 
-        nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale,
-                                   freq_scale=freq_scale,
-                                   deform=deform, deform_configs=deform_configs)
-        elems = np.stack(
-            [np.full(N, 1, dtype=int),
-             np.arange(N),
-             (np.arange(N) + 1) % N],
-            axis=1)
+    if kernel_type in ["sp_laplace", "dp_laplace", "quasi_laplace", "fourier_param", "laplace"]:
+        for _ in tqdm(range(n_data), desc=f"Generating curves (beta~U[{beta_min},{beta_max}])"):
+            beta = float(np.random.uniform(beta_min, beta_max))
 
-        panel_geo = PanelGeometryBeta(
-            nodes, elems, beta=beta,
-            panel_component_ids=np.zeros(elems.shape[0], dtype=int))
+            nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale,
+                                    freq_scale=freq_scale,
+                                    deform=deform, deform_configs=deform_configs)
+            elems = np.stack(
+                [np.full(N, 1, dtype=int),
+                np.arange(N),
+                (np.arange(N) + 1) % N],
+                axis=1)
 
-        f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=1)  # (N, 1)
-        if kernel_type in ("sp_laplace", "dp_laplace"):
-            g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # (N, 1)
-        elif kernel_type == "fourier_param":
-            g = panel_geo.compute_kernel_integral_fourier_param(
-                panel_geo.panel_midpoints,
-                f,
-                beta=beta,
-                k_max=fourier_kmax,
-                domain_lengths=fourier_domain_lengths,
-            )
-        else:
-            raise ValueError(f"Unsupported kernel_type: {kernel_type}")
+            panel_geo = PanelGeometryBeta(
+                nodes, elems, beta=beta,
+                panel_component_ids=np.zeros(elems.shape[0], dtype=int))
 
-        features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # (N, 4)
+            f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=1)  # (N, 1)
+            if kernel_type in ("sp_laplace", "dp_laplace"):
+                g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)  # (N, 1)
+            elif kernel_type in ("fourier_param", "quasi_laplace", "laplace"):
+                g = panel_geo.compute_kernel_integral_fourier(
+                    panel_geo.panel_midpoints,
+                    f,
+                    kernel_type = kernel_type,
+                    beta=beta,
+                    k_max=fourier_kmax,
+                    domain_lengths=fourier_domain_lengths,
+                )
+            else:
+                raise ValueError(f"Unsupported kernel_type: {kernel_type}")
+    elif kernel_type in ["fourier_twoparam"]:
+        for _ in tqdm(range(n_data), desc=f"Generating curves (beta~U[{beta_min},{beta_max}])"):
+            betax = float(np.random.uniform(beta_min, beta_max))
+            betay = float(np.random.uniform(beta_min, beta_max))
+            beta = (betax, betay)
 
-        nodes_list.append(nodes)
-        elems_list.append(elems)
-        features_list.append(features)
-        betas_list.append(beta)
+            nodes = random_polar_curve(N, k=k_curve, r0_scale=r0_scale,
+                                    freq_scale=freq_scale,
+                                    deform=deform, deform_configs=deform_configs)
+            elems = np.stack(
+                [np.full(N, 1, dtype=int),
+                np.arange(N),
+                (np.arange(N) + 1) % N],
+                axis=1)
+
+            panel_geo = PanelGeometryBetaDouble(
+                nodes, elems, beta=beta,
+                panel_component_ids=np.zeros(elems.shape[0], dtype=int))
+
+            f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=1)  # (N, 1)
+            if kernel_type in ("fourier_twoparam"):
+                g = panel_geo.compute_kernel_integral_fourier(
+                    panel_geo.panel_midpoints,
+                    f,
+                    kernel_type = kernel_type,
+                    beta=beta,
+                    k_max=fourier_kmax,
+                    domain_lengths=fourier_domain_lengths,
+                )
+            else:
+                raise ValueError(f"Unsupported kernel_type: {kernel_type}")
+
+            features = np.concatenate([f, panel_geo.out_normals, g], axis=1)  # (N, 4)
+
+            nodes_list.append(nodes)
+            elems_list.append(elems)
+            features_list.append(features)
+            betas_list.append(beta)
 
     return nodes_list, elems_list, features_list, betas_list
 
@@ -456,11 +643,12 @@ def generate_curves_data_panel_beta_two(
         fourier_kmax=16,
         fourier_domain_lengths=(10.0, 10.0)):
     """
-    Two-curve variant (analogous to generate_curves_data_panel_two).
-    beta is drawn i.i.d. from Uniform(beta_range[0], beta_range[1]) for each sample.
+    Two-curve variant.  Supports both single-beta and double-beta (fourier_twoparam) kernels.
 
     Returns:
         nodes_list, elems_list, features_list, betas_list
+        For single-beta: betas_list is list of floats
+        For double-beta: betas_list is list of (betax, betay) tuples
     """
     nodes_list    = []
     elems_list    = []
@@ -468,8 +656,18 @@ def generate_curves_data_panel_beta_two(
     betas_list    = []
 
     beta_min, beta_max = beta_range
-    for _ in tqdm(range(n_data), desc=f"Generating two-curve data (beta~U[{beta_min},{beta_max}])"):
-        beta = float(np.random.uniform(beta_min, beta_max))
+    is_double_beta = (kernel_type == "fourier_twoparam")
+
+    for _ in tqdm(range(n_data), desc=f"Generating two-curve data ({'2D beta' if is_double_beta else 'beta'})"):
+        # ---------- generate beta ----------
+        if is_double_beta:
+            betax = np.random.uniform(beta_min, beta_max)
+            betay = np.random.uniform(beta_min, beta_max)
+            beta = (betax, betay)
+        else:
+            beta = float(np.random.uniform(beta_min, beta_max))
+
+        # ---------- generate two curves ----------
         nodes1 = random_polar_curve(N, k=k_curve, r0_scale=r0_scale,
                                     freq_scale=freq_scale,
                                     deform=deform, deform_configs=deform_configs)
@@ -495,21 +693,37 @@ def generate_curves_data_panel_beta_two(
              (np.arange(N, 2 * N) + 1 - N) % N + N],
             axis=1)
         elems = np.concatenate([elems1, elems2], axis=0)
-
         comp_ids = np.concatenate(
             [np.zeros(elems1.shape[0], dtype=int),
              np.ones(elems2.shape[0], dtype=int)], axis=0)
 
-        panel_geo = PanelGeometryBeta(nodes, elems, beta=beta,
-                                      panel_component_ids=comp_ids)
+        # ---------- choose geometry class ----------
+        if is_double_beta:
+            panel_geo = PanelGeometryBetaDouble(
+                nodes, elems, beta=beta, panel_component_ids=comp_ids)
+        else:
+            panel_geo = PanelGeometryBeta(
+                nodes, elems, beta=beta, panel_component_ids=comp_ids)
 
         f = smooth_feature_f(panel_geo.panel_midpoints, f_random_config, num_features=1)
+
+        # ---------- compute g ----------
         if kernel_type in ("sp_laplace", "dp_laplace"):
             g = panel_geo.compute_kernel_integral(panel_geo.panel_midpoints, f, kernel_type)
-        elif kernel_type == "fourier_param":
-            g = panel_geo.compute_kernel_integral_fourier_param(
-                panel_geo.panel_midpoints,
-                f,
+        elif kernel_type in ("fourier_param", "quasi_laplace", "laplace"):
+            # 单 beta 的傅里叶方法
+            g = panel_geo.compute_kernel_integral_fourier(
+                panel_geo.panel_midpoints, f,
+                kernel_type=kernel_type,
+                beta=beta,
+                k_max=fourier_kmax,
+                domain_lengths=fourier_domain_lengths,
+            )
+        elif kernel_type == "fourier_twoparam":
+            # 双 beta 的傅里叶方法 (panel_geo 是 PanelGeometryBetaDouble)
+            g = panel_geo.compute_kernel_integral_fourier(
+                panel_geo.panel_midpoints, f,
+                kernel_type=kernel_type,
                 beta=beta,
                 k_max=fourier_kmax,
                 domain_lengths=fourier_domain_lengths,
@@ -518,7 +732,6 @@ def generate_curves_data_panel_beta_two(
             raise ValueError(f"Unsupported kernel_type: {kernel_type}")
 
         features = np.concatenate([f, panel_geo.out_normals, g], axis=1)
-
         nodes_list.append(nodes)
         elems_list.append(elems)
         features_list.append(features)
@@ -550,7 +763,10 @@ def visualize_curve_beta(nodes, features, elems, beta, figurename=''):
     ax1.quiver(nodes[:, 0], nodes[:, 1],
                normals[:, 0], normals[:, 1],
                color='red', scale=20, width=0.005, alpha=0.7)
-    ax1.set_title(f'Curve + Outward Normals  (beta={beta:.3f})')
+    if isinstance(beta, tuple):
+        ax1.set_title(f'Curve + Outward Normals  (βx={beta[0]:.3f}, βy={beta[1]:.3f})')
+    else:
+        ax1.set_title(f'Curve + Outward Normals  (beta={beta:.3f})')
     ax1.set_aspect('equal')
 
     # --- input feature f
@@ -624,7 +840,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_data", type=int, default=2000)
     parser.add_argument("--N", type=int, default=1000, help="Panels per curve")
     parser.add_argument("--beta_low", type=float, default=0.5)
-    parser.add_argument("--beta_high", type=float, default=2.5)
+    parser.add_argument("--beta_high", type=float, default=1.0)
     parser.add_argument("--r0_scale", type=float, default=1.0)
     parser.add_argument("--freq_scale", type=float, default=1.0)
     parser.add_argument("--k_curve", type=int, default=5)
@@ -632,7 +848,7 @@ if __name__ == "__main__":
         "--kernel_type",
         type=str,
         default="fourier_param",
-        choices=["sp_laplace", "dp_laplace", "fourier_param"],
+        choices=["sp_laplace", "dp_laplace", "fourier_param", "quasi_laplace", "laplace", "fourier_twoparam"],
     )
     parser.add_argument("--two_curves", action="store_true")
     parser.add_argument("--compress_coeff", type=float, default=0.9)

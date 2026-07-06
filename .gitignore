@@ -8,3 +8,6 @@ mytest/__pycache__/
 baselines/__pycache__/
 scripts/curve_beta/log/
 scripts/curve_new/log/
+scripts/curve_new/out/
+scripts/subsonic_panelmethod/log/
+scripts/subsonic_panelmethod/out/

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -o out/MPCNO_nograd_%A.out
-#SBATCH --qos=low
+#SBATCH --qos=high
 #SBATCH -J MPCNO_nograd
 #SBATCH -p GPU80G
 #SBATCH --nodes=1 
@@ -10,7 +10,7 @@
 #SBATCH --array=0-3 
 
 # ========== params ==========
-KERNEL_TYPE="fourier_param-8"
+KERNEL_TYPE="fourier_twoparam-8"
 
 GRAD="False"
 GEO="False"
@@ -63,6 +63,6 @@ python mpcno_curve_beta_test_nograd.py \
     --geo_act $GEO_ACT \
     --proj_act $PROJ_ACT \
     --bsz $BATCH_SIZE \
-    --data_path "mpcno_curve_data_1.0_1.0_5_beta(0.5, 1.0)_2d_fourier_param_k_max_8_beta_random_panel_single.npz" \
-    --two_circles_data_path "mpcno_curve_data_1.0_1.0_5_beta(0.5, 1.0)_2d_fourier_param_k_max_8_beta_random_panel_two_curves.npz" \
+    --data_path "mpcno_curve_data_1.0_1.0_5_beta(0.5, 1.0)_2d_fourier_twoparam_k_max_8_beta_random_panel_single.npz" \
+    --two_circles_data_path "mpcno_curve_data_1.0_1.0_5_beta(0.5, 1.0)_2d_fourier_twoparam_k_max_8_beta_random_panel_two_curves.npz" \
     > ${LOG_DIR}/k${K_MAX}_L10_bsz${BATCH_SIZE}_factor${TO_DIVIDE_FACTOR}_grad${GRAD}_geo${GEO}_geoint${GEOINTEGRAL}_beta${BETA_LOW}-${BETA_HIGH}.log

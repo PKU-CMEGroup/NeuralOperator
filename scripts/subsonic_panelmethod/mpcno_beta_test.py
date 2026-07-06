@@ -11,7 +11,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.mpcno_nograd import compute_Fourier_modes, MPCNO, MPCNO_train_multidist
+from pcno.mpcno import compute_Fourier_modes, MPCNO, MPCNO_train_multidist
 torch.set_printoptions(precision=16)
 
 
@@ -30,35 +30,31 @@ parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'
 parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--to_divide_factor', type=float, default=20.0)
-parser.add_argument('--k_max', type=int, default=16)
 parser.add_argument('--bsz', type=int, default=32)
 parser.add_argument('--ep', type=int, default=500)
+parser.add_argument('--k_max', type=int, default=8)
 parser.add_argument('--n_train', type=int, default=2000)
 parser.add_argument('--n_test', type=int, default=1000)
 parser.add_argument('--n_two_circles_test', type=int, default=0)
 parser.add_argument('--act', type=str, default="gelu")
 parser.add_argument('--geo_act', type=str, default="softsign")
-parser.add_argument('--proj_act', type=str, default="gelu")
-parser.add_argument('--proj_layer_sizes', type=str, default='128,128,128')
 parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
-parser.add_argument('--kernel_type', type=str)
+parser.add_argument('--kernel_type', type=str, default="panel_method")
 # 新增读取输入文件路径之参数
 parser.add_argument('--data_path', type=str)
 parser.add_argument('--two_circles_data_path', type=str)
 args = parser.parse_args()
 
 layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() == "true", 'geointegral': args.geointegral.lower() == "true"}
-f_in_dim = 1
+f_in_dim = 0
 f_out_dim = 1
 train_inv_L_scale = False
-k_max = args.k_max
 ndim = 2
 L = 10
 layers = [int(size) for size in args.layer_sizes.split(",")]
-proj_layers = [int(size) for size in args.proj_layer_sizes.split(',') if int(size) > 0]
 act = args.act
+k_max = args.k_max
 geo_act = args.geo_act
-proj_act = args.proj_act
 to_divide_factor = args.to_divide_factor
 
 ###################################
@@ -153,14 +149,14 @@ def gen_data_tensors(data_indices,
         edge_gradient_weights[data_indices],
         nx.permute(0, 2, 1),    # [B, 2, N]
     )
-    beta_batch = betas[data_indices].float()   # [B, 1]
+    beta_batch = betas[data_indices].unsqueeze(-1)   # [B, 1]
 
     M = features.shape[1]
 
-    beta_expanded = beta_batch.unsqueeze(1).expand(-1, M, -1)   # shape: [B, M, 1]
+    beta_expanded = beta_batch.unsqueeze(1).expand(-1, M, -1)  # shape: [B, M, 1]
 
     x = torch.cat([
-        features[data_indices][..., :f_in_dim],   # f
+        # features[data_indices][..., :f_in_dim],   # f
         beta_expanded,
         features[data_indices][..., f_in_dim:f_in_dim+2],
         nodes_input[data_indices],                    # coordinates
@@ -207,24 +203,20 @@ print(f'L = {L}')
 print(f'Shape of Fourier modes: ', modes.shape)
 print(f'layer_selection = {layer_selection}')
 print(f'layers = {layers}')
-print(f'proj_layers = {proj_layers}')
 print(f'activation = {act}')
 print(f'geo_activation = {geo_act}')
-print(f'projection_activation = {proj_act}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = MPCNO(ndim, modes, nmeasures=1,
                layer_selection = layer_selection,
                layers=layers,
-               proj_layers=proj_layers,
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                scaling_mode='inv',
                act = act,
                geo_act = geo_act,
-               proj_act = proj_act,
                 ).to(device)
 
 

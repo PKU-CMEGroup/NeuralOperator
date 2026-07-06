@@ -9,7 +9,7 @@ import torch
 sys.path.append(str(Path(__file__).parent.parent))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from pcno.mpcno_beta_hyper import (
+from pcno.mpcno_hyper_nograd import (
     compute_Fourier_modes,
     MPCNO_Beta,
     MPCNO_train_multidist_beta,
@@ -93,7 +93,7 @@ def gen_data_tensors(
         edge_gradient_weights[data_indices],
         nx.permute(0, 2, 1),
     )
-    beta_batch = betas[data_indices].unsqueeze(-1)  # [B,1]
+    beta_batch = betas[data_indices]# .unsqueeze(-1)  # [B,1]
     x = torch.cat(
         [
             features[data_indices][..., :f_in_dim],  # f
@@ -117,12 +117,10 @@ def main():
     parser.add_argument("--n_test", type=int, default=1000)
     parser.add_argument("--n_two_circles_test", type=int, default=0)
     parser.add_argument("--act", type=str, default="gelu")
-    parser.add_argument("--geo_act", type=str, default="softsign")
     parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
     parser.add_argument("--beta_dim", type=int, default=1)
     parser.add_argument("--hyper_hidden", type=int, default=32)
     parser.add_argument("--rank", type=int, default=5)
-    parser.add_argument("--film_hidden", type=int, default=32)
     parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--two_circles_data_path", type=str, default="")
     args = parser.parse_args()
@@ -230,7 +228,6 @@ def main():
         beta_dim=args.beta_dim,
         hyper_hidden=args.hyper_hidden,
         rank=args.rank,
-        film_hidden=args.film_hidden,
         layer_selection=layer_selection,
         fc_dim=128,
         in_dim=x_train.shape[-1],
@@ -238,12 +235,11 @@ def main():
         inv_L_scale_hyper=[False, 0.5, 2.0],
         scaling_mode="inv",
         act=args.act,
-        geo_act=args.geo_act,
     ).to(device)
 
     print("------Parameters------")
     print(f"layer_selection={layer_selection}")
-    print(f"layers={layers}, beta_dim={args.beta_dim}, hyper_hidden={args.hyper_hidden}, rank={args.rank}, film_hidden={args.film_hidden}")
+    print(f"layers={layers}, beta_dim={args.beta_dim}, hyper_hidden={args.hyper_hidden}, rank={args.rank}")
     print(f"model params={sum(p.numel() for p in model.parameters()):,}")
 
     config = {

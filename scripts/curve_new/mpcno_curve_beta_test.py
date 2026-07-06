@@ -11,7 +11,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.mpcno_structured import compute_Fourier_modes, MPCNO, MPCNO_train_multidist
+from pcno.mpcno import compute_Fourier_modes, MPCNO, MPCNO_train_multidist
 torch.set_printoptions(precision=16)
 
 
@@ -38,8 +38,6 @@ parser.add_argument('--n_test', type=int, default=1000)
 parser.add_argument('--n_two_circles_test', type=int, default=0)
 parser.add_argument('--act', type=str, default="gelu")
 parser.add_argument('--geo_act', type=str, default="softsign")
-parser.add_argument('--proj_act', type=str, default="gelu")
-parser.add_argument('--proj_layer_sizes', type=str, default='128,128,128')
 parser.add_argument("--layer_sizes", type=str, default="64,64,64,64,64,64")
 parser.add_argument('--kernel_type', type=str)
 # 新增读取输入文件路径之参数
@@ -55,10 +53,8 @@ k_max = args.k_max
 ndim = 2
 L = 10
 layers = [int(size) for size in args.layer_sizes.split(",")]
-proj_layers = [int(size) for size in args.proj_layer_sizes.split(',') if int(size) > 0]
 act = args.act
 geo_act = args.geo_act
-proj_act = args.proj_act
 to_divide_factor = args.to_divide_factor
 
 ###################################
@@ -207,24 +203,20 @@ print(f'L = {L}')
 print(f'Shape of Fourier modes: ', modes.shape)
 print(f'layer_selection = {layer_selection}')
 print(f'layers = {layers}')
-print(f'proj_layers = {proj_layers}')
 print(f'activation = {act}')
 print(f'geo_activation = {geo_act}')
-print(f'projection_activation = {proj_act}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
 model = MPCNO(ndim, modes, nmeasures=1,
                layer_selection = layer_selection,
                layers=layers,
-               proj_layers=proj_layers,
-               fc_dim=0,
+               fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                scaling_mode='inv',
                act = act,
                geo_act = geo_act,
-               proj_act = proj_act,
                 ).to(device)
 
 

@@ -19,13 +19,36 @@ Batch-size-2 CPGNet results from `artifacts/time_dependent_no/official_bs2_20260
 
 Interpretation to test, not assume: the model has learned the local one-step map on the ground-truth state manifold, but rollout leaves that manifold and amplifies small errors. Two-stage training improves some rollout variables but does not close the stability gap.
 
+## Current Mechanistic Readout
+
+The completed diagnostics sharpen the initial interpretation. CPGNet does learn accurate teacher-forced one-step primitive updates, and the reproduction failure is therefore not explained by simple one-step underfitting. However, the strongest evidence does not support a simple global out-of-distribution drift or small random-noise amplification story either:
+
+- Teacher-forced error remains close to the paper scale, while autoregressive rollout error is roughly one to two orders of magnitude larger.
+- Sampled train-range drift is weak; final predictions almost never leave sampled train min/max ranges.
+- Small perturbation probes do not reproduce the full autoregressive gap.
+- Shock-local pressure/rho errors dominate smooth-region errors, but local best-shift alignment explains only a small fraction of the shock-front error.
+
+The working hypothesis is now: CPGNet fails mainly by losing shock-local phase, shape, amplitude, or multi-scale structure under autoregressive rollout. Two-stage training partially reduces the defect in some variables and trajectories, but does not robustly stabilize shock geometry.
+
+## Literature-Informed Diagnostic Principles
+
+Recent failure-mode papers on neural PDE emulators suggest several rules for interpreting this result:
+
+1. **One-step accuracy is not rollout stability.** APEBench and Recurrent Neural Operators both emphasize the mismatch between teacher-forced training and autoregressive inference. Diagnostics must always report teacher-forced and free-rollout curves separately.
+2. **Temporal metrics should be curves or valid-time metrics, not only final averages.** APEBench uses rollout error curves and geometric aggregation; PDE-Refiner uses high-correlation time. CPGNet/PCNO reports should include per-time RMSE, relative L2, valid prediction time, and correlation-time style metrics.
+3. **Low-amplitude or high-frequency residuals can control long rollout behavior.** PDE-Refiner and the spectral FNO analysis both show that MSE-trained models can prioritize dominant energy components while neglecting non-dominant components that later couple into visible dynamics. For Euler shocks, this motivates scale-local residual diagnostics near discontinuities.
+4. **Unrolling is a training intervention with tradeoffs.** APEBench and RNO show that recurrent/unrolled training can improve temporal generalization, but it may sacrifice short-term accuracy and can interact strongly with architecture. Two-stage CPGNet should therefore be judged by variable-wise and trajectory-wise stability, not by a single aggregate.
+5. **Dynamics difficulty and information propagation matter.** APEBench's CFL/difficulty framing suggests measuring how far physical structures move per step relative to graph spacing and model propagation radius. For CPGNet this means comparing shock-front displacement to median edge length and message-passing depth; for PCNO it means auditing spectral/point-cloud resolution and represented modes.
+6. **Metrics can hide the failure mechanism.** Smooth-region RMSE, boundary-clamped errors, or aggregate rollout averages can make a model look more stable than it is. Shock-region splits, front overlays, and scale/spectral residuals should be treated as primary diagnostics for this dataset.
+
 ## Claim Map
 
 | Claim | Why It Matters | Minimum Convincing Evidence | Blocks |
 | --- | --- | --- | --- |
-| C1: The CPGNet failure is primarily autoregressive stability / state-distribution drift, not one-step underfitting. | Directs future work toward stabilization, multistep objectives, DA, or state correction instead of simply increasing capacity. | Teacher-forced error stays near paper scale while rollout error grows quickly; perturbation sweeps show high amplification; rollout states drift outside training-state statistics before final errors become large. | B1, B2, B3 |
-| C2: The hard parts of long-time Euler rollout are localized in shocks, contact/wake regions, and invariant drift rather than uniform smooth-field error. | Identifies what any neural operator must handle, including PCNO. | Error, shock-front position, shock centroid, thickness/strength, conservation drift, and valid prediction time are decomposed by time, region, and trajectory. | B2, B4, B5 |
+| C1: The CPGNet failure is primarily autoregressive rollout degradation, not one-step underfitting. | Directs future work toward stabilization, multistep objectives, DA, or state correction instead of simply increasing capacity. | Teacher-forced error stays near paper scale while rollout error is much larger; state-drift and perturbation probes rule out overly simple explanations. | B1, B2, B3 |
+| C2: The hard parts of long-time Euler rollout are localized in shocks, contact/wake regions, multi-scale residuals, and invariant drift rather than uniform smooth-field error. | Identifies what any neural operator must handle, including PCNO. | Error, shock-front position, shock centroid, thickness/strength, conservation drift, valid prediction time, and scale/spectral residuals are decomposed by time, region, and trajectory. | B2, B4, B5, B9 |
 | C3: Structure preservation helps some failure modes but does not guarantee stable rollout in the released CPGNet setup. | Gives a fair account of CPGNet pros/cons before comparing with PCNO. | CPGNet has better positivity / conservation / shock behavior than raw state predictors or PCNO in at least some metrics, but still shows compounding, phase, or geometry-sensitive errors. | B4, B6, B7 |
+| C4: The dominant defect may be an architecture/training mismatch with shock-scale information propagation. | Connects CPGNet/PCNO diagnostics to broader neural-operator failure literature. | Effective-CFL/receptive-field probes and scale-local residual spectra explain which structures move beyond the stable learned update. | B9, B10, B11 |
 
 Anti-claim to rule out: "The reproduction failed only because of a simple implementation bug or because the model cannot learn one-step dynamics." The teacher-forced results already argue against this, but the diagnostics below should make the mechanism explicit.
 
@@ -145,6 +168,45 @@ These are the specific checks for the suspected main failure mode:
 - Output target: Side-by-side CPGNet/PCNO diagnostic report.
 - Priority: MUST-RUN after PCNO training completes.
 
+### B9: Scale and Spectral Residual Diagnostics
+
+- Claim tested: C2 and C4.
+- Purpose: Test the PDE-Refiner / spectral-FNO hypothesis that neglected low-amplitude or high-frequency residuals drive long rollout failure.
+- Data/task: Existing CPGNet rollout arrays first; PCNO artifacts later.
+- Systems: CPGNet one-step and two-stage; PCNO once available.
+- Metrics: Residual energy by graph-Laplacian mode or edge-length scale, residual edge-jump spectra, target-energy-normalized residual spectra, and the same quantities split by target-front, predicted-front-only, target-front-only, and smooth regions.
+- Setup: Prefer graph-native spectra or edge-length/variation bins on the unstructured mesh. Use interpolation-to-grid FFT only after a preprocessing-error sanity check.
+- Success criterion: Identify whether rollout failure concentrates in non-dominant scales, shock-local high-gradient residuals, or low modes contaminated by earlier shock errors.
+- Failure interpretation: If scale/spectral residuals are flat or uninformative, prioritize dynamics-difficulty and recurrent-training controls.
+- Output target: Scale-residual table and per-time spectral/scale-error curves.
+- Priority: MUST-RUN before designing PCNO method changes.
+
+### B10: Dynamics Difficulty and Effective Receptive-Field Audit
+
+- Claim tested: C4.
+- Purpose: Connect observed failure to whether the learned update can propagate information far enough per time step.
+- Data/task: Target trajectories with positions, edges, and shock-front masks.
+- Systems: CPGNet first; PCNO with analogous point-cloud/spectral resolution audit.
+- Metrics: Shock-front displacement per step in physical units, displacement in median-edge-length units, graph-hop distance covered by message passing, boundary-to-front distance, and per-trajectory correlation with rollout/shock error.
+- Setup: Estimate target-front motion using nearest-front matching or centroid/front-distance curves. Compare with CPGNet's message-passing depth and graph edge-length distribution.
+- Success criterion: State whether hard trajectories correspond to front motion or feature propagation that stresses the model's effective receptive field.
+- Failure interpretation: If failure is not correlated with motion/difficulty, return to scale-local residual and invariant diagnostics.
+- Output target: Effective-CFL/receptive-field audit table.
+- Priority: MUST-RUN for interpreting both CPGNet and PCNO.
+
+### B11: Recurrent/Unrolled Control Experiments
+
+- Claim tested: C1, C3, and C4.
+- Purpose: Test whether aligning training with inference improves CPGNet/PCNO rollout stability and what it sacrifices.
+- Data/task: Supersonic bump train/test split; start with a small fine-tune or cheap control, not a broad sweep.
+- Systems: CPGNet two-stage or closest available checkpoint, then PCNO if its one-step/rollout split reproduces the same failure.
+- Metrics: Teacher-forced one-step RMSE, rollout RMSE, valid prediction time, correlation time, shock-front metrics, scale-residual metrics, and runtime/memory.
+- Setup: Try a narrow set of unroll lengths such as 2, 5, and 10 steps. Report whether short-term accuracy is traded for long-term stability, as APEBench and RNO suggest.
+- Success criterion: Determine whether recurrent exposure actually stabilizes shock geometry, rather than merely smoothing or damping the solution.
+- Failure interpretation: If unrolling reduces aggregate error but worsens shock structure or specific variables, do not treat it as sufficient.
+- Output target: Small recurrent-control report.
+- Priority: NICE until B9/B10 clarify which mechanism to target.
+
 ## Run Order and Milestones
 
 | Milestone | Goal | Runs | Decision Gate | Cost | Risk |
@@ -155,12 +217,22 @@ These are the specific checks for the suspected main failure mode:
 | M3 | Quantify physical structure | B5 with equal-node weights, then approximate weights | State what is actually preserved | CPU, possible mesh parsing | Mesh weights unavailable or ambiguous |
 | M4 | Decide training controls | B6 only if M1-M3 require attribution | Launch no more than one direct-predictor control first | 1-2 full training runs | Expensive without clear value |
 | M5 | Replay on PCNO | B8 after PCNO training | Same diagnostic report can be generated | Depends on PCNO outputs | Output contract mismatch |
+| M6 | Explain shock-scale mechanism | B9 and B10 on CPGNet, then PCNO | Name whether scale residuals or effective propagation explain hard trajectories | CPU plus possible eigensolver cost | Unstructured spectral analysis can be misleading |
+| M7 | Test stabilization controls | B11 only after M6 | Determine whether recurrent/unrolled training fixes the named mechanism | GPU fine-tune cost | Better aggregate RMSE may hide worse shock structure |
 
-## First Three Actions
+## Completed First Actions
 
-1. Download or generate a selected CPGNet diagnostic subset: best, median, worst, and trajectory 17 if it remains visually useful.
-2. Write a model-agnostic rollout diagnostic script that consumes prediction/target arrays and emits B1-B5 scalar summaries plus per-time CSVs.
-3. Run perturbation amplification on one-step and two-stage CPGNet checkpoints for 3 representative trajectories before launching any new training.
+1. Downloaded a selected CPGNet diagnostic subset and full-rollout summaries.
+2. Wrote a model-agnostic rollout diagnostic script that consumes prediction/target arrays and emits B1-B5 scalar summaries plus per-time CSVs.
+3. Ran teacher-forced per-time, state-drift, perturbation amplification, shock diagnostics, equal-node physics checks, and selected shock overlays.
+
+## Next Diagnostic Actions
+
+1. Add correlation-time and geometric rollout aggregation to the model-agnostic diagnostic report.
+2. Implement graph-native scale/spectral residual diagnostics, starting with edge-jump/edge-length bins before graph-Laplacian eigenmodes.
+3. Audit effective shock-front displacement per step against median edge length and CPGNet message-passing depth.
+4. Prepare PCNO rollout export in the same `predicteds`, `targets`, `pos`, `edges`, `node_type` contract.
+5. Only after B9/B10, decide whether to run a small recurrent/unrolled fine-tune control.
 
 ## What We Expect To Learn
 
@@ -172,7 +244,9 @@ These are the specific checks for the suspected main failure mode:
 
 ## Stop Criteria
 
-- Do not add a new method until B1-B5 identify a dominant CPGNet defect.
+- Do not add or retrain a method until B9/B10 clarify whether scale residuals or effective propagation are the mechanism to target.
 - Do not make a conservation claim until weight choice is explicit.
 - Do not compare PCNO against CPGNet unless both use the same rollout artifact contract and diagnostic definitions.
 - Do not interpret Table 2 reproduction failure as model underfitting unless teacher-forced and perturbation diagnostics contradict the current evidence.
+- Do not use interpolation-to-grid FFT as primary evidence on the unstructured mesh until interpolation error is shown to be negligible.
+- Do not treat two-stage or recurrent training as successful unless it improves shock-local and per-variable stability, not only aggregate RMSE.

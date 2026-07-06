@@ -22,3 +22,4 @@ wandb/
 # Python test/cache outputs
 __pycache__/
 .pytest_cache/
+.pytest_tmp/

@@ -104,8 +104,21 @@ def trajectory_key(handle: h5py.File, trajectory_index: int) -> str:
     return keys[trajectory_index]
 
 
+def load_node_type_from_result(result_file: Path, expected_nodes: int) -> np.ndarray | None:
+    with h5py.File(result_file, "r") as handle:
+        if "node_type" not in handle:
+            return None
+        node_type = squeeze_node_column(np.asarray(handle["node_type"]))
+    if node_type.shape != (expected_nodes,):
+        raise ValueError(
+            f"{result_file}: node_type shape {node_type.shape} does not match rollout node count {expected_nodes}"
+        )
+    return np.asarray(node_type, dtype=np.int64)
+
+
 def load_node_mask(
     *,
+    result_file: Path,
     dataset_root: Path | None,
     split: str,
     trajectory_index: int,
@@ -114,8 +127,15 @@ def load_node_mask(
 ) -> np.ndarray | None:
     if node_filter == "all":
         return None
+    result_node_type = load_node_type_from_result(result_file, expected_nodes)
+    if result_node_type is not None:
+        normal = result_node_type == 0
+        return normal if node_filter == "normal" else ~normal
     if dataset_root is None:
-        raise ValueError("--dataset-root is required when --node-filter is not 'all'")
+        raise ValueError(
+            "--dataset-root is required when --node-filter is not 'all' "
+            "and result files do not include node_type"
+        )
     dataset_file = dataset_root / f"{split}.h5"
     with h5py.File(dataset_file, "r") as handle:
         key = trajectory_key(handle, trajectory_index)
@@ -222,6 +242,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     for trajectory_index, result_file in zip(trajectory_indices, result_files):
         prediction, truth = load_rollout_arrays(result_file)
         node_mask = load_node_mask(
+            result_file=result_file,
             dataset_root=args.dataset_root,
             split=args.split,
             trajectory_index=trajectory_index,

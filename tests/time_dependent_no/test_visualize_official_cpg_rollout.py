@@ -104,3 +104,28 @@ def test_result_geometry_node_count_mismatch_is_rejected():
             output_dir=root,
             no_animation=True,
         )
+
+
+def test_save_visualization_uses_embedded_result_geometry_without_dataset_file():
+    module = _load_module()
+    root = _artifact_root()
+    dataset_file, result_file = _write_fixture(root)
+    with h5py.File(dataset_file, "r") as dataset, h5py.File(result_file, "a") as result:
+        result.create_dataset("pos", data=np.asarray(dataset["00"]["pos"][0]))
+        result.create_dataset("node_type", data=np.asarray(dataset["00"]["node_type"][0]))
+        result.attrs["trajectory_key"] = "00"
+
+    summary = module.save_official_rollout_visualization(
+        dataset_file=None,
+        result_file=result_file,
+        output_dir=root,
+        trajectory_index=0,
+        feature="pres",
+        node_filter="normal",
+        no_animation=True,
+        snapshot_steps="1",
+    )
+
+    assert summary["trajectory_key"] == "00"
+    assert summary["num_nodes_plotted"] == 2
+    assert Path(summary["relative_error_path"]).is_file()

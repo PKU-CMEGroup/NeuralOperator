@@ -121,6 +121,26 @@ def _squeeze_node_column(array: np.ndarray) -> np.ndarray:
     return array
 
 
+def validate_geometry(
+    *,
+    nodes: np.ndarray,
+    node_type: np.ndarray,
+    expected_nodes: int,
+    trajectory_key: str,
+) -> dict[str, np.ndarray | str]:
+    if nodes.ndim != 2 or nodes.shape[-1] != 2:
+        raise ValueError(f"pos must have shape (nodes, 2), got {nodes.shape}")
+    if node_type.ndim != 1:
+        raise ValueError(f"node_type must reduce to shape (nodes,), got {node_type.shape}")
+    if nodes.shape[0] != expected_nodes or node_type.shape[0] != expected_nodes:
+        raise ValueError(
+            "geometry and rollout arrays disagree on node count: "
+            f"pos={nodes.shape[0]}, node_type={node_type.shape[0]}, "
+            f"rollout={expected_nodes}"
+        )
+    return {"nodes": nodes, "node_type": node_type, "trajectory_key": trajectory_key}
+
+
 def load_geometry(
     dataset_file: Path,
     *,
@@ -143,17 +163,34 @@ def load_geometry(
         node_type = _squeeze_node_column(_read_frame_or_static(group["node_type"], frame))
         node_type = np.asarray(node_type, dtype=np.int64)
 
-    if nodes.ndim != 2 or nodes.shape[-1] != 2:
-        raise ValueError(f"pos must have shape (nodes, 2), got {nodes.shape}")
-    if node_type.ndim != 1:
-        raise ValueError(f"node_type must reduce to shape (nodes,), got {node_type.shape}")
-    if nodes.shape[0] != expected_nodes or node_type.shape[0] != expected_nodes:
-        raise ValueError(
-            "geometry and rollout arrays disagree on node count: "
-            f"pos={nodes.shape[0]}, node_type={node_type.shape[0]}, "
-            f"rollout={expected_nodes}"
-        )
-    return {"nodes": nodes, "node_type": node_type, "trajectory_key": key}
+    return validate_geometry(
+        nodes=nodes,
+        node_type=node_type,
+        expected_nodes=expected_nodes,
+        trajectory_key=key,
+    )
+
+
+def load_geometry_from_result(
+    result_file: Path,
+    *,
+    expected_nodes: int,
+) -> dict[str, np.ndarray | str]:
+    with h5py.File(result_file, "r") as handle:
+        for required in ("pos", "node_type"):
+            if required not in handle:
+                raise KeyError(f"{result_file} is missing embedded geometry dataset {required!r}")
+        nodes = np.asarray(handle["pos"], dtype=np.float32)
+        node_type = _squeeze_node_column(np.asarray(handle["node_type"]))
+        node_type = np.asarray(node_type, dtype=np.int64)
+        key = str(handle.attrs.get("trajectory_key", handle.attrs.get("trajectory_index", "result")))
+
+    return validate_geometry(
+        nodes=nodes,
+        node_type=node_type,
+        expected_nodes=expected_nodes,
+        trajectory_key=key,
+    )
 
 
 def node_filter_mask(node_type: np.ndarray, node_filter: str) -> np.ndarray:
@@ -416,7 +453,7 @@ def save_animation(
 
 def save_official_rollout_visualization(
     *,
-    dataset_file: Path,
+    dataset_file: Path | None,
     result_file: Path,
     output_dir: Path,
     trajectory_index: int = 0,
@@ -441,13 +478,19 @@ def save_official_rollout_visualization(
     truth, prediction = load_rollout_arrays(result_file)
     feature_index = parse_feature(feature)
     feature_name = FEATURE_NAMES[feature_index]
-    geometry = load_geometry(
-        dataset_file,
-        trajectory_index=trajectory_index,
-        trajectory_key=trajectory_key,
-        frame=geometry_frame,
-        expected_nodes=truth.shape[1],
-    )
+    if dataset_file is None:
+        geometry = load_geometry_from_result(
+            result_file,
+            expected_nodes=truth.shape[1],
+        )
+    else:
+        geometry = load_geometry(
+            dataset_file,
+            trajectory_index=trajectory_index,
+            trajectory_key=trajectory_key,
+            frame=geometry_frame,
+            expected_nodes=truth.shape[1],
+        )
     nodes = np.asarray(geometry["nodes"])
     node_type = np.asarray(geometry["node_type"])
     mask = node_filter_mask(node_type, node_filter)
@@ -568,7 +611,7 @@ def build_parser() -> argparse.ArgumentParser:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--run-dir", type=Path, help="Official run dir containing result/*.h5")
     source.add_argument("--result-file", type=Path, help="Specific rollout result HDF5 file")
-    parser.add_argument("--dataset-root", type=Path, required=True)
+    parser.add_argument("--dataset-root", type=Path)
     parser.add_argument("--split", default="test")
     parser.add_argument("--trajectory-index", type=int, default=0)
     parser.add_argument("--trajectory-key")
@@ -600,7 +643,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.fps < 1:
         raise SystemExit("--fps must be at least 1")
 
-    dataset_file = args.dataset_root / f"{args.split}.h5"
+    dataset_file = args.dataset_root / f"{args.split}.h5" if args.dataset_root is not None else None
     if args.result_file is None:
         result_file = infer_result_file(args.run_dir, args.trajectory_index)
         default_output_dir = args.run_dir / "visualizations"

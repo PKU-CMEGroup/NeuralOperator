@@ -1,0 +1,861 @@
+"""Train fixed-step 1D Euler target heads on collaborator data.
+
+This script is the light pilot harness for the solver-facing target ladder:
+
+* residual: conservative state residual over one fixed coarse step
+* flux: predicted face flux, followed by a fixed conservative FV update
+* interface: predicted face states, followed by Rusanov flux and FV update
+
+The model is not conditioned on ``dt``. ``--step-stride`` selects a fixed
+coarse-step operator from saved trajectory frames, and all targets are
+supervised only through the next primitive state at that stride.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import math
+import random
+import time
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Sequence, cast
+
+import numpy as np
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from utility.time_dependent_no.euler1d import conservative_to_primitive, make_euler1d_batch
+from utility.time_dependent_no.euler1d_data import (
+    Euler1DNPZ,
+    Euler1DTimePairDataset,
+    collate_euler1d_pairs,
+    load_euler1d_npz,
+)
+from utility.time_dependent_no.euler1d_models import (
+    CPGStyleEuler1DHead,
+    Euler1DTarget,
+    FNOEuler1DHead,
+)
+from utility.time_dependent_no.euler1d_targets import make_target_adapter
+
+
+EPS = 1.0e-12
+MODEL_CHOICES = ("cpgnet", "fno")
+TARGET_CHOICES = ("residual", "flux", "interface")
+ARG_TARGET_CHOICES = ("state", *TARGET_CHOICES)
+
+
+@dataclass(frozen=True)
+class PrimitiveNormalizer:
+    mean: torch.Tensor
+    std: torch.Tensor
+
+    @classmethod
+    def from_source(
+        cls,
+        source: Euler1DNPZ,
+        case_indices: np.ndarray,
+        *,
+        step_stride: int = 1,
+    ) -> "PrimitiveNormalizer":
+        if step_stride < 1 or step_stride >= source.num_frames:
+            raise ValueError("step_stride must be in [1, num_frames - 1]")
+        targets = source.data[case_indices, step_stride:]
+        mean = torch.as_tensor(targets.mean(axis=(0, 1, 2)), dtype=torch.float32)
+        std_np = targets.std(axis=(0, 1, 2))
+        std = torch.as_tensor(np.maximum(std_np, 1.0e-6), dtype=torch.float32)
+        return cls(mean=mean.reshape(1, 1, 3), std=std.reshape(1, 1, 3))
+
+    def to(self, device: torch.device) -> "PrimitiveNormalizer":
+        return PrimitiveNormalizer(mean=self.mean.to(device), std=self.std.to(device))
+
+    def mse(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        prediction_norm = (prediction - self.mean) / self.std
+        target_norm = (target - self.mean) / self.std
+        return torch.mean((prediction_norm - target_norm).square())
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    date = datetime.now().strftime("%Y%m%d")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-path", type=Path, required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=ROOT / "artifacts" / "time_dependent_no" / f"euler1d_target_ladder_{date}",
+    )
+    parser.add_argument("--model", choices=(*MODEL_CHOICES, "all"), default="all")
+    parser.add_argument("--target", choices=(*ARG_TARGET_CHOICES, "all"), default="all")
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--lr", type=float, default=1.0e-3)
+    parser.add_argument("--weight-decay", type=float, default=1.0e-5)
+    parser.add_argument("--grad-clip", type=float, default=1.0)
+    parser.add_argument("--seed", type=int, default=20260707)
+    parser.add_argument("--train-cases", type=int, default=8)
+    parser.add_argument("--test-cases", type=int, default=4)
+    parser.add_argument("--rollout-steps", type=int, default=12)
+    parser.add_argument(
+        "--rollout-final-frame",
+        type=int,
+        help=(
+            "Evaluate all strides to the same saved-frame horizon. "
+            "Overrides --rollout-steps and must be divisible by --step-stride."
+        ),
+    )
+    parser.add_argument(
+        "--step-stride",
+        type=int,
+        default=1,
+        help="Saved-frame stride for the fixed coarse-step operator.",
+    )
+    parser.add_argument(
+        "--positive-transform",
+        choices=("none", "softplus", "exp"),
+        default="softplus",
+        help="Primitive positivity transform for state and interface target heads.",
+    )
+    parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--torch-threads", type=int, default=0)
+    parser.add_argument("--cpg-hidden-dim", type=int, default=64)
+    parser.add_argument("--cpg-message-passing-steps", type=int, default=3)
+    parser.add_argument("--cpg-mlp-layers", type=int, default=3)
+    parser.add_argument("--fno-width", type=int, default=32)
+    parser.add_argument("--fno-modes", type=int, default=8)
+    parser.add_argument("--fno-layers", type=int, default=4)
+    parser.add_argument("--fno-fc-dim", type=int, default=128)
+    parser.add_argument("--fno-pad-ratio", type=float, default=0.0)
+    parser.add_argument("--fail-fast", action="store_true")
+    return parser.parse_args(argv)
+
+
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def select_device(args: argparse.Namespace) -> torch.device:
+    if args.device == "cpu":
+        return torch.device("cpu")
+    if args.device == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA requested but unavailable")
+        torch.cuda.set_device(args.gpu)
+        return torch.device("cuda")
+    if torch.cuda.is_available():
+        torch.cuda.set_device(args.gpu)
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+
+def split_cases(source: Euler1DNPZ, args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
+    if args.train_cases < 1:
+        raise ValueError("--train-cases must be >= 1")
+    if args.test_cases < 1:
+        raise ValueError("--test-cases must be >= 1")
+    if source.num_cases < 2:
+        raise ValueError("at least two cases are required for train/test split")
+
+    requested = args.train_cases + args.test_cases
+    if requested > source.num_cases:
+        raise ValueError(
+            f"requested {requested} cases but dataset has only {source.num_cases}; "
+            "regenerate more cases or lower --train-cases/--test-cases"
+        )
+    rng = np.random.default_rng(args.seed)
+    permutation = rng.permutation(source.num_cases)
+    train = np.sort(permutation[: args.train_cases]).astype(np.int64)
+    test = np.sort(permutation[args.train_cases : requested]).astype(np.int64)
+    return train, test
+
+
+def build_model(model_name: str, target: Euler1DTarget, args: argparse.Namespace) -> nn.Module:
+    if model_name == "cpgnet":
+        model = CPGStyleEuler1DHead(
+            target,
+            hidden_dim=args.cpg_hidden_dim,
+            message_passing_steps=args.cpg_message_passing_steps,
+            mlp_layers=args.cpg_mlp_layers,
+        )
+    elif model_name == "fno":
+        if args.fno_layers < 2:
+            raise ValueError("--fno-layers must be >= 2")
+        model = FNOEuler1DHead(
+            target,
+            modes=[args.fno_modes] * (args.fno_layers - 1),
+            width=args.fno_width,
+            layers=[args.fno_width] * args.fno_layers,
+            fc_dim=args.fno_fc_dim,
+            pad_ratio=args.fno_pad_ratio,
+        )
+    else:
+        raise ValueError(f"unsupported model: {model_name}")
+
+    if target in ("residual", "flux"):
+        zero_initialize_identity_update_output(model, target)
+    return model
+
+
+def zero_initialize_identity_update_output(model: nn.Module, target: Euler1DTarget) -> None:
+    """Start increment and flux heads from the no-update map."""
+
+    if isinstance(model, CPGStyleEuler1DHead):
+        module = model.node_decoder if target == "residual" else model.face_decoder
+        zero_initialize_last_linear(module)
+        return
+    if isinstance(model, FNOEuler1DHead):
+        nn.init.zeros_(model.model.fc2.weight)
+        if model.model.fc2.bias is not None:
+            nn.init.zeros_(model.model.fc2.bias)
+        return
+    zero_initialize_last_linear(model)
+
+
+def zero_initialize_last_linear(module: nn.Module) -> None:
+    last_linear = None
+    for child in module.modules():
+        if isinstance(child, nn.Linear):
+            last_linear = child
+    if last_linear is None:
+        raise ValueError("residual model has no Linear output layer to initialize")
+    nn.init.zeros_(last_linear.weight)
+    if last_linear.bias is not None:
+        nn.init.zeros_(last_linear.bias)
+
+
+def relative_l2_torch(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    batch_size = prediction.shape[0]
+    diff = (prediction - target).reshape(batch_size, -1)
+    denom = target.reshape(batch_size, -1).norm(dim=1).clamp_min(EPS)
+    return diff.norm(dim=1) / denom
+
+
+def finite_scalar(value: torch.Tensor) -> float:
+    if value.numel() != 1:
+        raise ValueError("expected a scalar tensor")
+    item = float(value.detach().cpu().item())
+    return item if math.isfinite(item) else float("nan")
+
+
+def evaluate_one_step(
+    model: nn.Module,
+    adapter: nn.Module,
+    loader: DataLoader,
+    normalizer: PrimitiveNormalizer,
+    device: torch.device,
+) -> dict[str, float]:
+    model.eval()
+    total_loss = 0.0
+    total_rel_l2 = 0.0
+    total_samples = 0
+    min_density = float("inf")
+    min_pressure = float("inf")
+    raw_min_density = float("inf")
+    raw_min_pressure = float("inf")
+    num_nonpositive_raw_density = 0
+    num_nonpositive_raw_pressure = 0
+
+    with torch.no_grad():
+        for batch in loader:
+            batch = batch.to(device)
+            raw = model(batch)
+            prediction = adapter(raw, batch)
+            if batch.target_primitive is None:
+                raise RuntimeError("evaluation batch is missing target_primitive")
+            loss = normalizer.mse(prediction.primitive, batch.target_primitive)
+            rel_l2 = relative_l2_torch(prediction.primitive, batch.target_primitive)
+            batch_size = batch.current_primitive.shape[0]
+            total_loss += finite_scalar(loss) * batch_size
+            total_rel_l2 += float(rel_l2.detach().cpu().sum().item())
+            total_samples += batch_size
+            min_density = min(min_density, float(prediction.primitive[..., 0].min().cpu().item()))
+            min_pressure = min(min_pressure, float(prediction.primitive[..., 2].min().cpu().item()))
+            raw_primitive = conservative_to_primitive(prediction.conservative, gamma=batch.gamma)
+            raw_min_density = min(
+                raw_min_density, float(raw_primitive[..., 0].min().cpu().item())
+            )
+            raw_min_pressure = min(
+                raw_min_pressure, float(raw_primitive[..., 2].min().cpu().item())
+            )
+            num_nonpositive_raw_density += int(
+                raw_primitive[..., 0].le(0.0).sum().detach().cpu().item()
+            )
+            num_nonpositive_raw_pressure += int(
+                raw_primitive[..., 2].le(0.0).sum().detach().cpu().item()
+            )
+
+    return {
+        "loss": total_loss / max(total_samples, 1),
+        "relative_l2": total_rel_l2 / max(total_samples, 1),
+        "min_density": min_density,
+        "min_pressure": min_pressure,
+        "raw_min_density": raw_min_density,
+        "raw_min_pressure": raw_min_pressure,
+        "num_nonpositive_raw_density": num_nonpositive_raw_density,
+        "num_nonpositive_raw_pressure": num_nonpositive_raw_pressure,
+    }
+
+
+def train_one_epoch(
+    model: nn.Module,
+    adapter: nn.Module,
+    loader: DataLoader,
+    normalizer: PrimitiveNormalizer,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    grad_clip: float,
+) -> dict[str, float]:
+    model.train()
+    total_loss = 0.0
+    total_rel_l2 = 0.0
+    total_samples = 0
+
+    for batch in loader:
+        batch = batch.to(device)
+        if batch.target_primitive is None:
+            raise RuntimeError("training batch is missing target_primitive")
+        raw = model(batch)
+        prediction = adapter(raw, batch)
+        loss = normalizer.mse(prediction.primitive, batch.target_primitive)
+        if not torch.isfinite(loss):
+            raise FloatingPointError("non-finite training loss")
+
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        if grad_clip > 0.0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        optimizer.step()
+
+        with torch.no_grad():
+            rel_l2 = relative_l2_torch(prediction.primitive, batch.target_primitive)
+        batch_size = batch.current_primitive.shape[0]
+        total_loss += finite_scalar(loss) * batch_size
+        total_rel_l2 += float(rel_l2.detach().cpu().sum().item())
+        total_samples += batch_size
+
+    return {
+        "loss": total_loss / max(total_samples, 1),
+        "relative_l2": total_rel_l2 / max(total_samples, 1),
+    }
+
+
+def primitive_to_conservative_np(primitive: np.ndarray, gamma: float) -> np.ndarray:
+    rho = primitive[..., 0]
+    velocity = primitive[..., 1]
+    pressure = primitive[..., 2]
+    momentum = rho * velocity
+    energy = pressure / (gamma - 1.0) + 0.5 * rho * velocity**2
+    return np.stack((rho, momentum, energy), axis=-1)
+
+
+def cell_widths_np(x: np.ndarray) -> np.ndarray:
+    interior_faces = 0.5 * (x[:-1] + x[1:])
+    left_face = x[0] - 0.5 * (x[1] - x[0])
+    right_face = x[-1] + 0.5 * (x[-1] - x[-2])
+    faces = np.concatenate(([left_face], interior_faces, [right_face]))
+    return np.diff(faces)
+
+
+def conservative_total_np(primitive: np.ndarray, x: np.ndarray, gamma: float) -> np.ndarray:
+    widths = cell_widths_np(x).astype(np.float64)
+    conservative = primitive_to_conservative_np(primitive, gamma).astype(np.float64)
+    return np.sum(conservative * widths[..., None], axis=-2)
+
+
+def pressure_front_position_np(primitive: np.ndarray, x: np.ndarray) -> np.ndarray:
+    if primitive.shape[-2] < 2:
+        return np.full(primitive.shape[:-2], np.nan, dtype=np.float64)
+    pressure = primitive[..., 2]
+    grad = np.abs(np.diff(pressure, axis=-1))
+    idx = np.argmax(grad, axis=-1)
+    face_x = 0.5 * (x[:-1] + x[1:])
+    return face_x[idx]
+
+
+def relative_l2_np(prediction: np.ndarray, target: np.ndarray) -> np.ndarray:
+    diff = prediction.reshape(prediction.shape[0], -1) - target.reshape(target.shape[0], -1)
+    denom = np.linalg.norm(target.reshape(target.shape[0], -1), axis=1)
+    return np.linalg.norm(diff, axis=1) / np.maximum(denom, EPS)
+
+
+def rollout_case(
+    model: nn.Module,
+    adapter: nn.Module,
+    source: Euler1DNPZ,
+    case_id: int,
+    steps: int,
+    step_stride: int,
+    device: torch.device,
+    final_frame: int | None = None,
+) -> dict[str, Any]:
+    model.eval()
+    if step_stride < 1 or step_stride >= source.num_frames:
+        raise ValueError("step_stride must be in [1, num_frames - 1]")
+    if final_frame is not None:
+        if final_frame < step_stride or final_frame >= source.num_frames:
+            raise ValueError("rollout_final_frame must be in [step_stride, num_frames - 1]")
+        if final_frame % step_stride != 0:
+            raise ValueError("rollout_final_frame must be divisible by step_stride")
+        max_steps = final_frame // step_stride
+    else:
+        max_steps = min(steps, (source.num_frames - 1) // step_stride)
+        final_frame = max_steps * step_stride
+    x_np = source.x[case_id]
+    current = torch.from_numpy(source.data[case_id, 0]).unsqueeze(0).to(device)
+    x = torch.from_numpy(x_np).unsqueeze(0).to(device)
+    left = torch.from_numpy(source.left_states[case_id]).unsqueeze(0).to(device)
+    predictions: list[np.ndarray] = []
+    raw_min_density = float("inf")
+    raw_min_pressure = float("inf")
+    num_nonpositive_raw_density = 0
+    num_nonpositive_raw_pressure = 0
+
+    with torch.no_grad():
+        for step in range(max_steps):
+            current_frame = step * step_stride
+            next_frame = current_frame + step_stride
+            dt = torch.tensor(
+                [source.t[case_id, next_frame] - source.t[case_id, current_frame]],
+                dtype=current.dtype,
+                device=device,
+            )
+            batch = make_euler1d_batch(
+                current,
+                x,
+                dt,
+                gamma=source.gamma,
+                left_boundary_primitive=left,
+            )
+            raw = model(batch)
+            decoded = adapter(raw, batch)
+            next_state = decoded.primitive
+            raw_primitive = conservative_to_primitive(decoded.conservative, gamma=source.gamma)
+            raw_min_density = min(
+                raw_min_density,
+                float(raw_primitive[..., 0].min().detach().cpu().item()),
+            )
+            raw_min_pressure = min(
+                raw_min_pressure,
+                float(raw_primitive[..., 2].min().detach().cpu().item()),
+            )
+            num_nonpositive_raw_density += int(
+                raw_primitive[..., 0].le(0.0).sum().detach().cpu().item()
+            )
+            num_nonpositive_raw_pressure += int(
+                raw_primitive[..., 2].le(0.0).sum().detach().cpu().item()
+            )
+            if not torch.isfinite(next_state).all():
+                break
+            predictions.append(next_state.squeeze(0).detach().cpu().numpy().astype(np.float64))
+            current = next_state.detach()
+
+    if not predictions:
+        return {
+            "case_id": int(case_id),
+            "finite": False,
+            "num_steps": 0,
+            "rollout_relative_l2_mean": float("nan"),
+            "rollout_relative_l2_final": float("nan"),
+            "min_density": float("nan"),
+            "min_pressure": float("nan"),
+            "max_abs_primitive": float("nan"),
+            "raw_min_density": float("nan"),
+            "raw_min_pressure": float("nan"),
+            "num_nonpositive_raw_density": 0,
+            "num_nonpositive_raw_pressure": 0,
+            "shock_position_mae": float("nan"),
+            "conservative_total_error_final": float("nan"),
+            "step_stride": int(step_stride),
+            "final_frame": int(final_frame),
+            "completed_horizon": False,
+        }
+
+    pred = np.stack(predictions, axis=0)
+    truth_ids = np.arange(1, pred.shape[0] + 1, dtype=np.int64) * step_stride
+    truth = source.data[case_id, truth_ids].astype(np.float64)
+    rel_l2 = relative_l2_np(pred, truth)
+    pred_front = pressure_front_position_np(pred, x_np)
+    truth_front = pressure_front_position_np(truth, x_np)
+    final_total_pred = conservative_total_np(pred[-1], x_np, source.gamma)
+    final_total_truth = conservative_total_np(truth[-1], x_np, source.gamma)
+    total_error = np.linalg.norm(final_total_pred - final_total_truth) / max(
+        np.linalg.norm(final_total_truth),
+        EPS,
+    )
+    return {
+        "case_id": int(case_id),
+        "finite": bool(np.isfinite(pred).all()),
+        "num_steps": int(pred.shape[0]),
+        "rollout_relative_l2_mean": float(np.mean(rel_l2)),
+        "rollout_relative_l2_final": float(rel_l2[-1]),
+        "min_density": float(np.min(pred[..., 0])),
+        "min_pressure": float(np.min(pred[..., 2])),
+        "max_abs_primitive": float(np.max(np.abs(pred))),
+        "raw_min_density": raw_min_density,
+        "raw_min_pressure": raw_min_pressure,
+        "num_nonpositive_raw_density": num_nonpositive_raw_density,
+        "num_nonpositive_raw_pressure": num_nonpositive_raw_pressure,
+        "shock_position_mae": float(np.mean(np.abs(pred_front - truth_front))),
+        "conservative_total_error_final": float(total_error),
+        "step_stride": int(step_stride),
+        "final_frame": int(truth_ids[-1]),
+        "completed_horizon": bool(pred.shape[0] == max_steps and truth_ids[-1] == final_frame),
+        "truth_frame_ids": truth_ids.tolist(),
+        "relative_l2_by_step": rel_l2.tolist(),
+    }
+
+
+def summarize_rollouts(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not rows:
+        return {
+            "finite": False,
+            "rollout_relative_l2_mean": float("nan"),
+            "rollout_relative_l2_final": float("nan"),
+        }
+    numeric_keys = (
+        "rollout_relative_l2_mean",
+        "rollout_relative_l2_final",
+        "min_density",
+        "min_pressure",
+        "raw_min_density",
+        "raw_min_pressure",
+        "max_abs_primitive",
+        "shock_position_mae",
+        "conservative_total_error_final",
+    )
+    summary: dict[str, Any] = {
+        "finite": all(bool(row["finite"]) for row in rows),
+        "num_cases": len(rows),
+        "num_steps_min": min(int(row["num_steps"]) for row in rows),
+        "num_steps_max": max(int(row["num_steps"]) for row in rows),
+        "final_frame_min": min(int(row["final_frame"]) for row in rows),
+        "final_frame_max": max(int(row["final_frame"]) for row in rows),
+        "completed_horizon": all(bool(row.get("completed_horizon")) for row in rows),
+    }
+    min_keys = {"min_density", "min_pressure", "raw_min_density", "raw_min_pressure"}
+    for key in numeric_keys:
+        values = np.asarray([row[key] for row in rows], dtype=np.float64)
+        if key in min_keys:
+            summary[key] = float(np.nanmin(values))
+        else:
+            summary[key] = float(np.nanmean(values))
+    summary["num_nonpositive_raw_density"] = int(
+        sum(int(row["num_nonpositive_raw_density"]) for row in rows)
+    )
+    summary["num_nonpositive_raw_pressure"] = int(
+        sum(int(row["num_nonpositive_raw_pressure"]) for row in rows)
+    )
+    return summary
+
+
+def write_history(path: Path, history: list[dict[str, Any]]) -> None:
+    if not history:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(history[0].keys()))
+        writer.writeheader()
+        writer.writerows(history)
+
+
+def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = sorted({key for row in rows for key in row})
+    preferred = [
+        "model",
+        "target",
+        "status",
+        "test_loss",
+        "test_relative_l2",
+        "rollout_relative_l2_mean",
+        "rollout_relative_l2_final",
+        "min_density",
+        "min_pressure",
+        "raw_min_density",
+        "raw_min_pressure",
+        "max_abs_primitive",
+        "shock_position_mae",
+        "conservative_total_error_final",
+        "runtime_seconds",
+    ]
+    ordered = [key for key in preferred if key in fieldnames] + [
+        key for key in fieldnames if key not in preferred
+    ]
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=ordered)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def json_ready(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_ready(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return json_ready(value.tolist())
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, torch.Tensor):
+        return json_ready(value.detach().cpu().tolist())
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def run_single(
+    source: Euler1DNPZ,
+    train_cases: np.ndarray,
+    test_cases: np.ndarray,
+    model_name: str,
+    target_name: str,
+    args: argparse.Namespace,
+    device: torch.device,
+) -> dict[str, Any]:
+    start = time.perf_counter()
+    target = cast(Euler1DTarget, target_name)
+    run_dir = args.output_dir / f"{model_name}_{target_name}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    train_dataset = Euler1DTimePairDataset(
+        source,
+        case_indices=train_cases,
+        step_stride=args.step_stride,
+    )
+    test_dataset = Euler1DTimePairDataset(
+        source,
+        case_indices=test_cases,
+        step_stride=args.step_stride,
+    )
+    generator = torch.Generator().manual_seed(args.seed)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        collate_fn=collate_euler1d_pairs,
+        generator=generator,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=collate_euler1d_pairs,
+    )
+
+    normalizer = PrimitiveNormalizer.from_source(
+        source,
+        train_cases,
+        step_stride=args.step_stride,
+    ).to(device)
+    model = build_model(model_name, target, args).to(device)
+    adapter = make_target_adapter(target_name, positive_transform=args.positive_transform).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+    history: list[dict[str, Any]] = []
+    for epoch in range(1, args.epochs + 1):
+        train_metrics = train_one_epoch(
+            model,
+            adapter,
+            train_loader,
+            normalizer,
+            optimizer,
+            device,
+            args.grad_clip,
+        )
+        test_metrics = evaluate_one_step(model, adapter, test_loader, normalizer, device)
+        row = {
+            "epoch": epoch,
+            "train_loss": train_metrics["loss"],
+            "train_relative_l2": train_metrics["relative_l2"],
+            "test_loss": test_metrics["loss"],
+            "test_relative_l2": test_metrics["relative_l2"],
+            "test_min_density": test_metrics["min_density"],
+            "test_min_pressure": test_metrics["min_pressure"],
+            "test_raw_min_density": test_metrics["raw_min_density"],
+            "test_raw_min_pressure": test_metrics["raw_min_pressure"],
+            "test_num_nonpositive_raw_density": test_metrics[
+                "num_nonpositive_raw_density"
+            ],
+            "test_num_nonpositive_raw_pressure": test_metrics[
+                "num_nonpositive_raw_pressure"
+            ],
+        }
+        history.append(row)
+        print(
+            f"{model_name:6s} {target_name:9s} epoch {epoch:03d}/{args.epochs:03d} "
+            f"train_loss={row['train_loss']:.4e} test_loss={row['test_loss']:.4e} "
+            f"test_rel_l2={row['test_relative_l2']:.4e}",
+            flush=True,
+        )
+
+    rollout_rows = [
+        rollout_case(
+            model,
+            adapter,
+            source,
+            int(case_id),
+            args.rollout_steps,
+            args.step_stride,
+            device,
+            final_frame=args.rollout_final_frame,
+        )
+        for case_id in test_cases.tolist()
+    ]
+    rollout_summary = summarize_rollouts(rollout_rows)
+    final_eval = evaluate_one_step(model, adapter, test_loader, normalizer, device)
+    runtime = time.perf_counter() - start
+
+    payload = {
+        "model": model_name,
+        "target": target_name,
+        "status": "ok",
+        "data_path": args.data_path,
+        "train_cases": train_cases,
+        "test_cases": test_cases,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "lr": args.lr,
+        "weight_decay": args.weight_decay,
+        "positive_transform": args.positive_transform,
+        "step_stride": args.step_stride,
+        "rollout_final_frame": args.rollout_final_frame,
+        "device": str(device),
+        "normalizer_mean": normalizer.mean.detach().cpu().reshape(3),
+        "normalizer_std": normalizer.std.detach().cpu().reshape(3),
+        "history": history,
+        "one_step": final_eval,
+        "rollout": rollout_summary,
+        "rollout_cases": rollout_rows,
+        "runtime_seconds": runtime,
+    }
+
+    write_history(run_dir / "history.csv", history)
+    (run_dir / "metrics.json").write_text(
+        json.dumps(json_ready(payload), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    row = {
+        "model": model_name,
+        "target": target_name,
+        "status": "ok",
+        "test_loss": final_eval["loss"],
+        "test_relative_l2": final_eval["relative_l2"],
+        "one_step_min_density": final_eval["min_density"],
+        "one_step_min_pressure": final_eval["min_pressure"],
+        "one_step_raw_min_density": final_eval["raw_min_density"],
+        "one_step_raw_min_pressure": final_eval["raw_min_pressure"],
+        "one_step_num_nonpositive_raw_density": final_eval[
+            "num_nonpositive_raw_density"
+        ],
+        "one_step_num_nonpositive_raw_pressure": final_eval[
+            "num_nonpositive_raw_pressure"
+        ],
+        "runtime_seconds": runtime,
+    }
+    row.update(rollout_summary)
+    return row
+
+
+def requested_values(value: str, choices: tuple[str, ...]) -> list[str]:
+    if value == "all":
+        return list(choices)
+    return [value]
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = parse_args(argv)
+    if args.torch_threads > 0:
+        torch.set_num_threads(args.torch_threads)
+    set_seed(args.seed)
+    device = select_device(args)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    source = load_euler1d_npz(args.data_path)
+    train_cases, test_cases = split_cases(source, args)
+    models = requested_values(args.model, MODEL_CHOICES)
+    targets = requested_values(args.target, TARGET_CHOICES)
+
+    print(
+        json.dumps(
+            {
+                "data_path": str(args.data_path),
+                "data_shape": list(source.data.shape),
+                "device": str(device),
+                "train_cases": train_cases.tolist(),
+                "test_cases": test_cases.tolist(),
+                "models": models,
+                "targets": targets,
+                "step_stride": args.step_stride,
+                "rollout_final_frame": args.rollout_final_frame,
+                "output_dir": str(args.output_dir),
+            },
+            indent=2,
+        ),
+        flush=True,
+    )
+
+    summary_rows: list[dict[str, Any]] = []
+    for model_name in models:
+        for target_name in targets:
+            try:
+                summary_rows.append(
+                    run_single(
+                        source,
+                        train_cases,
+                        test_cases,
+                        model_name,
+                        target_name,
+                        args,
+                        device,
+                    )
+                )
+            except Exception as exc:
+                failure = {
+                    "model": model_name,
+                    "target": target_name,
+                    "status": "failed",
+                    "error": repr(exc),
+                }
+                summary_rows.append(failure)
+                print(json.dumps(failure, indent=2), flush=True)
+                if args.fail_fast:
+                    raise
+
+    write_summary_csv(args.output_dir / "summary.csv", summary_rows)
+    (args.output_dir / "summary.json").write_text(
+        json.dumps(json_ready(summary_rows), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    print(
+        json.dumps(
+            {
+                "summary_csv": str(args.output_dir / "summary.csv"),
+                "summary_json": str(args.output_dir / "summary.json"),
+            },
+            indent=2,
+        ),
+        flush=True,
+    )
+
+
+if __name__ == "__main__":
+    main()

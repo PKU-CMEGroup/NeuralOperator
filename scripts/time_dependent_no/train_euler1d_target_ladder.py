@@ -36,7 +36,10 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from utility.time_dependent_no.euler1d import conservative_to_primitive, make_euler1d_batch
+from utility.time_dependent_no.euler1d import (
+    conservative_to_primitive,
+    make_euler1d_batch,
+)
 from utility.time_dependent_no.euler1d_data import (
     Euler1DNPZ,
     Euler1DTimePairDataset,
@@ -53,7 +56,13 @@ from utility.time_dependent_no.euler1d_targets import make_target_adapter
 
 EPS = 1.0e-12
 MODEL_CHOICES = ("cpgnet", "fno")
-TARGET_CHOICES = ("residual", "flux", "interface")
+TARGET_CHOICES = (
+    "residual",
+    "primitive_residual",
+    "limited_residual",
+    "flux",
+    "interface",
+)
 ARG_TARGET_CHOICES = ("state", *TARGET_CHOICES)
 
 
@@ -94,7 +103,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "artifacts" / "time_dependent_no" / f"euler1d_target_ladder_{date}",
+        default=ROOT
+        / "artifacts"
+        / "time_dependent_no"
+        / f"euler1d_target_ladder_{date}",
     )
     parser.add_argument("--model", choices=(*MODEL_CHOICES, "all"), default="all")
     parser.add_argument("--target", choices=(*ARG_TARGET_CHOICES, "all"), default="all")
@@ -164,7 +176,9 @@ def select_device(args: argparse.Namespace) -> torch.device:
     return torch.device("cpu")
 
 
-def split_cases(source: Euler1DNPZ, args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
+def split_cases(
+    source: Euler1DNPZ, args: argparse.Namespace
+) -> tuple[np.ndarray, np.ndarray]:
     if args.train_cases < 1:
         raise ValueError("--train-cases must be >= 1")
     if args.test_cases < 1:
@@ -185,7 +199,9 @@ def split_cases(source: Euler1DNPZ, args: argparse.Namespace) -> tuple[np.ndarra
     return train, test
 
 
-def build_model(model_name: str, target: Euler1DTarget, args: argparse.Namespace) -> nn.Module:
+def build_model(
+    model_name: str, target: Euler1DTarget, args: argparse.Namespace
+) -> nn.Module:
     if model_name == "cpgnet":
         model = CPGStyleEuler1DHead(
             target,
@@ -207,16 +223,22 @@ def build_model(model_name: str, target: Euler1DTarget, args: argparse.Namespace
     else:
         raise ValueError(f"unsupported model: {model_name}")
 
-    if target in ("residual", "flux"):
+    if target in ("residual", "primitive_residual", "limited_residual", "flux"):
         zero_initialize_identity_update_output(model, target)
     return model
 
 
-def zero_initialize_identity_update_output(model: nn.Module, target: Euler1DTarget) -> None:
+def zero_initialize_identity_update_output(
+    model: nn.Module, target: Euler1DTarget
+) -> None:
     """Start increment and flux heads from the no-update map."""
 
     if isinstance(model, CPGStyleEuler1DHead):
-        module = model.node_decoder if target == "residual" else model.face_decoder
+        module = (
+            model.node_decoder
+            if target in ("residual", "primitive_residual", "limited_residual")
+            else model.face_decoder
+        )
         zero_initialize_last_linear(module)
         return
     if isinstance(model, FNOEuler1DHead):
@@ -284,9 +306,15 @@ def evaluate_one_step(
             total_loss += finite_scalar(loss) * batch_size
             total_rel_l2 += float(rel_l2.detach().cpu().sum().item())
             total_samples += batch_size
-            min_density = min(min_density, float(prediction.primitive[..., 0].min().cpu().item()))
-            min_pressure = min(min_pressure, float(prediction.primitive[..., 2].min().cpu().item()))
-            raw_primitive = conservative_to_primitive(prediction.conservative, gamma=batch.gamma)
+            min_density = min(
+                min_density, float(prediction.primitive[..., 0].min().cpu().item())
+            )
+            min_pressure = min(
+                min_pressure, float(prediction.primitive[..., 2].min().cpu().item())
+            )
+            raw_primitive = conservative_to_primitive(
+                prediction.conservative, gamma=batch.gamma
+            )
             raw_min_density = min(
                 raw_min_density, float(raw_primitive[..., 0].min().cpu().item())
             )
@@ -372,7 +400,9 @@ def cell_widths_np(x: np.ndarray) -> np.ndarray:
     return np.diff(faces)
 
 
-def conservative_total_np(primitive: np.ndarray, x: np.ndarray, gamma: float) -> np.ndarray:
+def conservative_total_np(
+    primitive: np.ndarray, x: np.ndarray, gamma: float
+) -> np.ndarray:
     widths = cell_widths_np(x).astype(np.float64)
     conservative = primitive_to_conservative_np(primitive, gamma).astype(np.float64)
     return np.sum(conservative * widths[..., None], axis=-2)
@@ -389,7 +419,9 @@ def pressure_front_position_np(primitive: np.ndarray, x: np.ndarray) -> np.ndarr
 
 
 def relative_l2_np(prediction: np.ndarray, target: np.ndarray) -> np.ndarray:
-    diff = prediction.reshape(prediction.shape[0], -1) - target.reshape(target.shape[0], -1)
+    diff = prediction.reshape(prediction.shape[0], -1) - target.reshape(
+        target.shape[0], -1
+    )
     denom = np.linalg.norm(target.reshape(target.shape[0], -1), axis=1)
     return np.linalg.norm(diff, axis=1) / np.maximum(denom, EPS)
 
@@ -409,7 +441,9 @@ def rollout_case(
         raise ValueError("step_stride must be in [1, num_frames - 1]")
     if final_frame is not None:
         if final_frame < step_stride or final_frame >= source.num_frames:
-            raise ValueError("rollout_final_frame must be in [step_stride, num_frames - 1]")
+            raise ValueError(
+                "rollout_final_frame must be in [step_stride, num_frames - 1]"
+            )
         if final_frame % step_stride != 0:
             raise ValueError("rollout_final_frame must be divisible by step_stride")
         max_steps = final_frame // step_stride
@@ -445,7 +479,9 @@ def rollout_case(
             raw = model(batch)
             decoded = adapter(raw, batch)
             next_state = decoded.primitive
-            raw_primitive = conservative_to_primitive(decoded.conservative, gamma=source.gamma)
+            raw_primitive = conservative_to_primitive(
+                decoded.conservative, gamma=source.gamma
+            )
             raw_min_density = min(
                 raw_min_density,
                 float(raw_primitive[..., 0].min().detach().cpu().item()),
@@ -462,7 +498,9 @@ def rollout_case(
             )
             if not torch.isfinite(next_state).all():
                 break
-            predictions.append(next_state.squeeze(0).detach().cpu().numpy().astype(np.float64))
+            predictions.append(
+                next_state.squeeze(0).detach().cpu().numpy().astype(np.float64)
+            )
             current = next_state.detach()
 
     if not predictions:
@@ -515,7 +553,9 @@ def rollout_case(
         "conservative_total_error_final": float(total_error),
         "step_stride": int(step_stride),
         "final_frame": int(truth_ids[-1]),
-        "completed_horizon": bool(pred.shape[0] == max_steps and truth_ids[-1] == final_frame),
+        "completed_horizon": bool(
+            pred.shape[0] == max_steps and truth_ids[-1] == final_frame
+        ),
         "truth_frame_ids": truth_ids.tolist(),
         "relative_l2_by_step": rel_l2.tolist(),
     }
@@ -666,8 +706,12 @@ def run_single(
         step_stride=args.step_stride,
     ).to(device)
     model = build_model(model_name, target, args).to(device)
-    adapter = make_target_adapter(target_name, positive_transform=args.positive_transform).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    adapter = make_target_adapter(
+        target_name, positive_transform=args.positive_transform
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    )
 
     history: list[dict[str, Any]] = []
     for epoch in range(1, args.epochs + 1):
@@ -680,7 +724,9 @@ def run_single(
             device,
             args.grad_clip,
         )
-        test_metrics = evaluate_one_step(model, adapter, test_loader, normalizer, device)
+        test_metrics = evaluate_one_step(
+            model, adapter, test_loader, normalizer, device
+        )
         row = {
             "epoch": epoch,
             "train_loss": train_metrics["loss"],

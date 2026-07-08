@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import random
 import sys
 import time
@@ -49,7 +48,13 @@ from utility.time_dependent_no.euler1d_targets import make_target_adapter
 
 VARIABLE_NAMES = ("density", "velocity", "pressure")
 MODEL_CHOICES = ("cpgnet", "fno")
-TARGET_CHOICES = ("residual", "flux", "interface")
+TARGET_CHOICES = (
+    "residual",
+    "primitive_residual",
+    "limited_residual",
+    "flux",
+    "interface",
+)
 EPS = 1.0e-12
 
 
@@ -75,7 +80,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--weight-decay", type=float, default=1.0e-5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=20260707)
-    parser.add_argument("--positive-transform", choices=("none", "softplus", "exp"), default="softplus")
+    parser.add_argument(
+        "--positive-transform", choices=("none", "softplus", "exp"), default="softplus"
+    )
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--torch-threads", type=int, default=0)
@@ -115,7 +122,9 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def split_cases(source: Euler1DNPZ, args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
+def split_cases(
+    source: Euler1DNPZ, args: argparse.Namespace
+) -> tuple[np.ndarray, np.ndarray]:
     split_args = SimpleNamespace(
         train_cases=args.train_cases,
         test_cases=args.test_cases,
@@ -129,7 +138,9 @@ def select_case_ids(test_cases: np.ndarray, args: argparse.Namespace) -> list[in
         test_set = {int(case_id) for case_id in test_cases.tolist()}
         missing = [case_id for case_id in args.case_ids if int(case_id) not in test_set]
         if missing:
-            raise ValueError(f"case ids are not in the deterministic test split: {missing}")
+            raise ValueError(
+                f"case ids are not in the deterministic test split: {missing}"
+            )
         return [int(case_id) for case_id in args.case_ids]
     if args.num_cases < 1:
         raise ValueError("--num-cases must be >= 1")
@@ -178,7 +189,9 @@ def make_loaders(
 
 
 def relative_l2_by_frame(prediction: np.ndarray, truth: np.ndarray) -> np.ndarray:
-    diff = prediction.reshape(prediction.shape[0], -1) - truth.reshape(truth.shape[0], -1)
+    diff = prediction.reshape(prediction.shape[0], -1) - truth.reshape(
+        truth.shape[0], -1
+    )
     denom = np.linalg.norm(truth.reshape(truth.shape[0], -1), axis=1)
     return np.linalg.norm(diff, axis=1) / np.maximum(denom, EPS)
 
@@ -192,12 +205,18 @@ def train_variant(
     args: argparse.Namespace,
     device: torch.device,
 ) -> tuple[nn.Module, nn.Module, dict[str, Any]]:
-    train_loader, test_loader, normalizer_cpu = make_loaders(source, train_cases, test_cases, args)
+    train_loader, test_loader, normalizer_cpu = make_loaders(
+        source, train_cases, test_cases, args
+    )
     normalizer = normalizer_cpu.to(device)
     target = cast(Euler1DTarget, target_name)
     model = ladder.build_model(model_name, target, args).to(device)
-    adapter = make_target_adapter(target_name, positive_transform=args.positive_transform).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    adapter = make_target_adapter(
+        target_name, positive_transform=args.positive_transform
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    )
 
     history: list[dict[str, Any]] = []
     start = time.perf_counter()
@@ -211,7 +230,9 @@ def train_variant(
             device,
             args.grad_clip,
         )
-        test_metrics = ladder.evaluate_one_step(model, adapter, test_loader, normalizer, device)
+        test_metrics = ladder.evaluate_one_step(
+            model, adapter, test_loader, normalizer, device
+        )
         row = {
             "epoch": epoch,
             "train_loss": train_metrics["loss"],
@@ -219,7 +240,9 @@ def train_variant(
             "test_loss": test_metrics["loss"],
             "test_relative_l2": test_metrics["relative_l2"],
             "test_raw_min_pressure": test_metrics["raw_min_pressure"],
-            "test_num_nonpositive_raw_pressure": test_metrics["num_nonpositive_raw_pressure"],
+            "test_num_nonpositive_raw_pressure": test_metrics[
+                "num_nonpositive_raw_pressure"
+            ],
         }
         history.append(row)
         print(
@@ -228,14 +251,20 @@ def train_variant(
             flush=True,
         )
 
-    final_eval = ladder.evaluate_one_step(model, adapter, test_loader, normalizer, device)
-    return model, adapter, {
-        "model": model_name,
-        "target": target_name,
-        "history": history,
-        "one_step": final_eval,
-        "runtime_seconds": time.perf_counter() - start,
-    }
+    final_eval = ladder.evaluate_one_step(
+        model, adapter, test_loader, normalizer, device
+    )
+    return (
+        model,
+        adapter,
+        {
+            "model": model_name,
+            "target": target_name,
+            "history": history,
+            "one_step": final_eval,
+            "runtime_seconds": time.perf_counter() - start,
+        },
+    )
 
 
 def rollout_arrays(
@@ -280,15 +309,29 @@ def rollout_arrays(
             )
             decoded = adapter(model(batch), batch)
             next_state = decoded.primitive
-            raw_primitive = conservative_to_primitive(decoded.conservative, gamma=source.gamma)
-            raw_min_density = min(raw_min_density, float(raw_primitive[..., 0].min().detach().cpu().item()))
-            raw_min_pressure = min(raw_min_pressure, float(raw_primitive[..., 2].min().detach().cpu().item()))
-            num_nonpositive_raw_density += int(raw_primitive[..., 0].le(0.0).sum().detach().cpu().item())
-            num_nonpositive_raw_pressure += int(raw_primitive[..., 2].le(0.0).sum().detach().cpu().item())
+            raw_primitive = conservative_to_primitive(
+                decoded.conservative, gamma=source.gamma
+            )
+            raw_min_density = min(
+                raw_min_density,
+                float(raw_primitive[..., 0].min().detach().cpu().item()),
+            )
+            raw_min_pressure = min(
+                raw_min_pressure,
+                float(raw_primitive[..., 2].min().detach().cpu().item()),
+            )
+            num_nonpositive_raw_density += int(
+                raw_primitive[..., 0].le(0.0).sum().detach().cpu().item()
+            )
+            num_nonpositive_raw_pressure += int(
+                raw_primitive[..., 2].le(0.0).sum().detach().cpu().item()
+            )
             if not torch.isfinite(next_state).all():
                 completed = False
                 break
-            predictions.append(next_state.squeeze(0).detach().cpu().numpy().astype(np.float64))
+            predictions.append(
+                next_state.squeeze(0).detach().cpu().numpy().astype(np.float64)
+            )
             current = next_state.detach()
 
     prediction = np.stack(predictions, axis=0)
@@ -315,10 +358,14 @@ def rollout_arrays(
     }
 
 
-def variable_limits(truth: np.ndarray, prediction: np.ndarray, variable: int, plot_scale: str) -> tuple[float, float]:
+def variable_limits(
+    truth: np.ndarray, prediction: np.ndarray, variable: int, plot_scale: str
+) -> tuple[float, float]:
     values = truth[..., variable]
     if plot_scale == "combined":
-        values = np.concatenate((values.reshape(-1), prediction[..., variable].reshape(-1)))
+        values = np.concatenate(
+            (values.reshape(-1), prediction[..., variable].reshape(-1))
+        )
         values = values[np.isfinite(values)]
         if values.size > 0:
             lo = float(np.nanpercentile(values, 1.0))
@@ -352,12 +399,18 @@ def save_rollout_gif(
     rel = rollout["relative_l2_by_frame"]
     limits = [variable_limits(truth, prediction, i, plot_scale) for i in range(3)]
 
-    fig, axes = plt.subplots(3, 1, figsize=(8.5, 8.0), sharex=True, constrained_layout=True)
+    fig, axes = plt.subplots(
+        3, 1, figsize=(8.5, 8.0), sharex=True, constrained_layout=True
+    )
     truth_lines = []
     pred_lines = []
     for i, ax in enumerate(axes):
-        (truth_line,) = ax.plot(x, truth[0, :, i], color="black", linewidth=1.8, label="truth")
-        (pred_line,) = ax.plot(x, prediction[0, :, i], color="#d62728", linewidth=1.4, label="prediction")
+        (truth_line,) = ax.plot(
+            x, truth[0, :, i], color="black", linewidth=1.8, label="truth"
+        )
+        (pred_line,) = ax.plot(
+            x, prediction[0, :, i], color="#d62728", linewidth=1.4, label="prediction"
+        )
         ax.set_ylabel(VARIABLE_NAMES[i])
         ax.set_ylim(*limits[i])
         ax.grid(True, alpha=0.25)
@@ -385,7 +438,11 @@ def save_rollout_gif(
 
 def json_ready(value: Any) -> Any:
     if isinstance(value, dict):
-        return {str(k): json_ready(v) for k, v in value.items() if k not in {"x", "prediction", "truth"}}
+        return {
+            str(k): json_ready(v)
+            for k, v in value.items()
+            if k not in {"x", "prediction", "truth"}
+        }
     if isinstance(value, (list, tuple)):
         return [json_ready(v) for v in value]
     if isinstance(value, np.ndarray):
@@ -421,13 +478,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         "targets": targets,
         "runs": [],
     }
-    print(json.dumps({k: v for k, v in manifest.items() if k != "runs"}, indent=2), flush=True)
+    print(
+        json.dumps({k: v for k, v in manifest.items() if k != "runs"}, indent=2),
+        flush=True,
+    )
 
     for model_name in models:
         for target_name in targets:
-            run_dir = args.output_dir / f"stride{args.step_stride}" / f"{model_name}_{target_name}"
+            run_dir = (
+                args.output_dir
+                / f"stride{args.step_stride}"
+                / f"{model_name}_{target_name}"
+            )
             run_dir.mkdir(parents=True, exist_ok=True)
-            print(f"[visualize] training {model_name}/{target_name} -> {run_dir}", flush=True)
+            print(
+                f"[visualize] training {model_name}/{target_name} -> {run_dir}",
+                flush=True,
+            )
             model, adapter, train_summary = train_variant(
                 source,
                 train_cases,
@@ -484,7 +551,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             manifest["runs"].append(run_summary)
 
     manifest_path = args.output_dir / "animation_manifest.json"
-    manifest_path.write_text(json.dumps(json_ready(manifest), indent=2, sort_keys=True), encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(json_ready(manifest), indent=2, sort_keys=True), encoding="utf-8"
+    )
     print(json.dumps({"manifest": str(manifest_path)}, indent=2), flush=True)
 
 

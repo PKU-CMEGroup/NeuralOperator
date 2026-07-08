@@ -13,11 +13,18 @@ from utility.time_dependent_no.euler1d_targets import owner_neighbor_primitives
 from utility.time_dependent_no.fv import gather_cells, scatter_faces_to_cells
 
 
-Euler1DTarget = Literal["state", "residual", "flux", "interface"]
+Euler1DTarget = Literal[
+    "state",
+    "residual",
+    "primitive_residual",
+    "limited_residual",
+    "flux",
+    "interface",
+]
 
 
 def target_output_dim(target: Euler1DTarget) -> int:
-    if target in ("state", "residual"):
+    if target in ("state", "residual", "primitive_residual", "limited_residual"):
         return 3
     if target == "flux":
         return 3
@@ -83,7 +90,11 @@ class FNOEuler1DHead(nn.Module):
     ) -> None:
         super().__init__()
         self.target = target
-        in_dim = 4 if target in ("state", "residual") else 9
+        in_dim = (
+            4
+            if target in ("state", "residual", "primitive_residual", "limited_residual")
+            else 9
+        )
         self.model = FNO1d(
             modes=modes,
             width=width,
@@ -95,7 +106,12 @@ class FNOEuler1DHead(nn.Module):
         )
 
     def forward(self, batch: Euler1DBatch) -> torch.Tensor:
-        features = cell_features(batch) if self.target in ("state", "residual") else face_features(batch)
+        features = (
+            cell_features(batch)
+            if self.target
+            in ("state", "residual", "primitive_residual", "limited_residual")
+            else face_features(batch)
+        )
         return reshape_target_output(self.model(features), self.target)
 
 
@@ -147,8 +163,12 @@ class CPGStyleEuler1DHead(nn.Module):
         self.target = target
         self.message_passing_steps = int(message_passing_steps)
         self.node_encoder = MLP(4, hidden_dim, hidden_dim, layers=mlp_layers)
-        self.edge_encoder = MLP(2 * hidden_dim + 9, hidden_dim, hidden_dim, layers=mlp_layers)
-        self.node_update = MLP(2 * hidden_dim, hidden_dim, hidden_dim, layers=mlp_layers)
+        self.edge_encoder = MLP(
+            2 * hidden_dim + 9, hidden_dim, hidden_dim, layers=mlp_layers
+        )
+        self.node_update = MLP(
+            2 * hidden_dim, hidden_dim, hidden_dim, layers=mlp_layers
+        )
         self.node_decoder = MLP(hidden_dim, hidden_dim, 3, layers=mlp_layers)
         self.face_decoder = MLP(
             2 * hidden_dim + 9,
@@ -168,12 +188,19 @@ class CPGStyleEuler1DHead(nn.Module):
             h_neighbor = gather_cells(h, neighbor, fill_value=0.0)
             boundary = neighbor.lt(0).unsqueeze(-1)
             h_neighbor = torch.where(boundary, h_owner, h_neighbor)
-            edge_msg = self.edge_encoder(torch.cat((h_owner, h_neighbor, face_base), dim=-1))
+            edge_msg = self.edge_encoder(
+                torch.cat((h_owner, h_neighbor, face_base), dim=-1)
+            )
             agg = scatter_faces_to_cells(edge_msg, owner, h.shape[1])
             agg = agg + scatter_faces_to_cells(edge_msg, neighbor, h.shape[1])
             h = h + self.node_update(torch.cat((h, agg), dim=-1))
 
-        if self.target in ("state", "residual"):
+        if self.target in (
+            "state",
+            "residual",
+            "primitive_residual",
+            "limited_residual",
+        ):
             return self.node_decoder(h)
 
         h_owner = gather_cells(h, owner)

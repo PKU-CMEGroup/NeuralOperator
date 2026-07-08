@@ -19,6 +19,8 @@ from utility.time_dependent_no.euler1d_targets import (
     ConservativeResidualTargetAdapter,
     FluxTargetAdapter,
     InterfaceStateTargetAdapter,
+    LimitedConservativeResidualTargetAdapter,
+    PrimitiveResidualTargetAdapter,
     StateTargetAdapter,
     owner_neighbor_primitives,
 )
@@ -84,6 +86,68 @@ def test_conservative_residual_target_adapter_adds_current_state_delta():
     torch.testing.assert_close(prediction.primitive, batch.target_primitive)
 
 
+def test_primitive_residual_target_adapter_decodes_positive_flow_map():
+    batch = _batch()
+    rho_floor = 1.0e-8
+    pressure_floor = 1.0e-8
+    adapter = PrimitiveResidualTargetAdapter(
+        rho_floor=rho_floor,
+        pressure_floor=pressure_floor,
+    )
+    raw_delta = torch.empty_like(batch.current_primitive)
+    raw_delta[..., 0] = torch.log(
+        (batch.target_primitive[..., 0] - rho_floor)
+        / (batch.current_primitive[..., 0] - rho_floor)
+    )
+    raw_delta[..., 1] = batch.target_primitive[..., 1] - batch.current_primitive[..., 1]
+    raw_delta[..., 2] = torch.log(
+        (batch.target_primitive[..., 2] - pressure_floor)
+        / (batch.current_primitive[..., 2] - pressure_floor)
+    )
+
+    prediction = adapter(raw_delta, batch)
+
+    torch.testing.assert_close(prediction.primitive, batch.target_primitive)
+    torch.testing.assert_close(prediction.conservative, batch.target_conservative)
+
+    unsafe_raw = torch.zeros_like(batch.current_primitive)
+    unsafe_raw[..., 0] = -100.0
+    unsafe_raw[..., 2] = -100.0
+    floor_prediction = adapter(unsafe_raw, batch)
+    assert torch.all(floor_prediction.primitive[..., 0] > 0.0)
+    assert torch.all(floor_prediction.primitive[..., 2] > 0.0)
+
+
+def test_limited_conservative_residual_target_adapter_preserves_admissibility():
+    batch = _batch()
+    adapter = LimitedConservativeResidualTargetAdapter(
+        rho_floor=1.0e-6,
+        pressure_floor=1.0e-6,
+        safety=1.0,
+    )
+    safe_delta = batch.target_conservative - batch.current_conservative
+
+    safe_prediction = adapter(safe_delta, batch)
+
+    torch.testing.assert_close(safe_prediction.conservative, batch.target_conservative)
+    torch.testing.assert_close(safe_prediction.primitive, batch.target_primitive)
+    torch.testing.assert_close(
+        safe_prediction.aux["limiter_theta"],
+        torch.ones_like(safe_prediction.aux["limiter_theta"]),
+    )
+
+    unsafe_delta = torch.zeros_like(batch.current_conservative)
+    unsafe_delta[..., 0] = -2.0 * batch.current_conservative[..., 0]
+    unsafe_delta[..., 2] = -2.0 * batch.current_conservative[..., 2]
+
+    limited_prediction = adapter(unsafe_delta, batch)
+    raw_primitive = conservative_to_primitive(limited_prediction.conservative)
+
+    assert torch.all(raw_primitive[..., 0] > 0.0)
+    assert torch.all(raw_primitive[..., 2] > 0.0)
+    assert torch.any(limited_prediction.aux["limiter_theta"] < 1.0)
+
+
 def test_flux_target_adapter_zero_flux_keeps_current_state():
     batch = _batch()
     adapter = FluxTargetAdapter()
@@ -103,7 +167,9 @@ def test_interface_state_adapter_matches_explicit_rusanov_update():
 
     prediction = adapter(raw_interface, batch)
     flux = rusanov_flux_from_primitive(owner, neighbor, batch.geometry.face_normal)
-    expected = finite_volume_update(batch.current_conservative, flux, batch.geometry, batch.dt)
+    expected = finite_volume_update(
+        batch.current_conservative, flux, batch.geometry, batch.dt
+    )
 
     torch.testing.assert_close(prediction.conservative, expected)
     torch.testing.assert_close(prediction.aux["face_flux"], flux)
@@ -146,21 +212,43 @@ def test_euler1d_npz_loader_and_collate():
 
 
 def test_cpg_style_head_output_shapes_are_resolution_flexible():
-    for target, expected_channels in [("state", 3), ("residual", 3), ("flux", 3)]:
-        head = CPGStyleEuler1DHead(target, hidden_dim=8, message_passing_steps=1, mlp_layers=2)
+    for target, expected_channels in [
+        ("state", 3),
+        ("residual", 3),
+        ("primitive_residual", 3),
+        ("limited_residual", 3),
+        ("flux", 3),
+    ]:
+        head = CPGStyleEuler1DHead(
+            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
+        )
         for num_cells in [6, 9]:
             batch = _batch(num_cells=num_cells)
             raw = head(batch)
-            count = num_cells if target in ("state", "residual") else num_cells + 1
+            count = (
+                num_cells
+                if target
+                in ("state", "residual", "primitive_residual", "limited_residual")
+                else num_cells + 1
+            )
             assert raw.shape == (1, count, expected_channels)
 
-    head = CPGStyleEuler1DHead("interface", hidden_dim=8, message_passing_steps=1, mlp_layers=2)
+    head = CPGStyleEuler1DHead(
+        "interface", hidden_dim=8, message_passing_steps=1, mlp_layers=2
+    )
     raw = head(_batch(num_cells=7))
     assert raw.shape == (1, 8, 2, 3)
 
 
 def test_fno_head_output_shapes_are_resolution_flexible():
-    for target in ["state", "residual", "flux", "interface"]:
+    for target in [
+        "state",
+        "residual",
+        "primitive_residual",
+        "limited_residual",
+        "flux",
+        "interface",
+    ]:
         head = FNOEuler1DHead(
             target,
             modes=[3, 3, 3],
@@ -171,7 +259,12 @@ def test_fno_head_output_shapes_are_resolution_flexible():
         for num_cells in [7, 10]:
             batch = _batch(num_cells=num_cells)
             raw = head(batch)
-            if target in ("state", "residual"):
+            if target in (
+                "state",
+                "residual",
+                "primitive_residual",
+                "limited_residual",
+            ):
                 assert raw.shape == (1, num_cells, 3)
             elif target == "flux":
                 assert raw.shape == (1, num_cells + 1, 3)

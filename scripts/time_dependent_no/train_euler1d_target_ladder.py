@@ -19,7 +19,7 @@ import json
 import math
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence, cast
@@ -37,6 +37,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from utility.time_dependent_no.euler1d import (
+    Euler1DBatch,
     conservative_to_primitive,
     make_euler1d_batch,
 )
@@ -115,6 +116,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=1.0e-3)
     parser.add_argument("--weight-decay", type=float, default=1.0e-5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
+    parser.add_argument(
+        "--input-noise-std",
+        type=float,
+        default=0.0,
+        help=(
+            "Training-only primitive input noise. Density and pressure receive "
+            "multiplicative log-normal noise; velocity receives additive Gaussian noise."
+        ),
+    )
     parser.add_argument("--seed", type=int, default=20260707)
     parser.add_argument("--train-cases", type=int, default=8)
     parser.add_argument("--test-cases", type=int, default=4)
@@ -150,6 +160,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--fno-layers", type=int, default=4)
     parser.add_argument("--fno-fc-dim", type=int, default=128)
     parser.add_argument("--fno-pad-ratio", type=float, default=0.0)
+    parser.add_argument(
+        "--save-checkpoints",
+        action="store_true",
+        help="Save final model checkpoints under the run output directory.",
+    )
     parser.add_argument("--fail-fast", action="store_true")
     return parser.parse_args(argv)
 
@@ -275,6 +290,28 @@ def finite_scalar(value: torch.Tensor) -> float:
     return item if math.isfinite(item) else float("nan")
 
 
+def apply_primitive_input_noise(
+    batch: Euler1DBatch,
+    noise_std: float,
+    *,
+    rho_floor: float = 1.0e-6,
+    pressure_floor: float = 1.0e-6,
+) -> Euler1DBatch:
+    """Return a denoising-training batch with noisy current primitives only."""
+
+    if noise_std <= 0.0:
+        return batch
+    current = batch.current_primitive
+    noise = torch.randn_like(current) * float(noise_std)
+    noisy = current.clone()
+    noisy[..., 0] = (current[..., 0] * torch.exp(noise[..., 0])).clamp_min(rho_floor)
+    noisy[..., 1] = current[..., 1] + noise[..., 1]
+    noisy[..., 2] = (current[..., 2] * torch.exp(noise[..., 2])).clamp_min(
+        pressure_floor
+    )
+    return replace(batch, current_primitive=noisy)
+
+
 def evaluate_one_step(
     model: nn.Module,
     adapter: nn.Module,
@@ -348,6 +385,7 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
     grad_clip: float,
+    input_noise_std: float = 0.0,
 ) -> dict[str, float]:
     model.train()
     total_loss = 0.0
@@ -358,6 +396,7 @@ def train_one_epoch(
         batch = batch.to(device)
         if batch.target_primitive is None:
             raise RuntimeError("training batch is missing target_primitive")
+        batch = apply_primitive_input_noise(batch, input_noise_std)
         raw = model(batch)
         prediction = adapter(raw, batch)
         loss = normalizer.mse(prediction.primitive, batch.target_primitive)
@@ -623,6 +662,9 @@ def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "model",
         "target",
         "status",
+        "step_stride",
+        "rollout_final_frame",
+        "input_noise_std",
         "test_loss",
         "test_relative_l2",
         "rollout_relative_l2_mean",
@@ -723,6 +765,7 @@ def run_single(
             optimizer,
             device,
             args.grad_clip,
+            args.input_noise_std,
         )
         test_metrics = evaluate_one_step(
             model, adapter, test_loader, normalizer, device
@@ -781,6 +824,7 @@ def run_single(
         "lr": args.lr,
         "weight_decay": args.weight_decay,
         "positive_transform": args.positive_transform,
+        "input_noise_std": args.input_noise_std,
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
         "device": str(device),
@@ -799,9 +843,27 @@ def run_single(
         encoding="utf-8",
     )
 
+    if args.save_checkpoints:
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "model": model_name,
+                "target": target_name,
+                "args": vars(args),
+                "train_cases": train_cases,
+                "test_cases": test_cases,
+                "normalizer_mean": normalizer.mean.detach().cpu(),
+                "normalizer_std": normalizer.std.detach().cpu(),
+            },
+            run_dir / "checkpoint.pt",
+        )
+
     row = {
         "model": model_name,
         "target": target_name,
+        "step_stride": args.step_stride,
+        "rollout_final_frame": args.rollout_final_frame,
+        "input_noise_std": args.input_noise_std,
         "status": "ok",
         "test_loss": final_eval["loss"],
         "test_relative_l2": final_eval["relative_l2"],
@@ -829,6 +891,8 @@ def requested_values(value: str, choices: tuple[str, ...]) -> list[str]:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    if args.input_noise_std < 0.0:
+        raise ValueError("--input-noise-std must be nonnegative")
     if args.torch_threads > 0:
         torch.set_num_threads(args.torch_threads)
     set_seed(args.seed)
@@ -852,6 +916,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "targets": targets,
                 "step_stride": args.step_stride,
                 "rollout_final_frame": args.rollout_final_frame,
+                "input_noise_std": args.input_noise_std,
                 "output_dir": str(args.output_dir),
             },
             indent=2,

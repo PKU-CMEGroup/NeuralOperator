@@ -103,6 +103,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "target",
         "step_stride",
         "rollout_final_frame",
+        "input_noise_std",
         "test_relative_l2",
         "rollout_relative_l2_mean",
         "rollout_relative_l2_final",

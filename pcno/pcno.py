@@ -260,7 +260,6 @@ class PCNO(nn.Module):
         fc_dim=128,
         in_dim=3,
         out_dim=1,
-        inv_L_scale_hyper=None,
         act="gelu",
     ):
         super(PCNO, self).__init__()
@@ -352,7 +351,6 @@ class PCNO(nn.Module):
         self.act = _get_act(act)
         self.softsign = F.softsign
 
-        self.normal_params = list(self.parameters())  #  group of params which will be trained normally
         
 
     def forward(self, x, aux):
@@ -532,7 +530,7 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.normal_params,
+    optimizer = Optimizer(model.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
@@ -617,6 +615,12 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
               flush=True)
         if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:    
             torch.save(model.state_dict(), save_model_name + ".pth")
+
+            if normalization_x:
+                torch.save(x_normalizer.state_dict(), save_model_name + "_normalization_x.pth")
+            if normalization_y:
+                torch.save(y_normalizer.state_dict(), save_model_name + "_normalization_y.pth")
+
 
             torch.save({
                 'model_state_dict': model.state_dict(),

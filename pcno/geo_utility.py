@@ -857,22 +857,12 @@ def compute_node_weights(nnodes:np.ndarray,  node_measures:np.ndarray,  equal_me
     return node_measures_new, node_weights
 
 
-
-def compute_unnormalized_node_measures(nnodes:np.ndarray, node_measures:np.ndarray, measure_dims:np.ndarray, Ls:np.ndarray):
+def compute_node_weight_scale(measure_dim:int, L:np.ndarray):
     '''
-    Compute unnormalized node weights based on node measures (length, area, volume,......).
-    
-    This function calculates measures and weights (unnormalized measures) for each node using its corresponding measures. 
-    Specifically, to approximate an integral of the form
-            ∫ k(x, y) f(y) ρ(y) dy,
-    The node weights represent ρ(y) dy, the density is unnormalized, ρ(y) = 1/C.
-    
-    And `dy` corresponds to the node measure, their sum is |Omega|, the total measure of the domain.
-    
     Node weights are computed such that their sum equals |Omega|/C, corresponding to ρ(y) = 1/C, using the formula:
-        node_weight = node_measure / C
+        node_weight = node_measure /  node_weight_scale
         
-    C is computed based on the dimension of the measure and the physical dimension (ndims)
+    This function computes node_weight_scale, based on the dimension of the measure and the physical dimension (ndims)
     For 1D measure: 
         - if ndims=1, then C = L[0]
         - if ndims=2, then C = L[0]+L[1]
@@ -883,60 +873,32 @@ def compute_unnormalized_node_measures(nnodes:np.ndarray, node_measures:np.ndarr
     For 3D measure: 
         - if ndims=3, then C = L[0]*L[1]*L[2]
     
-    If there are several types of measures, compute weights for each type of measures, and normalize it by nmeasures
-    node_weight = 1/nmeasures * dy_i / C
-
         Parameters:
-            nnodes: int[ndata] 
-                Number of nodes for each data instance.
-            
-            node_measures: float[ndata, max_nnodes, nmeasures] 
-                Each value corresponds to the measure of a node.
-                Padding with NaN is used for indices greater than or equal to the number of nodes (`nnodes`), or nodes do not have measure
+            measure_dim : int, with values in (1,2,3)
+                The dimensionality of the measure
 
-            measure_dims : int[nmeasures], with values in (1,2,3)
-                The dimensionality of each measure, the measures are computed from compute_node_measures
-                the measure dims are in ascending order
-
-            Ls: float[ndims * nmeasures] 
-                The length scale for each dimension and each measure 
+            L: float[ndims] 
+                The length scale for each dimension of the measure 
             
         Returns:
-            node_measures: float[ndata, max_nnodes, nmeasures] 
-                Updated array of node measures with shape, maintaining the same padding structure (But with padding 0).
-                If equal_measure is False, the measures remains unchanged
-            scale_node_weights: float[ndata, max_nnodes, nmeasures] 
-                Array of computed node weights, maintaining the same padding structure.
+            node_weight_scale: float 
     '''
+
+    node_weight_scale = 1.0
+ 
+    if measure_dim == 1:
+        # L[0,:] + L[1,:] + L[2,:]
+        node_weight_scale = np.sum(L)
+    elif measure_dim == 2:
+        # L[0,:]*L[1,:] + L[1,:]*L[2,:] + L[2,:]*L[0,:]
+        node_weight_scale = (np.sum(L)**2 - np.dot(L,L)) / 2
+    elif measure_dim == 3:
+        # L[0,:]*L[1,:]*L[2,:]
+        node_weight_scale = np.product(L)
+    else:
+        raise ValueError(f"measure_dim : {measure_dim} is not supported")
         
-    ndata, max_nnodes, nmeasures = node_measures.shape
-    # replace all NaN value to 0
-    node_measures_new = np.nan_to_num(node_measures, nan=0.0)
-
-    # node weight is the normalization of node measure
-    ndims = len(Ls) // nmeasures
-    Cs = np.zeros(nmeasures)
-        #C_scaled : normalized parameter
-    for i,measure_dim in enumerate(measure_dims):
-        L = Ls[i*ndims:(i+1)*ndims]
-        if measure_dim == 1:
-            # L[0,:] + L[1,:] + L[2,:]
-            Cs[i] = np.sum(L)
-        elif measure_dim == 2:
-            # L[0,:]*L[1,:] + L[1,:]*L[2,:] + L[2,:]*L[0,:]
-            Cs[i] = (np.sum(L)**2 - np.dot(L,L)) / 2
-        elif measure_dim == 3:
-            # L[0,:]*L[1,:]*L[2,:]
-            Cs[i] = np.product(L)
-        else:
-            raise ValueError(f"measure_dim : {measure_dim} is not supported")
-        
-
-    scaled_node_weights = node_measures_new / Cs / nmeasures
-
-    
-    return node_measures_new, scaled_node_weights
-
+    return node_weight_scale
 
 
 

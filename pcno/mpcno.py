@@ -330,7 +330,6 @@ class MPCNO(nn.Module):
         fc_dim=128,
         in_dim=3,
         out_dim=1,
-        inv_L_scale_hyper=None,
         scaling_mode = 'inv',
         act="gelu",
         geo_act='softsign',
@@ -493,7 +492,6 @@ class MPCNO(nn.Module):
 
         self.act = _get_act(act)
 
-        self.normal_params = list(self.parameters())  #  group of params which will be trained normally
         
 
     def forward(self, x, aux):
@@ -719,7 +717,7 @@ def MPCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_lis
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.normal_params,
+    optimizer = Optimizer(model.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
@@ -809,16 +807,21 @@ def MPCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_lis
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2_dict, " Test L2 Loss : ", test_l2_dict,
               flush=True)
-        if (ep %100 == 99) or (ep == epochs -1):    
-            if save_model_name:
-                torch.save(model.state_dict(), save_model_name + ".pth")
+        if (ep %100 == 99) or (ep == epochs -1) and save_model_name:    
 
-                torch.save({
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'scheduler_state_dict': scheduler.state_dict(),
-                    'current_epoch': ep,  # optional: to track training progress
-                }, "checkpoint.pth")
+            torch.save(model.state_dict(), save_model_name + ".pth")
+
+            if normalization_x:
+                torch.save(x_normalizer.state_dict(), save_model_name + "_normalization_x.pth")
+            if normalization_y:
+                torch.save(y_normalizer.state_dict(), save_model_name + "_normalization_y.pth")
+
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'current_epoch': ep,  # optional: to track training progress
+            }, "checkpoint.pth")
 
             
     
@@ -871,7 +874,7 @@ def MPCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, m
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.normal_params,
+    optimizer = Optimizer(model.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
@@ -954,16 +957,20 @@ def MPCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, m
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
               flush=True)
-        if (ep %100 == 99) or (ep == epochs -1):    
-            if save_model_name:
-                torch.save(model.state_dict(), save_model_name + ".pth")
+        if (ep %100 == 99) or (ep == epochs -1) and save_model_name:   
+            torch.save(model.state_dict(), save_model_name + ".pth")
 
-                torch.save({
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'scheduler_state_dict': scheduler.state_dict(),
-                    'current_epoch': ep,  # optional: to track training progress
-                }, "checkpoint.pth")
+            if normalization_x:
+                torch.save(x_normalizer.state_dict(), save_model_name + "_normalization_x.pth")
+            if normalization_y:
+                torch.save(y_normalizer.state_dict(), save_model_name + "_normalization_y.pth")
+
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'current_epoch': ep,  # optional: to track training progress
+            }, "checkpoint.pth")
 
             
     
@@ -1037,7 +1044,7 @@ def MPCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, 
 
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.module.normal_params,
+    optimizer = Optimizer(model.module.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
@@ -1156,13 +1163,22 @@ def MPCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, 
             print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
         
         
-            if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:    
+            if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:  
+
+                torch.save((model.module if hasattr(model, "module") else model).state_dict(), save_model_name + ".pth")
+                    
+                if normalization_x:
+                    torch.save(x_normalizer.state_dict(), save_model_name + "_normalization_x.pth")
+                if normalization_y:
+                    torch.save(y_normalizer.state_dict(), save_model_name + "_normalization_y.pth")
+
                 torch.save({
                     'model_state_dict': model.module.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict(),
                     'current_epoch': ep,  # optional: to track training progress
                 }, "checkpoint_parallel.pth")
+
 
         # Synchronize all processes
         dist.barrier()

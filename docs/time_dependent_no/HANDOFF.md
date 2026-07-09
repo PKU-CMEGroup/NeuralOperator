@@ -42,6 +42,26 @@ Generated reports, HDF5 rollout arrays, GIFs, checkpoints, and large logs remain
 3. Compare CPGNet and PCNO using the same rollout artifact contract and node masks.
 4. Use those diagnostics to decide whether the next algorithmic change should be local-kernel PCNO, shock-aware/unrolled training, or a finite-volume/flux-target ladder.
 
+## 1D Euler Experiment Todo
+
+Active follow-up batch on AutoDL:
+
+- [ ] Analyze `euler1d_noise_followups_v2` after completion. Use only `v2` output directories; the earlier non-v2 launch was stopped because it did not pass the intended `--seed` argument.
+- [ ] Check seed stability for `FNO + limited_residual + stride 4` at noise `0`, `0.003`, and `0.02` over seeds `20260707`, `20260708`, and `20260709`.
+- [ ] Test whether noise can replace the limiter: compare `FNO + residual + stride 4` at noise `0` and `0.02` against `limited_residual`.
+- [ ] Test whether denoising helps shorter-step accumulation: compare `FNO + limited_residual + stride 2` at noise `0`, `0.003`, and `0.02`.
+
+Target-objective extensions to implement after the active batch:
+
+- [ ] Factor a shared admissibility limiter for conservative updates so residual, flux, and interface adapters can all limit the decoded next conservative state.
+- [ ] Add `limited_flux`: predict face fluxes, apply the finite-volume update, then limit the induced conservative update to keep updated density and pressure admissible.
+- [ ] Add `positive_limited_interface`: decode positive interface density/pressure, compute Rusanov fluxes, apply the finite-volume update, then limit the updated cell averages.
+- [ ] Keep training noise objective-independent: perturb only the current primitive input during training, keep the clean next state as the supervised target, and evaluate clean rollouts.
+- [ ] Log limiter diagnostics for all limited objectives: activation fraction, mean/min `theta`, and rollout cases where pressure approaches the floor.
+- [ ] Run the first extended target sweep on `FNO` at stride 4 with noise `0` and `0.02`: `limited_residual`, `limited_flux`, and `positive_limited_interface`.
+- [ ] Only then run CPG-style checks, starting with `limited_residual` and `positive_limited_interface`; avoid spending GPU on plain flux/interface variants without the update limiter.
+- [ ] Generate animations for the best and worst noise/limiter cases, especially trajectories where pressure reaches the limiter floor.
+
 ## Do Not Do
 
 - Do not touch collaborator-owned checkpoint or preprocessing artifacts unless explicitly asked.

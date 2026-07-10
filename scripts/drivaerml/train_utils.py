@@ -762,7 +762,7 @@ def run_pcno_training(args: argparse.Namespace, model_name: str, build_model, tr
             raise ValueError(f"Expected {ndim} values in --Ls, got {Ls}")
     else:
         lengths = torch.amax(x_train[..., 3:6], dim=(0, 1)) - torch.amin(x_train[..., 3:6], dim=(0, 1))
-        Ls = [max(2.0, float(length.item())) for length in lengths]
+        Ls = [float(length.item())*2+0.2 for length in lengths]
     print(f"Using Ls={Ls}, k_max={args.k_max}, layers={layers}", flush=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -15,7 +15,7 @@ import pyvista as pv
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from pcno.geo_utility import compute_node_weights, preprocess_data_mesh
-from scripts.hifi3d.hifi3d_helper import load_hifi3d_data, parse_dataset_list
+from scripts.drivaerml.helper import load_drivaerml_data, parse_dataset_list
 
 
 def list_vtp_files(data_root: Path, dataset: str) -> list[Path]:
@@ -217,20 +217,20 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading datasets={datasets}, n_each={args.n_each}, mesh_type={args.mesh_type}", flush=True)
-    vertices_list, elems_list, features_list, names = load_hifi3d_data(
+    vertices_list, elems_list, features_list, names = load_drivaerml_data(
         data_root,
         datasets,
         args.n_each,
         args.seed,
         args.mesh_type,
-    )
+    ) # 这一步得出的feature的最后一个维度长为5,从0到4分别为: nx,ny,nz,auto,Cp。前三位是法向
     print(f"Loaded {len(names)} samples", flush=True)
 
     nnodes, node_mask, nodes, node_measures_raw, features, directed_edges, edge_gradient_weights = preprocess_data_mesh(
         vertices_list,
         elems_list,
         features_list,
-        mesh_type=args.mesh_type,
+        mesh_type="vertex_centered",
         adjacent_type=args.adjacent_type,
     )
     node_measures, node_weights = compute_node_weights(nnodes, node_measures_raw, equal_measure=False)

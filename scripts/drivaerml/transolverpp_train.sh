@@ -31,5 +31,5 @@ python transolver_train.py \
   --transolver_mlp_ratio 2 \
   --normalization_y True \
   --scheduler_step batch \
-  --save_model_name "${SAVE_DIR}/transolver_drivaerml" \
-  > log/transolverpp_drivaerml_20k_vertex.log
+  --save_model_name "${SAVE_DIR}/transolver" \
+  > log/transolverpp.log

@@ -11,7 +11,7 @@ from timeit import default_timer
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pcno.geo_utility import preprocess_data_mesh, compute_node_weights
-from pcno.mpcno import compute_Fourier_modes, MPCNO, MPCNO_train, MPCNO_train_multidist
+from pcno.pcno import compute_Fourier_modes, PCNO, PCNO_train, PCNO_train_multidist
 torch.set_printoptions(precision=16)
 
 
@@ -26,9 +26,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 parser = argparse.ArgumentParser(description='Train model with different configurations and options.')
 
-parser.add_argument('--grad', type=str, default='True', choices=['True', 'False'])
-parser.add_argument('--geo', type=str, default='True', choices=['True', 'False'])
-parser.add_argument('--geointegral', type=str, default='True', choices=['True', 'False'])
 parser.add_argument('--to_divide_factor', type=float, default=20.0)
 parser.add_argument('--k_max', type=int, default=12)
 parser.add_argument('--bsz', type=int, default=8)
@@ -37,22 +34,16 @@ parser.add_argument('--Ls', type=str, default="")
 parser.add_argument('--n_train', type=int, default=400)
 parser.add_argument('--n_test', type=int, default=80)
 parser.add_argument('--act', type=str, default="gelu")
-parser.add_argument('--geo_act', type=str, default="softsign")
 parser.add_argument("--layer_sizes", type=str, default="64,64,64,64")
 parser.add_argument("--model_name", type=str, default="")
 args = parser.parse_args()
 
-layer_selection = {
-    'grad': args.grad.lower() == "true", 
-    'geo': args.geo.lower() == "true", 
-    'geointegral': args.geointegral.lower() == "true"
-    }
+
 train_inv_L_scale = False
 k_max = args.k_max
 ndim = 3
 layers = [int(size) for size in args.layer_sizes.split(",")]
 act = args.act
-geo_act = args.geo_act
 to_divide_factor = args.to_divide_factor
 
 ###################################
@@ -74,7 +65,7 @@ def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
     data = np.load(data_file_path)
     nnodes, node_mask, nodes = data["nnodes"], data["node_mask"], data["nodes"]
     print(f"Loaded {nodes.shape[0]} samples from {data_file_path}", flush = True)
-
+    
     node_weights = data["node_measures"]
     if to_divide is None:
         to_divide = factor * np.amax(np.sum(node_weights, axis = 1))
@@ -132,7 +123,7 @@ def gen_data_tensors(data_indices, nodes, features, node_mask, node_weights, dir
     x = torch.cat((normals, nodes_input[data_indices, ...]), -1)
     # y是Cp即压力系数(1维)
     y = features[data_indices][...,-1:]
-    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices], normals.permute(0,2,1))
+    aux = (node_mask[data_indices], nodes[data_indices], node_weights[data_indices], directed_edges[data_indices], edge_gradient_weights[data_indices])
     
     return x, y, aux
 
@@ -184,23 +175,18 @@ print(f'kmax = {k_max}')
 print(f'n_train = {n_train}, n_test = {n_test}')
 print(f'Ls = {Ls}')
 print(f'Shape of Fourier modes: ', modes.shape)
-print(f'layer_selection = {layer_selection}')
 print(f'layers = {layers}')
 print(f'activation = {act}')
-print(f'geo_activation = {geo_act}')
 
 
 modes = torch.tensor(modes, dtype=torch.float).to(device)
-model = MPCNO(ndim, modes, nmeasures=1,
-               layer_selection = layer_selection,
+model = PCNO(ndim, modes, nmeasures=1,
                layers=layers,
                fc_dim=128,
                in_dim=x_train.shape[-1], out_dim=y_train.shape[-1],
                inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
-               scaling_mode='sqrt_inv',
                act = act,
-               geo_act = geo_act,
-                ).to(device)
+            ).to(device)
 
 
 
@@ -227,7 +213,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
                      }
 
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = MPCNO_train_multidist(
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train_multidist(
     x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list, config, model, label_test_list=label_list,
      save_model_name = args.model_name if args.model_name else None,
 )

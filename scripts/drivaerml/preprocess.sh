@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -o hifi3d_preprocess.out
+#SBATCH -o drivaerml_preprocess.out
 #SBATCH --qos=low
 #SBATCH -p C064M0256G
-#SBATCH -J hifi3d_preprocess
+#SBATCH -J drivaerml_preprocess
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -18,8 +18,8 @@ python preprocess_data.py \
                 --datasets DrivAerML \
                 --n_each 0 \
                 --seed 0 \
-                --output_dir data/hifi3d_processed/test \
+                --output_dir ../../data/hifi3d_processed/test \
                 --output_name drivaerml \
-                --mesh_type cell_centered \
+                --mesh_type vertex_centered \
                 --adjacent_type edge \
-                > scripts/hifi3d/log/preprocess_DrivAerML.log
+                > log/preprocess_DrivAerML.log

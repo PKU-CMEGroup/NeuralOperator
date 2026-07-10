@@ -90,3 +90,57 @@ Main evidence: PCNO initially places the shock front more accurately than CPGNet
 ## 2026-07-06 Active-Tree Cleanup
 
 The tracked `time_dependent_no` surface was reduced to reusable utilities, active rollout/visualization diagnostics, corrected PCNO replay, and compact documentation. One-off inspection, smoke, state-drift, perturbation, time-alignment, raw-HDF5 PCNO adapter, and CPGNet interface-latent probe implementations were removed from the active tree after their conclusions were recorded here. Use git history for exact reproduction; do not treat retired paths as current entry points.
+## 2026-07-09 Idea 2.1 Priority Update
+
+The active weekly objective is now Idea 2.1: solver-facing target diagnostics. Use 1D Euler as the fast pilot to compare target parameterizations before transferring only the useful stabilized variants to CPGNet-style and 2D bump runs.
+
+The current target ladder should remain compact: choose one nonzero training-noise level from the active follow-up batch, then run the FNO stride-4 selector over `limited_residual`, `limited_flux`, and `positive_limited_interface` with noise `0` and the selected nonzero noise. Seed-confirm only the best one or two variants.
+
+This target-ladder work also supports later Idea 2.2. By making models predict residuals, fluxes, or interface states through explicit adapters, the learned quantities become inspectable as physical traces, flux corrections, dissipation controls, or nonphysical update coordinates.
+
+## 2026-07-09 1D Euler Noise Follow-up Result
+
+The `euler1d_noise_followups_v2` batch completed on AutoDL. Compact local analysis was written under ignored `artifacts/time_dependent_no/euler1d_noise_followups_v2_analysis_20260709/`.
+
+Main evidence: for `FNO + limited_residual + stride 4`, three-seed final rollout L2 was `0.0861 +/- 0.0329` with no noise, `0.0754 +/- 0.0173` with noise `0.003`, and `0.0755 +/- 0.0055` with noise `0.02`. Noise `0.003` gave the best mean rollout/conservation without pressure-floor hugging. Noise `0.02` gave much better shock MAE (`0.0058 +/- 0.0015`) but had worse one-step error and minimum pressure at the floor.
+
+Limiter control: raw conservative residual did not crash in the small stride-4 control and beat limited residual at noise `0` for one seed, but at noise `0.02` limited residual had better final rollout and shock metrics. Interpret this as evidence that the current limiter may be conservative/diffusive, not that admissibility control is unnecessary.
+
+Stride-2 check: zero-noise stride 2 had nonpositive raw-pressure counts and final L2 `0.1318`; noise `0.02` improved final L2 to `0.0962`, conservation to `0.0286`, and shock MAE to `0.0061`. Smaller stride does not automatically stabilize rollout because it increases the number of learned operator applications.
+
+Decision: use noise `0.003` as the default nonzero setting for the first stabilized target selector. Keep noise `0.02` as a shock-stability stress setting, especially when a target family is shock-unstable after the `0`/`0.003` selector.
+
+## 2026-07-09 1D Euler Stabilized Target Selector Launch
+
+Implemented the shared `ConservativeUpdateLimiter`, `limited_flux`, and `positive_limited_interface` target adapters. `limited_flux` and `positive_limited_interface` use samplewise limiting so a single limiter coefficient scales the whole finite-volume update for each trajectory sample, preserving interior face-pair conservation accounting. Existing `limited_residual` keeps cellwise limiting for backward compatibility with the prior residual experiments.
+
+Local verification before launch: `uvx ruff check` passed for the touched Python files, `tests/time_dependent_no` passed, and tiny FNO CPU smoke runs completed for both new targets. Remote CPU smoke runs on the real 1D Euler dataset also completed for `limited_flux` and `positive_limited_interface`.
+
+The compact AutoDL selector `euler1d_target_selector_v1` was launched on 2026-07-09 at 23:08 CST. Matrix: FNO, stride 4, 40 epochs, 384 train cases, 64 test cases, targets `limited_residual`, `limited_flux`, and `positive_limited_interface`, with training noise `0` and `0.003`. The first run (`limited_residual`, noise `0`) reached epoch 2/40 with finite training and test metrics. Output directories use the relative pattern `artifacts/time_dependent_no/target_selector_v1_fno_*`; the latest log path is recorded in `artifacts/time_dependent_no/euler1d_target_selector_v1_latest_log.txt`.
+## 2026-07-10 1D Euler Target Selector V1 Result
+
+The compact FNO stride-4 stabilized-target selector completed all six runs. Ignored local analysis artifacts are under `artifacts/time_dependent_no/target_selector_v1_analysis_20260710/`, with downloaded lightweight metrics under `artifacts/time_dependent_no/target_selector_v1_metrics_20260710/`.
+
+Main evidence: one-step relative L2 was similar across targets (`0.0059` to `0.0081`), but rollout separated sharply. `limited_residual` with noise `0.003` had the best final rollout L2 (`0.0933`), shock MAE (`0.0175`), and conservation error (`0.0457`), improving over zero-noise `limited_residual` (`0.1231`, `0.0305`, `0.0663`). However, it touched the pressure floor in a few rollout states, so it remains a cautionary baseline rather than a clean structure-preserving solution.
+
+Current flux/interface target forms failed the selector. `limited_flux` final rollout L2 was `0.6138` at noise `0` and `0.4182` at noise `0.003`; `positive_limited_interface` was `1.3574` at noise `0` and `0.3594` at noise `0.003`. Both families had large shock MAE, pressure-floor hugging, nonpositive raw pressure after conservative decoding, and high limiter activation during rollout, despite stable one-step metrics.
+
+Interpretation: conservation-form decoding alone is not enough. The current absolute flux and absolute interface-state parameterizations are structurally conservative but dynamically wrong under autoregressive distribution shift. The limiter prevents immediate crash but becomes an emergency clamp. Next target work should prioritize physical base flux plus bounded correction, direct macro-step face-flux supervision from the generator, and bounded interface corrections around local/Riemann base states.
+## 2026-07-10 Physical Flux-Correction Target Launch
+
+Implemented `physical_flux_correction` for the 1D Euler target ladder: the network predicts a bounded correction around the current-state Rusanov face flux, then the finite-volume update and shared samplewise conservative admissibility limiter decode the next state. The target exposes correction-scale diagnostics: mean/max absolute correction over bound and saturation fraction.
+
+Local verification: focused solver-target tests passed, `tests/time_dependent_no` passed, script help/smoke checks passed, and ruff passed with the established E402 ignore for script entry points.
+
+Remote smoke on the real 1D dataset passed. The zero-correction/base-Rusanov audit at stride 4 was poor (`one_step_l2` about `0.198`, final rollout L2 about `0.818`, shock MAE about `0.410`, and rollout limiter activation about `0.999`), so the learned correction must do real macro-step work rather than lightly polishing a good classical step.
+
+The first full scale-1 launch was interrupted after early live diagnostics showed test relative L2 near `0.10` and correction saturation around `0.18-0.20` with no teacher-forced limiter activation. Decision: run a short bound-scale probe over correction scales `1`, `2`, and `4` before spending the full training budget. Active ignored outputs use the relative pattern `artifacts/time_dependent_no/physical_flux_scale_probe_v1_*`, with log `artifacts/time_dependent_no/logs/euler1d_physical_flux_scale_probe_v1.log`.
+## 2026-07-10 Physical Flux-Correction Scale Probe Result
+
+The short scale probe over correction scales `1`, `2`, and `4` completed on AutoDL. Ignored local analysis artifacts are under `artifacts/time_dependent_no/physical_flux_scale_probe_v1_analysis_20260710/`, with lightweight downloaded metrics under `artifacts/time_dependent_no/physical_flux_scale_probe_v1_metrics_20260710/`.
+
+Main evidence: all three physical-flux-correction scale settings were rejected. Scale `1` had one-step L2 `0.0991` and final rollout L2 `1.1100`; scale `2` had one-step L2 `0.0850` and final rollout L2 `0.8259`; scale `4` had one-step L2 `0.0805` and final rollout L2 `0.8568`. All reached pressure floor, had nonpositive raw pressure counts, and had rollout limiter activation about `0.95-0.96` with minimum theta `0`.
+
+Interpretation: increasing the correction bound improves one-step fit but does not stabilize rollout. Scale `1` is correction-bound-limited, while scale `4` largely removes correction saturation but activates the teacher-forced limiter heavily. The base audit showed the core issue: one explicit Rusanov flux over the stride-4 macro step is a poor large-timestep anchor, so the network must cancel and replace the base flux rather than learn a small physical correction.
+
+Decision: do not run the full noise `0`/`0.003` selector for this exact target family. Next flux-target work should prioritize direct macro-step time-integrated face-flux supervision or a stable/data-derived macro flux base.

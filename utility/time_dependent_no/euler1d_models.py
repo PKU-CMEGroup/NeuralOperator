@@ -19,22 +19,25 @@ Euler1DTarget = Literal[
     "primitive_residual",
     "limited_residual",
     "flux",
+    "limited_flux",
+    "physical_flux_correction",
     "interface",
+    "positive_limited_interface",
 ]
 
 
 def target_output_dim(target: Euler1DTarget) -> int:
     if target in ("state", "residual", "primitive_residual", "limited_residual"):
         return 3
-    if target == "flux":
+    if target in ("flux", "limited_flux", "physical_flux_correction"):
         return 3
-    if target == "interface":
+    if target in ("interface", "positive_limited_interface"):
         return 6
     raise ValueError(f"unsupported target: {target}")
 
 
 def reshape_target_output(raw: torch.Tensor, target: Euler1DTarget) -> torch.Tensor:
-    if target == "interface":
+    if target in ("interface", "positive_limited_interface"):
         if raw.shape[-1] != 6:
             raise ValueError("interface head must output 6 channels")
         return raw.reshape(*raw.shape[:-1], 2, 3)

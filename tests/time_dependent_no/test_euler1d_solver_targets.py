@@ -20,6 +20,9 @@ from utility.time_dependent_no.euler1d_targets import (
     FluxTargetAdapter,
     InterfaceStateTargetAdapter,
     LimitedConservativeResidualTargetAdapter,
+    LimitedFluxTargetAdapter,
+    PhysicalFluxCorrectionTargetAdapter,
+    PositiveLimitedInterfaceStateTargetAdapter,
     PrimitiveResidualTargetAdapter,
     StateTargetAdapter,
     owner_neighbor_primitives,
@@ -141,8 +144,17 @@ def test_limited_conservative_residual_target_adapter_preserves_admissibility():
     unsafe_delta[..., 2] = -2.0 * batch.current_conservative[..., 2]
 
     limited_prediction = adapter(unsafe_delta, batch)
+    proposed_primitive = conservative_to_primitive(
+        limited_prediction.aux["proposed_conservative"]
+    )
     raw_primitive = conservative_to_primitive(limited_prediction.conservative)
 
+    assert torch.any(proposed_primitive[..., 0] <= 0.0)
+    assert torch.any(proposed_primitive[..., 2] <= 0.0)
+    assert not torch.allclose(
+        limited_prediction.aux["proposed_conservative"],
+        limited_prediction.conservative,
+    )
     assert torch.all(raw_primitive[..., 0] > 0.0)
     assert torch.all(raw_primitive[..., 2] > 0.0)
     assert torch.any(limited_prediction.aux["limiter_theta"] < 1.0)
@@ -159,6 +171,102 @@ def test_flux_target_adapter_zero_flux_keeps_current_state():
     torch.testing.assert_close(prediction.primitive, batch.current_primitive)
 
 
+def test_limited_flux_target_adapter_zero_flux_keeps_current_state():
+    batch = _batch()
+    adapter = LimitedFluxTargetAdapter()
+    raw_flux = torch.zeros(1, batch.geometry.face_owner.shape[1], 3)
+
+    prediction = adapter(raw_flux, batch)
+
+    torch.testing.assert_close(prediction.conservative, batch.current_conservative)
+    torch.testing.assert_close(prediction.primitive, batch.current_primitive)
+    torch.testing.assert_close(
+        prediction.aux["limiter_theta"],
+        torch.ones_like(prediction.aux["limiter_theta"]),
+    )
+
+
+def test_limited_flux_target_adapter_limits_samplewise_and_preserves_total():
+    batch = _batch(num_cells=5)
+    adapter = LimitedFluxTargetAdapter(
+        rho_floor=1.0e-6,
+        pressure_floor=1.0e-6,
+        safety=1.0,
+    )
+    raw_flux = torch.zeros(1, batch.geometry.face_owner.shape[1], 3)
+    raw_flux[:, 2] = torch.tensor([100.0, 0.0, 200.0])
+    before_total = (
+        batch.current_conservative * batch.geometry.cell_volume.unsqueeze(-1)
+    ).sum(dim=1)
+
+    prediction = adapter(raw_flux, batch)
+    proposed_primitive = conservative_to_primitive(
+        prediction.aux["proposed_conservative"]
+    )
+    primitive = conservative_to_primitive(prediction.conservative)
+    after_total = (
+        prediction.conservative * batch.geometry.cell_volume.unsqueeze(-1)
+    ).sum(dim=1)
+
+    assert prediction.aux["limiter_theta"].shape == (1,)
+    assert torch.all(prediction.aux["limiter_theta"] < 1.0)
+    assert torch.any(
+        (proposed_primitive[..., 0] <= 0.0) | (proposed_primitive[..., 2] <= 0.0)
+    )
+    assert not torch.allclose(
+        prediction.aux["proposed_conservative"],
+        prediction.conservative,
+    )
+    assert torch.all(primitive[..., 0] > 0.0)
+    assert torch.all(primitive[..., 2] > 0.0)
+    torch.testing.assert_close(after_total, before_total)
+
+
+def test_physical_flux_correction_zero_raw_matches_base_rusanov_update():
+    batch = _batch()
+    adapter = PhysicalFluxCorrectionTargetAdapter(safety=1.0)
+    raw_correction = torch.zeros(1, batch.geometry.face_owner.shape[1], 3)
+    owner, neighbor = owner_neighbor_primitives(batch)
+    base_flux = rusanov_flux_from_primitive(
+        owner,
+        neighbor,
+        batch.geometry.face_normal,
+        gamma=batch.gamma,
+    )
+    expected = finite_volume_update(
+        batch.current_conservative,
+        base_flux,
+        batch.geometry,
+        batch.dt,
+    )
+
+    prediction = adapter(raw_correction, batch)
+
+    torch.testing.assert_close(prediction.aux["base_face_flux"], base_flux)
+    torch.testing.assert_close(prediction.aux["face_flux"], base_flux)
+    torch.testing.assert_close(
+        prediction.aux["flux_correction"],
+        torch.zeros_like(base_flux),
+    )
+    torch.testing.assert_close(prediction.conservative, expected)
+    torch.testing.assert_close(
+        prediction.aux["limiter_theta"],
+        torch.ones_like(prediction.aux["limiter_theta"]),
+    )
+
+
+def test_physical_flux_correction_is_componentwise_bounded():
+    batch = _batch()
+    adapter = PhysicalFluxCorrectionTargetAdapter(correction_scale=0.25, safety=1.0)
+    raw_correction = torch.full((1, batch.geometry.face_owner.shape[1], 3), 100.0)
+
+    prediction = adapter(raw_correction, batch)
+    correction = prediction.aux["flux_correction"]
+    scale = prediction.aux["flux_correction_scale"]
+
+    assert torch.all(correction.abs() <= 0.25 * scale + 1.0e-6)
+
+
 def test_interface_state_adapter_matches_explicit_rusanov_update():
     batch = _batch()
     owner, neighbor = owner_neighbor_primitives(batch)
@@ -173,6 +281,29 @@ def test_interface_state_adapter_matches_explicit_rusanov_update():
 
     torch.testing.assert_close(prediction.conservative, expected)
     torch.testing.assert_close(prediction.aux["face_flux"], flux)
+
+
+def test_positive_limited_interface_state_adapter_forces_positive_interface():
+    batch = _batch()
+    raw_interface = torch.full((1, batch.geometry.face_owner.shape[1], 2, 3), -50.0)
+    adapter = PositiveLimitedInterfaceStateTargetAdapter(
+        positive_transform="none",
+        rho_floor=1.0e-6,
+        pressure_floor=1.0e-6,
+        safety=1.0,
+    )
+
+    prediction = adapter(raw_interface, batch)
+    interface = prediction.aux["interface_primitive"]
+    primitive = conservative_to_primitive(prediction.conservative)
+
+    assert torch.all(interface[..., 0] > 0.0)
+    assert torch.all(interface[..., 2] > 0.0)
+    assert prediction.aux["limiter_theta"].shape == (1,)
+    assert torch.all(prediction.aux["limiter_theta"] >= 0.0)
+    assert torch.all(prediction.aux["limiter_theta"] <= 1.0)
+    assert torch.all(primitive[..., 0] > 0.0)
+    assert torch.all(primitive[..., 2] > 0.0)
 
 
 def test_euler1d_npz_loader_and_collate():
@@ -218,6 +349,8 @@ def test_cpg_style_head_output_shapes_are_resolution_flexible():
         ("primitive_residual", 3),
         ("limited_residual", 3),
         ("flux", 3),
+        ("limited_flux", 3),
+        ("physical_flux_correction", 3),
     ]:
         head = CPGStyleEuler1DHead(
             target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
@@ -233,11 +366,12 @@ def test_cpg_style_head_output_shapes_are_resolution_flexible():
             )
             assert raw.shape == (1, count, expected_channels)
 
-    head = CPGStyleEuler1DHead(
-        "interface", hidden_dim=8, message_passing_steps=1, mlp_layers=2
-    )
-    raw = head(_batch(num_cells=7))
-    assert raw.shape == (1, 8, 2, 3)
+    for target in ["interface", "positive_limited_interface"]:
+        head = CPGStyleEuler1DHead(
+            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
+        )
+        raw = head(_batch(num_cells=7))
+        assert raw.shape == (1, 8, 2, 3)
 
 
 def test_fno_head_output_shapes_are_resolution_flexible():
@@ -247,7 +381,10 @@ def test_fno_head_output_shapes_are_resolution_flexible():
         "primitive_residual",
         "limited_residual",
         "flux",
+        "limited_flux",
+        "physical_flux_correction",
         "interface",
+        "positive_limited_interface",
     ]:
         head = FNOEuler1DHead(
             target,
@@ -266,7 +403,7 @@ def test_fno_head_output_shapes_are_resolution_flexible():
                 "limited_residual",
             ):
                 assert raw.shape == (1, num_cells, 3)
-            elif target == "flux":
+            elif target in ("flux", "limited_flux", "physical_flux_correction"):
                 assert raw.shape == (1, num_cells + 1, 3)
             else:
                 assert raw.shape == (1, num_cells + 1, 2, 3)

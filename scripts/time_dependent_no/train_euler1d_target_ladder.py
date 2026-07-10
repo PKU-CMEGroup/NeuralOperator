@@ -4,6 +4,7 @@ This script is the light pilot harness for the solver-facing target ladder:
 
 * residual: conservative state residual over one fixed coarse step
 * flux: predicted face flux, followed by a fixed conservative FV update
+* physical_flux_correction: base Rusanov flux plus bounded learned correction
 * interface: predicted face states, followed by Rusanov flux and FV update
 
 The model is not conditioned on ``dt``. ``--step-stride`` selects a fixed
@@ -56,13 +57,19 @@ from utility.time_dependent_no.euler1d_targets import make_target_adapter
 
 
 EPS = 1.0e-12
+NEAR_FLOOR = 1.0e-6
+LIMITER_ACTIVE_TOL = 1.0e-6
+CORRECTION_SATURATION_TOL = 0.95
 MODEL_CHOICES = ("cpgnet", "fno")
 TARGET_CHOICES = (
     "residual",
     "primitive_residual",
     "limited_residual",
     "flux",
+    "limited_flux",
+    "physical_flux_correction",
     "interface",
+    "positive_limited_interface",
 )
 ARG_TARGET_CHOICES = ("state", *TARGET_CHOICES)
 
@@ -116,6 +123,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=1.0e-3)
     parser.add_argument("--weight-decay", type=float, default=1.0e-5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
+    parser.add_argument(
+        "--flux-correction-scale",
+        type=float,
+        default=1.0,
+        help="Multiplier for bounded physical_flux_correction outputs.",
+    )
+    parser.add_argument(
+        "--flux-correction-scale-floor",
+        type=float,
+        default=1.0e-6,
+        help="Minimum componentwise physical flux scale for correction bounds.",
+    )
     parser.add_argument(
         "--input-noise-std",
         type=float,
@@ -238,7 +257,14 @@ def build_model(
     else:
         raise ValueError(f"unsupported model: {model_name}")
 
-    if target in ("residual", "primitive_residual", "limited_residual", "flux"):
+    if target in (
+        "residual",
+        "primitive_residual",
+        "limited_residual",
+        "flux",
+        "limited_flux",
+        "physical_flux_correction",
+    ):
         zero_initialize_identity_update_output(model, target)
     return model
 
@@ -290,6 +316,186 @@ def finite_scalar(value: torch.Tensor) -> float:
     return item if math.isfinite(item) else float("nan")
 
 
+def new_limiter_accumulator() -> dict[str, float]:
+    return {
+        "theta_sum": 0.0,
+        "theta_count": 0.0,
+        "theta_min": float("inf"),
+        "activation_count": 0.0,
+    }
+
+
+def update_limiter_accumulator(
+    accumulator: dict[str, float], aux: dict[str, Any]
+) -> None:
+    theta = aux.get("limiter_theta")
+    if theta is None:
+        return
+    theta_cpu = theta.detach().cpu()
+    accumulator["theta_sum"] += float(theta_cpu.sum().item())
+    accumulator["theta_count"] += float(theta_cpu.numel())
+    accumulator["theta_min"] = min(
+        accumulator["theta_min"], float(theta_cpu.min().item())
+    )
+    accumulator["activation_count"] += float(
+        theta_cpu.lt(1.0 - LIMITER_ACTIVE_TOL).sum().item()
+    )
+
+
+def finalize_limiter_accumulator(accumulator: dict[str, float]) -> dict[str, float]:
+    count = accumulator["theta_count"]
+    if count <= 0.0:
+        return {
+            "limiter_theta_mean": float("nan"),
+            "limiter_theta_min": float("nan"),
+            "limiter_activation_fraction": float("nan"),
+        }
+    return {
+        "limiter_theta_mean": accumulator["theta_sum"] / count,
+        "limiter_theta_min": accumulator["theta_min"],
+        "limiter_activation_fraction": accumulator["activation_count"] / count,
+    }
+
+
+def new_flux_correction_accumulator() -> dict[str, float]:
+    return {
+        "ratio_sum": 0.0,
+        "ratio_count": 0.0,
+        "ratio_max": 0.0,
+        "saturation_count": 0.0,
+    }
+
+
+def update_flux_correction_accumulator(
+    accumulator: dict[str, float], aux: dict[str, Any]
+) -> None:
+    correction = aux.get("flux_correction")
+    bound = aux.get("flux_correction_bound")
+    if correction is None or bound is None:
+        return
+    ratio = correction.detach().abs().cpu() / bound.detach().abs().cpu().clamp_min(EPS)
+    accumulator["ratio_sum"] += float(ratio.sum().item())
+    accumulator["ratio_count"] += float(ratio.numel())
+    accumulator["ratio_max"] = max(accumulator["ratio_max"], float(ratio.max().item()))
+    accumulator["saturation_count"] += float(
+        ratio.ge(CORRECTION_SATURATION_TOL).sum().item()
+    )
+
+
+def finalize_flux_correction_accumulator(
+    accumulator: dict[str, float]
+) -> dict[str, float]:
+    count = accumulator["ratio_count"]
+    if count <= 0.0:
+        return {
+            "flux_correction_abs_over_bound_mean": float("nan"),
+            "flux_correction_abs_over_bound_max": float("nan"),
+            "flux_correction_saturation_fraction": float("nan"),
+        }
+    return {
+        "flux_correction_abs_over_bound_mean": accumulator["ratio_sum"] / count,
+        "flux_correction_abs_over_bound_max": accumulator["ratio_max"],
+        "flux_correction_saturation_fraction": accumulator["saturation_count"] / count,
+    }
+
+
+def proposed_conservative(prediction: Any) -> torch.Tensor:
+    """Return the pre-limiter proposed conservative state when available."""
+
+    proposed = prediction.aux.get("proposed_conservative")
+    return prediction.conservative if proposed is None else cast(torch.Tensor, proposed)
+
+
+def new_conservative_safety_accumulator() -> dict[str, float]:
+    return {
+        "min_density": float("inf"),
+        "min_pressure": float("inf"),
+        "nonpositive_density": 0.0,
+        "nonpositive_pressure": 0.0,
+        "near_floor_density": 0.0,
+        "near_floor_pressure": 0.0,
+        "count": 0.0,
+    }
+
+
+def update_conservative_safety_accumulator(
+    accumulator: dict[str, float],
+    conservative: torch.Tensor,
+    *,
+    gamma: float,
+) -> None:
+    primitive = conservative_to_primitive(conservative, gamma=gamma)
+    accumulator["min_density"] = min(
+        accumulator["min_density"], float(primitive[..., 0].min().detach().cpu().item())
+    )
+    accumulator["min_pressure"] = min(
+        accumulator["min_pressure"], float(primitive[..., 2].min().detach().cpu().item())
+    )
+    accumulator["nonpositive_density"] += float(
+        primitive[..., 0].le(0.0).sum().detach().cpu().item()
+    )
+    accumulator["nonpositive_pressure"] += float(
+        primitive[..., 2].le(0.0).sum().detach().cpu().item()
+    )
+    accumulator["near_floor_density"] += float(
+        primitive[..., 0].le(NEAR_FLOOR).sum().detach().cpu().item()
+    )
+    accumulator["near_floor_pressure"] += float(
+        primitive[..., 2].le(NEAR_FLOOR).sum().detach().cpu().item()
+    )
+    accumulator["count"] += float(primitive[..., 0].numel())
+
+
+def finalize_conservative_safety_accumulator(
+    accumulator: dict[str, float],
+    *,
+    prefix: str,
+) -> dict[str, float | int]:
+    if accumulator["count"] <= 0.0:
+        return {
+            f"{prefix}_min_density": float("nan"),
+            f"{prefix}_min_pressure": float("nan"),
+            f"num_nonpositive_{prefix}_density": 0,
+            f"num_nonpositive_{prefix}_pressure": 0,
+            f"num_{prefix}_density_near_floor": 0,
+            f"num_{prefix}_pressure_near_floor": 0,
+        }
+    return {
+        f"{prefix}_min_density": accumulator["min_density"],
+        f"{prefix}_min_pressure": accumulator["min_pressure"],
+        f"num_nonpositive_{prefix}_density": int(accumulator["nonpositive_density"]),
+        f"num_nonpositive_{prefix}_pressure": int(accumulator["nonpositive_pressure"]),
+        f"num_{prefix}_density_near_floor": int(accumulator["near_floor_density"]),
+        f"num_{prefix}_pressure_near_floor": int(accumulator["near_floor_pressure"]),
+    }
+
+
+def proposed_safety_metrics(accumulator: dict[str, float]) -> dict[str, float | int]:
+    metrics = finalize_conservative_safety_accumulator(
+        accumulator,
+        prefix="proposed",
+    )
+    metrics.update(
+        {
+            "raw_min_density": metrics["proposed_min_density"],
+            "raw_min_pressure": metrics["proposed_min_pressure"],
+            "num_nonpositive_raw_density": metrics[
+                "num_nonpositive_proposed_density"
+            ],
+            "num_nonpositive_raw_pressure": metrics[
+                "num_nonpositive_proposed_pressure"
+            ],
+            "num_raw_density_near_floor": metrics[
+                "num_proposed_density_near_floor"
+            ],
+            "num_raw_pressure_near_floor": metrics[
+                "num_proposed_pressure_near_floor"
+            ],
+        }
+    )
+    return metrics
+
+
 def apply_primitive_input_noise(
     batch: Euler1DBatch,
     noise_std: float,
@@ -325,10 +531,9 @@ def evaluate_one_step(
     total_samples = 0
     min_density = float("inf")
     min_pressure = float("inf")
-    raw_min_density = float("inf")
-    raw_min_pressure = float("inf")
-    num_nonpositive_raw_density = 0
-    num_nonpositive_raw_pressure = 0
+    proposed_accumulator = new_conservative_safety_accumulator()
+    limiter_accumulator = new_limiter_accumulator()
+    flux_correction_accumulator = new_flux_correction_accumulator()
 
     with torch.no_grad():
         for batch in loader:
@@ -349,31 +554,29 @@ def evaluate_one_step(
             min_pressure = min(
                 min_pressure, float(prediction.primitive[..., 2].min().cpu().item())
             )
-            raw_primitive = conservative_to_primitive(
-                prediction.conservative, gamma=batch.gamma
+            update_conservative_safety_accumulator(
+                proposed_accumulator,
+                proposed_conservative(prediction),
+                gamma=batch.gamma,
             )
-            raw_min_density = min(
-                raw_min_density, float(raw_primitive[..., 0].min().cpu().item())
-            )
-            raw_min_pressure = min(
-                raw_min_pressure, float(raw_primitive[..., 2].min().cpu().item())
-            )
-            num_nonpositive_raw_density += int(
-                raw_primitive[..., 0].le(0.0).sum().detach().cpu().item()
-            )
-            num_nonpositive_raw_pressure += int(
-                raw_primitive[..., 2].le(0.0).sum().detach().cpu().item()
+            update_limiter_accumulator(limiter_accumulator, prediction.aux)
+            update_flux_correction_accumulator(
+                flux_correction_accumulator, prediction.aux
             )
 
+    proposed_metrics = proposed_safety_metrics(proposed_accumulator)
+    limiter_metrics = finalize_limiter_accumulator(limiter_accumulator)
+    flux_correction_metrics = finalize_flux_correction_accumulator(
+        flux_correction_accumulator
+    )
     return {
         "loss": total_loss / max(total_samples, 1),
         "relative_l2": total_rel_l2 / max(total_samples, 1),
         "min_density": min_density,
         "min_pressure": min_pressure,
-        "raw_min_density": raw_min_density,
-        "raw_min_pressure": raw_min_pressure,
-        "num_nonpositive_raw_density": num_nonpositive_raw_density,
-        "num_nonpositive_raw_pressure": num_nonpositive_raw_pressure,
+        **proposed_metrics,
+        **limiter_metrics,
+        **flux_correction_metrics,
     }
 
 
@@ -494,10 +697,9 @@ def rollout_case(
     x = torch.from_numpy(x_np).unsqueeze(0).to(device)
     left = torch.from_numpy(source.left_states[case_id]).unsqueeze(0).to(device)
     predictions: list[np.ndarray] = []
-    raw_min_density = float("inf")
-    raw_min_pressure = float("inf")
-    num_nonpositive_raw_density = 0
-    num_nonpositive_raw_pressure = 0
+    proposed_accumulator = new_conservative_safety_accumulator()
+    limiter_accumulator = new_limiter_accumulator()
+    flux_correction_accumulator = new_flux_correction_accumulator()
 
     with torch.no_grad():
         for step in range(max_steps):
@@ -518,22 +720,14 @@ def rollout_case(
             raw = model(batch)
             decoded = adapter(raw, batch)
             next_state = decoded.primitive
-            raw_primitive = conservative_to_primitive(
-                decoded.conservative, gamma=source.gamma
+            update_conservative_safety_accumulator(
+                proposed_accumulator,
+                proposed_conservative(decoded),
+                gamma=source.gamma,
             )
-            raw_min_density = min(
-                raw_min_density,
-                float(raw_primitive[..., 0].min().detach().cpu().item()),
-            )
-            raw_min_pressure = min(
-                raw_min_pressure,
-                float(raw_primitive[..., 2].min().detach().cpu().item()),
-            )
-            num_nonpositive_raw_density += int(
-                raw_primitive[..., 0].le(0.0).sum().detach().cpu().item()
-            )
-            num_nonpositive_raw_pressure += int(
-                raw_primitive[..., 2].le(0.0).sum().detach().cpu().item()
+            update_limiter_accumulator(limiter_accumulator, decoded.aux)
+            update_flux_correction_accumulator(
+                flux_correction_accumulator, decoded.aux
             )
             if not torch.isfinite(next_state).all():
                 break
@@ -552,10 +746,24 @@ def rollout_case(
             "min_density": float("nan"),
             "min_pressure": float("nan"),
             "max_abs_primitive": float("nan"),
+            "proposed_min_density": float("nan"),
+            "proposed_min_pressure": float("nan"),
+            "num_nonpositive_proposed_density": 0,
+            "num_nonpositive_proposed_pressure": 0,
+            "num_proposed_density_near_floor": 0,
+            "num_proposed_pressure_near_floor": 0,
             "raw_min_density": float("nan"),
             "raw_min_pressure": float("nan"),
             "num_nonpositive_raw_density": 0,
             "num_nonpositive_raw_pressure": 0,
+            "num_raw_density_near_floor": 0,
+            "num_raw_pressure_near_floor": 0,
+            "limiter_theta_mean": float("nan"),
+            "limiter_theta_min": float("nan"),
+            "limiter_activation_fraction": float("nan"),
+            "flux_correction_abs_over_bound_mean": float("nan"),
+            "flux_correction_abs_over_bound_max": float("nan"),
+            "flux_correction_saturation_fraction": float("nan"),
             "shock_position_mae": float("nan"),
             "conservative_total_error_final": float("nan"),
             "step_stride": int(step_stride),
@@ -575,6 +783,11 @@ def rollout_case(
         np.linalg.norm(final_total_truth),
         EPS,
     )
+    proposed_metrics = proposed_safety_metrics(proposed_accumulator)
+    limiter_metrics = finalize_limiter_accumulator(limiter_accumulator)
+    flux_correction_metrics = finalize_flux_correction_accumulator(
+        flux_correction_accumulator
+    )
     return {
         "case_id": int(case_id),
         "finite": bool(np.isfinite(pred).all()),
@@ -584,10 +797,9 @@ def rollout_case(
         "min_density": float(np.min(pred[..., 0])),
         "min_pressure": float(np.min(pred[..., 2])),
         "max_abs_primitive": float(np.max(np.abs(pred))),
-        "raw_min_density": raw_min_density,
-        "raw_min_pressure": raw_min_pressure,
-        "num_nonpositive_raw_density": num_nonpositive_raw_density,
-        "num_nonpositive_raw_pressure": num_nonpositive_raw_pressure,
+        **proposed_metrics,
+        **limiter_metrics,
+        **flux_correction_metrics,
         "shock_position_mae": float(np.mean(np.abs(pred_front - truth_front))),
         "conservative_total_error_final": float(total_error),
         "step_stride": int(step_stride),
@@ -612,11 +824,19 @@ def summarize_rollouts(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "rollout_relative_l2_final",
         "min_density",
         "min_pressure",
+        "proposed_min_density",
+        "proposed_min_pressure",
         "raw_min_density",
         "raw_min_pressure",
         "max_abs_primitive",
         "shock_position_mae",
         "conservative_total_error_final",
+        "limiter_theta_mean",
+        "limiter_theta_min",
+        "limiter_activation_fraction",
+        "flux_correction_abs_over_bound_mean",
+        "flux_correction_abs_over_bound_max",
+        "flux_correction_saturation_fraction",
     )
     summary: dict[str, Any] = {
         "finite": all(bool(row["finite"]) for row in rows),
@@ -627,19 +847,48 @@ def summarize_rollouts(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "final_frame_max": max(int(row["final_frame"]) for row in rows),
         "completed_horizon": all(bool(row.get("completed_horizon")) for row in rows),
     }
-    min_keys = {"min_density", "min_pressure", "raw_min_density", "raw_min_pressure"}
+    min_keys = {
+        "min_density",
+        "min_pressure",
+        "proposed_min_density",
+        "proposed_min_pressure",
+        "raw_min_density",
+        "raw_min_pressure",
+        "limiter_theta_min",
+    }
     for key in numeric_keys:
         values = np.asarray([row[key] for row in rows], dtype=np.float64)
-        if key in min_keys:
-            summary[key] = float(np.nanmin(values))
+        finite_values = values[np.isfinite(values)]
+        if finite_values.size == 0:
+            summary[key] = float("nan")
+        elif key in min_keys:
+            summary[key] = float(np.min(finite_values))
         else:
-            summary[key] = float(np.nanmean(values))
-    summary["num_nonpositive_raw_density"] = int(
-        sum(int(row["num_nonpositive_raw_density"]) for row in rows)
+            summary[key] = float(np.mean(finite_values))
+    summary["num_nonpositive_proposed_density"] = int(
+        sum(int(row.get("num_nonpositive_proposed_density", 0)) for row in rows)
     )
-    summary["num_nonpositive_raw_pressure"] = int(
-        sum(int(row["num_nonpositive_raw_pressure"]) for row in rows)
+    summary["num_nonpositive_raw_density"] = summary[
+        "num_nonpositive_proposed_density"
+    ]
+    summary["num_nonpositive_proposed_pressure"] = int(
+        sum(int(row.get("num_nonpositive_proposed_pressure", 0)) for row in rows)
     )
+    summary["num_nonpositive_raw_pressure"] = summary[
+        "num_nonpositive_proposed_pressure"
+    ]
+    summary["num_proposed_density_near_floor"] = int(
+        sum(int(row.get("num_proposed_density_near_floor", 0)) for row in rows)
+    )
+    summary["num_raw_density_near_floor"] = summary[
+        "num_proposed_density_near_floor"
+    ]
+    summary["num_proposed_pressure_near_floor"] = int(
+        sum(int(row.get("num_proposed_pressure_near_floor", 0)) for row in rows)
+    )
+    summary["num_raw_pressure_near_floor"] = summary[
+        "num_proposed_pressure_near_floor"
+    ]
     return summary
 
 
@@ -671,8 +920,24 @@ def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "rollout_relative_l2_final",
         "min_density",
         "min_pressure",
+        "proposed_min_density",
+        "proposed_min_pressure",
         "raw_min_density",
         "raw_min_pressure",
+        "num_nonpositive_proposed_density",
+        "num_nonpositive_proposed_pressure",
+        "num_proposed_density_near_floor",
+        "num_proposed_pressure_near_floor",
+        "num_nonpositive_raw_density",
+        "num_nonpositive_raw_pressure",
+        "num_raw_density_near_floor",
+        "num_raw_pressure_near_floor",
+        "limiter_theta_mean",
+        "limiter_theta_min",
+        "limiter_activation_fraction",
+        "flux_correction_abs_over_bound_mean",
+        "flux_correction_abs_over_bound_max",
+        "flux_correction_saturation_fraction",
         "max_abs_primitive",
         "shock_position_mae",
         "conservative_total_error_final",
@@ -749,7 +1014,10 @@ def run_single(
     ).to(device)
     model = build_model(model_name, target, args).to(device)
     adapter = make_target_adapter(
-        target_name, positive_transform=args.positive_transform
+        target_name,
+        positive_transform=args.positive_transform,
+        flux_correction_scale=args.flux_correction_scale,
+        flux_correction_scale_floor=args.flux_correction_scale_floor,
     ).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
@@ -786,12 +1054,35 @@ def run_single(
             "test_num_nonpositive_raw_pressure": test_metrics[
                 "num_nonpositive_raw_pressure"
             ],
+            "test_num_raw_density_near_floor": test_metrics[
+                "num_raw_density_near_floor"
+            ],
+            "test_num_raw_pressure_near_floor": test_metrics[
+                "num_raw_pressure_near_floor"
+            ],
+            "test_limiter_theta_mean": test_metrics["limiter_theta_mean"],
+            "test_limiter_theta_min": test_metrics["limiter_theta_min"],
+            "test_limiter_activation_fraction": test_metrics[
+                "limiter_activation_fraction"
+            ],
+            "test_flux_correction_abs_over_bound_mean": test_metrics[
+                "flux_correction_abs_over_bound_mean"
+            ],
+            "test_flux_correction_abs_over_bound_max": test_metrics[
+                "flux_correction_abs_over_bound_max"
+            ],
+            "test_flux_correction_saturation_fraction": test_metrics[
+                "flux_correction_saturation_fraction"
+            ],
         }
         history.append(row)
+        write_history(run_dir / "history.csv", history)
         print(
             f"{model_name:6s} {target_name:9s} epoch {epoch:03d}/{args.epochs:03d} "
             f"train_loss={row['train_loss']:.4e} test_loss={row['test_loss']:.4e} "
-            f"test_rel_l2={row['test_relative_l2']:.4e}",
+            f"test_rel_l2={row['test_relative_l2']:.4e} "
+            f"limiter_act={row['test_limiter_activation_fraction']:.3f} "
+            f"corr_sat={row['test_flux_correction_saturation_fraction']:.3f}",
             flush=True,
         )
 
@@ -825,6 +1116,8 @@ def run_single(
         "weight_decay": args.weight_decay,
         "positive_transform": args.positive_transform,
         "input_noise_std": args.input_noise_std,
+        "flux_correction_scale": args.flux_correction_scale,
+        "flux_correction_scale_floor": args.flux_correction_scale_floor,
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
         "device": str(device),
@@ -864,18 +1157,52 @@ def run_single(
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
         "input_noise_std": args.input_noise_std,
+        "flux_correction_scale": args.flux_correction_scale,
+        "flux_correction_scale_floor": args.flux_correction_scale_floor,
         "status": "ok",
         "test_loss": final_eval["loss"],
         "test_relative_l2": final_eval["relative_l2"],
         "one_step_min_density": final_eval["min_density"],
         "one_step_min_pressure": final_eval["min_pressure"],
+        "one_step_proposed_min_density": final_eval["proposed_min_density"],
+        "one_step_proposed_min_pressure": final_eval["proposed_min_pressure"],
         "one_step_raw_min_density": final_eval["raw_min_density"],
         "one_step_raw_min_pressure": final_eval["raw_min_pressure"],
+        "one_step_num_nonpositive_proposed_density": final_eval[
+            "num_nonpositive_proposed_density"
+        ],
+        "one_step_num_nonpositive_proposed_pressure": final_eval[
+            "num_nonpositive_proposed_pressure"
+        ],
+        "one_step_num_proposed_density_near_floor": final_eval[
+            "num_proposed_density_near_floor"
+        ],
+        "one_step_num_proposed_pressure_near_floor": final_eval[
+            "num_proposed_pressure_near_floor"
+        ],
         "one_step_num_nonpositive_raw_density": final_eval[
             "num_nonpositive_raw_density"
         ],
         "one_step_num_nonpositive_raw_pressure": final_eval[
             "num_nonpositive_raw_pressure"
+        ],
+        "one_step_num_raw_density_near_floor": final_eval["num_raw_density_near_floor"],
+        "one_step_num_raw_pressure_near_floor": final_eval[
+            "num_raw_pressure_near_floor"
+        ],
+        "one_step_limiter_theta_mean": final_eval["limiter_theta_mean"],
+        "one_step_limiter_theta_min": final_eval["limiter_theta_min"],
+        "one_step_limiter_activation_fraction": final_eval[
+            "limiter_activation_fraction"
+        ],
+        "one_step_flux_correction_abs_over_bound_mean": final_eval[
+            "flux_correction_abs_over_bound_mean"
+        ],
+        "one_step_flux_correction_abs_over_bound_max": final_eval[
+            "flux_correction_abs_over_bound_max"
+        ],
+        "one_step_flux_correction_saturation_fraction": final_eval[
+            "flux_correction_saturation_fraction"
         ],
         "runtime_seconds": runtime,
     }
@@ -893,6 +1220,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     if args.input_noise_std < 0.0:
         raise ValueError("--input-noise-std must be nonnegative")
+    if args.flux_correction_scale < 0.0:
+        raise ValueError("--flux-correction-scale must be nonnegative")
+    if args.flux_correction_scale_floor <= 0.0:
+        raise ValueError("--flux-correction-scale-floor must be positive")
     if args.torch_threads > 0:
         torch.set_num_threads(args.torch_threads)
     set_seed(args.seed)
@@ -917,6 +1248,8 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "step_stride": args.step_stride,
                 "rollout_final_frame": args.rollout_final_frame,
                 "input_noise_std": args.input_noise_std,
+                "flux_correction_scale": args.flux_correction_scale,
+                "flux_correction_scale_floor": args.flux_correction_scale_floor,
                 "output_dir": str(args.output_dir),
             },
             indent=2,

@@ -32,10 +32,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.time_dependent_no import train_euler1d_target_ladder as ladder
-from utility.time_dependent_no.euler1d import (
-    conservative_to_primitive,
-    make_euler1d_batch,
-)
+from utility.time_dependent_no.euler1d import make_euler1d_batch
 from utility.time_dependent_no.euler1d_data import (
     Euler1DNPZ,
     Euler1DTimePairDataset,
@@ -53,7 +50,10 @@ TARGET_CHOICES = (
     "primitive_residual",
     "limited_residual",
     "flux",
+    "limited_flux",
+    "physical_flux_correction",
     "interface",
+    "positive_limited_interface",
 )
 EPS = 1.0e-12
 
@@ -73,12 +73,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--case-ids", nargs="*", type=int)
     parser.add_argument("--num-cases", type=int, default=3)
     parser.add_argument("--epochs", type=int, default=40)
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--train-cases", type=int, default=384)
     parser.add_argument("--test-cases", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1.0e-3)
     parser.add_argument("--weight-decay", type=float, default=1.0e-5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
+    parser.add_argument(
+        "--flux-correction-scale",
+        type=float,
+        default=1.0,
+        help="Multiplier for bounded physical_flux_correction outputs.",
+    )
+    parser.add_argument(
+        "--flux-correction-scale-floor",
+        type=float,
+        default=1.0e-6,
+        help="Minimum componentwise physical flux scale for correction bounds.",
+    )
+    parser.add_argument("--input-noise-std", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=20260707)
     parser.add_argument(
         "--positive-transform", choices=("none", "softplus", "exp"), default="softplus"
@@ -86,13 +99,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--torch-threads", type=int, default=0)
-    parser.add_argument("--cpg-hidden-dim", type=int, default=96)
-    parser.add_argument("--cpg-message-passing-steps", type=int, default=4)
+    parser.add_argument("--cpg-hidden-dim", type=int, default=64)
+    parser.add_argument("--cpg-message-passing-steps", type=int, default=3)
     parser.add_argument("--cpg-mlp-layers", type=int, default=3)
-    parser.add_argument("--fno-width", type=int, default=48)
-    parser.add_argument("--fno-modes", type=int, default=24)
+    parser.add_argument("--fno-width", type=int, default=32)
+    parser.add_argument("--fno-modes", type=int, default=8)
     parser.add_argument("--fno-layers", type=int, default=4)
-    parser.add_argument("--fno-fc-dim", type=int, default=192)
+    parser.add_argument("--fno-fc-dim", type=int, default=128)
     parser.add_argument("--fno-pad-ratio", type=float, default=0.0)
     parser.add_argument("--fps", type=int, default=5)
     parser.add_argument("--dpi", type=int, default=120)
@@ -212,7 +225,10 @@ def train_variant(
     target = cast(Euler1DTarget, target_name)
     model = ladder.build_model(model_name, target, args).to(device)
     adapter = make_target_adapter(
-        target_name, positive_transform=args.positive_transform
+        target_name,
+        positive_transform=args.positive_transform,
+        flux_correction_scale=args.flux_correction_scale,
+        flux_correction_scale_floor=args.flux_correction_scale_floor,
     ).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
@@ -229,6 +245,7 @@ def train_variant(
             optimizer,
             device,
             args.grad_clip,
+            args.input_noise_std,
         )
         test_metrics = ladder.evaluate_one_step(
             model, adapter, test_loader, normalizer, device
@@ -239,7 +256,14 @@ def train_variant(
             "train_relative_l2": train_metrics["relative_l2"],
             "test_loss": test_metrics["loss"],
             "test_relative_l2": test_metrics["relative_l2"],
+            "test_proposed_min_pressure": test_metrics["proposed_min_pressure"],
             "test_raw_min_pressure": test_metrics["raw_min_pressure"],
+            "input_noise_std": args.input_noise_std,
+            "flux_correction_scale": args.flux_correction_scale,
+            "flux_correction_scale_floor": args.flux_correction_scale_floor,
+            "test_num_nonpositive_proposed_pressure": test_metrics[
+                "num_nonpositive_proposed_pressure"
+            ],
             "test_num_nonpositive_raw_pressure": test_metrics[
                 "num_nonpositive_raw_pressure"
             ],
@@ -284,10 +308,9 @@ def rollout_arrays(
     left = torch.from_numpy(source.left_states[case_id]).unsqueeze(0).to(device)
 
     predictions = [source.data[case_id, 0].astype(np.float64)]
-    raw_min_density = float("inf")
-    raw_min_pressure = float("inf")
-    num_nonpositive_raw_density = 0
-    num_nonpositive_raw_pressure = 0
+    proposed_accumulator = ladder.new_conservative_safety_accumulator()
+    limiter_accumulator = ladder.new_limiter_accumulator()
+    flux_correction_accumulator = ladder.new_flux_correction_accumulator()
     completed = True
 
     model.eval()
@@ -309,22 +332,14 @@ def rollout_arrays(
             )
             decoded = adapter(model(batch), batch)
             next_state = decoded.primitive
-            raw_primitive = conservative_to_primitive(
-                decoded.conservative, gamma=source.gamma
+            ladder.update_conservative_safety_accumulator(
+                proposed_accumulator,
+                ladder.proposed_conservative(decoded),
+                gamma=source.gamma,
             )
-            raw_min_density = min(
-                raw_min_density,
-                float(raw_primitive[..., 0].min().detach().cpu().item()),
-            )
-            raw_min_pressure = min(
-                raw_min_pressure,
-                float(raw_primitive[..., 2].min().detach().cpu().item()),
-            )
-            num_nonpositive_raw_density += int(
-                raw_primitive[..., 0].le(0.0).sum().detach().cpu().item()
-            )
-            num_nonpositive_raw_pressure += int(
-                raw_primitive[..., 2].le(0.0).sum().detach().cpu().item()
+            ladder.update_limiter_accumulator(limiter_accumulator, decoded.aux)
+            ladder.update_flux_correction_accumulator(
+                flux_correction_accumulator, decoded.aux
             )
             if not torch.isfinite(next_state).all():
                 completed = False
@@ -338,6 +353,11 @@ def rollout_arrays(
     frame_ids = np.arange(prediction.shape[0], dtype=np.int64) * args.step_stride
     truth = source.data[case_id, frame_ids].astype(np.float64)
     rel_l2 = relative_l2_by_frame(prediction, truth)
+    proposed_metrics = ladder.proposed_safety_metrics(proposed_accumulator)
+    limiter_metrics = ladder.finalize_limiter_accumulator(limiter_accumulator)
+    flux_correction_metrics = ladder.finalize_flux_correction_accumulator(
+        flux_correction_accumulator
+    )
     if prediction.shape[0] - 1 < max_steps:
         completed = False
     return {
@@ -348,10 +368,9 @@ def rollout_arrays(
         "truth": truth,
         "relative_l2_by_frame": rel_l2,
         "completed_horizon": bool(completed),
-        "raw_min_density": raw_min_density,
-        "raw_min_pressure": raw_min_pressure,
-        "num_nonpositive_raw_density": num_nonpositive_raw_density,
-        "num_nonpositive_raw_pressure": num_nonpositive_raw_pressure,
+        **proposed_metrics,
+        **limiter_metrics,
+        **flux_correction_metrics,
         "max_abs_primitive": float(np.nanmax(np.abs(prediction))),
         "final_relative_l2": float(rel_l2[-1]),
         "mean_relative_l2": float(np.nanmean(rel_l2)),
@@ -456,6 +475,12 @@ def json_ready(value: Any) -> Any:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    if args.input_noise_std < 0.0:
+        raise ValueError("--input-noise-std must be nonnegative")
+    if args.flux_correction_scale < 0.0:
+        raise ValueError("--flux-correction-scale must be nonnegative")
+    if args.flux_correction_scale_floor <= 0.0:
+        raise ValueError("--flux-correction-scale-floor must be positive")
     if args.torch_threads > 0:
         torch.set_num_threads(args.torch_threads)
     set_seed(args.seed)
@@ -473,6 +498,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         "device": str(device),
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
+        "input_noise_std": args.input_noise_std,
+        "flux_correction_scale": args.flux_correction_scale,
+        "flux_correction_scale_floor": args.flux_correction_scale_floor,
         "case_ids": case_ids,
         "models": models,
         "targets": targets,
@@ -541,6 +569,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                 **train_summary,
                 "step_stride": args.step_stride,
                 "rollout_final_frame": args.rollout_final_frame,
+                "input_noise_std": args.input_noise_std,
+                "flux_correction_scale": args.flux_correction_scale,
+                "flux_correction_scale_floor": args.flux_correction_scale_floor,
                 "case_summaries": case_summaries,
                 "run_dir": str(run_dir),
             }

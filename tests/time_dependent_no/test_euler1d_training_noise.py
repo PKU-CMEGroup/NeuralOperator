@@ -3,7 +3,13 @@ from pathlib import Path
 
 import torch
 
-from utility.time_dependent_no.euler1d import make_euler1d_batch
+from utility.time_dependent_no.euler1d import (
+    conservative_to_primitive,
+    make_euler1d_batch,
+)
+from utility.time_dependent_no.euler1d_targets import (
+    LimitedConservativeResidualTargetAdapter,
+)
 
 
 def _load_ladder_module():
@@ -65,4 +71,45 @@ def test_apply_primitive_input_noise_preserves_clean_training_contract():
     torch.testing.assert_close(
         noisy.left_boundary_primitive,
         batch.left_boundary_primitive,
+    )
+
+
+def test_proposed_safety_metrics_report_pre_limiter_state():
+    ladder = _load_ladder_module()
+    batch = _batch()
+    adapter = LimitedConservativeResidualTargetAdapter(safety=1.0)
+    unsafe_delta = torch.zeros_like(batch.current_conservative)
+    unsafe_delta[..., 0] = -2.0 * batch.current_conservative[..., 0]
+    unsafe_delta[..., 2] = -2.0 * batch.current_conservative[..., 2]
+
+    prediction = adapter(unsafe_delta, batch)
+    proposed = ladder.proposed_conservative(prediction)
+    proposed_primitive = conservative_to_primitive(proposed, gamma=batch.gamma)
+    limited_primitive = conservative_to_primitive(
+        prediction.conservative,
+        gamma=batch.gamma,
+    )
+    accumulator = ladder.new_conservative_safety_accumulator()
+    ladder.update_conservative_safety_accumulator(
+        accumulator,
+        proposed,
+        gamma=batch.gamma,
+    )
+
+    metrics = ladder.proposed_safety_metrics(accumulator)
+
+    torch.testing.assert_close(proposed, prediction.aux["proposed_conservative"])
+    assert torch.any(proposed_primitive[..., 0] <= 0.0)
+    assert torch.any(proposed_primitive[..., 2] <= 0.0)
+    assert torch.all(limited_primitive[..., 0] > 0.0)
+    assert torch.all(limited_primitive[..., 2] > 0.0)
+    assert metrics["num_nonpositive_proposed_density"] > 0
+    assert metrics["num_nonpositive_proposed_pressure"] > 0
+    assert (
+        metrics["num_nonpositive_raw_density"]
+        == metrics["num_nonpositive_proposed_density"]
+    )
+    assert (
+        metrics["num_nonpositive_raw_pressure"]
+        == metrics["num_nonpositive_proposed_pressure"]
     )

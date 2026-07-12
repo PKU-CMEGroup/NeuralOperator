@@ -17,5 +17,5 @@ python pcno_train.py \
     --n_train 400 \
     --n_test 80 \
     --layer_sizes 64,64,64,64 \
-    --model_name "model/pcno" \
-    > log/pcno.log
+    --model_name "model/pcno_huang" \
+    > log/pcno_huang.log

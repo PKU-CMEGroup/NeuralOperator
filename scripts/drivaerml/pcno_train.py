@@ -89,6 +89,9 @@ def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
     directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
 
+    # huang
+    edge_gradient_weights /= 10
+
     return nnodes, node_mask, nodes, node_weights, node_rhos, features, directed_edges, edge_gradient_weights, to_divide
 
 
@@ -155,8 +158,6 @@ else:
     x_train, y_train, aux_train = gen_data_tensors(np.arange(n_train), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights)
     x_test, y_test, aux_test = gen_data_tensors(np.arange(-n_test, 0), nodes, features, node_mask, node_weights, directed_edges, edge_gradient_weights)
 
-print(torch.norm(x_train),torch.norm(y_train))
-print(torch.norm(x_test),torch.norm(y_test))
 x_test_list, y_test_list, aux_test_list = [x_test], [y_test], [aux_test]
 label_list = ['Default']
 
@@ -213,7 +214,7 @@ config = {"train" : {"base_lr": base_lr, 'lr_ratio': lr_ratio, "weight_decay": w
                      }
 
 
-train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train_multidist(
-    x_train, aux_train, y_train, x_test_list, aux_test_list, y_test_list, config, model, label_test_list=label_list,
+train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = PCNO_train(
+    x_train, aux_train, y_train, x_test, aux_test, y_test, config, model,
      save_model_name = args.model_name if args.model_name else None,
 )

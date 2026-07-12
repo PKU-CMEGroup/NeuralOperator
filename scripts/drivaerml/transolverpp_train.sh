@@ -9,18 +9,13 @@
 #SBATCH --time=100:00:00
 
 DATA_NPZ="../../data/hifi3d_processed/test/drivaerml_vertex_centered.npz"
-NAMES="../../data/hifi3d_processed/test/drivaerml_names.npy"
-META_DIR="../../data/hifi3d_processed/test/metadata/"
 SAVE_DIR="model/drivaerml_vertex_20k"
 
-mkdir -p SAVE_DIR
+mkdir -p "$SAVE_DIR"
 mkdir -p log
 
 python transolver_train.py \
   --data_npz "${DATA_NPZ}" \
-  --names "${NAMES}" \
-  --metadata_dir "${META_DIR}" \
-  --split_mode random \
   --n_train 400 \
   --n_test 80 \
   --epochs 200 \

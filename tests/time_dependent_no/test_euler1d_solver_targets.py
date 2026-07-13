@@ -10,12 +10,21 @@ from utility.time_dependent_no.euler1d import (
     rusanov_flux_from_primitive,
 )
 from utility.time_dependent_no.euler1d_data import (
+    Euler1DRolloutWindowDataset,
     Euler1DTimePairDataset,
     collate_euler1d_pairs,
+    collate_euler1d_rollout_windows,
     load_euler1d_npz,
 )
-from utility.time_dependent_no.euler1d_models import CPGStyleEuler1DHead, FNOEuler1DHead
+from baselines.fno import SpectralConv1d
+from utility.time_dependent_no.euler1d_models import (
+    CPGNetEuler1D,
+    CPGStyleTargetEuler1DHead,
+    CPGStylePilotEuler1DHead,
+    FNOEuler1DHead,
+)
 from utility.time_dependent_no.euler1d_targets import (
+    CPGNetInterfaceTargetAdapter,
     ConservativeResidualTargetAdapter,
     FluxTargetAdapter,
     InterfaceStateTargetAdapter,
@@ -43,6 +52,7 @@ def _batch(num_cells=8):
         torch.tensor([0.05]),
         target_primitive=target,
         left_boundary_primitive=current[:, 0],
+        right_initial_primitive=current[:, -1],
     )
 
 
@@ -332,17 +342,29 @@ def test_euler1d_npz_loader_and_collate():
     batch = collate_euler1d_pairs([dataset[0], dataset[1]])
     stride_dataset = Euler1DTimePairDataset(loaded, step_stride=2)
     stride_batch = collate_euler1d_pairs([stride_dataset[0]])
+    rollout_dataset = Euler1DRolloutWindowDataset(loaded, rollout_steps=2)
+    rollout_batch, rollout_targets, rollout_dt = collate_euler1d_rollout_windows(
+        [rollout_dataset[0], rollout_dataset[1]]
+    )
 
     assert loaded.num_cases == 2
     assert len(dataset) == 4
     assert len(stride_dataset) == 2
+    assert len(rollout_dataset) == 2
     assert batch.current_primitive.shape == (2, 4, 3)
     assert batch.geometry.face_owner.shape == (2, 5)
     torch.testing.assert_close(batch.dt, torch.tensor([0.1, 0.1]))
+    torch.testing.assert_close(
+        batch.right_initial_primitive,
+        torch.from_numpy(right[[0, 0]]),
+    )
     torch.testing.assert_close(stride_batch.dt, torch.tensor([0.2]))
+    assert rollout_batch.current_primitive.shape == (2, 4, 3)
+    assert rollout_targets.shape == (2, 2, 4, 3)
+    torch.testing.assert_close(rollout_dt, torch.full((2, 2), 0.1))
 
 
-def test_cpg_style_head_output_shapes_are_resolution_flexible():
+def test_cpg_style_pilot_head_output_shapes_are_resolution_flexible():
     for target, expected_channels in [
         ("state", 3),
         ("residual", 3),
@@ -352,7 +374,7 @@ def test_cpg_style_head_output_shapes_are_resolution_flexible():
         ("limited_flux", 3),
         ("physical_flux_correction", 3),
     ]:
-        head = CPGStyleEuler1DHead(
+        head = CPGStylePilotEuler1DHead(
             target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
         )
         for num_cells in [6, 9]:
@@ -367,11 +389,140 @@ def test_cpg_style_head_output_shapes_are_resolution_flexible():
             assert raw.shape == (1, count, expected_channels)
 
     for target in ["interface", "positive_limited_interface"]:
-        head = CPGStyleEuler1DHead(
+        head = CPGStylePilotEuler1DHead(
             target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
         )
         raw = head(_batch(num_cells=7))
         assert raw.shape == (1, 8, 2, 3)
+
+
+def test_cpg_style_target_head_output_shapes_are_resolution_flexible():
+    for target, expected_channels in [
+        ("limited_residual", 3),
+        ("limited_flux", 3),
+        ("physical_flux_correction", 3),
+    ]:
+        head = CPGStyleTargetEuler1DHead(
+            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
+        )
+        for num_cells in [6, 9]:
+            batch = _batch(num_cells=num_cells)
+            raw = head(batch)
+            count = num_cells if target == "limited_residual" else num_cells + 1
+            assert raw.shape == (1, count, expected_channels)
+
+    for target in ["interface", "positive_limited_interface"]:
+        head = CPGStyleTargetEuler1DHead(
+            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
+        )
+        raw = head(_batch(num_cells=7))
+        assert raw.shape == (1, 8, 2, 3)
+
+
+def test_cpgnet_directed_message_passing_is_directional():
+    torch.manual_seed(0)
+    batch = _batch(num_cells=6)
+    model = CPGNetEuler1D(
+        hidden_dim=8,
+        message_passing_steps=1,
+        mlp_layers=2,
+        edge_hidden_dim=4,
+        edge_encoder_steps=1,
+    )
+
+    messages = model.directed_message_diagnostics(batch)
+    assert not torch.allclose(
+        messages["owner_side"][:, 1:-1],
+        messages["neighbor_side"][:, 1:-1],
+    )
+
+
+def test_cpgnet_decodes_positive_directed_states_with_physical_boundaries():
+    batch = _batch(num_cells=5)
+    model = CPGNetEuler1D(
+        hidden_dim=8,
+        message_passing_steps=1,
+        mlp_layers=2,
+        edge_hidden_dim=4,
+        edge_encoder_steps=1,
+    )
+
+    interface = model(batch)
+
+    assert interface.shape == (1, batch.geometry.face_owner.shape[1], 2, 3)
+    assert torch.all(interface[..., 0] > 0.0)
+    assert torch.all(interface[..., 2] > 0.0)
+    torch.testing.assert_close(interface[:, 0, 1], batch.left_boundary_primitive)
+    torch.testing.assert_close(interface[:, -1, 1, 0], interface[:, -1, 0, 0])
+    torch.testing.assert_close(interface[:, -1, 1, 1], -interface[:, -1, 0, 1])
+    torch.testing.assert_close(interface[:, -1, 1, 2], interface[:, -1, 0, 2])
+
+
+def test_cpgnet_interface_adapter_matches_one_shared_rusanov_update():
+    batch = _batch(num_cells=5)
+    model = CPGNetEuler1D(
+        hidden_dim=8,
+        message_passing_steps=1,
+        mlp_layers=2,
+        edge_hidden_dim=4,
+        edge_encoder_steps=1,
+    )
+    adapter = CPGNetInterfaceTargetAdapter()
+
+    interface = model(batch)
+    prediction = adapter(interface, batch)
+    expected_flux = rusanov_flux_from_primitive(
+        interface[..., 0, :],
+        interface[..., 1, :],
+        batch.geometry.face_normal,
+        gamma=batch.gamma,
+    )
+    expected = finite_volume_update(
+        batch.current_conservative,
+        expected_flux,
+        batch.geometry,
+        batch.dt,
+    )
+
+    torch.testing.assert_close(prediction.aux["face_flux"], expected_flux)
+    torch.testing.assert_close(prediction.conservative, expected)
+    assert prediction.conservative.shape == batch.current_conservative.shape
+    assert prediction.primitive.shape == batch.current_primitive.shape
+    assert prediction.aux["raw_recurrence"] is True
+
+
+def test_cpgnet_interface_adapter_does_not_hide_negative_cell_state():
+    batch = _batch(num_cells=5)
+    interface = torch.ones(1, 6, 2, 3)
+    interface[..., 1] = 0.0
+    interface[:, 2, :, 1] = 100.0
+
+    prediction = CPGNetInterfaceTargetAdapter()(interface, batch)
+
+    assert torch.any(prediction.primitive[..., 0] <= 0.0)
+
+
+def test_spectral_conv1d_variable_width_forward_pass():
+    conv = SpectralConv1d(in_channels=32, out_channels=64, modes1=5)
+    x = torch.randn(2, 32, 16)
+
+    y = conv(x)
+
+    assert y.shape == (2, 64, 16)
+
+
+def test_fno_head_variable_width_layers_forward_pass():
+    head = FNOEuler1DHead(
+        "limited_residual",
+        modes=[4, 4, 4],
+        width=64,
+        layers=[32, 64, 64, 32],
+        fc_dim=16,
+    )
+
+    raw = head(_batch(num_cells=12))
+
+    assert raw.shape == (1, 12, 3)
 
 
 def test_fno_head_output_shapes_are_resolution_flexible():

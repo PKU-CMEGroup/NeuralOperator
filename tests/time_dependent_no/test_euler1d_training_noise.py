@@ -1,13 +1,18 @@
 import importlib.util
 from pathlib import Path
 
+import numpy as np
+import pytest
 import torch
 
+from utility.time_dependent_no.euler1d_models import CPGNetEuler1D
+from utility.time_dependent_no.euler1d_data import Euler1DNPZ
 from utility.time_dependent_no.euler1d import (
     conservative_to_primitive,
     make_euler1d_batch,
 )
 from utility.time_dependent_no.euler1d_targets import (
+    CPGNetInterfaceTargetAdapter,
     LimitedConservativeResidualTargetAdapter,
 )
 
@@ -39,6 +44,7 @@ def _batch():
         torch.tensor([0.05]),
         target_primitive=target,
         left_boundary_primitive=current[:, 0],
+        right_initial_primitive=current[:, -1],
     )
 
 
@@ -71,6 +77,10 @@ def test_apply_primitive_input_noise_preserves_clean_training_contract():
     torch.testing.assert_close(
         noisy.left_boundary_primitive,
         batch.left_boundary_primitive,
+    )
+    torch.testing.assert_close(
+        noisy.right_initial_primitive,
+        batch.right_initial_primitive,
     )
 
 
@@ -113,3 +123,106 @@ def test_proposed_safety_metrics_report_pre_limiter_state():
         metrics["num_nonpositive_raw_pressure"]
         == metrics["num_nonpositive_proposed_pressure"]
     )
+
+
+def test_cpgnet_unrolled_training_backpropagates_through_recurrent_states():
+    ladder = _load_ladder_module()
+    batch = _batch()
+    target_sequence = torch.stack(
+        (
+            batch.target_primitive,
+            batch.target_primitive + torch.tensor([0.01, -0.01, 0.01]),
+        ),
+        dim=1,
+    )
+    dt_sequence = torch.full((1, 2), 0.05)
+    model = CPGNetEuler1D(
+        hidden_dim=8,
+        message_passing_steps=1,
+        mlp_layers=2,
+        edge_hidden_dim=4,
+        edge_encoder_steps=0,
+    )
+    adapter = CPGNetInterfaceTargetAdapter()
+    normalizer = ladder.PrimitiveNormalizer(
+        mean=torch.zeros(1, 1, 3),
+        std=torch.ones(1, 1, 3),
+    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=1.0e-4)
+    parameter = next(model.parameters())
+    before = parameter.detach().clone()
+
+    metrics = ladder.train_unrolled_epoch(
+        model,
+        adapter,
+        [(batch, target_sequence, dt_sequence)],
+        normalizer,
+        optimizer,
+        torch.device("cpu"),
+        grad_clip=1.0,
+    )
+
+    assert torch.isfinite(torch.tensor(metrics["loss"]))
+    assert parameter.grad is not None
+    assert torch.isfinite(parameter.grad).all()
+    assert not torch.equal(before, parameter.detach())
+
+
+def test_cpgnet_rejects_non_solver_target_contract():
+    ladder = _load_ladder_module()
+
+    with pytest.raises(ValueError, match="cpg_interface"):
+        ladder.requested_experiment_pairs("cpgnet", "limited_residual")
+
+    assert ladder.requested_experiment_pairs("cpgnet", "all") == [
+        ("cpgnet", "cpg_interface")
+    ]
+
+
+def test_raw_cpgnet_rollout_stops_at_first_nonpositive_cell_state():
+    ladder = _load_ladder_module()
+    num_cells = 5
+    data = np.zeros((1, 3, num_cells, 3), dtype=np.float32)
+    data[..., 0] = 1.0
+    data[..., 2] = 1.0
+    source = Euler1DNPZ(
+        data=data,
+        x=np.linspace(0.0, 1.0, num_cells, dtype=np.float32)[None],
+        t=np.array([[0.0, 0.05, 0.1]], dtype=np.float32),
+        left_states=np.array([[1.0, 0.0, 1.0]], dtype=np.float32),
+        right_states=np.array([[1.0, 0.0, 1.0]], dtype=np.float32),
+        gamma=1.4,
+        metadata={},
+    )
+
+    class UnsafePositiveInterfaces(torch.nn.Module):
+        def forward(self, batch):
+            num_faces = batch.geometry.face_owner.shape[1]
+            interface = torch.ones(
+                batch.current_primitive.shape[0],
+                num_faces,
+                2,
+                3,
+                device=batch.current_primitive.device,
+            )
+            interface[..., 1] = 0.0
+            interface[:, 2, :, 1] = 100.0
+            return interface
+
+    row = ladder.rollout_case(
+        UnsafePositiveInterfaces(),
+        CPGNetInterfaceTargetAdapter(),
+        source,
+        case_id=0,
+        steps=2,
+        step_stride=1,
+        device=torch.device('cpu'),
+        final_frame=2,
+    )
+
+    assert row['num_steps'] == 0
+    assert row['completed_horizon'] is False
+    assert row['termination_reason'] == 'nonpositive_raw_state'
+    assert row['first_invalid_step'] == 1
+    assert row['raw_min_density'] < 0.0
+    assert row['num_nonpositive_raw_density'] > 0

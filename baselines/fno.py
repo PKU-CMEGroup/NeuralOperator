@@ -231,16 +231,17 @@ class SpectralConv1d(nn.Module):
         # Initialize output Fourier tensor with zeros
         out_ft = torch.zeros(
             batchsize,
-            self.in_channels,
+            self.out_channels,
             x.size(-1) // 2 + 1,    # Number of positive frequencies
             device=x.device,
             dtype=torch.cfloat,
         )
         
-        # Multiply the first `modes1` Fourier coefficients with weights
-        # This is the core spectral operation
-        out_ft[:, :, : self.modes1] = compl_mul1d(
-            x_ft[:, :, : self.modes1], self.weights1
+        # Multiply the retained Fourier coefficients with weights.
+        # Tiny smoke fixtures may have fewer FFT modes than a production config.
+        modes = min(self.modes1, x_ft.shape[-1])
+        out_ft[:, :, :modes] = compl_mul1d(
+            x_ft[:, :, :modes], self.weights1[:, :, :modes]
         )
         # Note: Higher frequencies (modes1 to end) are set to zero
         # This acts as a low-pass filter

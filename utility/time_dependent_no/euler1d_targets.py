@@ -544,6 +544,39 @@ class InterfaceStateTargetAdapter(nn.Module):
         )
 
 
+class CPGNetInterfaceTargetAdapter(nn.Module):
+    """Decode positive interface states with no cell-state limiter or floor."""
+
+    def forward(self, raw: torch.Tensor, batch: Euler1DBatch) -> TargetPrediction:
+        expected = (*batch.geometry.face_owner.shape, 2, 3)
+        if raw.shape != expected:
+            raise ValueError(
+                "CPGNet interface output has the wrong shape: "
+                f"{tuple(raw.shape)} != {expected}"
+            )
+        owner_primitive = raw[..., 0, :]
+        neighbor_primitive = raw[..., 1, :]
+        face_flux = rusanov_flux_from_primitive(
+            owner_primitive,
+            neighbor_primitive,
+            batch.geometry.face_normal,
+            gamma=batch.gamma,
+        )
+        conservative = update_from_face_flux(batch, face_flux)
+        primitive = conservative_to_primitive(conservative, gamma=batch.gamma)
+        return TargetPrediction(
+            primitive=primitive,
+            conservative=conservative,
+            aux={
+                "target_kind": "cpg_interface",
+                "interface_primitive": raw,
+                "face_flux": face_flux,
+                "proposed_conservative": conservative,
+                "raw_recurrence": True,
+            },
+        )
+
+
 class PositiveLimitedInterfaceStateTargetAdapter(nn.Module):
     """Positive interface states with Rusanov flux and update limiting."""
 
@@ -649,6 +682,8 @@ def make_target_adapter(
         return PositiveLimitedInterfaceStateTargetAdapter(
             positive_transform=positive_transform
         )
+    if target == "cpg_interface":
+        return CPGNetInterfaceTargetAdapter()
     raise ValueError(f"unsupported target: {target}")
 
 

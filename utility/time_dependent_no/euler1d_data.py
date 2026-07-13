@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from utility.time_dependent_no.euler1d import make_euler1d_batch
+from utility.time_dependent_no.euler1d import Euler1DBatch, make_euler1d_batch
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,9 @@ class Euler1DTimePairDataset(Dataset):
     ) -> None:
         if step_stride < 1:
             raise ValueError("step_stride must be >= 1")
-        self.source = load_euler1d_npz(source) if not isinstance(source, Euler1DNPZ) else source
+        self.source = (
+            load_euler1d_npz(source) if not isinstance(source, Euler1DNPZ) else source
+        )
         self.source.validate()
 
         if case_indices is None:
@@ -127,6 +129,95 @@ class Euler1DTimePairDataset(Dataset):
         }
 
 
+class Euler1DRolloutWindowDataset(Dataset):
+    """Fixed-stride trajectory windows for autoregressive fine-tuning."""
+
+    def __init__(
+        self,
+        source: str | Path | Euler1DNPZ,
+        *,
+        case_indices: list[int] | np.ndarray | None = None,
+        step_stride: int = 1,
+        rollout_steps: int = 3,
+    ) -> None:
+        if step_stride < 1:
+            raise ValueError("step_stride must be >= 1")
+        if rollout_steps < 2:
+            raise ValueError("rollout_steps must be >= 2")
+        self.source = (
+            load_euler1d_npz(source) if not isinstance(source, Euler1DNPZ) else source
+        )
+        self.source.validate()
+        if case_indices is None:
+            cases = np.arange(self.source.num_cases, dtype=np.int64)
+        else:
+            cases = np.asarray(case_indices, dtype=np.int64)
+        if np.any(cases < 0) or np.any(cases >= self.source.num_cases):
+            raise ValueError("case_indices contains out-of-range entries")
+
+        horizon = step_stride * rollout_steps
+        if horizon >= self.source.num_frames:
+            raise ValueError("rollout window exceeds the available trajectory")
+        self.windows = [
+            (case, start)
+            for case in cases.tolist()
+            for start in range(self.source.num_frames - horizon)
+        ]
+        self.step_stride = int(step_stride)
+        self.rollout_steps = int(rollout_steps)
+
+    def __len__(self) -> int:
+        return len(self.windows)
+
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor | float]:
+        case, start = self.windows[index]
+        frame_ids = start + self.step_stride * np.arange(
+            1, self.rollout_steps + 1, dtype=np.int64
+        )
+        previous_ids = np.concatenate(([start], frame_ids[:-1]))
+        target_sequence = self.source.data[case, frame_ids]
+        dt_sequence = self.source.t[case, frame_ids] - self.source.t[case, previous_ids]
+        return {
+            "current_primitive": torch.from_numpy(self.source.data[case, start]),
+            "target_sequence": torch.from_numpy(target_sequence),
+            "dt_sequence": torch.from_numpy(dt_sequence.astype(np.float32)),
+            "x": torch.from_numpy(self.source.x[case]),
+            "left_boundary_primitive": torch.from_numpy(self.source.left_states[case]),
+            "right_initial_primitive": torch.from_numpy(self.source.right_states[case]),
+            "gamma": self.source.gamma,
+        }
+
+
+def collate_euler1d_rollout_windows(
+    samples: list[dict[str, torch.Tensor | float]],
+) -> tuple[Euler1DBatch, torch.Tensor, torch.Tensor]:
+    """Collate autoregressive windows into an initial batch and sequences."""
+
+    if not samples:
+        raise ValueError("cannot collate an empty sample list")
+    gamma = float(samples[0]["gamma"])
+    if any(float(sample["gamma"]) != gamma for sample in samples):
+        raise ValueError("mixed gamma values in one batch are not supported")
+    current = torch.stack([sample["current_primitive"] for sample in samples])
+    targets = torch.stack([sample["target_sequence"] for sample in samples])
+    dt_sequence = torch.stack([sample["dt_sequence"] for sample in samples])
+    x = torch.stack([sample["x"] for sample in samples])
+    left = torch.stack([sample["left_boundary_primitive"] for sample in samples])
+    right_initial = torch.stack(
+        [sample["right_initial_primitive"] for sample in samples]
+    )
+    initial_batch = make_euler1d_batch(
+        current,
+        x,
+        dt_sequence[:, 0],
+        target_primitive=targets[:, 0],
+        gamma=gamma,
+        left_boundary_primitive=left,
+        right_initial_primitive=right_initial,
+    )
+    return initial_batch, targets, dt_sequence
+
+
 def collate_euler1d_pairs(samples: list[dict[str, torch.Tensor | float]]):
     """Collate one-step samples into an ``Euler1DBatch``."""
 
@@ -141,6 +232,9 @@ def collate_euler1d_pairs(samples: list[dict[str, torch.Tensor | float]]):
     x = torch.stack([sample["x"] for sample in samples])
     dt = torch.stack([sample["dt"] for sample in samples])
     left = torch.stack([sample["left_boundary_primitive"] for sample in samples])
+    right_initial = torch.stack(
+        [sample["right_initial_primitive"] for sample in samples]
+    )
     return make_euler1d_batch(
         current,
         x,
@@ -148,4 +242,5 @@ def collate_euler1d_pairs(samples: list[dict[str, torch.Tensor | float]]):
         target_primitive=target,
         gamma=gamma,
         left_boundary_primitive=left,
+        right_initial_primitive=right_initial,
     )

@@ -29,6 +29,7 @@ class Euler1DBatch:
     target_primitive: torch.Tensor | None = None
     gamma: float = 1.4
     left_boundary_primitive: torch.Tensor | None = None
+    right_initial_primitive: torch.Tensor | None = None
     right_boundary_primitive: torch.Tensor | None = None
 
     def to(self, device: torch.device | str) -> "Euler1DBatch":
@@ -43,6 +44,9 @@ class Euler1DBatch:
             left_boundary_primitive=None
             if self.left_boundary_primitive is None
             else self.left_boundary_primitive.to(device),
+            right_initial_primitive=None
+            if self.right_initial_primitive is None
+            else self.right_initial_primitive.to(device),
             right_boundary_primitive=None
             if self.right_boundary_primitive is None
             else self.right_boundary_primitive.to(device),
@@ -59,7 +63,9 @@ class Euler1DBatch:
         return primitive_to_conservative(self.target_primitive, gamma=self.gamma)
 
 
-def primitive_to_conservative(primitive: torch.Tensor, gamma: float = 1.4) -> torch.Tensor:
+def primitive_to_conservative(
+    primitive: torch.Tensor, gamma: float = 1.4
+) -> torch.Tensor:
     """Convert primitive ``[rho, u, p]`` to conservative variables."""
 
     if primitive.shape[-1] != 3:
@@ -116,7 +122,9 @@ def decode_primitive(
     return torch.stack((rho, velocity, pressure), dim=-1)
 
 
-def euler_flux_from_primitive(primitive: torch.Tensor, gamma: float = 1.4) -> torch.Tensor:
+def euler_flux_from_primitive(
+    primitive: torch.Tensor, gamma: float = 1.4
+) -> torch.Tensor:
     """Physical 1D Euler flux in the positive x direction."""
 
     rho, velocity, pressure = primitive.unbind(dim=-1)
@@ -140,7 +148,9 @@ def normal_flux_from_primitive(
     """Physical flux through a 1D face with outward normal ``+1`` or ``-1``."""
 
     normal_scalar = normal.squeeze(-1)
-    return euler_flux_from_primitive(primitive, gamma=gamma) * normal_scalar.unsqueeze(-1)
+    return euler_flux_from_primitive(primitive, gamma=gamma) * normal_scalar.unsqueeze(
+        -1
+    )
 
 
 def rusanov_flux_from_primitive(
@@ -161,7 +171,9 @@ def rusanov_flux_from_primitive(
     rho_r, u_r, p_r = neighbor_primitive.unbind(dim=-1)
     c_l = torch.sqrt((gamma * p_l / rho_l).clamp_min(0.0))
     c_r = torch.sqrt((gamma * p_r / rho_r).clamp_min(0.0))
-    speed = torch.maximum((u_l * n).abs() + c_l * n.abs(), (u_r * n).abs() + c_r * n.abs())
+    speed = torch.maximum(
+        (u_l * n).abs() + c_l * n.abs(), (u_r * n).abs() + c_r * n.abs()
+    )
 
     return 0.5 * (owner_flux + neighbor_flux) - 0.5 * speed.unsqueeze(-1) * (
         neighbor_cons - owner_cons
@@ -197,7 +209,9 @@ def make_uniform_1d_geometry(x: torch.Tensor) -> FiniteVolumeGeometry:
     interior_faces = 0.5 * (x[:, :-1] + x[:, 1:])
     left_face = x[:, :1] - 0.5 * left_dx
     right_face = x[:, -1:] + 0.5 * right_dx
-    face_centers = torch.cat((left_face, interior_faces, right_face), dim=1).unsqueeze(-1)
+    face_centers = torch.cat((left_face, interior_faces, right_face), dim=1).unsqueeze(
+        -1
+    )
 
     left_width = interior_faces[:, :1] - left_face
     middle_width = interior_faces[:, 1:] - interior_faces[:, :-1]
@@ -236,6 +250,7 @@ def make_euler1d_batch(
     target_primitive: torch.Tensor | None = None,
     gamma: float = 1.4,
     left_boundary_primitive: torch.Tensor | None = None,
+    right_initial_primitive: torch.Tensor | None = None,
     right_boundary_primitive: torch.Tensor | None = None,
 ) -> Euler1DBatch:
     """Build an ``Euler1DBatch`` from primitive snapshots and cell centers."""
@@ -264,6 +279,7 @@ def make_euler1d_batch(
         target_primitive=target_primitive,
         gamma=gamma,
         left_boundary_primitive=left_boundary_primitive,
+        right_initial_primitive=right_initial_primitive,
         right_boundary_primitive=right_boundary_primitive,
     )
 
@@ -274,4 +290,6 @@ def update_from_face_flux(
 ) -> torch.Tensor:
     """Update current state with a face-normal conservative flux."""
 
-    return finite_volume_update(batch.current_conservative, face_flux, batch.geometry, batch.dt)
+    return finite_volume_update(
+        batch.current_conservative, face_flux, batch.geometry, batch.dt
+    )

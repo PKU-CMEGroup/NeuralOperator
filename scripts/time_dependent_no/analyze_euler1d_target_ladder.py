@@ -150,6 +150,28 @@ def rank_group_key(row: dict[str, Any], group_by: str) -> str:
     return str(row.get(group_by, ""))
 
 
+def annotate_model_implementation(row: dict[str, Any]) -> None:
+    implementation = str(row.get("model_implementation", "")).strip()
+    model = str(row.get("model", "")).strip()
+    deprecated = "no"
+    reason = ""
+    if not implementation:
+        if model == "cpgnet":
+            implementation = "deprecated_legacy_CPGStyleEuler1DHead"
+            deprecated = "yes"
+            reason = "unlabeled legacy cpgnet row used the old CPG-style pilot head"
+        elif model == "fno":
+            implementation = "legacy_FNOEuler1DHead_unspecified_config"
+        else:
+            implementation = "unspecified"
+    if model == "cpg_style_pilot" or "CPGStylePilot" in implementation:
+        deprecated = "yes"
+        reason = reason or "explicit CPG-style pilot head"
+    row["model_implementation"] = implementation
+    row["deprecated_result"] = deprecated
+    row["deprecated_reason"] = reason
+
+
 def add_selector_diagnostics(row: dict[str, Any], args: argparse.Namespace) -> None:
     flags: list[str] = []
     status = str(row.get("status", "ok"))
@@ -277,7 +299,12 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "selector_rank",
         "rank_group",
         "model",
+        "model_implementation",
+        "deprecated_result",
+        "deprecated_reason",
         "target",
+        "target_type",
+        "seed_count",
         "step_stride",
         "rollout_final_frame",
         "input_noise_std",
@@ -285,6 +312,8 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "flux_correction_scale_floor",
         "selector_verdict",
         "selector_flags",
+        "one_step_loss",
+        "one_step_relative_l2",
         "test_relative_l2",
         "rollout_relative_l2_mean",
         "rollout_relative_l2_final",
@@ -348,6 +377,7 @@ def write_report(
         "flux_correction_scale",
         "selector_verdict",
         "selector_flags",
+        "deprecated_result",
         "rollout_relative_l2_final",
         "shock_position_mae",
         "conservative_total_error_final",
@@ -377,6 +407,7 @@ def write_report(
         "- `candidate` means no finite-horizon, positivity, floor-hugging, or aggressive-limiter warning was triggered by the configured thresholds.",
         "- `caution` means the rollout survived but may be relying on floors or limiter intervention.",
         "- `reject` means the row failed, became nonfinite, missed the horizon, or had nonpositive decoded conservative states.",
+        "- `deprecated_result=yes` rows are legacy or explicit pilot runs and must not be mixed with corrected Section 1.2 CPGNet/FNO baselines.",
     ]
     path.write_text("\n".join(text) + "\n", encoding="utf-8")
 
@@ -386,6 +417,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     rows = [row for path in args.inputs for row in read_summary(path)]
     for row in rows:
         row["step_stride"] = row.get("step_stride") or infer_stride(row)
+        annotate_model_implementation(row)
         add_selector_diagnostics(row, args)
 
     ranked: list[dict[str, Any]] = []

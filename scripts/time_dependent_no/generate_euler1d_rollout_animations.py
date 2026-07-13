@@ -45,6 +45,7 @@ from utility.time_dependent_no.euler1d_targets import make_target_adapter
 
 VARIABLE_NAMES = ("density", "velocity", "pressure")
 MODEL_CHOICES = ("cpgnet", "fno")
+ARG_MODEL_CHOICES = (*MODEL_CHOICES, "cpg_style_pilot")
 TARGET_CHOICES = (
     "residual",
     "primitive_residual",
@@ -66,13 +67,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=ROOT / "artifacts" / "time_dependent_no" / "euler1d_rollout_animations",
     )
-    parser.add_argument("--model", choices=(*MODEL_CHOICES, "all"), default="all")
+    parser.add_argument("--model", choices=(*ARG_MODEL_CHOICES, "all"), default="all")
     parser.add_argument("--target", choices=(*TARGET_CHOICES, "all"), default="all")
     parser.add_argument("--step-stride", type=int, default=4)
-    parser.add_argument("--rollout-final-frame", type=int, default=40)
+    parser.add_argument("--rollout-final-frame", type=int, default=80)
     parser.add_argument("--case-ids", nargs="*", type=int)
     parser.add_argument("--num-cases", type=int, default=3)
-    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--epochs", type=int, default=80)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--train-cases", type=int, default=384)
     parser.add_argument("--test-cases", type=int, default=64)
@@ -99,11 +100,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--torch-threads", type=int, default=0)
-    parser.add_argument("--cpg-hidden-dim", type=int, default=64)
-    parser.add_argument("--cpg-message-passing-steps", type=int, default=3)
+    parser.add_argument("--cpg-hidden-dim", type=int, default=128)
+    parser.add_argument("--cpg-message-passing-steps", type=int, default=12)
     parser.add_argument("--cpg-mlp-layers", type=int, default=3)
-    parser.add_argument("--fno-width", type=int, default=32)
-    parser.add_argument("--fno-modes", type=int, default=8)
+    parser.add_argument("--fno-width", type=int, default=64)
+    parser.add_argument("--fno-modes", type=int, default=16)
     parser.add_argument("--fno-layers", type=int, default=4)
     parser.add_argument("--fno-fc-dim", type=int, default=128)
     parser.add_argument("--fno-pad-ratio", type=float, default=0.0)

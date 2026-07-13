@@ -44,12 +44,15 @@ from utility.time_dependent_no.euler1d import (
 )
 from utility.time_dependent_no.euler1d_data import (
     Euler1DNPZ,
+    Euler1DRolloutWindowDataset,
     Euler1DTimePairDataset,
     collate_euler1d_pairs,
+    collate_euler1d_rollout_windows,
     load_euler1d_npz,
 )
 from utility.time_dependent_no.euler1d_models import (
-    CPGStyleEuler1DHead,
+    CPGNetEuler1D,
+    CPGStylePilotEuler1DHead,
     Euler1DTarget,
     FNOEuler1DHead,
 )
@@ -61,6 +64,7 @@ NEAR_FLOOR = 1.0e-6
 LIMITER_ACTIVE_TOL = 1.0e-6
 CORRECTION_SATURATION_TOL = 0.95
 MODEL_CHOICES = ("cpgnet", "fno")
+ARG_MODEL_CHOICES = (*MODEL_CHOICES, "cpg_style_pilot")
 TARGET_CHOICES = (
     "residual",
     "primitive_residual",
@@ -71,7 +75,8 @@ TARGET_CHOICES = (
     "interface",
     "positive_limited_interface",
 )
-ARG_TARGET_CHOICES = ("state", *TARGET_CHOICES)
+CPG_TARGET = "cpg_interface"
+ARG_TARGET_CHOICES = ("state", *TARGET_CHOICES, CPG_TARGET)
 
 
 @dataclass(frozen=True)
@@ -92,6 +97,22 @@ class PrimitiveNormalizer:
         targets = source.data[case_indices, step_stride:]
         mean = torch.as_tensor(targets.mean(axis=(0, 1, 2)), dtype=torch.float32)
         std_np = targets.std(axis=(0, 1, 2))
+        std = torch.as_tensor(np.maximum(std_np, 1.0e-6), dtype=torch.float32)
+        return cls(mean=mean.reshape(1, 1, 3), std=std.reshape(1, 1, 3))
+
+    @classmethod
+    def from_source_inputs(
+        cls,
+        source: Euler1DNPZ,
+        case_indices: np.ndarray,
+        *,
+        step_stride: int = 1,
+    ) -> 'PrimitiveNormalizer':
+        if step_stride < 1 or step_stride >= source.num_frames:
+            raise ValueError('step_stride must be in [1, num_frames - 1]')
+        inputs = source.data[case_indices, :-step_stride]
+        mean = torch.as_tensor(inputs.mean(axis=(0, 1, 2)), dtype=torch.float32)
+        std_np = inputs.std(axis=(0, 1, 2))
         std = torch.as_tensor(np.maximum(std_np, 1.0e-6), dtype=torch.float32)
         return cls(mean=mean.reshape(1, 1, 3), std=std.reshape(1, 1, 3))
 
@@ -116,12 +137,46 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         / "time_dependent_no"
         / f"euler1d_target_ladder_{date}",
     )
-    parser.add_argument("--model", choices=(*MODEL_CHOICES, "all"), default="all")
+    parser.add_argument("--model", choices=(*ARG_MODEL_CHOICES, "all"), default="all")
     parser.add_argument("--target", choices=(*ARG_TARGET_CHOICES, "all"), default="all")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=80)
+    parser.add_argument(
+        "--unroll-epochs",
+        type=int,
+        default=0,
+        help="CPGNet-only autoregressive fine-tuning epochs after one-step training.",
+    )
+    parser.add_argument(
+        "--unroll-steps",
+        type=int,
+        default=3,
+        help="Number of differentiable CPGNet rollout steps during fine-tuning.",
+    )
+    parser.add_argument(
+        "--unroll-lr-factor",
+        type=float,
+        default=0.1,
+        help="Learning-rate multiplier for autoregressive fine-tuning.",
+    )
+    parser.add_argument(
+        "--unroll-noise-factor",
+        type=float,
+        default=0.1,
+        help="Input-noise multiplier for the first unrolled state.",
+    )
     parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1.0e-3)
-    parser.add_argument("--weight-decay", type=float, default=1.0e-5)
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Default: 1e-4 for CPGNet and 1e-3 for FNO/pilot heads.",
+    )
+    parser.add_argument(
+        "--weight-decay",
+        type=float,
+        default=None,
+        help="Default: 0 for CPGNet and 1e-5 for FNO/pilot heads.",
+    )
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument(
         "--flux-correction-scale",
@@ -145,12 +200,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--seed", type=int, default=20260707)
-    parser.add_argument("--train-cases", type=int, default=8)
-    parser.add_argument("--test-cases", type=int, default=4)
-    parser.add_argument("--rollout-steps", type=int, default=12)
+    parser.add_argument("--train-cases", type=int, default=384)
+    parser.add_argument("--val-cases", type=int, default=64)
+    parser.add_argument("--test-cases", type=int, default=64)
+    parser.add_argument("--rollout-steps", type=int, default=20)
     parser.add_argument(
         "--rollout-final-frame",
         type=int,
+        default=80,
         help=(
             "Evaluate all strides to the same saved-frame horizon. "
             "Overrides --rollout-steps and must be divisible by --step-stride."
@@ -159,7 +216,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--step-stride",
         type=int,
-        default=1,
+        default=4,
         help="Saved-frame stride for the fixed coarse-step operator.",
     )
     parser.add_argument(
@@ -171,11 +228,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--torch-threads", type=int, default=0)
-    parser.add_argument("--cpg-hidden-dim", type=int, default=64)
-    parser.add_argument("--cpg-message-passing-steps", type=int, default=3)
+    parser.add_argument("--cpg-hidden-dim", type=int, default=128)
+    parser.add_argument("--cpg-message-passing-steps", type=int, default=12)
     parser.add_argument("--cpg-mlp-layers", type=int, default=3)
-    parser.add_argument("--fno-width", type=int, default=32)
-    parser.add_argument("--fno-modes", type=int, default=8)
+    parser.add_argument("--fno-width", type=int, default=64)
+    parser.add_argument("--fno-modes", type=int, default=16)
     parser.add_argument("--fno-layers", type=int, default=4)
     parser.add_argument("--fno-fc-dim", type=int, default=128)
     parser.add_argument("--fno-pad-ratio", type=float, default=0.0)
@@ -212,32 +269,55 @@ def select_device(args: argparse.Namespace) -> torch.device:
 
 def split_cases(
     source: Euler1DNPZ, args: argparse.Namespace
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if args.train_cases < 1:
         raise ValueError("--train-cases must be >= 1")
+    if args.val_cases < 1:
+        raise ValueError("--val-cases must be >= 1")
     if args.test_cases < 1:
         raise ValueError("--test-cases must be >= 1")
-    if source.num_cases < 2:
-        raise ValueError("at least two cases are required for train/test split")
+    if source.num_cases < 3:
+        raise ValueError("at least three cases are required for train/val/test split")
 
-    requested = args.train_cases + args.test_cases
+    requested = args.train_cases + args.val_cases + args.test_cases
     if requested > source.num_cases:
         raise ValueError(
             f"requested {requested} cases but dataset has only {source.num_cases}; "
-            "regenerate more cases or lower --train-cases/--test-cases"
+            "regenerate more cases or lower --train-cases/--val-cases/--test-cases"
         )
     rng = np.random.default_rng(args.seed)
     permutation = rng.permutation(source.num_cases)
-    train = np.sort(permutation[: args.train_cases]).astype(np.int64)
-    test = np.sort(permutation[args.train_cases : requested]).astype(np.int64)
-    return train, test
+    train_end = args.train_cases
+    val_end = train_end + args.val_cases
+    train = np.sort(permutation[:train_end]).astype(np.int64)
+    val = np.sort(permutation[train_end:val_end]).astype(np.int64)
+    test = np.sort(permutation[val_end:requested]).astype(np.int64)
+    return train, val, test
 
 
 def build_model(
-    model_name: str, target: Euler1DTarget, args: argparse.Namespace
+    model_name: str,
+    target: Euler1DTarget,
+    args: argparse.Namespace,
+    normalizer: PrimitiveNormalizer | None = None,
 ) -> nn.Module:
     if model_name == "cpgnet":
-        model = CPGStyleEuler1DHead(
+        if target != CPG_TARGET:
+            raise ValueError(
+                "--model cpgnet requires --target cpg_interface; "
+                "the residual target head is a deprecated pilot, not CPGNet"
+            )
+        if normalizer is None:
+            raise ValueError("CPGNet requires training-set primitive statistics")
+        model = CPGNetEuler1D(
+            hidden_dim=args.cpg_hidden_dim,
+            message_passing_steps=args.cpg_message_passing_steps,
+            mlp_layers=args.cpg_mlp_layers,
+            primitive_mean=normalizer.mean,
+            primitive_std=normalizer.std,
+        )
+    elif model_name == "cpg_style_pilot":
+        model = CPGStylePilotEuler1DHead(
             target,
             hidden_dim=args.cpg_hidden_dim,
             message_passing_steps=args.cpg_message_passing_steps,
@@ -274,7 +354,7 @@ def zero_initialize_identity_update_output(
 ) -> None:
     """Start increment and flux heads from the no-update map."""
 
-    if isinstance(model, CPGStyleEuler1DHead):
+    if isinstance(model, CPGStylePilotEuler1DHead):
         module = (
             model.node_decoder
             if target in ("residual", "primitive_residual", "limited_residual")
@@ -383,7 +463,7 @@ def update_flux_correction_accumulator(
 
 
 def finalize_flux_correction_accumulator(
-    accumulator: dict[str, float]
+    accumulator: dict[str, float],
 ) -> dict[str, float]:
     count = accumulator["ratio_count"]
     if count <= 0.0:
@@ -429,7 +509,8 @@ def update_conservative_safety_accumulator(
         accumulator["min_density"], float(primitive[..., 0].min().detach().cpu().item())
     )
     accumulator["min_pressure"] = min(
-        accumulator["min_pressure"], float(primitive[..., 2].min().detach().cpu().item())
+        accumulator["min_pressure"],
+        float(primitive[..., 2].min().detach().cpu().item()),
     )
     accumulator["nonpositive_density"] += float(
         primitive[..., 0].le(0.0).sum().detach().cpu().item()
@@ -479,18 +560,12 @@ def proposed_safety_metrics(accumulator: dict[str, float]) -> dict[str, float | 
         {
             "raw_min_density": metrics["proposed_min_density"],
             "raw_min_pressure": metrics["proposed_min_pressure"],
-            "num_nonpositive_raw_density": metrics[
-                "num_nonpositive_proposed_density"
-            ],
+            "num_nonpositive_raw_density": metrics["num_nonpositive_proposed_density"],
             "num_nonpositive_raw_pressure": metrics[
                 "num_nonpositive_proposed_pressure"
             ],
-            "num_raw_density_near_floor": metrics[
-                "num_proposed_density_near_floor"
-            ],
-            "num_raw_pressure_near_floor": metrics[
-                "num_proposed_pressure_near_floor"
-            ],
+            "num_raw_density_near_floor": metrics["num_proposed_density_near_floor"],
+            "num_raw_pressure_near_floor": metrics["num_proposed_pressure_near_floor"],
         }
     )
     return metrics
@@ -625,6 +700,68 @@ def train_one_epoch(
     }
 
 
+def train_unrolled_epoch(
+    model: nn.Module,
+    adapter: nn.Module,
+    loader: DataLoader,
+    normalizer: PrimitiveNormalizer,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    grad_clip: float,
+    input_noise_std: float = 0.0,
+) -> dict[str, float]:
+    """Train through a fixed autoregressive window without state detachment."""
+
+    model.train()
+    total_loss = 0.0
+    total_rel_l2 = 0.0
+    total_samples = 0
+
+    for initial_batch, target_sequence, dt_sequence in loader:
+        initial_batch = initial_batch.to(device)
+        target_sequence = target_sequence.to(device)
+        dt_sequence = dt_sequence.to(device)
+        noisy_batch = apply_primitive_input_noise(initial_batch, input_noise_std)
+        current = noisy_batch.current_primitive
+        step_losses: list[torch.Tensor] = []
+        step_relative_l2: list[torch.Tensor] = []
+
+        optimizer.zero_grad(set_to_none=True)
+        for step in range(target_sequence.shape[1]):
+            step_batch = replace(
+                initial_batch,
+                current_primitive=current,
+                target_primitive=target_sequence[:, step],
+                dt=dt_sequence[:, step],
+            )
+            prediction = adapter(model(step_batch), step_batch)
+            step_loss = normalizer.mse(prediction.primitive, target_sequence[:, step])
+            step_losses.append(step_loss)
+            step_relative_l2.append(
+                relative_l2_torch(prediction.primitive, target_sequence[:, step])
+            )
+            current = prediction.primitive
+
+        loss = torch.stack(step_losses).mean()
+        if not torch.isfinite(loss):
+            raise FloatingPointError("non-finite unrolled training loss")
+        loss.backward()
+        if grad_clip > 0.0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        optimizer.step()
+
+        batch_size = initial_batch.current_primitive.shape[0]
+        rel_l2 = torch.stack(step_relative_l2, dim=1).mean(dim=1)
+        total_loss += finite_scalar(loss) * batch_size
+        total_rel_l2 += float(rel_l2.detach().cpu().sum().item())
+        total_samples += batch_size
+
+    return {
+        "loss": total_loss / max(total_samples, 1),
+        "relative_l2": total_rel_l2 / max(total_samples, 1),
+    }
+
+
 def primitive_to_conservative_np(primitive: np.ndarray, gamma: float) -> np.ndarray:
     rho = primitive[..., 0]
     velocity = primitive[..., 1]
@@ -696,10 +833,15 @@ def rollout_case(
     current = torch.from_numpy(source.data[case_id, 0]).unsqueeze(0).to(device)
     x = torch.from_numpy(x_np).unsqueeze(0).to(device)
     left = torch.from_numpy(source.left_states[case_id]).unsqueeze(0).to(device)
+    right_initial = (
+        torch.from_numpy(source.right_states[case_id]).unsqueeze(0).to(device)
+    )
     predictions: list[np.ndarray] = []
     proposed_accumulator = new_conservative_safety_accumulator()
     limiter_accumulator = new_limiter_accumulator()
     flux_correction_accumulator = new_flux_correction_accumulator()
+    termination_reason: str | None = None
+    first_invalid_step: int | None = None
 
     with torch.no_grad():
         for step in range(max_steps):
@@ -716,6 +858,7 @@ def rollout_case(
                 dt,
                 gamma=source.gamma,
                 left_boundary_primitive=left,
+                right_initial_primitive=right_initial,
             )
             raw = model(batch)
             decoded = adapter(raw, batch)
@@ -726,10 +869,19 @@ def rollout_case(
                 gamma=source.gamma,
             )
             update_limiter_accumulator(limiter_accumulator, decoded.aux)
-            update_flux_correction_accumulator(
-                flux_correction_accumulator, decoded.aux
-            )
+            update_flux_correction_accumulator(flux_correction_accumulator, decoded.aux)
             if not torch.isfinite(next_state).all():
+                termination_reason = "nonfinite_state"
+                first_invalid_step = step + 1
+                break
+            raw_recurrence = bool(decoded.aux.get("raw_recurrence", False))
+            admissible = bool(
+                torch.all(next_state[..., 0] > 0.0)
+                and torch.all(next_state[..., 2] > 0.0)
+            )
+            if raw_recurrence and not admissible:
+                termination_reason = "nonpositive_raw_state"
+                first_invalid_step = step + 1
                 break
             predictions.append(
                 next_state.squeeze(0).detach().cpu().numpy().astype(np.float64)
@@ -737,33 +889,26 @@ def rollout_case(
             current = next_state.detach()
 
     if not predictions:
+        proposed_metrics = proposed_safety_metrics(proposed_accumulator)
+        limiter_metrics = finalize_limiter_accumulator(limiter_accumulator)
+        flux_correction_metrics = finalize_flux_correction_accumulator(
+            flux_correction_accumulator
+        )
         return {
             "case_id": int(case_id),
             "finite": False,
+            "admissible": False,
+            "termination_reason": termination_reason,
+            "first_invalid_step": first_invalid_step,
             "num_steps": 0,
             "rollout_relative_l2_mean": float("nan"),
             "rollout_relative_l2_final": float("nan"),
             "min_density": float("nan"),
             "min_pressure": float("nan"),
             "max_abs_primitive": float("nan"),
-            "proposed_min_density": float("nan"),
-            "proposed_min_pressure": float("nan"),
-            "num_nonpositive_proposed_density": 0,
-            "num_nonpositive_proposed_pressure": 0,
-            "num_proposed_density_near_floor": 0,
-            "num_proposed_pressure_near_floor": 0,
-            "raw_min_density": float("nan"),
-            "raw_min_pressure": float("nan"),
-            "num_nonpositive_raw_density": 0,
-            "num_nonpositive_raw_pressure": 0,
-            "num_raw_density_near_floor": 0,
-            "num_raw_pressure_near_floor": 0,
-            "limiter_theta_mean": float("nan"),
-            "limiter_theta_min": float("nan"),
-            "limiter_activation_fraction": float("nan"),
-            "flux_correction_abs_over_bound_mean": float("nan"),
-            "flux_correction_abs_over_bound_max": float("nan"),
-            "flux_correction_saturation_fraction": float("nan"),
+            **proposed_metrics,
+            **limiter_metrics,
+            **flux_correction_metrics,
             "shock_position_mae": float("nan"),
             "conservative_total_error_final": float("nan"),
             "step_stride": int(step_stride),
@@ -790,7 +935,12 @@ def rollout_case(
     )
     return {
         "case_id": int(case_id),
-        "finite": bool(np.isfinite(pred).all()),
+        "finite": bool(
+            np.isfinite(pred).all() and termination_reason != "nonfinite_state"
+        ),
+        "admissible": termination_reason is None,
+        "termination_reason": termination_reason,
+        "first_invalid_step": first_invalid_step,
         "num_steps": int(pred.shape[0]),
         "rollout_relative_l2_mean": float(np.mean(rel_l2)),
         "rollout_relative_l2_final": float(rel_l2[-1]),
@@ -840,12 +990,19 @@ def summarize_rollouts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     )
     summary: dict[str, Any] = {
         "finite": all(bool(row["finite"]) for row in rows),
+        "admissible": all(bool(row.get("admissible", True)) for row in rows),
         "num_cases": len(rows),
         "num_steps_min": min(int(row["num_steps"]) for row in rows),
         "num_steps_max": max(int(row["num_steps"]) for row in rows),
         "final_frame_min": min(int(row["final_frame"]) for row in rows),
         "final_frame_max": max(int(row["final_frame"]) for row in rows),
         "completed_horizon": all(bool(row.get("completed_horizon")) for row in rows),
+        "num_nonpositive_terminations": sum(
+            row.get("termination_reason") == "nonpositive_raw_state" for row in rows
+        ),
+        "num_nonfinite_terminations": sum(
+            row.get("termination_reason") == "nonfinite_state" for row in rows
+        ),
     }
     min_keys = {
         "min_density",
@@ -868,9 +1025,7 @@ def summarize_rollouts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     summary["num_nonpositive_proposed_density"] = int(
         sum(int(row.get("num_nonpositive_proposed_density", 0)) for row in rows)
     )
-    summary["num_nonpositive_raw_density"] = summary[
-        "num_nonpositive_proposed_density"
-    ]
+    summary["num_nonpositive_raw_density"] = summary["num_nonpositive_proposed_density"]
     summary["num_nonpositive_proposed_pressure"] = int(
         sum(int(row.get("num_nonpositive_proposed_pressure", 0)) for row in rows)
     )
@@ -880,15 +1035,11 @@ def summarize_rollouts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     summary["num_proposed_density_near_floor"] = int(
         sum(int(row.get("num_proposed_density_near_floor", 0)) for row in rows)
     )
-    summary["num_raw_density_near_floor"] = summary[
-        "num_proposed_density_near_floor"
-    ]
+    summary["num_raw_density_near_floor"] = summary["num_proposed_density_near_floor"]
     summary["num_proposed_pressure_near_floor"] = int(
         sum(int(row.get("num_proposed_pressure_near_floor", 0)) for row in rows)
     )
-    summary["num_raw_pressure_near_floor"] = summary[
-        "num_proposed_pressure_near_floor"
-    ]
+    summary["num_raw_pressure_near_floor"] = summary["num_proposed_pressure_near_floor"]
     return summary
 
 
@@ -909,11 +1060,23 @@ def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = sorted({key for row in rows for key in row})
     preferred = [
         "model",
+        "model_implementation",
         "target",
+        "target_type",
         "status",
+        "seed",
+        "seed_count",
+        "train_cases_count",
+        "val_cases_count",
+        "test_cases_count",
+        "best_epoch",
+        "selection_metric",
+        "selection_score",
         "step_stride",
         "rollout_final_frame",
         "input_noise_std",
+        "one_step_loss",
+        "one_step_relative_l2",
         "test_loss",
         "test_relative_l2",
         "rollout_relative_l2_mean",
@@ -968,9 +1131,77 @@ def json_ready(value: Any) -> Any:
     return value
 
 
+def model_implementation_name(model_name: str, args: argparse.Namespace) -> str:
+    if model_name == "fno":
+        return (
+            "FNOEuler1DHead"
+            f"(width={args.fno_width},modes={args.fno_modes},"
+            f"layers={args.fno_layers},fc_dim={args.fno_fc_dim})"
+        )
+    if model_name == "cpgnet":
+        return (
+            "CPGNetEuler1D"
+            f"(hidden={args.cpg_hidden_dim},message_layers={args.cpg_message_passing_steps},"
+            "edge_encoder_layers=4,directed_positive_interfaces=True,"
+            "shared_rusanov_flux=True,geometry=exact,no_cell_limiter=True)"
+        )
+    if model_name == "cpg_style_pilot":
+        return (
+            "CPGStylePilotEuler1DHead"
+            f"(hidden={args.cpg_hidden_dim},message_steps={args.cpg_message_passing_steps},"
+            "deprecated=True)"
+        )
+    return model_name
+
+
+def clone_state_dict_cpu(model: nn.Module) -> dict[str, torch.Tensor]:
+    return {
+        key: value.detach().cpu().clone() for key, value in model.state_dict().items()
+    }
+
+
+def load_state_dict_cpu(
+    model: nn.Module, state: dict[str, torch.Tensor], device: torch.device
+) -> None:
+    model.load_state_dict({key: value.to(device) for key, value in state.items()})
+
+
+def rollout_cases(
+    model: nn.Module,
+    adapter: nn.Module,
+    source: Euler1DNPZ,
+    case_ids: np.ndarray,
+    args: argparse.Namespace,
+    device: torch.device,
+) -> list[dict[str, Any]]:
+    return [
+        rollout_case(
+            model,
+            adapter,
+            source,
+            int(case_id),
+            args.rollout_steps,
+            args.step_stride,
+            device,
+            final_frame=args.rollout_final_frame,
+        )
+        for case_id in case_ids.tolist()
+    ]
+
+
+def rollout_selection_score(summary: dict[str, Any]) -> float:
+    value = float(summary.get("rollout_relative_l2_final", float("nan")))
+    if not bool(summary.get("finite", False)):
+        return float("inf")
+    if not bool(summary.get("completed_horizon", False)):
+        return float("inf")
+    return value if math.isfinite(value) else float("inf")
+
+
 def run_single(
     source: Euler1DNPZ,
     train_cases: np.ndarray,
+    val_cases: np.ndarray,
     test_cases: np.ndarray,
     model_name: str,
     target_name: str,
@@ -979,12 +1210,18 @@ def run_single(
 ) -> dict[str, Any]:
     start = time.perf_counter()
     target = cast(Euler1DTarget, target_name)
+    implementation = model_implementation_name(model_name, args)
     run_dir = args.output_dir / f"{model_name}_{target_name}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     train_dataset = Euler1DTimePairDataset(
         source,
         case_indices=train_cases,
+        step_stride=args.step_stride,
+    )
+    val_dataset = Euler1DTimePairDataset(
+        source,
+        case_indices=val_cases,
         step_stride=args.step_stride,
     )
     test_dataset = Euler1DTimePairDataset(
@@ -1000,30 +1237,70 @@ def run_single(
         collate_fn=collate_euler1d_pairs,
         generator=generator,
     )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=collate_euler1d_pairs,
+    )
     test_loader = DataLoader(
         test_dataset,
         batch_size=args.batch_size,
         shuffle=False,
         collate_fn=collate_euler1d_pairs,
     )
+    unroll_loader: DataLoader | None = None
+    if model_name == "cpgnet" and args.unroll_epochs > 0:
+        unroll_dataset = Euler1DRolloutWindowDataset(
+            source,
+            case_indices=train_cases,
+            step_stride=args.step_stride,
+            rollout_steps=args.unroll_steps,
+        )
+        unroll_loader = DataLoader(
+            unroll_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            collate_fn=collate_euler1d_rollout_windows,
+            generator=torch.Generator().manual_seed(args.seed + 1),
+        )
 
     normalizer = PrimitiveNormalizer.from_source(
         source,
         train_cases,
         step_stride=args.step_stride,
     ).to(device)
-    model = build_model(model_name, target, args).to(device)
+    input_normalizer = PrimitiveNormalizer.from_source_inputs(
+        source,
+        train_cases,
+        step_stride=args.step_stride,
+    ).to(device)
+    model = build_model(model_name, target, args, input_normalizer).to(device)
     adapter = make_target_adapter(
         target_name,
         positive_transform=args.positive_transform,
         flux_correction_scale=args.flux_correction_scale,
         flux_correction_scale_floor=args.flux_correction_scale_floor,
     ).to(device)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    optimizer_class: type[torch.optim.Optimizer]
+    optimizer_class = torch.optim.Adam if model_name == "cpgnet" else torch.optim.AdamW
+    learning_rate = args.lr
+    if learning_rate is None:
+        learning_rate = 1.0e-4 if model_name == "cpgnet" else 1.0e-3
+    weight_decay = args.weight_decay
+    if weight_decay is None:
+        weight_decay = 0.0 if model_name == "cpgnet" else 1.0e-5
+    optimizer = optimizer_class(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
     )
 
     history: list[dict[str, Any]] = []
+    best_state = clone_state_dict_cpu(model)
+    best_epoch = 0
+    best_score = float("inf")
+    best_val_eval: dict[str, float] | None = None
+    best_val_rollout: dict[str, Any] | None = None
+
     for epoch in range(1, args.epochs + 1):
         train_metrics = train_one_epoch(
             model,
@@ -1035,85 +1312,161 @@ def run_single(
             args.grad_clip,
             args.input_noise_std,
         )
-        test_metrics = evaluate_one_step(
-            model, adapter, test_loader, normalizer, device
+        val_metrics = evaluate_one_step(model, adapter, val_loader, normalizer, device)
+        val_rollout_rows = rollout_cases(
+            model, adapter, source, val_cases, args, device
         )
+        val_rollout_summary = summarize_rollouts(val_rollout_rows)
+        selection_score = rollout_selection_score(val_rollout_summary)
+        if selection_score < best_score or best_epoch == 0:
+            best_score = selection_score
+            best_epoch = epoch
+            best_state = clone_state_dict_cpu(model)
+            best_val_eval = dict(val_metrics)
+            best_val_rollout = dict(val_rollout_summary)
+
         row = {
             "epoch": epoch,
+            "stage": "one_step",
+            "stage_epoch": epoch,
             "train_loss": train_metrics["loss"],
             "train_relative_l2": train_metrics["relative_l2"],
-            "test_loss": test_metrics["loss"],
-            "test_relative_l2": test_metrics["relative_l2"],
-            "test_min_density": test_metrics["min_density"],
-            "test_min_pressure": test_metrics["min_pressure"],
-            "test_raw_min_density": test_metrics["raw_min_density"],
-            "test_raw_min_pressure": test_metrics["raw_min_pressure"],
-            "test_num_nonpositive_raw_density": test_metrics[
-                "num_nonpositive_raw_density"
+            "val_loss": val_metrics["loss"],
+            "val_relative_l2": val_metrics["relative_l2"],
+            "val_rollout_relative_l2_mean": val_rollout_summary[
+                "rollout_relative_l2_mean"
             ],
-            "test_num_nonpositive_raw_pressure": test_metrics[
-                "num_nonpositive_raw_pressure"
+            "val_rollout_relative_l2_final": val_rollout_summary[
+                "rollout_relative_l2_final"
             ],
-            "test_num_raw_density_near_floor": test_metrics[
-                "num_raw_density_near_floor"
+            "val_shock_position_mae": val_rollout_summary["shock_position_mae"],
+            "val_conservative_total_error_final": val_rollout_summary[
+                "conservative_total_error_final"
             ],
-            "test_num_raw_pressure_near_floor": test_metrics[
-                "num_raw_pressure_near_floor"
-            ],
-            "test_limiter_theta_mean": test_metrics["limiter_theta_mean"],
-            "test_limiter_theta_min": test_metrics["limiter_theta_min"],
-            "test_limiter_activation_fraction": test_metrics[
+            "val_min_density": val_rollout_summary["min_density"],
+            "val_min_pressure": val_rollout_summary["min_pressure"],
+            "val_limiter_activation_fraction": val_rollout_summary[
                 "limiter_activation_fraction"
             ],
-            "test_flux_correction_abs_over_bound_mean": test_metrics[
-                "flux_correction_abs_over_bound_mean"
-            ],
-            "test_flux_correction_abs_over_bound_max": test_metrics[
-                "flux_correction_abs_over_bound_max"
-            ],
-            "test_flux_correction_saturation_fraction": test_metrics[
-                "flux_correction_saturation_fraction"
-            ],
+            "selection_score": selection_score,
+            "is_best_checkpoint": epoch == best_epoch,
         }
         history.append(row)
         write_history(run_dir / "history.csv", history)
         print(
-            f"{model_name:6s} {target_name:9s} epoch {epoch:03d}/{args.epochs:03d} "
-            f"train_loss={row['train_loss']:.4e} test_loss={row['test_loss']:.4e} "
-            f"test_rel_l2={row['test_relative_l2']:.4e} "
-            f"limiter_act={row['test_limiter_activation_fraction']:.3f} "
-            f"corr_sat={row['test_flux_correction_saturation_fraction']:.3f}",
+            f"{model_name:15s} {target_name:27s} epoch {epoch:03d}/{args.epochs:03d} "
+            f"train_loss={row['train_loss']:.4e} val_loss={row['val_loss']:.4e} "
+            f"val_rollout_final={row['val_rollout_relative_l2_final']:.4e} "
+            f"best_epoch={best_epoch:03d}",
             flush=True,
         )
 
-    rollout_rows = [
-        rollout_case(
-            model,
-            adapter,
-            source,
-            int(case_id),
-            args.rollout_steps,
-            args.step_stride,
-            device,
-            final_frame=args.rollout_final_frame,
-        )
-        for case_id in test_cases.tolist()
-    ]
+    if unroll_loader is not None:
+        for parameter_group in optimizer.param_groups:
+            parameter_group["lr"] *= args.unroll_lr_factor
+        for stage_epoch in range(1, args.unroll_epochs + 1):
+            epoch = args.epochs + stage_epoch
+            train_metrics = train_unrolled_epoch(
+                model,
+                adapter,
+                unroll_loader,
+                normalizer,
+                optimizer,
+                device,
+                args.grad_clip,
+                args.input_noise_std * args.unroll_noise_factor,
+            )
+            val_metrics = evaluate_one_step(
+                model, adapter, val_loader, normalizer, device
+            )
+            val_rollout_rows = rollout_cases(
+                model, adapter, source, val_cases, args, device
+            )
+            val_rollout_summary = summarize_rollouts(val_rollout_rows)
+            selection_score = rollout_selection_score(val_rollout_summary)
+            if selection_score < best_score:
+                best_score = selection_score
+                best_epoch = epoch
+                best_state = clone_state_dict_cpu(model)
+                best_val_eval = dict(val_metrics)
+                best_val_rollout = dict(val_rollout_summary)
+
+            row = {
+                "epoch": epoch,
+                "stage": "autoregressive",
+                "stage_epoch": stage_epoch,
+                "train_loss": train_metrics["loss"],
+                "train_relative_l2": train_metrics["relative_l2"],
+                "val_loss": val_metrics["loss"],
+                "val_relative_l2": val_metrics["relative_l2"],
+                "val_rollout_relative_l2_mean": val_rollout_summary[
+                    "rollout_relative_l2_mean"
+                ],
+                "val_rollout_relative_l2_final": val_rollout_summary[
+                    "rollout_relative_l2_final"
+                ],
+                "val_shock_position_mae": val_rollout_summary["shock_position_mae"],
+                "val_conservative_total_error_final": val_rollout_summary[
+                    "conservative_total_error_final"
+                ],
+                "val_min_density": val_rollout_summary["min_density"],
+                "val_min_pressure": val_rollout_summary["min_pressure"],
+                "val_limiter_activation_fraction": val_rollout_summary[
+                    "limiter_activation_fraction"
+                ],
+                "selection_score": selection_score,
+                "is_best_checkpoint": epoch == best_epoch,
+            }
+            history.append(row)
+            write_history(run_dir / "history.csv", history)
+            train_loss_value = row["train_loss"]
+            val_loss_value = row["val_loss"]
+            val_rollout_value = row["val_rollout_relative_l2_final"]
+            print(
+                f"{model_name:15s} {target_name:27s} "
+                f"autoregressive {stage_epoch:03d}/{args.unroll_epochs:03d} "
+                f"train_loss={train_loss_value:.4e} "
+                f"val_loss={val_loss_value:.4e} "
+                f"val_rollout_final={val_rollout_value:.4e} "
+                f"best_epoch={best_epoch:03d}",
+                flush=True,
+            )
+
+    load_state_dict_cpu(model, best_state, device)
+    rollout_rows = rollout_cases(model, adapter, source, test_cases, args, device)
     rollout_summary = summarize_rollouts(rollout_rows)
     final_eval = evaluate_one_step(model, adapter, test_loader, normalizer, device)
     runtime = time.perf_counter() - start
+    if best_val_eval is None:
+        best_val_eval = evaluate_one_step(
+            model, adapter, val_loader, normalizer, device
+        )
+    if best_val_rollout is None:
+        best_val_rollout = summarize_rollouts(
+            rollout_cases(model, adapter, source, val_cases, args, device)
+        )
 
     payload = {
         "model": model_name,
+        "model_implementation": implementation,
         "target": target_name,
+        "target_type": target_name,
         "status": "ok",
         "data_path": args.data_path,
         "train_cases": train_cases,
+        "val_cases": val_cases,
         "test_cases": test_cases,
+        "seed": args.seed,
+        "seed_count": 1,
         "epochs": args.epochs,
+        "unroll_epochs": args.unroll_epochs if model_name == "cpgnet" else 0,
+        "unroll_steps": args.unroll_steps if model_name == "cpgnet" else 0,
+        "unroll_lr_factor": args.unroll_lr_factor,
+        "unroll_noise_factor": args.unroll_noise_factor,
         "batch_size": args.batch_size,
-        "lr": args.lr,
-        "weight_decay": args.weight_decay,
+        "optimizer": optimizer_class.__name__,
+        "lr": learning_rate,
+        "weight_decay": weight_decay,
         "positive_transform": args.positive_transform,
         "input_noise_std": args.input_noise_std,
         "flux_correction_scale": args.flux_correction_scale,
@@ -1121,8 +1474,17 @@ def run_single(
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
         "device": str(device),
+        "checkpoint_selection": {
+            "metric": "val_rollout_relative_l2_final",
+            "best_epoch": best_epoch,
+            "best_score": best_score,
+            "best_val_one_step": best_val_eval,
+            "best_val_rollout": best_val_rollout,
+        },
         "normalizer_mean": normalizer.mean.detach().cpu().reshape(3),
         "normalizer_std": normalizer.std.detach().cpu().reshape(3),
+        "input_normalizer_mean": input_normalizer.mean.detach().cpu().reshape(3),
+        "input_normalizer_std": input_normalizer.std.detach().cpu().reshape(3),
         "history": history,
         "one_step": final_eval,
         "rollout": rollout_summary,
@@ -1141,25 +1503,49 @@ def run_single(
             {
                 "model_state_dict": model.state_dict(),
                 "model": model_name,
+                "model_implementation": implementation,
                 "target": target_name,
                 "args": vars(args),
                 "train_cases": train_cases,
+                "val_cases": val_cases,
                 "test_cases": test_cases,
+                "best_epoch": best_epoch,
+                "selection_metric": "val_rollout_relative_l2_final",
                 "normalizer_mean": normalizer.mean.detach().cpu(),
                 "normalizer_std": normalizer.std.detach().cpu(),
+                "input_normalizer_mean": input_normalizer.mean.detach().cpu(),
+                "input_normalizer_std": input_normalizer.std.detach().cpu(),
             },
             run_dir / "checkpoint.pt",
         )
 
     row = {
         "model": model_name,
+        "model_implementation": implementation,
         "target": target_name,
+        "target_type": target_name,
+        "seed": args.seed,
+        "seed_count": 1,
+        "train_cases_count": int(train_cases.size),
+        "val_cases_count": int(val_cases.size),
+        "test_cases_count": int(test_cases.size),
+        "best_epoch": best_epoch,
+        "epochs": args.epochs,
+        "unroll_epochs": args.unroll_epochs if model_name == "cpgnet" else 0,
+        "unroll_steps": args.unroll_steps if model_name == "cpgnet" else 0,
+        "optimizer": optimizer_class.__name__,
+        "lr": learning_rate,
+        "weight_decay": weight_decay,
+        "selection_metric": "val_rollout_relative_l2_final",
+        "selection_score": best_score,
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
         "input_noise_std": args.input_noise_std,
         "flux_correction_scale": args.flux_correction_scale,
         "flux_correction_scale_floor": args.flux_correction_scale_floor,
         "status": "ok",
+        "one_step_loss": final_eval["loss"],
+        "one_step_relative_l2": final_eval["relative_l2"],
         "test_loss": final_eval["loss"],
         "test_relative_l2": final_eval["relative_l2"],
         "one_step_min_density": final_eval["min_density"],
@@ -1216,8 +1602,38 @@ def requested_values(value: str, choices: tuple[str, ...]) -> list[str]:
     return [value]
 
 
+def requested_experiment_pairs(
+    model_value: str, target_value: str
+) -> list[tuple[str, str]]:
+    models = requested_values(model_value, MODEL_CHOICES)
+    pairs: list[tuple[str, str]] = []
+    for model_name in models:
+        if model_name == "cpgnet":
+            if target_value not in ("all", CPG_TARGET):
+                raise ValueError("--model cpgnet only supports --target cpg_interface")
+            pairs.append((model_name, CPG_TARGET))
+            continue
+        if target_value == CPG_TARGET:
+            raise ValueError("--target cpg_interface is reserved for --model cpgnet")
+        for target_name in requested_values(target_value, TARGET_CHOICES):
+            pairs.append((model_name, target_name))
+    return pairs
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    if args.epochs < 1:
+        raise ValueError("--epochs must be >= 1")
+    if args.unroll_epochs < 0:
+        raise ValueError("--unroll-epochs must be >= 0")
+    if args.unroll_steps < 2:
+        raise ValueError("--unroll-steps must be >= 2")
+    if args.unroll_lr_factor <= 0.0:
+        raise ValueError("--unroll-lr-factor must be positive")
+    if args.unroll_noise_factor < 0.0:
+        raise ValueError("--unroll-noise-factor must be nonnegative")
+    if args.unroll_epochs > 0 and args.model not in ("cpgnet", "all"):
+        raise ValueError("--unroll-epochs is only supported for CPGNet")
     if args.input_noise_std < 0.0:
         raise ValueError("--input-noise-std must be nonnegative")
     if args.flux_correction_scale < 0.0:
@@ -1231,9 +1647,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     source = load_euler1d_npz(args.data_path)
-    train_cases, test_cases = split_cases(source, args)
-    models = requested_values(args.model, MODEL_CHOICES)
-    targets = requested_values(args.target, TARGET_CHOICES)
+    train_cases, val_cases, test_cases = split_cases(source, args)
+    experiment_pairs = requested_experiment_pairs(args.model, args.target)
 
     print(
         json.dumps(
@@ -1242,9 +1657,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "data_shape": list(source.data.shape),
                 "device": str(device),
                 "train_cases": train_cases.tolist(),
+                "val_cases": val_cases.tolist(),
                 "test_cases": test_cases.tolist(),
-                "models": models,
-                "targets": targets,
+                "experiment_pairs": experiment_pairs,
                 "step_stride": args.step_stride,
                 "rollout_final_frame": args.rollout_final_frame,
                 "input_noise_std": args.input_noise_std,
@@ -1258,31 +1673,35 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
 
     summary_rows: list[dict[str, Any]] = []
-    for model_name in models:
-        for target_name in targets:
-            try:
-                summary_rows.append(
-                    run_single(
-                        source,
-                        train_cases,
-                        test_cases,
-                        model_name,
-                        target_name,
-                        args,
-                        device,
-                    )
+    for model_name, target_name in experiment_pairs:
+        try:
+            summary_rows.append(
+                run_single(
+                    source,
+                    train_cases,
+                    val_cases,
+                    test_cases,
+                    model_name,
+                    target_name,
+                    args,
+                    device,
                 )
-            except Exception as exc:
-                failure = {
-                    "model": model_name,
-                    "target": target_name,
-                    "status": "failed",
-                    "error": repr(exc),
-                }
-                summary_rows.append(failure)
-                print(json.dumps(failure, indent=2), flush=True)
-                if args.fail_fast:
-                    raise
+            )
+        except Exception as exc:
+            failure = {
+                "model": model_name,
+                "model_implementation": model_implementation_name(model_name, args),
+                "target": target_name,
+                "target_type": target_name,
+                "seed": args.seed,
+                "seed_count": 1,
+                "status": "failed",
+                "error": repr(exc),
+            }
+            summary_rows.append(failure)
+            print(json.dumps(failure, indent=2), flush=True)
+            if args.fail_fast:
+                raise
 
     write_summary_csv(args.output_dir / "summary.csv", summary_rows)
     (args.output_dir / "summary.json").write_text(

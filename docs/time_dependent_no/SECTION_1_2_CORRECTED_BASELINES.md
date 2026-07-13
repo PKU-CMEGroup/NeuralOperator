@@ -74,7 +74,7 @@ python scripts/time_dependent_no/train_euler1d_target_ladder.py \
   --input-noise-std 0.02 --unroll-noise-factor 0.1 \
   --lr 1e-4 --weight-decay 0 \
   --cpg-hidden-dim 128 --cpg-message-passing-steps 12 --cpg-mlp-layers 3 \
-  --seed "$SEED" --device cuda --gpu 0 --fail-fast
+  --seed "$SEED" --device cuda --gpu 0 --save-checkpoints --fail-fast
 ```
 
 This adaptation keeps the released architecture's geometry-only edge encoder,
@@ -84,6 +84,32 @@ three-step curriculum. It uses exact 1D control-volume geometry instead of the
 release's learned positive geometry factor, and enforces fixed-inflow /
 reflective-wall ghost states without target leakage. It uses one unique
 Rusanov flux per face and no post-update cell limiter or recurrence clamp.
+Checkpoint selection first requires a completed admissible validation horizon
+and ranks those checkpoints by final rollout L2. If no epoch completes, it
+selects the lowest one-step validation loss only as a diagnostic fallback.
+
+Before the full run, use this real-data CUDA contract smoke:
+
+```bash
+python scripts/time_dependent_no/train_euler1d_target_ladder.py \
+  --data-path "$DATA" \
+  --output-dir "$BASE_OUT/cpgnet_solver_contract_smoke" \
+  --model cpgnet --target cpg_interface \
+  --epochs 2 --unroll-epochs 1 --unroll-steps 3 \
+  --train-cases 32 --val-cases 8 --test-cases 8 \
+  --step-stride 4 --rollout-final-frame 8 \
+  --input-noise-std 0.02 --unroll-noise-factor 0.1 \
+  --cpg-hidden-dim 128 --cpg-message-passing-steps 12 --cpg-mlp-layers 3 \
+  --seed "$SEED" --device cuda --gpu 0 --fail-fast
+```
+
+The 15 one-step epochs are an explicit fit gate, not evidence of stability.
+Compare their held-out one-step error with the matched FNO and the deprecated
+roughly `0.1`-error head before interpreting rollout. If stride 4 still
+underfits badly, rerun the full command as a receptive-field control with
+`--step-stride 1 --rollout-final-frame 80` and a distinct output directory.
+Failure at both strides points back to implementation/optimization; good
+stride-1 fit but poor stride-4 fit supports the local macro-step limitation.
 
 ## Three-Seed Confirmation
 

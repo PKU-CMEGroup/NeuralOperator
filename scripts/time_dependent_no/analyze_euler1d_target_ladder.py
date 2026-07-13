@@ -167,6 +167,15 @@ def annotate_model_implementation(row: dict[str, Any]) -> None:
     if model == "cpg_style_pilot" or "CPGStylePilot" in implementation:
         deprecated = "yes"
         reason = reason or "explicit CPG-style pilot head"
+    if model == "cpgnet" and "CPGNetEuler1DHead" in implementation:
+        deprecated = "yes"
+        reason = "generic directed target head did not execute the CPG solver path"
+    if (
+        model == "cpgnet"
+        and str(row.get("target_type", row.get("target", ""))) != "cpg_interface"
+    ):
+        deprecated = "yes"
+        reason = reason or "CPGNet baseline requires the cpg_interface solver target"
     row["model_implementation"] = implementation
     row["deprecated_result"] = deprecated
     row["deprecated_reason"] = reason

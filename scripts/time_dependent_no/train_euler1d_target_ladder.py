@@ -107,9 +107,9 @@ class PrimitiveNormalizer:
         case_indices: np.ndarray,
         *,
         step_stride: int = 1,
-    ) -> 'PrimitiveNormalizer':
+    ) -> "PrimitiveNormalizer":
         if step_stride < 1 or step_stride >= source.num_frames:
-            raise ValueError('step_stride must be in [1, num_frames - 1]')
+            raise ValueError("step_stride must be in [1, num_frames - 1]")
         inputs = source.data[case_indices, :-step_stride]
         mean = torch.as_tensor(inputs.mean(axis=(0, 1, 2)), dtype=torch.float32)
         std_np = inputs.std(axis=(0, 1, 2))
@@ -896,7 +896,7 @@ def rollout_case(
         )
         return {
             "case_id": int(case_id),
-            "finite": False,
+            "finite": termination_reason != "nonfinite_state",
             "admissible": False,
             "termination_reason": termination_reason,
             "first_invalid_step": first_invalid_step,
@@ -1189,13 +1189,19 @@ def rollout_cases(
     ]
 
 
-def rollout_selection_score(summary: dict[str, Any]) -> float:
+def rollout_selection_score(summary: dict[str, Any], one_step_loss: float) -> float:
+    """Prioritize valid rollouts, using one-step fit only as a failure fallback."""
+
     value = float(summary.get("rollout_relative_l2_final", float("nan")))
-    if not bool(summary.get("finite", False)):
+    finite = bool(summary.get("finite", False))
+    complete = bool(summary.get("completed_horizon", False))
+    admissible = bool(summary.get("admissible", True))
+    if finite and complete and admissible and math.isfinite(value):
+        return value
+    fallback = float(one_step_loss)
+    if not math.isfinite(fallback):
         return float("inf")
-    if not bool(summary.get("completed_horizon", False)):
-        return float("inf")
-    return value if math.isfinite(value) else float("inf")
+    return (1.0e6 if finite else 1.0e12) + fallback
 
 
 def run_single(
@@ -1317,7 +1323,9 @@ def run_single(
             model, adapter, source, val_cases, args, device
         )
         val_rollout_summary = summarize_rollouts(val_rollout_rows)
-        selection_score = rollout_selection_score(val_rollout_summary)
+        selection_score = rollout_selection_score(
+            val_rollout_summary, val_metrics["loss"]
+        )
         if selection_score < best_score or best_epoch == 0:
             best_score = selection_score
             best_epoch = epoch
@@ -1383,7 +1391,9 @@ def run_single(
                 model, adapter, source, val_cases, args, device
             )
             val_rollout_summary = summarize_rollouts(val_rollout_rows)
-            selection_score = rollout_selection_score(val_rollout_summary)
+            selection_score = rollout_selection_score(
+                val_rollout_summary, val_metrics["loss"]
+            )
             if selection_score < best_score:
                 best_score = selection_score
                 best_epoch = epoch
@@ -1475,7 +1485,7 @@ def run_single(
         "rollout_final_frame": args.rollout_final_frame,
         "device": str(device),
         "checkpoint_selection": {
-            "metric": "val_rollout_relative_l2_final",
+            "metric": "completed_admissible_val_rollout_then_one_step_fallback",
             "best_epoch": best_epoch,
             "best_score": best_score,
             "best_val_one_step": best_val_eval,
@@ -1510,7 +1520,9 @@ def run_single(
                 "val_cases": val_cases,
                 "test_cases": test_cases,
                 "best_epoch": best_epoch,
-                "selection_metric": "val_rollout_relative_l2_final",
+                "selection_metric": (
+                    "completed_admissible_val_rollout_then_one_step_fallback"
+                ),
                 "normalizer_mean": normalizer.mean.detach().cpu(),
                 "normalizer_std": normalizer.std.detach().cpu(),
                 "input_normalizer_mean": input_normalizer.mean.detach().cpu(),
@@ -1536,7 +1548,7 @@ def run_single(
         "optimizer": optimizer_class.__name__,
         "lr": learning_rate,
         "weight_decay": weight_decay,
-        "selection_metric": "val_rollout_relative_l2_final",
+        "selection_metric": ("completed_admissible_val_rollout_then_one_step_fallback"),
         "selection_score": best_score,
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,

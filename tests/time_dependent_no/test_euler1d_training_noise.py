@@ -216,13 +216,39 @@ def test_raw_cpgnet_rollout_stops_at_first_nonpositive_cell_state():
         case_id=0,
         steps=2,
         step_stride=1,
-        device=torch.device('cpu'),
+        device=torch.device("cpu"),
         final_frame=2,
     )
 
-    assert row['num_steps'] == 0
-    assert row['completed_horizon'] is False
-    assert row['termination_reason'] == 'nonpositive_raw_state'
-    assert row['first_invalid_step'] == 1
-    assert row['raw_min_density'] < 0.0
-    assert row['num_nonpositive_raw_density'] > 0
+    assert row["num_steps"] == 0
+    assert row["finite"] is True
+    assert row["completed_horizon"] is False
+    assert row["termination_reason"] == "nonpositive_raw_state"
+    assert row["first_invalid_step"] == 1
+    assert row["raw_min_density"] < 0.0
+    assert row["num_nonpositive_raw_density"] > 0
+
+
+def test_rollout_checkpoint_selection_uses_fit_only_after_validity():
+    ladder = _load_ladder_module()
+    complete = {
+        "finite": True,
+        "admissible": True,
+        "completed_horizon": True,
+        "rollout_relative_l2_final": 0.4,
+    }
+    incomplete_good_fit = {
+        "finite": True,
+        "admissible": False,
+        "completed_horizon": False,
+        "rollout_relative_l2_final": 0.01,
+    }
+    incomplete_bad_fit = dict(incomplete_good_fit)
+    nonfinite = dict(incomplete_good_fit, finite=False)
+
+    complete_score = ladder.rollout_selection_score(complete, 10.0)
+    good_fit_score = ladder.rollout_selection_score(incomplete_good_fit, 0.01)
+    bad_fit_score = ladder.rollout_selection_score(incomplete_bad_fit, 0.1)
+    nonfinite_score = ladder.rollout_selection_score(nonfinite, 0.001)
+
+    assert complete_score < good_fit_score < bad_fit_score < nonfinite_score

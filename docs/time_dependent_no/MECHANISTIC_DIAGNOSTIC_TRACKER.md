@@ -2,6 +2,10 @@
 
 Date: 2026-07-04
 
+This file is an evidence ledger. `TODO` or `BLOCKED` rows are not automatically
+approved next work; current method-design precedence is
+`RESEARCH_DIRECTION_DECISION.md`, then `HANDOFF.md`.
+
 | Run ID | Milestone | Purpose | System / Variant | Split | Metrics | Priority | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | D001 | M0 | Recompute current summaries from rollout arrays | CPGNet one-step bs2 | bump test full | paper RMSE, per-time RMSE, VPT | MUST | DONE | Full 20 trajectories analyzed on AutoDL under `artifacts/time_dependent_no/cpg_mechanistic_diagnostic_20260704_full/`; reproduced user-provided AR summary (`rho=0.200242`, `pres=0.384017`). |

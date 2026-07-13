@@ -1,6 +1,12 @@
 # Time-Dependent Neural Operators
 
-This branch contains the summer 2026 time-dependent neural-operator work inside the PKU-CME `NeuralOperator` codebase. The current weekly focus is Idea 2.1, the solver-facing target diagnostic: use fast 1D Euler experiments to compare residual/state, flux, and interface prediction targets before transferring useful structure-preserving variants to CPGNet-style and 2D supersonic bump settings.
+This branch contains the summer 2026 time-dependent neural-operator work inside
+the PKU-CME `NeuralOperator` codebase. The current weekly focus is Idea 2.1, the
+solver-facing representation diagnostic: use fast 1D Euler experiments to
+separate state coordinates, predicted quantity, supervision graph, and
+enforcement mechanism before transferring a supported method to CPG-style and
+dynamic 2D shock settings. The accepted ordering and stop rules are in
+`RESEARCH_DIRECTION_DECISION.md`.
 
 The tracked code is intentionally lean. Historical one-off probes and scaffold scripts were removed from the active tree after their conclusions were recorded in `MECHANISTIC_DIAGNOSTIC_TRACKER.md`; recover them from git history if an old result must be reproduced exactly.
 
@@ -54,7 +60,22 @@ See `docs/time_dependent_no/BUMP_300_DATASET_AUDIT.md` and `docs/time_dependent_
 
 CPGNet learns accurate teacher-forced one-step updates but fails in autoregressive rollout, mainly around shock-local phase, shape, amplitude, and stability rather than simple one-step underfitting. PCNO with the corrected preprocessing path initially follows the solution better visually but develops Fourier-style ripples that can trigger rollout crash.
 
-The active 1D Euler work uses those failure modes to test Idea 2.1 directly. Current experiments compare solver-facing prediction targets under clean next-state supervision, with rollout diagnostics for relative error, conservation, shock position, positivity, and limiter behavior. Noise and positivity are treated as stabilizers to apply consistently across target families, not as a broad hyperparameter sweep. The current compact selector is the FNO stride-4 stabilized-target run over `limited_residual`, `limited_flux`, and `positive_limited_interface` at noise `0` and `0.003`.
+The completed 1D Euler target ladder compared solver-facing parameterizations
+under standardized next-primitive-state supervision, with rollout diagnostics
+for relative error, conservation, shock position, positivity, and limiter
+behavior. It established useful failure controls but did not directly supervise
+flux/interface labels or test a fully conservative-coordinate model. Noise and
+positivity remain stabilizer controls, not reasons to repeat rejected target
+sweeps.
+
+The next causal sequence is: cross primitive/conservative inputs with
+primitive/conservative loss while holding the conservative-residual output
+fixed; export and validate exact macro-integrated face flux; compare residual,
+state-loss-only flux, direct-flux, and joint supervision; then add dense
+auxiliary labels one family at a time. Every finalist must pass a documented
+one-step, direct-horizon, and 50-call raw-rollout capability protocol before
+more elaborate invariant-domain correction, face routing, front tracking, INR,
+or adaptive-time engineering is justified.
 
 The old 1D rows labeled CPGNet used a generic directed residual head and are
 deprecated. The corrected `cpg_interface` baseline reconstructs positive

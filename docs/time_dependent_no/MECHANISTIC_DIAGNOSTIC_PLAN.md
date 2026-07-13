@@ -1,6 +1,14 @@
 # Mechanistic Diagnostic Plan
 
 Date: 2026-07-04
+Status: Historical CPG/PCNO diagnostic plan
+
+This document preserves the original reproduction-diagnostic logic. For current
+Idea 2.1 method design, experiment ordering, and stop rules, follow
+`RESEARCH_DIRECTION_DECISION.md` and `HANDOFF.md`. Unfinished B9/B10 work still
+blocks claims about the CPG/PCNO scale-propagation mechanism and any recurrent
+control motivated by that mechanism; it does not block the separately scoped
+conservative-coordinate diagnostic or reference-flux export/closure audit.
 
 ## Problem
 

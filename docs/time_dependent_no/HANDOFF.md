@@ -4,7 +4,12 @@ Use this page when transferring work between human collaborators or AI agents.
 
 ## Current Objective
 
-This week's active objective is Idea 2.1: the solver-facing target diagnostic. Use 1D Euler as the fast pilot to compare state/residual, flux, and interface prediction targets under identical clean next-state supervision, then transfer only the useful stabilized variants to CPGNet-style and 2D supersonic bump settings.
+This week's active objective is Idea 2.1: the solver-facing representation
+diagnostic. Use 1D Euler to isolate four design axes: state coordinates,
+predicted quantity, supervision graph, and enforcement mechanism. The completed
+primitive-loss target ladder is evidence and baseline history; it is not a
+license to bundle all four axes into one new method. Medium-horizon open-loop
+forecasting remains the gate before data assimilation.
 
 ## Current Diagnostic State
 
@@ -24,6 +29,15 @@ directed interface states, one shared face flux, exact 1D geometry, physical
 ghost boundaries, no post-update limiter, and raw failure at the first
 inadmissible recurrent state. The local CPU gate passes; AutoDL validation is
 pending.
+
+The accepted direction is now recorded in
+`docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md`. The current 1D and CPG
+paths use primitive inputs and primitive next-state loss even when their decoder
+updates conservative variables. They therefore do not answer whether a model
+should operate in conservative-variable coordinates. The next causal diagnostic
+must keep the conservative-residual output fixed while separating input and
+loss coordinates. Direct integrated-flux and dense-supervision work follows
+only after that coordinate comparison and reference-flux closure check.
 
 ## Active Code Surface
 
@@ -65,14 +79,50 @@ Generated reports, HDF5 rollout arrays, GIFs, checkpoints, and large logs remain
 
 ## Next Steps
 
-1. Treat `limited_residual + noise 0.003` as the current 1D baseline/fallback, but do not claim a clean structure-preserving win because it occasionally touches the pressure floor.
-2. Do not transfer the current absolute `limited_flux` or `positive_limited_interface` forms to 2D; both failed the selector through shock error, pressure-floor hugging, and high rollout limiter activation.
-3. Current macro-step Rusanov-base flux correction was implemented and rejected in the short scale probe; next flux work should use direct macro-step face-flux supervision or a stable/data-derived macro flux base.
-4. Run the corrected solver-level CPGNet sanity and 15+5 baseline. Require competitive one-step fit before interpreting its rollout, then report raw admissibility rather than clamped recurrence.
-5. If corrected local CPGNet fits one step but remains limited at stride 4, implement the global implicit-interface FNO with the same shared Rusanov/FV decoder so receptive-field capacity is the controlled difference.
-6. Extend the 1D generator to export macro-step time-integrated numerical face fluxes if feasible, then test direct flux supervision and flux-field diagnostics.
+1. Finish the corrected solver-level CPGNet sanity and 15+5 baseline as a
+   reference validation. Require competitive one-step fit, report raw
+   admissibility, and do not interpret it as target-superiority evidence.
+2. Keep `limited_residual + noise 0.003` only as the current fallback baseline.
+   Do not seed-repeat or transfer the rejected absolute flux/interface targets.
+3. Implement the four-way coordinate diagnostic with one matched backbone and
+   conservative-residual output: primitive/conservative input crossed with
+   primitive/conservative loss. Add no dense losses, noise changes, limiter
+   changes, or architecture changes in this comparison.
+4. Export exact macro-step time-integrated face flux from the 1D generator and
+   verify state-transition and boundary-flux closure before training a flux
+   model.
+5. Compare residual, state-loss-only flux, direct-flux, and joint flux/state
+   supervision with a shared parameter-matched backbone.
+6. Add dense supervision only to the best identified primary path, one family
+   at a time: conservative state, primitive state, shock/front labels, then
+   short unrolled loss. Derive redundant states through the solver decoder.
+7. Evaluate finalists with teacher-forced one-step, direct-horizon, and at least
+   50 raw autoregressive calls over a documented physical horizon, followed by
+   timestep/resolution transfer and a coarse-CFD comparison.
+8. Trigger local invariant-domain correction, facewise routing, front tracking,
+   or INR/adaptive-time work only when a named failure mode justifies it.
+
+## Agent Execution Rules
+
+- Read `RESEARCH_DIRECTION_DECISION.md` before changing the trainer, target
+  adapters, generator contract, or experiment matrix.
+- Change one causal axis per primary comparison. A multi-component engineering
+  prototype is not a substitute for the coordinate and supervision diagnostics.
+- Record input/recurrent coordinates, predicted quantity, loss coordinates,
+  normalization, timestep, effective CFL, geometry scaling, and all hidden
+  floors or clamps in every run summary.
+- Preserve one primary inference path. Do not add independent state and flux
+  heads that can disagree; compute derived states through the conservative
+  update.
+- New auxiliary labels require a documented source, identifiability argument,
+  inference role, normalization, and ablation. Do not launch a broad dense-loss
+  sweep by default.
 
 ## 1D Euler Experiment Todo
+
+This section preserves experiment history. Unchecked historical items are not
+automatically approved work; the ordered `Next Steps` and accepted research
+direction above take precedence.
 
 Completed follow-up batch on AutoDL:
 
@@ -124,6 +174,10 @@ Engineering controls to consider after the selector:
 - Do not touch collaborator-owned checkpoint or preprocessing artifacts unless explicitly asked.
 - Do not use the retired raw-HDF5 PCNO adapter path for model conclusions.
 - Do not launch broad new training sweeps before ripple and shock-position diagnostics identify the mechanism to target.
+- Do not combine coordinate, target, dense-supervision, constraint, and
+  architecture changes in one primary experiment.
+- Do not impose blanket componentwise TVD or global spectral/variation damping
+  on Euler without a smooth/shock-region contract.
 - Do not make mesh-weighted conservation claims until cell/mesh weights are validated.
 - Do not treat boundary leakage as evidence of model quality under clamped official rollout.
 - Do not commit private paths, credentials, raw data, checkpoints, extracted rollout arrays, heavy figures, or local machine paths.

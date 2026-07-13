@@ -5,6 +5,8 @@ This note supersedes legacy Section 1.2 rows produced before the corrected CPGNe
 ## Deprecation Rules
 
 - Rows with `model=cpgnet` and no `model_implementation` must be treated as deprecated legacy rows. They came from the old `CPGStyleEuler1DHead` pilot and must not be reported as CPGNet.
+- Rows with `model_implementation=CPGNetEuler1DHead(...)` are also deprecated. That implementation was a directed generic target head trained with `limited_residual`; it never executed the paper's reconstruction -> Rusanov -> finite-volume solver.
+- A paper-facing CPG row must use `model_implementation=CPGNetEuler1D(...)` and `target_type=cpg_interface`. The training CLI rejects every other target for `--model cpgnet`.
 - Rows with `model=cpg_style_pilot` are explicit pilot ablations only and are not paper-facing CPGNet baselines.
 - Rows with `model=fno` must report `model_implementation`. Width-32/modes-8 runs are legacy controls, not the main FNO baseline.
 - Corrected Section 1.2 tables must include `model_implementation`, `target_type`, `input_noise_std`, `step_stride`, `rollout_final_frame`, `seed_count`, one-step loss, rollout mean/final L2, shock error, conservation error, and density/pressure positivity diagnostics.
@@ -58,23 +60,30 @@ for noise in 0.003 0.02; do
 done
 ```
 
-Faithful 1D CPGNet-style adaptation:
+Corrected solver-level 1D CPGNet adaptation:
 
 ```bash
-for noise in 0.003 0.02; do
-  python scripts/time_dependent_no/train_euler1d_target_ladder.py \
-    --data-path "$DATA" \
-    --output-dir "$BASE_OUT/cpgnet_h128_mp12_limited_residual_noise${noise}_seed${SEED}" \
-    --model cpgnet \
-    --target limited_residual \
-    --epochs 80 \
-    --train-cases 384 --val-cases 64 --test-cases 64 \
-    --step-stride 4 --rollout-final-frame 80 \
-    --input-noise-std "$noise" \
-    --cpg-hidden-dim 128 --cpg-message-passing-steps 12 --cpg-mlp-layers 3 \
-    --seed "$SEED" --device cuda --gpu 0 --fail-fast
-done
+python scripts/time_dependent_no/train_euler1d_target_ladder.py \
+  --data-path "$DATA" \
+  --output-dir "$BASE_OUT/cpgnet_solver_h128_mp12_noise0.02_seed${SEED}" \
+  --model cpgnet \
+  --target cpg_interface \
+  --epochs 15 --unroll-epochs 5 --unroll-steps 3 \
+  --train-cases 384 --val-cases 64 --test-cases 64 \
+  --step-stride 4 --rollout-final-frame 80 \
+  --input-noise-std 0.02 --unroll-noise-factor 0.1 \
+  --lr 1e-4 --weight-decay 0 \
+  --cpg-hidden-dim 128 --cpg-message-passing-steps 12 --cpg-mlp-layers 3 \
+  --seed "$SEED" --device cuda --gpu 0 --fail-fast
 ```
+
+This adaptation keeps the released architecture's geometry-only edge encoder,
+12 unshared directed flow layers, target-node reconstruction, three scalar
+interface decoders, exponential density/pressure outputs, and 15+5 one-step /
+three-step curriculum. It uses exact 1D control-volume geometry instead of the
+release's learned positive geometry factor, and enforces fixed-inflow /
+reflective-wall ghost states without target leakage. It uses one unique
+Rusanov flux per face and no post-update cell limiter or recurrence clamp.
 
 ## Three-Seed Confirmation
 
@@ -110,16 +119,27 @@ Run `section12_corrected_autodl_20260710_222716` completed on 2026-07-12 with th
 | FNO 96/24/4 | limited_residual | 0.02 | 58 | 6.97e-05 | 3.52e-02 | 4.93e-02 | 4.31e-03 | 2.15e-02 | 9.70e-02 | 1.00e-08 | 3 pressure nonpositive | reject |
 | FNO 64/24/4 | residual control | 0.003 | 59 | 4.78e-05 | 1.70e+03 | 3.41e+04 | 4.92e-03 | 8.06e+02 | 1.00e-08 | 1.00e-08 | 2 density, 13 pressure nonpositive | reject |
 | FNO 64/24/4 | residual control | 0.02 | 79 | 6.53e-05 | 2.18e-02 | 3.60e-02 | 2.78e-03 | 2.23e-02 | 1.02e-01 | 3.51e-02 | clean | candidate |
-| CPGNet h128/mp12 | limited_residual | 0.003 | 1 | 9.84e-02 | 5.62e-01 | 7.11e-01 | 4.85e-01 | 4.46e-01 | 1.45e-01 | 2.22e-01 | clean | candidate |
-| CPGNet h128/mp12 | limited_residual | 0.02 | 62 | 9.83e-02 | 5.63e-01 | 7.08e-01 | 4.85e-01 | 4.30e-01 | 1.48e-01 | 2.19e-01 | clean | candidate |
+| CPG target head h128/mp12 (deprecated) | limited_residual | 0.003 | 1 | 9.84e-02 | 5.62e-01 | 7.11e-01 | 4.85e-01 | 4.46e-01 | 1.45e-01 | 2.22e-01 | clean | deprecated |
+| CPG target head h128/mp12 (deprecated) | limited_residual | 0.02 | 62 | 9.83e-02 | 5.63e-01 | 7.08e-01 | 4.85e-01 | 4.30e-01 | 1.48e-01 | 2.19e-01 | clean | deprecated |
 
 Immediate read:
 
-- The corrected strong FNO baseline is much stronger than the faithful 1D CPGNet adaptation on this Section 1.2 target-ladder dataset. Best paper-facing FNO is `64/24/4`, `limited_residual`, noise `0.02`: final rollout L2 `3.72e-02`, shock MAE `2.51e-03`, clean positivity.
+- The corrected strong FNO baseline is much stronger than the deprecated directed CPG target head on this Section 1.2 target-ladder dataset. Best paper-facing FNO is `64/24/4`, `limited_residual`, noise `0.02`: final rollout L2 `3.72e-02`, shock MAE `2.51e-03`, clean positivity.
 - The raw residual control at noise `0.02` is numerically best by final rollout L2 (`3.60e-02`), but it is a control, not the main target. Its conservation final error is worse than the best limited residual row (`2.23e-02` vs `1.89e-02`), and the same raw residual target catastrophically fails at noise `0.003`.
 - Noise `0.02` helps the stable FNO rows in this sweep. It improves final rollout L2 for `64/16/4` from `5.84e-02` to `4.24e-02`, and for `64/24/4` from `5.02e-02` to `3.72e-02`.
 - Wider FNO `96/24/4` is not better here. At noise `0.02` it triggers pressure floor/positivity flags, so it should not be the main baseline despite having a reasonable final L2.
-- The faithful CPGNet-style 1D adaptation is honest but not competitive in this setting: final rollout L2 stays around `0.71` and shock MAE around `0.485`. It does preserve positivity, so the failure is accuracy/optimization or target-fit, not immediate physical invalidity.
+- The two old `limited_residual` CPG rows do not test CPGNet's defining solver path and must not be used to judge the paper baseline. They establish only that the deprecated local residual head underfit badly.
+- The corrected `cpg_interface` result is pending the GPU run. Keep it separate from the completed FNO table until both one-step accuracy and raw autoregressive admissibility have been measured.
+## Corrected CPG CPU Gate
+
+A tiny six-case / 12-cell fixture was used only as an implementation and
+optimization gate. With hidden width 16, two flow layers, five one-step
+epochs, and one three-step autoregressive epoch, the corrected solver reached
+test one-step relative L2 `1.79e-03` and four-step final L2 `7.05e-03`.
+The raw rollout completed with no nonpositive density or pressure and no
+limiter. This is not benchmark evidence; it only shows that the corrected
+architecture can fit a one-step map and backpropagate through recurrence.
+
 ## Analysis Command
 
 ```bash

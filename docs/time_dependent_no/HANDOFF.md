@@ -16,6 +16,15 @@ For PCNO, use `scripts/time_dependent_no/rollout_pcno_preprocessed.py`, not the 
 
 The active 1D Euler target-ladder work is the bridge from these diagnostics to method design. The current evidence says raw conservation structure is not enough: flux and interface objectives need admissibility, rollout, shock, conservation, and noise diagnostics before they can support a structure-preserving claim. The target ladder also makes learned quantities more interpretable for later Idea 2.2 investigation.
 
+The two Section 1.2 rows formerly labeled CPGNet were produced by a generic
+directed target head with `limited_residual`; they did not execute the paper's
+interface reconstruction, Rusanov flux, and finite-volume update. They are now
+deprecated. The corrected M0 path is `CPGNetEuler1D + cpg_interface`: positive
+directed interface states, one shared face flux, exact 1D geometry, physical
+ghost boundaries, no post-update limiter, and raw failure at the first
+inadmissible recurrent state. The local CPU gate passes; AutoDL validation is
+pending.
+
 ## Active Code Surface
 
 Reusable utilities are under `utility/time_dependent_no/`. The active 1D Euler target-ladder utilities are:
@@ -59,9 +68,9 @@ Generated reports, HDF5 rollout arrays, GIFs, checkpoints, and large logs remain
 1. Treat `limited_residual + noise 0.003` as the current 1D baseline/fallback, but do not claim a clean structure-preserving win because it occasionally touches the pressure floor.
 2. Do not transfer the current absolute `limited_flux` or `positive_limited_interface` forms to 2D; both failed the selector through shock error, pressure-floor hugging, and high rollout limiter activation.
 3. Current macro-step Rusanov-base flux correction was implemented and rejected in the short scale probe; next flux work should use direct macro-step face-flux supervision or a stable/data-derived macro flux base.
-4. Extend the 1D generator to export macro-step time-integrated numerical face fluxes if feasible, then test direct flux supervision and flux-field diagnostics.
-5. Redesign interface prediction as bounded corrections around owner/neighbor or Riemann base states rather than absolute primitive interface values.
-6. Generate animations for `limited_residual` noise `0`/`0.003` and the best failed flux/interface variants to inspect shock tracking and floor-hugging visually.
+4. Run the corrected solver-level CPGNet sanity and 15+5 baseline. Require competitive one-step fit before interpreting its rollout, then report raw admissibility rather than clamped recurrence.
+5. If corrected local CPGNet fits one step but remains limited at stride 4, implement the global implicit-interface FNO with the same shared Rusanov/FV decoder so receptive-field capacity is the controlled difference.
+6. Extend the 1D generator to export macro-step time-integrated numerical face fluxes if feasible, then test direct flux supervision and flux-field diagnostics.
 
 ## 1D Euler Experiment Todo
 
@@ -86,7 +95,7 @@ Target-objective extensions to implement after the active batch:
 - [x] Log limiter diagnostics for all limited objectives: activation fraction, mean/min `theta`, pressure-floor cases, and whether the limiter preserved the intended conservation accounting.
 - [x] Run the first extended target selector on `FNO` at stride 4 with only noise `0` and `0.003`: `limited_residual`, `limited_flux`, and `positive_limited_interface`. Result: only `limited_residual` remained viable; current absolute flux/interface targets failed under rollout.
 - [ ] Seed-confirm only the best one or two stabilized target variants; do not seed-repeat losing variants.
-- [ ] Only then run CPG-style checks, starting with `limited_residual` and `positive_limited_interface`; avoid spending GPU on plain flux/interface variants without the update limiter.
+- [ ] Run only the corrected `cpg_interface` CPGNet baseline; do not spend GPU on the deprecated CPG residual target head.
 - [ ] Generate animations for the best and worst noise/limiter cases, especially trajectories where pressure reaches the limiter floor.
 
 Flux-indeterminacy and Hodge-style follow-ups:
@@ -106,7 +115,8 @@ Physical flux-correction status:
 - [x] Finished the short correction-scale probe over scales `1`, `2`, and `4`; all variants were rejected, so do not run the full noise selector for this exact macro-step Rusanov-base target.
 Engineering controls to consider after the selector:
 
-- [ ] For CPGNet-style heads, test physical owner-neighbor Rusanov initialization, bounded interface corrections around local cell states, positive density/pressure decoding, and the shared conservative update limiter.
+- [x] Replace the mislabeled CPG residual head with the solver-level paper adaptation: geometry-only edge encoder, 12 directed flow layers, positive interface decoding, shared Rusanov flux, exact 1D geometry, physical ghosts, and 15+5 training.
+- [ ] Evaluate that baseline without a cell-state limiter or recurrence floor; stop and record the first raw nonpositive state.
 - [ ] For FNO, keep fixed-step operators without `dt` parameterization and keep identity/zero-update initialization for residual-like heads; treat spectral smoothing or high-frequency penalties as later ablations, not part of the first target selector.
 
 ## Do Not Do

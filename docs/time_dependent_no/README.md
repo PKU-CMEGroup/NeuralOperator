@@ -11,7 +11,7 @@ Reusable branch utilities live in `utility/time_dependent_no/`:
 - `fv.py`: PDE-agnostic finite-volume geometry, gather/scatter, and conservative update helpers.
 - `euler1d.py`: 1D Euler primitive/conservative conversion, fluxes, geometry, and batch helpers.
 - `euler1d_data.py`: collaborator-compatible 1D Euler dataset loading and batching.
-- `euler1d_models.py`: lightweight FNO and CPG-style pilot models for the target ladder.
+- `euler1d_models.py`: FNO target heads, deprecated CPG-style pilots, and the corrected solver-level 1D CPGNet adaptation.
 - `euler1d_targets.py`: state/residual, flux, and interface target adapters.
 - `euler2d.py`: CPG HDF5 schema inspection, primitive/conservative conversion, node-type helpers, and graph-frame materialization.
 - `euler2d_synthetic.py`: deterministic CPG-style synthetic fixture for CPU tests.
@@ -55,6 +55,13 @@ See `docs/time_dependent_no/BUMP_300_DATASET_AUDIT.md` and `docs/time_dependent_
 CPGNet learns accurate teacher-forced one-step updates but fails in autoregressive rollout, mainly around shock-local phase, shape, amplitude, and stability rather than simple one-step underfitting. PCNO with the corrected preprocessing path initially follows the solution better visually but develops Fourier-style ripples that can trigger rollout crash.
 
 The active 1D Euler work uses those failure modes to test Idea 2.1 directly. Current experiments compare solver-facing prediction targets under clean next-state supervision, with rollout diagnostics for relative error, conservation, shock position, positivity, and limiter behavior. Noise and positivity are treated as stabilizers to apply consistently across target families, not as a broad hyperparameter sweep. The current compact selector is the FNO stride-4 stabilized-target run over `limited_residual`, `limited_flux`, and `positive_limited_interface` at noise `0` and `0.003`.
+
+The old 1D rows labeled CPGNet used a generic directed residual head and are
+deprecated. The corrected `cpg_interface` baseline reconstructs positive
+directed interface states, forms one Rusanov flux per face, applies the exact
+finite-volume update, and evaluates raw recurrence without a cell-state
+limiter or hidden floor. Its CPU implementation gate passes; the benchmark GPU
+run is pending.
 
 Pending 2D diagnostics should still measure ripple energy and shock-front geometry using the common rollout artifact contract: `predicteds`, `targets`, `pos`, `edges`, and `node_type` when available. They are background constraints for the bump transfer rather than the immediate blocker for the 1D target selector.
 

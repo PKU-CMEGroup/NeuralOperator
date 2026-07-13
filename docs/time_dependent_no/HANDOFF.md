@@ -47,6 +47,7 @@ Generated reports, HDF5 rollout arrays, GIFs, checkpoints, and large logs remain
 ## Key References
 
 - `docs/time_dependent_no/README.md`
+- `docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md`
 - `docs/time_dependent_no/CPG_EULER_DATASET_CONTRACT.md`
 - `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md`
 - `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_PLAN.md`

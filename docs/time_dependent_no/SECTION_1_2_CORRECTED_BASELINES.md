@@ -80,7 +80,8 @@ python scripts/time_dependent_no/train_euler1d_target_ladder.py \
 This adaptation keeps the released architecture's geometry-only edge encoder,
 12 unshared directed flow layers, target-node reconstruction, three scalar
 interface decoders, exponential density/pressure outputs, and 15+5 one-step /
-three-step curriculum. It uses exact 1D control-volume geometry instead of the
+three-step curriculum with additive Gaussian primitive-input noise. It uses
+exact 1D control-volume geometry instead of the
 release's learned positive geometry factor, and enforces fixed-inflow /
 reflective-wall ghost states without target leakage. It uses one unique
 Rusanov flux per face and no post-update cell limiter or recurrence clamp.
@@ -161,7 +162,7 @@ Immediate read:
 A tiny six-case / 12-cell fixture was used only as an implementation and
 optimization gate. With hidden width 16, two flow layers, five one-step
 epochs, and one three-step autoregressive epoch, the corrected solver reached
-test one-step relative L2 `1.79e-03` and four-step final L2 `7.05e-03`.
+test one-step relative L2 `1.77e-03` and four-step final L2 `6.96e-03`.
 The raw rollout completed with no nonpositive density or pressure and no
 limiter. This is not benchmark evidence; it only shows that the corrected
 architecture can fit a one-step map and backpropagate through recurrence.

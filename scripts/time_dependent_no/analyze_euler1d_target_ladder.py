@@ -317,6 +317,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "step_stride",
         "rollout_final_frame",
         "input_noise_std",
+        "input_noise_mode",
         "flux_correction_scale",
         "flux_correction_scale_floor",
         "selector_verdict",

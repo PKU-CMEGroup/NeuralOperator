@@ -575,6 +575,7 @@ def apply_primitive_input_noise(
     batch: Euler1DBatch,
     noise_std: float,
     *,
+    mode: str = "admissible_log_normal",
     rho_floor: float = 1.0e-6,
     pressure_floor: float = 1.0e-6,
 ) -> Euler1DBatch:
@@ -584,6 +585,10 @@ def apply_primitive_input_noise(
         return batch
     current = batch.current_primitive
     noise = torch.randn_like(current) * float(noise_std)
+    if mode == "additive":
+        return replace(batch, current_primitive=current + noise)
+    if mode != "admissible_log_normal":
+        raise ValueError(f"unsupported primitive input noise mode: {mode}")
     noisy = current.clone()
     noisy[..., 0] = (current[..., 0] * torch.exp(noise[..., 0])).clamp_min(rho_floor)
     noisy[..., 1] = current[..., 1] + noise[..., 1]
@@ -664,6 +669,7 @@ def train_one_epoch(
     device: torch.device,
     grad_clip: float,
     input_noise_std: float = 0.0,
+    input_noise_mode: str = "admissible_log_normal",
 ) -> dict[str, float]:
     model.train()
     total_loss = 0.0
@@ -674,7 +680,9 @@ def train_one_epoch(
         batch = batch.to(device)
         if batch.target_primitive is None:
             raise RuntimeError("training batch is missing target_primitive")
-        batch = apply_primitive_input_noise(batch, input_noise_std)
+        batch = apply_primitive_input_noise(
+            batch, input_noise_std, mode=input_noise_mode
+        )
         raw = model(batch)
         prediction = adapter(raw, batch)
         loss = normalizer.mse(prediction.primitive, batch.target_primitive)
@@ -709,6 +717,7 @@ def train_unrolled_epoch(
     device: torch.device,
     grad_clip: float,
     input_noise_std: float = 0.0,
+    input_noise_mode: str = "admissible_log_normal",
 ) -> dict[str, float]:
     """Train through a fixed autoregressive window without state detachment."""
 
@@ -721,7 +730,9 @@ def train_unrolled_epoch(
         initial_batch = initial_batch.to(device)
         target_sequence = target_sequence.to(device)
         dt_sequence = dt_sequence.to(device)
-        noisy_batch = apply_primitive_input_noise(initial_batch, input_noise_std)
+        noisy_batch = apply_primitive_input_noise(
+            initial_batch, input_noise_std, mode=input_noise_mode
+        )
         current = noisy_batch.current_primitive
         step_losses: list[torch.Tensor] = []
         step_relative_l2: list[torch.Tensor] = []
@@ -1075,6 +1086,7 @@ def write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "step_stride",
         "rollout_final_frame",
         "input_noise_std",
+        "input_noise_mode",
         "one_step_loss",
         "one_step_relative_l2",
         "test_loss",
@@ -1299,6 +1311,7 @@ def run_single(
     optimizer = optimizer_class(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay
     )
+    input_noise_mode = "additive" if model_name == "cpgnet" else "admissible_log_normal"
 
     history: list[dict[str, Any]] = []
     best_state = clone_state_dict_cpu(model)
@@ -1317,6 +1330,7 @@ def run_single(
             device,
             args.grad_clip,
             args.input_noise_std,
+            input_noise_mode,
         )
         val_metrics = evaluate_one_step(model, adapter, val_loader, normalizer, device)
         val_rollout_rows = rollout_cases(
@@ -1383,6 +1397,7 @@ def run_single(
                 device,
                 args.grad_clip,
                 args.input_noise_std * args.unroll_noise_factor,
+                input_noise_mode,
             )
             val_metrics = evaluate_one_step(
                 model, adapter, val_loader, normalizer, device
@@ -1479,6 +1494,7 @@ def run_single(
         "weight_decay": weight_decay,
         "positive_transform": args.positive_transform,
         "input_noise_std": args.input_noise_std,
+        "input_noise_mode": input_noise_mode,
         "flux_correction_scale": args.flux_correction_scale,
         "flux_correction_scale_floor": args.flux_correction_scale_floor,
         "step_stride": args.step_stride,
@@ -1523,6 +1539,7 @@ def run_single(
                 "selection_metric": (
                     "completed_admissible_val_rollout_then_one_step_fallback"
                 ),
+                "input_noise_mode": input_noise_mode,
                 "normalizer_mean": normalizer.mean.detach().cpu(),
                 "normalizer_std": normalizer.std.detach().cpu(),
                 "input_normalizer_mean": input_normalizer.mean.detach().cpu(),
@@ -1553,6 +1570,7 @@ def run_single(
         "step_stride": args.step_stride,
         "rollout_final_frame": args.rollout_final_frame,
         "input_noise_std": args.input_noise_std,
+        "input_noise_mode": input_noise_mode,
         "flux_correction_scale": args.flux_correction_scale,
         "flux_correction_scale_floor": args.flux_correction_scale_floor,
         "status": "ok",

@@ -84,6 +84,24 @@ def test_apply_primitive_input_noise_preserves_clean_training_contract():
     )
 
 
+def test_additive_cpg_input_noise_matches_release_contract():
+    ladder = _load_ladder_module()
+    batch = _batch()
+    torch.manual_seed(4321)
+    expected_noise = torch.randn_like(batch.current_primitive) * 0.02
+    torch.manual_seed(4321)
+
+    noisy = ladder.apply_primitive_input_noise(batch, 0.02, mode="additive")
+
+    torch.testing.assert_close(
+        noisy.current_primitive, batch.current_primitive + expected_noise
+    )
+    torch.testing.assert_close(noisy.target_primitive, batch.target_primitive)
+    torch.testing.assert_close(
+        noisy.left_boundary_primitive, batch.left_boundary_primitive
+    )
+
+
 def test_proposed_safety_metrics_report_pre_limiter_state():
     ladder = _load_ladder_module()
     batch = _batch()

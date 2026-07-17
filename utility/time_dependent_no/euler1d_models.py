@@ -8,60 +8,135 @@ import torch
 from torch import nn
 
 from baselines.fno import FNO1d
-from utility.time_dependent_no.euler1d import Euler1DBatch
+from utility.time_dependent_no.euler1d import Euler1DBatch, primitive_to_conservative
 from utility.time_dependent_no.euler1d_targets import owner_neighbor_primitives
 from utility.time_dependent_no.fv import gather_cells, scatter_faces_to_cells
 
 
 Euler1DTarget = Literal[
     "state",
+    "conservative_state",
     "residual",
+    "projected_residual",
     "primitive_residual",
     "limited_residual",
     "flux",
     "limited_flux",
     "physical_flux_correction",
     "interface",
+    "relative_interface",
     "positive_limited_interface",
     "cpg_interface",
 ]
+Euler1DCoordinates = Literal["primitive", "conservative"]
 
 CELL_TARGETS: tuple[str, ...] = (
     "state",
+    "conservative_state",
     "residual",
+    "projected_residual",
     "primitive_residual",
     "limited_residual",
 )
 
 
 def target_output_dim(target: Euler1DTarget) -> int:
+    if target == "projected_residual":
+        return 6
     if target in CELL_TARGETS:
         return 3
     if target in ("flux", "limited_flux", "physical_flux_correction"):
         return 3
-    if target in ("interface", "positive_limited_interface", "cpg_interface"):
+    if target in (
+        "interface",
+        "relative_interface",
+        "positive_limited_interface",
+        "cpg_interface",
+    ):
         return 6
     raise ValueError(f"unsupported target: {target}")
 
 
 def reshape_target_output(raw: torch.Tensor, target: Euler1DTarget) -> torch.Tensor:
-    if target in ("interface", "positive_limited_interface", "cpg_interface"):
+    if target in (
+        "interface",
+        "relative_interface",
+        "positive_limited_interface",
+        "cpg_interface",
+    ):
         if raw.shape[-1] != 6:
             raise ValueError("interface head must output 6 channels")
         return raw.reshape(*raw.shape[:-1], 2, 3)
     return raw
 
 
-def cell_features(batch: Euler1DBatch) -> torch.Tensor:
+def _state_coordinates(
+    primitive: torch.Tensor,
+    *,
+    coordinates: Euler1DCoordinates,
+    gamma: float,
+) -> torch.Tensor:
+    if coordinates == "primitive":
+        return primitive
+    if coordinates == "conservative":
+        return primitive_to_conservative(primitive, gamma=gamma)
+    raise ValueError(f"unsupported input coordinates: {coordinates}")
+
+
+def _normalize_state(
+    state: torch.Tensor,
+    mean: torch.Tensor,
+    std: torch.Tensor,
+) -> torch.Tensor:
+    return (state - mean.to(dtype=state.dtype, device=state.device)) / std.to(
+        dtype=state.dtype,
+        device=state.device,
+    )
+
+
+def cell_features(
+    batch: Euler1DBatch,
+    *,
+    input_coordinates: Euler1DCoordinates = "primitive",
+    input_mean: torch.Tensor | None = None,
+    input_std: torch.Tensor | None = None,
+) -> torch.Tensor:
     x = batch.geometry.cell_centers.to(
         dtype=batch.current_primitive.dtype,
         device=batch.current_primitive.device,
     )
-    return torch.cat((batch.current_primitive, x), dim=-1)
+    if input_coordinates == "primitive":
+        state = batch.current_primitive
+    elif input_coordinates == "conservative":
+        state = batch.current_conservative
+    else:
+        raise ValueError(f"unsupported input coordinates: {input_coordinates}")
+    if input_mean is not None and input_std is not None:
+        state = _normalize_state(state, input_mean, input_std)
+    return torch.cat((state, x), dim=-1)
 
 
-def face_features(batch: Euler1DBatch) -> torch.Tensor:
+def face_features(
+    batch: Euler1DBatch,
+    *,
+    input_coordinates: Euler1DCoordinates = "primitive",
+    input_mean: torch.Tensor | None = None,
+    input_std: torch.Tensor | None = None,
+) -> torch.Tensor:
     owner, neighbor = owner_neighbor_primitives(batch)
+    owner = _state_coordinates(
+        owner,
+        coordinates=input_coordinates,
+        gamma=batch.gamma,
+    )
+    neighbor = _state_coordinates(
+        neighbor,
+        coordinates=input_coordinates,
+        gamma=batch.gamma,
+    )
+    if input_mean is not None and input_std is not None:
+        owner = _normalize_state(owner, input_mean, input_std)
+        neighbor = _normalize_state(neighbor, input_mean, input_std)
     face_centers = batch.geometry.face_centers.to(
         dtype=batch.current_primitive.dtype,
         device=batch.current_primitive.device,
@@ -98,9 +173,25 @@ class FNOEuler1DHead(nn.Module):
         layers: list[int] | None = None,
         fc_dim: int = 128,
         pad_ratio: float = 0.0,
+        input_coordinates: Euler1DCoordinates = "primitive",
+        input_mean: torch.Tensor | None = None,
+        input_std: torch.Tensor | None = None,
     ) -> None:
         super().__init__()
         self.target = target
+        self.input_coordinates = input_coordinates
+        if input_coordinates not in ("primitive", "conservative"):
+            raise ValueError(f"unsupported input coordinates: {input_coordinates}")
+        if input_mean is None:
+            input_mean = torch.zeros(1, 1, 3)
+        if input_std is None:
+            input_std = torch.ones(1, 1, 3)
+        input_mean = torch.as_tensor(input_mean).detach().reshape(1, 1, 3)
+        input_std = torch.as_tensor(input_std).detach().reshape(1, 1, 3)
+        if torch.any(input_std <= 0.0):
+            raise ValueError("input_std must be positive")
+        self.register_buffer("input_mean", input_mean.clone())
+        self.register_buffer("input_std", input_std.clone())
         in_dim = 4 if target in CELL_TARGETS else 9
         self.model = FNO1d(
             modes=modes,
@@ -114,11 +205,34 @@ class FNOEuler1DHead(nn.Module):
 
     def forward(self, batch: Euler1DBatch) -> torch.Tensor:
         features = (
-            cell_features(batch)
+            cell_features(
+                batch,
+                input_coordinates=self.input_coordinates,
+                input_mean=self.input_mean,
+                input_std=self.input_std,
+            )
             if self.target in CELL_TARGETS
-            else face_features(batch)
+            else face_features(
+                batch,
+                input_coordinates=self.input_coordinates,
+                input_mean=self.input_mean,
+                input_std=self.input_std,
+            )
         )
-        return reshape_target_output(self.model(features), self.target)
+        raw = self.model(features)
+        if self.target == "projected_residual":
+            volume = batch.geometry.cell_volume.to(
+                dtype=raw.dtype,
+                device=raw.device,
+            ).unsqueeze(-1)
+            domain_volume = volume.sum(dim=1)
+            cell_delta = raw[..., :3]
+            cell_delta = cell_delta - (
+                (volume * cell_delta).sum(dim=1) / domain_volume
+            ).unsqueeze(1)
+            boundary_exchange = (volume * raw[..., 3:]).sum(dim=1)
+            return torch.cat((cell_delta, boundary_exchange.unsqueeze(1)), dim=1)
+        return reshape_target_output(raw, self.target)
 
 
 class MLP(nn.Module):

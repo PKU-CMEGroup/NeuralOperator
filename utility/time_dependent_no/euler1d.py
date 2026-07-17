@@ -26,7 +26,9 @@ class Euler1DBatch:
     current_primitive: torch.Tensor
     geometry: FiniteVolumeGeometry
     dt: torch.Tensor
+    current_conservative_state: torch.Tensor | None = None
     target_primitive: torch.Tensor | None = None
+    target_face_flux: torch.Tensor | None = None
     gamma: float = 1.4
     left_boundary_primitive: torch.Tensor | None = None
     right_initial_primitive: torch.Tensor | None = None
@@ -37,9 +39,15 @@ class Euler1DBatch:
             current_primitive=self.current_primitive.to(device),
             geometry=self.geometry.to(device),
             dt=self.dt.to(device),
+            current_conservative_state=None
+            if self.current_conservative_state is None
+            else self.current_conservative_state.to(device),
             target_primitive=None
             if self.target_primitive is None
             else self.target_primitive.to(device),
+            target_face_flux=None
+            if self.target_face_flux is None
+            else self.target_face_flux.to(device),
             gamma=self.gamma,
             left_boundary_primitive=None
             if self.left_boundary_primitive is None
@@ -54,6 +62,8 @@ class Euler1DBatch:
 
     @property
     def current_conservative(self) -> torch.Tensor:
+        if self.current_conservative_state is not None:
+            return self.current_conservative_state
         return primitive_to_conservative(self.current_primitive, gamma=self.gamma)
 
     @property
@@ -247,7 +257,9 @@ def make_euler1d_batch(
     x: torch.Tensor,
     dt: torch.Tensor | float,
     *,
+    current_conservative_state: torch.Tensor | None = None,
     target_primitive: torch.Tensor | None = None,
+    target_face_flux: torch.Tensor | None = None,
     gamma: float = 1.4,
     left_boundary_primitive: torch.Tensor | None = None,
     right_initial_primitive: torch.Tensor | None = None,
@@ -262,6 +274,17 @@ def make_euler1d_batch(
         x = x.unsqueeze(0).expand(batch_size, -1)
     if x.shape != current_primitive.shape[:2]:
         raise ValueError("x must have shape [cells] or [batch, cells]")
+    if (
+        current_conservative_state is not None
+        and current_conservative_state.shape != current_primitive.shape
+    ):
+        raise ValueError("current_conservative_state must match current_primitive")
+    expected_flux_shape = (batch_size, current_primitive.shape[1] + 1, 3)
+    if target_face_flux is not None and target_face_flux.shape != expected_flux_shape:
+        raise ValueError(
+            "target_face_flux must have shape "
+            f"{expected_flux_shape}, got {tuple(target_face_flux.shape)}"
+        )
 
     dt_tensor = torch.as_tensor(
         dt,
@@ -276,7 +299,19 @@ def make_euler1d_batch(
         current_primitive=current_primitive,
         geometry=make_uniform_1d_geometry(x.to(current_primitive.device)),
         dt=dt_tensor,
+        current_conservative_state=None
+        if current_conservative_state is None
+        else current_conservative_state.to(
+            dtype=current_primitive.dtype,
+            device=current_primitive.device,
+        ),
         target_primitive=target_primitive,
+        target_face_flux=None
+        if target_face_flux is None
+        else target_face_flux.to(
+            dtype=current_primitive.dtype,
+            device=current_primitive.device,
+        ),
         gamma=gamma,
         left_boundary_primitive=left_boundary_primitive,
         right_initial_primitive=right_initial_primitive,

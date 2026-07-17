@@ -29,6 +29,27 @@ class TargetPrediction:
     aux: dict[str, Any]
 
 
+def canonicalize_owner_oriented_face_flux(
+    face_flux: torch.Tensor,
+    face_normal: torch.Tensor,
+) -> torch.Tensor:
+    """Remove the constant-physical-flux null mode from a 1D face field."""
+
+    if face_flux.ndim != 3:
+        raise ValueError("face_flux must have shape [batch, faces, channels]")
+    if face_normal.shape != (*face_flux.shape[:-1], 1):
+        raise ValueError(
+            "face_normal must have shape "
+            f"{(*face_flux.shape[:-1], 1)}, got {tuple(face_normal.shape)}"
+        )
+    normal = face_normal.to(dtype=face_flux.dtype, device=face_flux.device)
+    null_norm_sq = normal.square().sum(dim=1, keepdim=True)
+    if torch.any(null_norm_sq <= 0.0):
+        raise ValueError("face_normal must define a nonzero null vector")
+    coefficient = (face_flux * normal).sum(dim=1, keepdim=True) / null_norm_sq
+    return face_flux - normal * coefficient
+
+
 class StateTargetAdapter(nn.Module):
     """Direct next-state / flow-map target."""
 
@@ -51,6 +72,27 @@ class StateTargetAdapter(nn.Module):
         )
 
 
+class ConservativeStateTargetAdapter(nn.Module):
+    """Direct next conservative state without an admissibility transform."""
+
+    def forward(self, raw: torch.Tensor, batch: Euler1DBatch) -> TargetPrediction:
+        if raw.shape != batch.current_conservative.shape:
+            raise ValueError(
+                "conservative state target raw output must have shape "
+                f"{tuple(batch.current_conservative.shape)}, got {tuple(raw.shape)}"
+            )
+        primitive = conservative_to_primitive(raw, gamma=batch.gamma)
+        return TargetPrediction(
+            primitive=primitive,
+            conservative=raw,
+            aux={
+                "target_kind": "conservative_state",
+                "proposed_conservative": raw,
+                "raw_recurrence": True,
+            },
+        )
+
+
 class ConservativeResidualTargetAdapter(nn.Module):
     """Cell-wise conservative residual followed by primitive decoding.
 
@@ -66,16 +108,108 @@ class ConservativeResidualTargetAdapter(nn.Module):
                 f"{tuple(batch.current_primitive.shape)}, got {tuple(raw.shape)}"
             )
         conservative = batch.current_conservative + raw
-        primitive = conservative_to_primitive(
-            conservative,
-            gamma=batch.gamma,
-            rho_floor=1.0e-8,
-            pressure_floor=1.0e-8,
-        )
+        primitive = conservative_to_primitive(conservative, gamma=batch.gamma)
         return TargetPrediction(
             primitive=primitive,
             conservative=conservative,
-            aux={"target_kind": "residual", "conservative_delta": raw},
+            aux={
+                "target_kind": "residual",
+                "conservative_delta": raw,
+                "proposed_conservative": conservative,
+                "raw_recurrence": True,
+            },
+        )
+
+
+class ProjectedConservativeResidualTargetAdapter(nn.Module):
+    """Conservative residual projected to a learned boundary budget.
+
+    ``raw[:, :-1]`` is a cell-wise conservative increment proposal and the
+    final token ``raw[:, -1]`` is the net conservative boundary exchange over
+    the fixed coarse step. The proposal is shifted by the minimum volume-L2
+    correction whose cell integral matches that exchange. A zero-gauge shared
+    face impulse is then reconstructed by cumulative divergence; its finite-
+    volume update is exactly the projected cell increment.
+
+    The learned boundary exchange leaves the decoder expressive for open and
+    wall boundaries. Conservation is structural in the interior, while global
+    change is isolated in one identifiable three-component quantity.
+    """
+
+    def forward(self, raw: torch.Tensor, batch: Euler1DBatch) -> TargetPrediction:
+        batch_size, num_cells, num_variables = batch.current_conservative.shape
+        expected = (batch_size, num_cells + 1, num_variables)
+        if raw.shape != expected:
+            raise ValueError(
+                "projected residual raw output must contain one boundary "
+                f"exchange token with shape {expected}, got {tuple(raw.shape)}"
+            )
+
+        volume = batch.geometry.cell_volume.to(
+            dtype=raw.dtype,
+            device=raw.device,
+        ).unsqueeze(-1)
+        domain_volume = volume.sum(dim=1)
+
+        raw_delta = raw[:, :num_cells]
+        boundary_exchange = raw[:, num_cells]
+        raw_cell_budget = (volume * raw_delta).sum(dim=1)
+        projection_correction = (boundary_exchange - raw_cell_budget) / domain_volume
+        projected_delta = raw_delta + projection_correction.unsqueeze(1)
+
+        conservative = batch.current_conservative + projected_delta
+        primitive = conservative_to_primitive(conservative, gamma=batch.gamma)
+
+        # Work first in a common left-to-right physical orientation q, where
+        # V_i * delta_i = q_i - q_{i+1}. Convert q to the owner-oriented face
+        # convention used by FiniteVolumeGeometry only after fixing its gauge.
+        # The face field is diagnostic, not a supervised output, so detach it
+        # from the state-loss graph to avoid retaining a needless cumsum graph.
+        diagnostic_delta = projected_delta.detach()
+        physical_impulse = torch.cat(
+            (
+                torch.zeros_like(diagnostic_delta[:, :1]),
+                -torch.cumsum(volume * diagnostic_delta, dim=1),
+            ),
+            dim=1,
+        )
+        physical_impulse = physical_impulse - physical_impulse.mean(
+            dim=1,
+            keepdim=True,
+        )
+        face_normal = batch.geometry.face_normal.to(
+            dtype=raw.dtype,
+            device=raw.device,
+        )
+        face_impulse = physical_impulse * face_normal
+
+        dt = batch.dt.to(dtype=raw.dtype, device=raw.device).reshape(
+            batch_size,
+            1,
+            1,
+        )
+        face_area = batch.geometry.face_area.to(
+            dtype=raw.dtype,
+            device=raw.device,
+        ).unsqueeze(-1)
+        face_flux = face_impulse / (dt * face_area)
+
+        return TargetPrediction(
+            primitive=primitive,
+            conservative=conservative,
+            aux={
+                "target_kind": "projected_residual",
+                "raw_conservative_delta": raw_delta,
+                "conservative_delta": projected_delta,
+                "raw_cell_budget": raw_cell_budget,
+                "boundary_exchange": boundary_exchange,
+                "projection_correction": projection_correction,
+                "canonical_face_impulse": face_impulse,
+                "face_flux": face_flux,
+                "flux_gauge_mode": "canonical",
+                "proposed_conservative": conservative,
+                "raw_recurrence": True,
+            },
         )
 
 
@@ -339,23 +473,36 @@ class LimitedConservativeResidualTargetAdapter(nn.Module):
 class FluxTargetAdapter(nn.Module):
     """Face-flux target followed by a fixed conservative FV update."""
 
+    def __init__(self, *, flux_gauge_mode: str = "raw") -> None:
+        super().__init__()
+        if flux_gauge_mode not in ("raw", "canonical"):
+            raise ValueError(f"unsupported flux gauge mode: {flux_gauge_mode}")
+        self.flux_gauge_mode = flux_gauge_mode
+
     def forward(self, raw: torch.Tensor, batch: Euler1DBatch) -> TargetPrediction:
         expected = (*batch.geometry.face_owner.shape, 3)
         if raw.shape != expected:
             raise ValueError(
                 f"flux target raw output must have shape {expected}, got {tuple(raw.shape)}"
             )
-        conservative = update_from_face_flux(batch, raw)
-        primitive = conservative_to_primitive(
-            conservative,
-            gamma=batch.gamma,
-            rho_floor=1.0e-8,
-            pressure_floor=1.0e-8,
-        )
+        face_flux = raw
+        if self.flux_gauge_mode == "canonical":
+            face_flux = canonicalize_owner_oriented_face_flux(
+                raw,
+                batch.geometry.face_normal,
+            )
+        conservative = update_from_face_flux(batch, face_flux)
+        primitive = conservative_to_primitive(conservative, gamma=batch.gamma)
         return TargetPrediction(
             primitive=primitive,
             conservative=conservative,
-            aux={"target_kind": "flux", "face_flux": raw},
+            aux={
+                "target_kind": "flux",
+                "face_flux": face_flux,
+                "flux_gauge_mode": self.flux_gauge_mode,
+                "proposed_conservative": conservative,
+                "raw_recurrence": True,
+            },
         )
 
 
@@ -544,6 +691,114 @@ class InterfaceStateTargetAdapter(nn.Module):
         )
 
 
+def decode_relative_interface_traces(
+    raw: torch.Tensor,
+    batch: Euler1DBatch,
+) -> torch.Tensor:
+    """Decode directed multiplicative primitive corrections around local traces."""
+
+    expected = (*batch.geometry.face_owner.shape, 2, 3)
+    if raw.shape != expected:
+        raise ValueError(
+            "relative interface output must have shape "
+            f"{expected}, got {tuple(raw.shape)}"
+        )
+    owner_base, neighbor_base = owner_neighbor_primitives(batch)
+    base = torch.stack((owner_base, neighbor_base), dim=-2)
+    rho, velocity, pressure = base.unbind(dim=-1)
+    delta_log_rho, delta_velocity, delta_log_pressure = raw.unbind(dim=-1)
+    sound_speed = torch.sqrt(
+        (batch.gamma * pressure / rho).clamp_min(0.0)
+    )
+    traces = torch.stack(
+        (
+            rho * torch.exp(delta_log_rho),
+            velocity + sound_speed * delta_velocity,
+            pressure * torch.exp(delta_log_pressure),
+        ),
+        dim=-1,
+    )
+
+    normal = batch.geometry.face_normal.squeeze(-1)
+    boundary = batch.geometry.face_neighbor.lt(0)
+    left_boundary = boundary & normal.lt(0)
+    right_boundary = boundary & normal.gt(0)
+    owner_trace = traces[..., 0, :]
+    neighbor_trace = traces[..., 1, :]
+    neighbor_trace = torch.where(
+        left_boundary.unsqueeze(-1),
+        neighbor_base,
+        neighbor_trace,
+    )
+    reflected_owner = owner_trace.clone()
+    reflected_owner[..., 1] = -reflected_owner[..., 1]
+    if batch.right_boundary_primitive is not None:
+        right_state = batch.right_boundary_primitive.to(
+            dtype=raw.dtype,
+            device=raw.device,
+        )
+        reflected_owner = torch.where(
+            right_boundary.unsqueeze(-1),
+            right_state.unsqueeze(1),
+            reflected_owner,
+        )
+    neighbor_trace = torch.where(
+        right_boundary.unsqueeze(-1),
+        reflected_owner,
+        neighbor_trace,
+    )
+    return torch.stack((owner_trace, neighbor_trace), dim=-2)
+
+
+class RelativeInterfaceStateTargetAdapter(nn.Module):
+    """Decode global relative traces, one shared flux, and an exact FV update."""
+
+    def __init__(self, *, flux_mode: str = "rusanov") -> None:
+        super().__init__()
+        if flux_mode not in ("rusanov", "central"):
+            raise ValueError(f"unsupported interface flux mode: {flux_mode}")
+        self.flux_mode = flux_mode
+
+    def forward(self, raw: torch.Tensor, batch: Euler1DBatch) -> TargetPrediction:
+        interface_primitive = decode_relative_interface_traces(raw, batch)
+        owner_primitive = interface_primitive[..., 0, :]
+        neighbor_primitive = interface_primitive[..., 1, :]
+        if self.flux_mode == "rusanov":
+            face_flux = rusanov_flux_from_primitive(
+                owner_primitive,
+                neighbor_primitive,
+                batch.geometry.face_normal,
+                gamma=batch.gamma,
+            )
+        else:
+            owner_flux = normal_flux_from_primitive(
+                owner_primitive,
+                batch.geometry.face_normal,
+                gamma=batch.gamma,
+            )
+            neighbor_flux = normal_flux_from_primitive(
+                neighbor_primitive,
+                batch.geometry.face_normal,
+                gamma=batch.gamma,
+            )
+            face_flux = 0.5 * (owner_flux + neighbor_flux)
+        conservative = update_from_face_flux(batch, face_flux)
+        primitive = conservative_to_primitive(conservative, gamma=batch.gamma)
+        return TargetPrediction(
+            primitive=primitive,
+            conservative=conservative,
+            aux={
+                "target_kind": "relative_interface",
+                "interface_corrections": raw,
+                "interface_primitive": interface_primitive,
+                "interface_flux_mode": self.flux_mode,
+                "face_flux": face_flux,
+                "proposed_conservative": conservative,
+                "raw_recurrence": True,
+            },
+        )
+
+
 class CPGNetInterfaceTargetAdapter(nn.Module):
     """Decode positive interface states with no cell-state limiter or floor."""
 
@@ -656,19 +911,25 @@ def make_target_adapter(
     positive_transform: str = "none",
     flux_correction_scale: float = 1.0,
     flux_correction_scale_floor: float = 1.0e-6,
+    flux_gauge_mode: str = "raw",
+    interface_flux_mode: str = "rusanov",
 ) -> nn.Module:
     """Factory for target adapters used by FNO and CPG-style heads."""
 
     if target == "state":
         return StateTargetAdapter(positive_transform=positive_transform)
+    if target == "conservative_state":
+        return ConservativeStateTargetAdapter()
     if target == "residual":
         return ConservativeResidualTargetAdapter()
+    if target == "projected_residual":
+        return ProjectedConservativeResidualTargetAdapter()
     if target == "primitive_residual":
         return PrimitiveResidualTargetAdapter()
     if target == "limited_residual":
         return LimitedConservativeResidualTargetAdapter()
     if target == "flux":
-        return FluxTargetAdapter()
+        return FluxTargetAdapter(flux_gauge_mode=flux_gauge_mode)
     if target == "limited_flux":
         return LimitedFluxTargetAdapter()
     if target == "physical_flux_correction":
@@ -678,6 +939,8 @@ def make_target_adapter(
         )
     if target == "interface":
         return InterfaceStateTargetAdapter(positive_transform=positive_transform)
+    if target == "relative_interface":
+        return RelativeInterfaceStateTargetAdapter(flux_mode=interface_flux_mode)
     if target == "positive_limited_interface":
         return PositiveLimitedInterfaceStateTargetAdapter(
             positive_transform=positive_transform

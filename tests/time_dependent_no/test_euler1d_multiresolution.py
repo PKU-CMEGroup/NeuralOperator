@@ -173,8 +173,8 @@ def test_balanced_loader_keeps_batches_homogeneous_and_budget_exact():
 
 
 def test_parallel_dataset_generation_matches_serial(tmp_path: Path):
-    serial_path = tmp_path / "serial.npz"
-    parallel_path = tmp_path / "parallel.npz"
+    serial_path = tmp_path / "serial" / "dataset.npz"
+    parallel_path = tmp_path / "parallel" / "dataset.npz"
     common = {
         "n_cases": 2,
         "n_steps": 2,

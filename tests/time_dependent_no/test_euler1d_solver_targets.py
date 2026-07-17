@@ -552,9 +552,8 @@ def test_positive_limited_interface_state_adapter_forces_positive_interface():
     assert torch.all(primitive[..., 2] > 0.0)
 
 
-def test_euler1d_npz_loader_and_collate():
-    path = Path("artifacts/time_dependent_no/euler1d_test_fixture.npz")
-    path.parent.mkdir(parents=True, exist_ok=True)
+def test_euler1d_npz_loader_and_collate(tmp_path: Path):
+    path = tmp_path / "euler1d_test_fixture.npz"
     data = np.zeros((2, 4, 4, 3), dtype=np.float32)
     data[..., 0] = 1.0
     data[..., 2] = 1.0

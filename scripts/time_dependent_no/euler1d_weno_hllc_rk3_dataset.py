@@ -18,6 +18,7 @@ uses smaller CFL-limited substeps between two saved snapshots.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Tuple
 import numpy as np
 
@@ -40,9 +41,12 @@ from euler1d_weno_hllc_ader_dataset import (
 )
 
 
+ARTIFACT_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "time_dependent_no"
+
+
 @dataclass(frozen=True)
 class DatasetConfig:
-    out_path: str = "euler1d_weno_hllc_rk3_dataset.npz"
+    out_path: str | Path = ARTIFACT_DIR / "euler1d_weno_hllc_rk3_dataset.npz"
     n_cases: int = 1
     n_steps: int = 100
     nx: int = 2048
@@ -60,7 +64,7 @@ class DatasetConfig:
     sample: SampleConfig = field(default_factory=SampleConfig)
     verbose: bool = True
     save_gif: bool = True
-    gif_path: str = "euler1d_weno_hllc_rk3_sample0.gif"
+    gif_path: str | Path = ARTIFACT_DIR / "euler1d_weno_hllc_rk3_sample0.gif"
     gif_case_id: int = 0
     gif_fps: int = 20
     gif_dpi: int = 120
@@ -71,7 +75,7 @@ class DatasetConfig:
 
 # Edit this block to set the dataset-generation parameters.
 CONFIG = DatasetConfig(
-    out_path="euler1d_weno_hllc_rk3_dataset.npz",
+    out_path=ARTIFACT_DIR / "euler1d_weno_hllc_rk3_dataset.npz",
     n_cases=1,
     n_steps=100,
     nx=2048,
@@ -98,7 +102,7 @@ CONFIG = DatasetConfig(
     ),
     verbose=True,
     save_gif=True,
-    gif_path="euler1d_weno_hllc_rk3_sample0.gif",
+    gif_path=ARTIFACT_DIR / "euler1d_weno_hllc_rk3_sample0.gif",
     gif_case_id=0,
     gif_fps=20,
     gif_dpi=120,
@@ -350,7 +354,7 @@ def integrate_case(
 
 
 def generate_dataset(
-    out_path: str,
+    out_path: str | Path,
     n_cases: int = 1,
     n_steps: int = 100,
     nx: int = 2048,
@@ -372,6 +376,8 @@ def generate_dataset(
         raise ValueError(f"n_steps must be at least 1, got {n_steps}.")
     if t_final <= 0.0:
         raise ValueError(f"t_final must be positive, got {t_final}.")
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     rng = np.random.default_rng(seed)
     n_frames = n_steps + 1
@@ -476,8 +482,8 @@ def maybe_plot(npz_path: str, case_id: int = 0, time_ids=(0, 25, 50, 75, 100)) -
 
 
 def save_sample_gif(
-    npz_path: str,
-    gif_path: str,
+    npz_path: str | Path,
+    gif_path: str | Path,
     case_id: int = 0,
     fps: int = 20,
     dpi: int = 120,
@@ -486,6 +492,9 @@ def save_sample_gif(
     """Save an animated GIF for one sample using primitive variables [rho, u, p]."""
     import os
     import tempfile
+
+    gif_path = Path(gif_path)
+    gif_path.parent.mkdir(parents=True, exist_ok=True)
 
     mpl_cache_dir = os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib"))
     os.makedirs(mpl_cache_dir, exist_ok=True)

@@ -87,7 +87,8 @@ reflective-wall ghost states without target leakage. It uses one unique
 Rusanov flux per face and no post-update cell limiter or recurrence clamp.
 Checkpoint selection first requires a completed admissible validation horizon
 and ranks those checkpoints by final rollout L2. If no epoch completes, it
-selects the lowest one-step validation loss only as a diagnostic fallback.
+ranks checkpoints by mean validation survival fraction and uses bounded
+one-step validation loss only to break survival ties.
 
 Before the full run, use this real-data CUDA contract smoke:
 
@@ -146,17 +147,63 @@ Run `section12_corrected_autodl_20260710_222716` completed on 2026-07-12 with th
 | FNO 96/24/4 | limited_residual | 0.02 | 58 | 6.97e-05 | 3.52e-02 | 4.93e-02 | 4.31e-03 | 2.15e-02 | 9.70e-02 | 1.00e-08 | 3 pressure nonpositive | reject |
 | FNO 64/24/4 | residual control | 0.003 | 59 | 4.78e-05 | 1.70e+03 | 3.41e+04 | 4.92e-03 | 8.06e+02 | 1.00e-08 | 1.00e-08 | 2 density, 13 pressure nonpositive | reject |
 | FNO 64/24/4 | residual control | 0.02 | 79 | 6.53e-05 | 2.18e-02 | 3.60e-02 | 2.78e-03 | 2.23e-02 | 1.02e-01 | 3.51e-02 | clean | candidate |
+| CPGNet h128/mp12 (1.50M) | cpg_interface | 0.02 | 3 | 3.49e-03 | 2.14e-01* | 2.68e-01* | 1.68e-01* | 2.75e-02* | 1.03e-01* | 7.63e-04* | 34/64 complete; 30 raw terminations | locality-limited |
+| CPGNet h128/mp28 (3.35M) | cpg_interface | 0.02 | 20 | 6.75e-05 | 2.06e-02 | 2.98e-02 | 2.57e-02 | 1.03e-02 | 5.22e-02 | 7.64e-02 | clean, 64/64 complete | strong baseline |
 | CPG target head h128/mp12 (deprecated) | limited_residual | 0.003 | 1 | 9.84e-02 | 5.62e-01 | 7.11e-01 | 4.85e-01 | 4.46e-01 | 1.45e-01 | 2.22e-01 | clean | deprecated |
 | CPG target head h128/mp12 (deprecated) | limited_residual | 0.02 | 62 | 9.83e-02 | 5.63e-01 | 7.08e-01 | 4.85e-01 | 4.30e-01 | 1.48e-01 | 2.19e-01 | clean | deprecated |
 
+`*` The mp12 rollout metrics average variable-length valid prefixes and are
+optimistic/truncated because 30 cases terminate before frame 80. Do not compare
+them directly with full-horizon rows.
+
 Immediate read:
 
+- The corrected CPG reference is now `h128/mp28`, not the locality-limited
+  `mp12` reconstruction. It matches the strong FNO one-step loss, completes all
+  raw rollouts without a cell limiter, improves final L2 and conservation, but
+  uses about 10.6x as many parameters and has a much heavier shock-error tail.
 - The corrected strong FNO baseline is much stronger than the deprecated directed CPG target head on this Section 1.2 target-ladder dataset. Best paper-facing FNO is `64/24/4`, `limited_residual`, noise `0.02`: final rollout L2 `3.72e-02`, shock MAE `2.51e-03`, clean positivity.
 - The raw residual control at noise `0.02` is numerically best by final rollout L2 (`3.60e-02`), but it is a control, not the main target. Its conservation final error is worse than the best limited residual row (`2.23e-02` vs `1.89e-02`), and the same raw residual target catastrophically fails at noise `0.003`.
 - Noise `0.02` helps the stable FNO rows in this sweep. It improves final rollout L2 for `64/16/4` from `5.84e-02` to `4.24e-02`, and for `64/24/4` from `5.02e-02` to `3.72e-02`.
 - Wider FNO `96/24/4` is not better here. At noise `0.02` it triggers pressure floor/positivity flags, so it should not be the main baseline despite having a reasonable final L2.
 - The two old `limited_residual` CPG rows do not test CPGNet's defining solver path and must not be used to judge the paper baseline. They establish only that the deprecated local residual head underfit badly.
-- The corrected `cpg_interface` result is pending the GPU run. Keep it separate from the completed FNO table until both one-step accuracy and raw autoregressive admissibility have been measured.
+- The mp12-to-mp28 comparison strongly implicates receptive-field coverage:
+  test completion rises from `34/64` to `64/64`, first-rollout-step error falls
+  by `88.6%`, and the initial-CFL/error Pearson correlation falls from `0.90`
+  to `-0.12`. Depth and parameter count changed together, so parameter-matched
+  controls remain required before attributing the entire gain to hop coverage.
+
+## Stride-1 Conservative Flux-Form Continuation
+
+This continuation is not a new row in the stride-4 table above. It uses the
+ADER cumulative-face-impulse dataset at stride 1, a 20-call horizon, clean
+inputs, conservative input/loss/recurrence, and a 316,739-parameter FNO face
+head. It therefore must not be ranked directly against the stride-4 CPGNet or
+limited-residual rows.
+
+After 50 one-step epochs and ten four-step recurrent epochs, the full 384/64/64
+run reaches test one-step relative L2 `0.001305`, mean raw survival `0.97734`,
+and 57/64 completed rollouts at mean initial effective CFL `3.84`. All seven
+terminations are raw nonpositive proposals; no inference limiter, floor, or
+positive transform is used. The row passes its scale and 20-call promotion
+gates but misses its predeclared 90% completion gate by one trajectory. It is a
+strong 20-call conservative FNO result for the stride-1 target screen, not a
+replacement for the frozen stride-4 Section 1.2 baseline table. A
+frozen-checkpoint extension completes only 1/64 cases at 50 calls and 0/64 at
+100 calls, so it is not a medium-horizon baseline.
+
+The matched stride-1 target control now promotes a conservative residual cell
+head as the strong fixed-setting baseline. Direct next conservative state first
+fails the tiny-fit gate on both initialization seeds, isolating an output-
+centering/identity-bypass optimization defect. At full 384/64/64 scale, the
+316,419-parameter residual FNO reaches one-step relative L2 `0.001123` and
+completes 64/64, 62/64, and 61/64 raw rollouts at 20, 50, and 100 calls without
+an inference limiter, floor, or positive transform. At the longer common
+endpoint it has lower relative error than the matched face-flux head on 63/64
+cases. This is strong baseline evidence for the fixed stride-1 dataset, but the
+single split/seed and lack of facewise conservation prevent a general target-
+superiority or structure-preserving claim.
+
 ## Corrected CPG CPU Gate
 
 A tiny six-case / 12-cell fixture was used only as an implementation and

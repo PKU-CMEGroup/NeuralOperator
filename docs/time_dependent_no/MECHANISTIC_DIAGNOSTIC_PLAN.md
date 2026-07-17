@@ -8,7 +8,8 @@ Idea 2.1 method design, experiment ordering, and stop rules, follow
 `RESEARCH_DIRECTION_DECISION.md` and `HANDOFF.md`. Unfinished B9/B10 work still
 blocks claims about the CPG/PCNO scale-propagation mechanism and any recurrent
 control motivated by that mechanism; it does not block the separately scoped
-conservative-coordinate diagnostic or reference-flux export/closure audit.
+conservative-coordinate diagnostic, reference-flux export/closure audit, or
+staged 1D target-family optimization program.
 
 ## Problem
 
@@ -252,7 +253,9 @@ These are the specific checks for the suspected main failure mode:
 
 ## Stop Criteria
 
-- Do not add or retrain a method until B9/B10 clarify whether scale residuals or effective propagation are the mechanism to target.
+- Do not add or retrain a CPG/PCNO method motivated by scale propagation until
+  B9/B10 clarify that mechanism. This does not block the separately approved
+  1D coordinate, reference-flux, or staged target-family program.
 - Do not make a conservation claim until weight choice is explicit.
 - Do not compare PCNO against CPGNet unless both use the same rollout artifact contract and diagnostic definitions.
 - Do not interpret Table 2 reproduction failure as model underfitting unless teacher-forced and perturbation diagnostics contradict the current evidence.

@@ -58,7 +58,6 @@ from utility.time_dependent_no.euler1d_data import (
 )
 from utility.time_dependent_no.euler1d_models import (
     CPGNetEuler1D,
-    CPGStylePilotEuler1DHead,
     Euler1DCoordinates,
     Euler1DTarget,
     FNOEuler1DHead,
@@ -74,7 +73,6 @@ NEAR_FLOOR = 1.0e-6
 LIMITER_ACTIVE_TOL = 1.0e-6
 CORRECTION_SATURATION_TOL = 0.95
 MODEL_CHOICES = ("cpgnet", "fno")
-ARG_MODEL_CHOICES = (*MODEL_CHOICES, "cpg_style_pilot")
 TARGET_CHOICES = (
     "conservative_state",
     "residual",
@@ -316,7 +314,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         / "time_dependent_no"
         / f"euler1d_target_ladder_{date}",
     )
-    parser.add_argument("--model", choices=(*ARG_MODEL_CHOICES, "all"), default="all")
+    parser.add_argument("--model", choices=(*MODEL_CHOICES, "all"), default="all")
     parser.add_argument("--target", choices=(*ARG_TARGET_CHOICES, "all"), default="all")
     parser.add_argument("--epochs", type=int, default=80)
     parser.add_argument(
@@ -385,13 +383,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--lr",
         type=float,
         default=None,
-        help="Default: 1e-4 for CPGNet and 1e-3 for FNO/pilot heads.",
+        help="Default: 1e-4 for CPGNet and 1e-3 for FNO.",
     )
     parser.add_argument(
         "--weight-decay",
         type=float,
         default=None,
-        help="Default: 0 for CPGNet and 1e-5 for FNO/pilot heads.",
+        help="Default: 0 for CPGNet and 1e-5 for FNO.",
     )
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument(
@@ -647,17 +645,6 @@ def build_model(
             primitive_mean=normalizer.mean,
             primitive_std=normalizer.std,
         )
-    elif model_name == "cpg_style_pilot":
-        if target == "projected_residual":
-            raise ValueError(
-                "--target projected_residual currently requires --model fno"
-            )
-        model = CPGStylePilotEuler1DHead(
-            target,
-            hidden_dim=args.cpg_hidden_dim,
-            message_passing_steps=args.cpg_message_passing_steps,
-            mlp_layers=args.cpg_mlp_layers,
-        )
     elif model_name == "fno":
         if args.fno_layers < 2:
             raise ValueError("--fno-layers must be >= 2")
@@ -695,40 +682,16 @@ def build_model(
 def zero_initialize_identity_update_output(
     model: nn.Module, target: Euler1DTarget
 ) -> None:
-    """Start update heads at zero and relative traces at zero correction."""
+    """Start an FNO update head at the identity operator."""
 
-    if isinstance(model, CPGStylePilotEuler1DHead):
-        module = (
-            model.node_decoder
-            if target
-            in (
-                "residual",
-                "projected_residual",
-                "primitive_residual",
-                "limited_residual",
-            )
-            else model.face_decoder
+    if not isinstance(model, FNOEuler1DHead):
+        raise TypeError(
+            f"zero initialization for {target} is unsupported for "
+            f"{type(model).__name__}"
         )
-        zero_initialize_last_linear(module)
-        return
-    if isinstance(model, FNOEuler1DHead):
-        nn.init.zeros_(model.model.fc2.weight)
-        if model.model.fc2.bias is not None:
-            nn.init.zeros_(model.model.fc2.bias)
-        return
-    zero_initialize_last_linear(model)
-
-
-def zero_initialize_last_linear(module: nn.Module) -> None:
-    last_linear = None
-    for child in module.modules():
-        if isinstance(child, nn.Linear):
-            last_linear = child
-    if last_linear is None:
-        raise ValueError("residual model has no Linear output layer to initialize")
-    nn.init.zeros_(last_linear.weight)
-    if last_linear.bias is not None:
-        nn.init.zeros_(last_linear.bias)
+    nn.init.zeros_(model.model.fc2.weight)
+    if model.model.fc2.bias is not None:
+        nn.init.zeros_(model.model.fc2.bias)
 
 
 def load_continuation_checkpoint(
@@ -2523,12 +2486,6 @@ def model_implementation_name(model_name: str, args: argparse.Namespace) -> str:
             f"(hidden={args.cpg_hidden_dim},message_layers={args.cpg_message_passing_steps},"
             "edge_encoder_layers=4,directed_positive_interfaces=True,"
             "shared_rusanov_flux=True,geometry=exact,no_cell_limiter=True)"
-        )
-    if model_name == "cpg_style_pilot":
-        return (
-            "CPGStylePilotEuler1DHead"
-            f"(hidden={args.cpg_hidden_dim},message_steps={args.cpg_message_passing_steps},"
-            "deprecated=True)"
         )
     return model_name
 

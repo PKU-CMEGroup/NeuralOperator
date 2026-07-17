@@ -17,7 +17,7 @@ Reusable branch utilities live in `utility/time_dependent_no/`:
 - `fv.py`: PDE-agnostic finite-volume geometry, gather/scatter, and conservative update helpers.
 - `euler1d.py`: 1D Euler primitive/conservative conversion, fluxes, geometry, and batch helpers.
 - `euler1d_data.py`: collaborator-compatible 1D Euler dataset loading and batching.
-- `euler1d_models.py`: FNO target heads, deprecated CPG-style pilots, and the corrected solver-level 1D CPGNet adaptation.
+- `euler1d_models.py`: FNO target heads and the corrected solver-level 1D CPGNet adaptation.
 - `euler1d_targets.py`: state/residual, flux, and interface target adapters.
 - `euler2d.py`: CPG HDF5 schema inspection, primitive/conservative conversion, node-type helpers, and graph-frame materialization.
 - `euler2d_synthetic.py`: deterministic CPG-style synthetic fixture for CPU tests.
@@ -32,6 +32,9 @@ python scripts/time_dependent_no/euler1d_weno_hllc_rk3_dataset.py --help
 python scripts/time_dependent_no/euler1d_weno_hllc_ader_dataset.py --help
 python scripts/time_dependent_no/train_euler1d_target_ladder.py --help
 python scripts/time_dependent_no/analyze_euler1d_target_ladder.py --help
+python scripts/time_dependent_no/build_euler1d_restriction_family.py --help
+python scripts/time_dependent_no/train_euler1d_multiresolution.py --help
+python scripts/time_dependent_no/evaluate_euler1d_resolution_transfer.py --help
 python scripts/time_dependent_no/diagnose_euler1d_generated_state_consistency.py --help
 python scripts/time_dependent_no/diagnose_euler1d_scale_spectra.py --help
 python scripts/time_dependent_no/probe_euler1d_conservative_dissipation.py --help
@@ -256,6 +259,6 @@ Pending 2D diagnostics should still measure ripple energy and shock-front geomet
 
 ## Not Ported Or Active
 
-The raw `cpggnspdes` training scripts are not vendored into this branch. The CPGNet interface-latent probe code, state-drift/perturbation/time-alignment scripts, early smoke scripts, and raw-HDF5 PCNO adapter path were one-off research tools and are no longer active tracked code.
+The raw `cpggnspdes` training scripts are not vendored into this branch. The deprecated CPG-style pilot heads, CPGNet interface-latent probe code, state-drift/perturbation/time-alignment scripts, early smoke scripts, and raw-HDF5 PCNO adapter path were one-off research tools and are no longer active tracked code. Historical analyzers still recognize their saved row labels so old results cannot be mistaken for corrected CPGNet.
 
 FNO, PCNO, and MPCNO baselines should use implementations already present in this repository or collaborator-provided preprocessing artifacts. Do not port baseline code from earlier data-assimilation experiment repositories.

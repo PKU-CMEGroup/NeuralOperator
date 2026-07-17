@@ -45,7 +45,6 @@ from utility.time_dependent_no.euler1d_targets import make_target_adapter
 
 VARIABLE_NAMES = ("density", "velocity", "pressure")
 MODEL_CHOICES = ("cpgnet", "fno")
-ARG_MODEL_CHOICES = (*MODEL_CHOICES, "cpg_style_pilot")
 TARGET_CHOICES = (
     "residual",
     "primitive_residual",
@@ -67,7 +66,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=ROOT / "artifacts" / "time_dependent_no" / "euler1d_rollout_animations",
     )
-    parser.add_argument("--model", choices=(*ARG_MODEL_CHOICES, "all"), default="all")
+    parser.add_argument("--model", choices=(*MODEL_CHOICES, "all"), default="all")
     parser.add_argument("--target", choices=(*TARGET_CHOICES, "all"), default="all")
     parser.add_argument("--step-stride", type=int, default=4)
     parser.add_argument("--rollout-final-frame", type=int, default=80)

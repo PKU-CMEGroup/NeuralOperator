@@ -304,6 +304,8 @@ Active 1D Euler scripts are:
 - `scripts/time_dependent_no/euler1d_weno_hllc_ader_dataset.py`
 - `scripts/time_dependent_no/train_euler1d_target_ladder.py`
 - `scripts/time_dependent_no/analyze_euler1d_target_ladder.py`
+- `scripts/time_dependent_no/build_euler1d_restriction_family.py`
+- `scripts/time_dependent_no/train_euler1d_multiresolution.py`
 - `scripts/time_dependent_no/evaluate_euler1d_resolution_transfer.py`
 - `scripts/time_dependent_no/diagnose_euler1d_generated_state_consistency.py`
 - `scripts/time_dependent_no/diagnose_euler1d_scale_spectra.py`

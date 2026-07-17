@@ -7,7 +7,7 @@ This note supersedes legacy Section 1.2 rows produced before the corrected CPGNe
 - Rows with `model=cpgnet` and no `model_implementation` must be treated as deprecated legacy rows. They came from the old `CPGStyleEuler1DHead` pilot and must not be reported as CPGNet.
 - Rows with `model_implementation=CPGNetEuler1DHead(...)` are also deprecated. That implementation was a directed generic target head trained with `limited_residual`; it never executed the paper's reconstruction -> Rusanov -> finite-volume solver.
 - A paper-facing CPG row must use `model_implementation=CPGNetEuler1D(...)` and `target_type=cpg_interface`. The training CLI rejects every other target for `--model cpgnet`.
-- Rows with `model=cpg_style_pilot` are explicit pilot ablations only and are not paper-facing CPGNet baselines.
+- Historical rows with `model=cpg_style_pilot` are explicit pilot ablations only and are not paper-facing CPGNet baselines. The active training CLI no longer exposes this retired model; exact reproduction requires the recorded historical commit.
 - Rows with `model=fno` must report `model_implementation`. Width-32/modes-8 runs are legacy controls, not the main FNO baseline.
 - Corrected Section 1.2 tables must include `model_implementation`, `target_type`, `input_noise_std`, `step_stride`, `rollout_final_frame`, `seed_count`, one-step loss, rollout mean/final L2, shock error, conservation error, and density/pressure positivity diagnostics.
 

@@ -24,8 +24,6 @@ from scripts.time_dependent_no.euler1d_weno_hllc_ader_dataset import (
 )
 from utility.time_dependent_no.euler1d_models import (
     CPGNetEuler1D,
-    CPGStyleTargetEuler1DHead,
-    CPGStylePilotEuler1DHead,
     FNOEuler1DHead,
     cell_features,
 )
@@ -702,61 +700,6 @@ def test_ader_face_flux_integral_closes_saved_state_transition():
         rtol=3.0e-5,
         atol=3.0e-6,
     )
-
-
-def test_cpg_style_pilot_head_output_shapes_are_resolution_flexible():
-    for target, expected_channels in [
-        ("state", 3),
-        ("residual", 3),
-        ("primitive_residual", 3),
-        ("limited_residual", 3),
-        ("flux", 3),
-        ("limited_flux", 3),
-        ("physical_flux_correction", 3),
-    ]:
-        head = CPGStylePilotEuler1DHead(
-            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
-        )
-        for num_cells in [6, 9]:
-            batch = _batch(num_cells=num_cells)
-            raw = head(batch)
-            count = (
-                num_cells
-                if target
-                in ("state", "residual", "primitive_residual", "limited_residual")
-                else num_cells + 1
-            )
-            assert raw.shape == (1, count, expected_channels)
-
-    for target in ["interface", "relative_interface", "positive_limited_interface"]:
-        head = CPGStylePilotEuler1DHead(
-            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
-        )
-        raw = head(_batch(num_cells=7))
-        assert raw.shape == (1, 8, 2, 3)
-
-
-def test_cpg_style_target_head_output_shapes_are_resolution_flexible():
-    for target, expected_channels in [
-        ("limited_residual", 3),
-        ("limited_flux", 3),
-        ("physical_flux_correction", 3),
-    ]:
-        head = CPGStyleTargetEuler1DHead(
-            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
-        )
-        for num_cells in [6, 9]:
-            batch = _batch(num_cells=num_cells)
-            raw = head(batch)
-            count = num_cells if target == "limited_residual" else num_cells + 1
-            assert raw.shape == (1, count, expected_channels)
-
-    for target in ["interface", "relative_interface", "positive_limited_interface"]:
-        head = CPGStyleTargetEuler1DHead(
-            target, hidden_dim=8, message_passing_steps=1, mlp_layers=2
-        )
-        raw = head(_batch(num_cells=7))
-        assert raw.shape == (1, 8, 2, 3)
 
 
 def test_cpgnet_directed_message_passing_is_directional():

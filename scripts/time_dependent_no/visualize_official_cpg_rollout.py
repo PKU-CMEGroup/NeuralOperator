@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import h5py
 import matplotlib
@@ -680,4 +680,3 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-

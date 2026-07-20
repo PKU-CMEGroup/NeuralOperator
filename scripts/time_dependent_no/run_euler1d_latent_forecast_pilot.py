@@ -4,8 +4,8 @@
 This entry point deliberately contains no learned model or optimizer.  It uses
 the frozen 384/64/64 trajectory split and stride-compatible frames from the
 selected stride-8 Line-1 dataset to test whether privileged front coordinates
-improve reconstruction and conditional-future ambiguity before any learned
-front encoder is authorized.
+and matched current-state front speeds improve reconstruction and conditional-
+future ambiguity before any learned front encoder is authorized.
 """
 
 from __future__ import annotations
@@ -32,11 +32,13 @@ from utility.time_dependent_no.euler1d_data import (
 from utility.time_dependent_no.latent_forecast import (
     Euler1DFrontSet,
     LinearCodePCA,
+    OracleFrontKinematicPOD,
     OracleFrontPOD,
     VolumeWeightedPOD,
     cell_edges_from_centers,
     conditional_future_diagnostics,
     decode_registered_state,
+    extract_euler1d_front_kinematics,
     extract_euler1d_fronts,
     fixed_scale_relative_l2,
     front_reconstruction_metrics,
@@ -45,7 +47,7 @@ from utility.time_dependent_no.latent_forecast import (
 )
 
 
-SCHEMA_VERSION = "euler1d_latent_forecast_preflight_v1"
+SCHEMA_VERSION = "euler1d_latent_forecast_preflight_v2"
 EXPECTED_SHAPE = (512, 101, 256, 3)
 SPLIT_SEED = 20260707
 TRAIN_CASES = 384
@@ -54,6 +56,7 @@ TEST_CASES = 64
 STEP_STRIDE = 8
 ENERGY_FRACTION = 0.995
 FRONT_SCALARS = 12
+KINEMATIC_SCALARS = 3
 NEIGHBORS = 8
 BOOTSTRAP_REPETITIONS = 1000
 BOOTSTRAP_SEED = 20260720
@@ -64,7 +67,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
     preflight = subparsers.add_parser(
         "preflight",
-        help="Run the zero-training POD/oracle-front diagnostic.",
+        help="Run the zero-training POD/oracle-front/kinematic diagnostic.",
     )
     preflight.add_argument("--data-path", type=Path, required=True)
     preflight.add_argument(
@@ -610,7 +613,9 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
     )
     pod_rank = raw_pod.rank
     compression_limit = 3 * source.num_cells / 4
-    compression_eligible = FRONT_SCALARS + 4 <= pod_rank <= compression_limit
+    compression_eligible = (
+        FRONT_SCALARS + KINEMATIC_SCALARS + 4 <= pod_rank <= compression_limit
+    )
 
     train_fronts_flat = extract_euler1d_fronts(
         flat_train_primitive, flat_train_x, gamma=source.gamma
@@ -657,7 +662,9 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
     chart_diagnostics = _chart_diagnostics(chart_fronts)
 
     gates: dict[str, dict[str, Any]] = {
-        "compression_budget_minimum": _gate(pod_rank, ">=", FRONT_SCALARS + 4),
+        "compression_budget_minimum": _gate(
+            pod_rank, ">=", FRONT_SCALARS + KINEMATIC_SCALARS + 4
+        ),
         "compression_budget_useful": _gate(pod_rank, "<=", compression_limit),
         "front_extraction_completion": _gate(
             extraction["any_pressure_front_fraction"], ">=", 0.95
@@ -708,9 +715,15 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             "pod_rank": pod_rank,
             "pod_retained_energy": raw_pod.retained_energy,
             "oracle_front_scalars": FRONT_SCALARS,
+            "oracle_kinematic_scalars": KINEMATIC_SCALARS,
             "oracle_registered_rank": pod_rank - FRONT_SCALARS
             if compression_eligible
             else None,
+            "kinematic_oracle_registered_rank": (
+                pod_rank - FRONT_SCALARS - KINEMATIC_SCALARS
+                if compression_eligible
+                else None
+            ),
             "compression_eligible": compression_eligible,
             "component_scale": component_scale.tolist(),
         },
@@ -780,9 +793,33 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         "fixed_size_history_not_materially_better",
         "fixed_size_history_encoded_not_materially_better",
     ]
+    kinematic_gate_names = [
+        "kinematic_speed_completion",
+        "kinematic_reconstruction_admissibility",
+        "kinematic_state_reconstruction_noninferiority",
+        "kinematic_front_position_reconstruction_noninferiority",
+        "kinematic_front_strength_reconstruction_noninferiority",
+        "kinematic_front_thickness_reconstruction_noninferiority",
+        "kinematic_state_ambiguity_improvement",
+        "kinematic_encoded_ambiguity_improvement",
+        "kinematic_front_position_ambiguity_noninferiority",
+        "kinematic_front_strength_ambiguity_noninferiority",
+        "kinematic_front_thickness_ambiguity_noninferiority",
+        "kinematic_history_not_materially_better",
+        "kinematic_history_encoded_not_materially_better",
+    ]
+    required_gate_names.extend(kinematic_gate_names)
 
     if compression_eligible:
         oracle = OracleFrontPOD.fit(
+            flat_train_primitive,
+            flat_train_x,
+            cell_volume,
+            component_scale,
+            total_size=pod_rank,
+            gamma=source.gamma,
+        )
+        kinematic_oracle = OracleFrontKinematicPOD.fit(
             flat_train_primitive,
             flat_train_x,
             cell_volume,
@@ -863,8 +900,14 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         validation_oracle_code = oracle.encode(
             flat_validation_primitive, flat_validation_x
         )
+        validation_kinematic_code = kinematic_oracle.encode(
+            flat_validation_primitive, flat_validation_x
+        )
         validation_oracle_decoded = oracle.decode_conservative(
             validation_oracle_code, flat_validation_x
+        )
+        validation_kinematic_decoded = kinematic_oracle.decode_conservative(
+            validation_kinematic_code, flat_validation_x
         )
         validation_pod_primitive = conservative_to_primitive_np(
             validation_pod_decoded, source.gamma
@@ -872,11 +915,19 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         validation_oracle_primitive = conservative_to_primitive_np(
             validation_oracle_decoded, source.gamma
         )
+        validation_kinematic_primitive = conservative_to_primitive_np(
+            validation_kinematic_decoded, source.gamma
+        )
         validation_pod_fronts = extract_euler1d_fronts(
             validation_pod_primitive, flat_validation_x, gamma=source.gamma
         )
         validation_oracle_fronts = extract_euler1d_fronts(
             validation_oracle_primitive, flat_validation_x, gamma=source.gamma
+        )
+        validation_kinematic_fronts = extract_euler1d_fronts(
+            validation_kinematic_primitive,
+            flat_validation_x,
+            gamma=source.gamma,
         )
         pod_state_error = fixed_scale_relative_l2(
             validation_pod_decoded,
@@ -890,6 +941,12 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             cell_volume,
             component_scale,
         )
+        kinematic_state_error = fixed_scale_relative_l2(
+            validation_kinematic_decoded,
+            flat_validation_conservative,
+            cell_volume,
+            component_scale,
+        )
         pod_front_error = _front_reconstruction_errors(
             validation_fronts_flat,
             validation_pod_fronts,
@@ -898,6 +955,11 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         oracle_front_error = _front_reconstruction_errors(
             validation_fronts_flat,
             validation_oracle_fronts,
+            num_cells=source.num_cells,
+        )
+        kinematic_front_error = _front_reconstruction_errors(
+            validation_fronts_flat,
+            validation_kinematic_fronts,
             num_cells=source.num_cells,
         )
         reconstruction_ratios: dict[str, Any] = {
@@ -919,10 +981,48 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
                 repetitions=args.bootstrap_repetitions,
                 seed=BOOTSTRAP_SEED + offset,
             )
+        kinematic_reconstruction_ratios: dict[str, Any] = {
+            "state": _bootstrap_ratio(
+                kinematic_state_error,
+                oracle_state_error,
+                validation_groups_snapshot,
+                repetitions=args.bootstrap_repetitions,
+                seed=BOOTSTRAP_SEED + 30,
+            )
+        }
+        for offset, name in enumerate(
+            ("position_cells", "strength_relative", "thickness_relative"),
+            start=31,
+        ):
+            kinematic_reconstruction_ratios[name] = _bootstrap_ratio(
+                kinematic_front_error[name],
+                oracle_front_error[name],
+                validation_groups_snapshot,
+                repetitions=args.bootstrap_repetitions,
+                seed=BOOTSTRAP_SEED + offset,
+            )
         oracle_case_admissible = (
             np.isfinite(validation_oracle_primitive).all(axis=(1, 2))
             & (validation_oracle_primitive[..., 0] > 0.0).all(axis=1)
             & (validation_oracle_primitive[..., 2] > 0.0).all(axis=1)
+        )
+        kinematic_case_admissible = (
+            np.isfinite(validation_kinematic_primitive).all(axis=(1, 2))
+            & (validation_kinematic_primitive[..., 0] > 0.0).all(axis=1)
+            & (validation_kinematic_primitive[..., 2] > 0.0).all(axis=1)
+        )
+        validation_kinematics = extract_euler1d_front_kinematics(
+            flat_validation_primitive,
+            flat_validation_x,
+            fronts=validation_fronts_flat,
+            gamma=source.gamma,
+        )
+        valid_speed = np.asarray(validation_kinematics.valid, dtype=bool)
+        valid_speed_count = int(np.count_nonzero(valid_speed))
+        speed_completion = (
+            float(np.mean(np.isfinite(validation_kinematics.speed[valid_speed])))
+            if valid_speed_count > 0
+            else None
         )
         oracle_front_metrics = front_reconstruction_metrics(
             validation_fronts_flat,
@@ -967,11 +1067,80 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
                 "front_recall": oracle_front_recall,
                 "front_precision": oracle_front_precision,
             },
+            "kinematic_oracle": {
+                "state_relative_l2": _summary(kinematic_state_error),
+                "front": front_reconstruction_metrics(
+                    validation_fronts_flat,
+                    validation_kinematic_fronts,
+                    num_cells=source.num_cells,
+                ),
+                "front_error": {
+                    name: _summary(values)
+                    for name, values in kinematic_front_error.items()
+                },
+                "reconstruction_admissible_fraction": float(
+                    np.mean(kinematic_case_admissible)
+                ),
+            },
             "oracle_over_pod_grouped_bootstrap": reconstruction_ratios,
+            "kinematic_over_oracle_grouped_bootstrap": (
+                kinematic_reconstruction_ratios
+            ),
+        }
+        artifact["metrics"]["front_kinematics"] = {
+            "definition": "pressure=least_squares_RH;contact=mean_plateau_velocity",
+            "uses_trajectory_history": False,
+            "valid_speed_count": valid_speed_count,
+            "completion_fraction": speed_completion,
+            "slot_names": ["pressure_left", "pressure_right", "contact"],
+            "speed": [
+                _summary(
+                    validation_kinematics.speed[
+                        np.asarray(validation_kinematics.valid)[:, slot], slot
+                    ]
+                )
+                for slot in range(3)
+            ],
+            "consistency_residual": [
+                _summary(
+                    validation_kinematics.consistency_residual[
+                        np.asarray(validation_kinematics.valid)[:, slot], slot
+                    ]
+                )
+                for slot in range(3)
+            ],
         }
         gates["oracle_reconstruction_admissibility"] = _gate(
             float(np.mean(oracle_case_admissible)), "==", 1.0
         )
+        gates["kinematic_speed_completion"] = _gate(speed_completion, "==", 1.0)
+        gates["kinematic_reconstruction_admissibility"] = _gate(
+            float(np.mean(kinematic_case_admissible)), "==", 1.0
+        )
+        gates["kinematic_state_reconstruction_noninferiority"] = _gate(
+            kinematic_reconstruction_ratios["state"]["ci95_upper"],
+            "<=",
+            1.05,
+        )
+        for metric, gate_name in (
+            (
+                "position_cells",
+                "kinematic_front_position_reconstruction_noninferiority",
+            ),
+            (
+                "strength_relative",
+                "kinematic_front_strength_reconstruction_noninferiority",
+            ),
+            (
+                "thickness_relative",
+                "kinematic_front_thickness_reconstruction_noninferiority",
+            ),
+        ):
+            gates[gate_name] = _gate(
+                kinematic_reconstruction_ratios[metric]["ci95_upper"],
+                "<=",
+                1.05,
+            )
         gates["oracle_reconstruction_front_recall"] = _gate(
             oracle_front_recall, ">=", 0.95
         )
@@ -1003,6 +1172,12 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             *train_shape, pod_rank
         )
         validation_oracle_codes = validation_oracle_code.reshape(
+            *validation_shape, pod_rank
+        )
+        train_kinematic_codes = kinematic_oracle.encode(
+            flat_train_primitive, flat_train_x
+        ).reshape(*train_shape, pod_rank)
+        validation_kinematic_codes = validation_kinematic_code.reshape(
             *validation_shape, pod_rank
         )
         train_fronts = _fronts_reshape(train_fronts_flat, train_shape)
@@ -1123,6 +1298,34 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             pair_start_frame_ids,
             pair_end_frame_ids,
         )
+        train_conditioned_kinematic_current = _conditioned_transition_code(
+            train_kinematic_codes[:, :-1],
+            source,
+            train_cases,
+            pair_start_frame_ids,
+            pair_end_frame_ids,
+        )
+        train_conditioned_kinematic_future = _conditioned_transition_code(
+            train_kinematic_codes[:, 1:],
+            source,
+            train_cases,
+            pair_start_frame_ids,
+            pair_end_frame_ids,
+        )
+        validation_conditioned_kinematic_current = _conditioned_transition_code(
+            validation_kinematic_codes[:, :-1],
+            source,
+            validation_cases,
+            pair_start_frame_ids,
+            pair_end_frame_ids,
+        )
+        validation_conditioned_kinematic_future = _conditioned_transition_code(
+            validation_kinematic_codes[:, 1:],
+            source,
+            validation_cases,
+            pair_start_frame_ids,
+            pair_end_frame_ids,
+        )
 
         identity_closure = conditional_future_diagnostics(
             train_conditioned_identity_current,
@@ -1163,6 +1366,19 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             query_future_code=validation_conditioned_oracle_future,
             neighbors=NEIGHBORS,
         )
+        kinematic_closure = conditional_future_diagnostics(
+            train_conditioned_kinematic_current,
+            train_current,
+            train_future,
+            validation_conditioned_kinematic_current,
+            validation_current,
+            validation_future,
+            cell_volume,
+            component_scale,
+            train_future_code=train_conditioned_kinematic_future,
+            query_future_code=validation_conditioned_kinematic_future,
+            neighbors=NEIGHBORS,
+        )
         pod_front_ambiguity = _front_neighbor_ambiguity(
             train_front_future,
             validation_front_future,
@@ -1177,9 +1393,17 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             oracle_closure.neighbor_weights,
             num_cells=source.num_cells,
         )
+        kinematic_front_ambiguity = _front_neighbor_ambiguity(
+            train_front_future,
+            validation_front_future,
+            kinematic_closure.neighbor_indices,
+            kinematic_closure.neighbor_weights,
+            num_cells=source.num_cells,
+        )
         if (
             pod_closure.encoded_future_ambiguity is None
             or oracle_closure.encoded_future_ambiguity is None
+            or kinematic_closure.encoded_future_ambiguity is None
         ):
             raise RuntimeError("encoded-future closure diagnostics are required")
         ambiguity_ratios: dict[str, Any] = {
@@ -1208,6 +1432,33 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
                 repetitions=args.bootstrap_repetitions,
                 seed=BOOTSTRAP_SEED + offset,
             )
+        kinematic_ambiguity_ratios: dict[str, Any] = {
+            "state": _bootstrap_ratio(
+                kinematic_closure.future_ambiguity,
+                oracle_closure.future_ambiguity,
+                validation_groups_pair,
+                repetitions=args.bootstrap_repetitions,
+                seed=BOOTSTRAP_SEED + 40,
+            ),
+            "encoded_state": _bootstrap_ratio(
+                kinematic_closure.encoded_future_ambiguity,
+                oracle_closure.encoded_future_ambiguity,
+                validation_groups_pair,
+                repetitions=args.bootstrap_repetitions,
+                seed=BOOTSTRAP_SEED + 41,
+            ),
+        }
+        for offset, name in enumerate(
+            ("position_cells", "strength_relative", "thickness_relative"),
+            start=42,
+        ):
+            kinematic_ambiguity_ratios[name] = _bootstrap_ratio(
+                kinematic_front_ambiguity[name],
+                oracle_front_ambiguity[name],
+                validation_groups_pair,
+                repetitions=args.bootstrap_repetitions,
+                seed=BOOTSTRAP_SEED + offset,
+            )
         artifact["metrics"]["closure"] = {
             "neighbors": NEIGHBORS,
             "reference": "train_pairs",
@@ -1231,6 +1482,7 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             "identity": identity_closure.summary(),
             "pod": pod_closure.summary(),
             "oracle": oracle_closure.summary(),
+            "kinematic_oracle": kinematic_closure.summary(),
             "front_ambiguity": {
                 "pod": {
                     name: _summary(values)
@@ -1240,8 +1492,13 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
                     name: _summary(values)
                     for name, values in oracle_front_ambiguity.items()
                 },
+                "kinematic_oracle": {
+                    name: _summary(values)
+                    for name, values in kinematic_front_ambiguity.items()
+                },
             },
             "oracle_over_pod_grouped_bootstrap": ambiguity_ratios,
+            "kinematic_over_oracle_grouped_bootstrap": (kinematic_ambiguity_ratios),
         }
         identity_summary = identity_closure.summary()
         oracle_summary = oracle_closure.summary()
@@ -1301,6 +1558,35 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             ratio = ambiguity_ratios[metric]
             gates[gate_name] = _gate(
                 None if ratio is None else ratio["ci95_upper"], "<=", 0.80
+            )
+        gates["kinematic_state_ambiguity_improvement"] = _gate(
+            kinematic_ambiguity_ratios["state"]["ci95_upper"],
+            "<=",
+            0.80,
+        )
+        gates["kinematic_encoded_ambiguity_improvement"] = _gate(
+            kinematic_ambiguity_ratios["encoded_state"]["ci95_upper"],
+            "<=",
+            0.80,
+        )
+        for metric, gate_name in (
+            (
+                "position_cells",
+                "kinematic_front_position_ambiguity_noninferiority",
+            ),
+            (
+                "strength_relative",
+                "kinematic_front_strength_ambiguity_noninferiority",
+            ),
+            (
+                "thickness_relative",
+                "kinematic_front_thickness_ambiguity_noninferiority",
+            ),
+        ):
+            gates[gate_name] = _gate(
+                kinematic_ambiguity_ratios[metric]["ci95_upper"],
+                "<=",
+                1.05,
             )
 
         train_history_raw = np.concatenate(
@@ -1477,6 +1763,186 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             _history_not_materially_better_gate(history_encoded_ratio)
         )
 
+        train_kinematic_history_raw = np.concatenate(
+            (
+                train_kinematic_codes[:, 1:-1],
+                train_kinematic_codes[:, 1:-1] - train_kinematic_codes[:, :-2],
+            ),
+            axis=-1,
+        ).reshape(-1, 2 * pod_rank)
+        train_kinematic_history_future_raw = np.concatenate(
+            (
+                train_kinematic_codes[:, 2:],
+                train_kinematic_codes[:, 2:] - train_kinematic_codes[:, 1:-1],
+            ),
+            axis=-1,
+        ).reshape(-1, 2 * pod_rank)
+        validation_kinematic_history_raw = np.concatenate(
+            (
+                validation_kinematic_codes[:, 1:-1],
+                validation_kinematic_codes[:, 1:-1]
+                - validation_kinematic_codes[:, :-2],
+            ),
+            axis=-1,
+        ).reshape(-1, 2 * pod_rank)
+        validation_kinematic_history_future_raw = np.concatenate(
+            (
+                validation_kinematic_codes[:, 2:],
+                validation_kinematic_codes[:, 2:] - validation_kinematic_codes[:, 1:-1],
+            ),
+            axis=-1,
+        ).reshape(-1, 2 * pod_rank)
+        kinematic_history_pca = LinearCodePCA.fit(
+            train_kinematic_history_raw, output_size=pod_rank
+        )
+        train_kinematic_history_code = kinematic_history_pca.transform(
+            train_kinematic_history_raw
+        )
+        train_kinematic_history_future_code = kinematic_history_pca.transform(
+            train_kinematic_history_future_raw
+        )
+        validation_kinematic_history_code = kinematic_history_pca.transform(
+            validation_kinematic_history_raw
+        )
+        validation_kinematic_history_future_code = kinematic_history_pca.transform(
+            validation_kinematic_history_future_raw
+        )
+        train_conditioned_kinematic_history_one_state = _conditioned_transition_code(
+            train_kinematic_codes[:, 1:-1],
+            source,
+            train_cases,
+            history_start_frame_ids,
+            history_end_frame_ids,
+        )
+        train_conditioned_kinematic_history_one_state_future = (
+            _conditioned_transition_code(
+                train_kinematic_codes[:, 2:],
+                source,
+                train_cases,
+                history_start_frame_ids,
+                history_end_frame_ids,
+            )
+        )
+        validation_conditioned_kinematic_history_one_state = (
+            _conditioned_transition_code(
+                validation_kinematic_codes[:, 1:-1],
+                source,
+                validation_cases,
+                history_start_frame_ids,
+                history_end_frame_ids,
+            )
+        )
+        validation_conditioned_kinematic_history_one_state_future = (
+            _conditioned_transition_code(
+                validation_kinematic_codes[:, 2:],
+                source,
+                validation_cases,
+                history_start_frame_ids,
+                history_end_frame_ids,
+            )
+        )
+        train_conditioned_kinematic_history = _conditioned_transition_code(
+            train_kinematic_history_code.reshape(
+                train_cases.size, history_start_frame_ids.size, pod_rank
+            ),
+            source,
+            train_cases,
+            history_start_frame_ids,
+            history_end_frame_ids,
+        )
+        train_conditioned_kinematic_history_future = _conditioned_transition_code(
+            train_kinematic_history_future_code.reshape(
+                train_cases.size, history_start_frame_ids.size, pod_rank
+            ),
+            source,
+            train_cases,
+            history_start_frame_ids,
+            history_end_frame_ids,
+        )
+        validation_conditioned_kinematic_history = _conditioned_transition_code(
+            validation_kinematic_history_code.reshape(
+                validation_cases.size, history_start_frame_ids.size, pod_rank
+            ),
+            source,
+            validation_cases,
+            history_start_frame_ids,
+            history_end_frame_ids,
+        )
+        validation_conditioned_kinematic_history_future = _conditioned_transition_code(
+            validation_kinematic_history_future_code.reshape(
+                validation_cases.size, history_start_frame_ids.size, pod_rank
+            ),
+            source,
+            validation_cases,
+            history_start_frame_ids,
+            history_end_frame_ids,
+        )
+        kinematic_one_state_history_subset = conditional_future_diagnostics(
+            train_conditioned_kinematic_history_one_state,
+            history_train_current,
+            history_train_future,
+            validation_conditioned_kinematic_history_one_state,
+            history_validation_current,
+            history_validation_future,
+            cell_volume,
+            component_scale,
+            train_future_code=(train_conditioned_kinematic_history_one_state_future),
+            query_future_code=(
+                validation_conditioned_kinematic_history_one_state_future
+            ),
+            neighbors=NEIGHBORS,
+        )
+        kinematic_history_closure = conditional_future_diagnostics(
+            train_conditioned_kinematic_history,
+            history_train_current,
+            history_train_future,
+            validation_conditioned_kinematic_history,
+            history_validation_current,
+            history_validation_future,
+            cell_volume,
+            component_scale,
+            train_future_code=train_conditioned_kinematic_history_future,
+            query_future_code=validation_conditioned_kinematic_history_future,
+            neighbors=NEIGHBORS,
+        )
+        kinematic_history_ratio = _bootstrap_ratio(
+            kinematic_history_closure.future_ambiguity,
+            kinematic_one_state_history_subset.future_ambiguity,
+            validation_groups_history,
+            repetitions=args.bootstrap_repetitions,
+            seed=BOOTSTRAP_SEED + 50,
+        )
+        if (
+            kinematic_history_closure.encoded_future_ambiguity is None
+            or kinematic_one_state_history_subset.encoded_future_ambiguity is None
+        ):
+            raise RuntimeError(
+                "encoded-future kinematic history diagnostics are required"
+            )
+        kinematic_history_encoded_ratio = _bootstrap_ratio(
+            kinematic_history_closure.encoded_future_ambiguity,
+            kinematic_one_state_history_subset.encoded_future_ambiguity,
+            validation_groups_history,
+            repetitions=args.bootstrap_repetitions,
+            seed=BOOTSTRAP_SEED + 51,
+        )
+        artifact["metrics"]["kinematic_fixed_size_history"] = {
+            "definition": "PCA_B([a_kin_n,a_kin_n-a_kin_n_minus_1])",
+            "retained_scalar_size": pod_rank,
+            "one_state": kinematic_one_state_history_subset.summary(),
+            "history": kinematic_history_closure.summary(),
+            "history_over_one_state_grouped_bootstrap": kinematic_history_ratio,
+            "encoded_history_over_one_state_grouped_bootstrap": (
+                kinematic_history_encoded_ratio
+            ),
+        }
+        gates["kinematic_history_not_materially_better"] = (
+            _history_not_materially_better_gate(kinematic_history_ratio)
+        )
+        gates["kinematic_history_encoded_not_materially_better"] = (
+            _history_not_materially_better_gate(kinematic_history_encoded_ratio)
+        )
+
     for gate_name in required_gate_names:
         if gate_name not in gates:
             gates[gate_name] = {
@@ -1488,6 +1954,11 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
             }
     failed_gates = [
         gate_name for gate_name in required_gate_names if not gates[gate_name]["passed"]
+    ]
+    failed_kinematic_gates = [
+        gate_name
+        for gate_name in kinematic_gate_names
+        if not gates[gate_name]["passed"]
     ]
     if not failed_gates:
         failure_classification = None
@@ -1507,6 +1978,21 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         failure_classification = "precondition_or_admissibility"
     artifact["required_gate_names"] = required_gate_names
     artifact["failed_gates"] = failed_gates
+    artifact["kinematic_component"] = {
+        "hypothesis": (
+            "three current-state RH/contact speeds remove the material history "
+            "benefit at fixed total latent size"
+        ),
+        "matched_control": (f"oracle_front_pod_without_speed_same_{pod_rank}_scalars"),
+        "required_gate_names": kinematic_gate_names,
+        "failed_gates": failed_kinematic_gates,
+        "passed": not failed_kinematic_gates,
+        "decision": (
+            "eligible_for_separate_chart_redesign"
+            if not failed_kinematic_gates
+            else "reject_current_state_front_speed_augmentation"
+        ),
+    }
     artifact["promotion_passed"] = not failed_gates
     artifact["learned_training_authorized"] = False
     artifact["failure_classification"] = failure_classification
@@ -1531,6 +2017,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "status": artifact["status"],
                 "promotion_passed": artifact["promotion_passed"],
                 "failed_gates": artifact["failed_gates"],
+                "kinematic_component_passed": artifact["kinematic_component"]["passed"],
+                "failed_kinematic_gates": artifact["kinematic_component"][
+                    "failed_gates"
+                ],
                 "artifact": args.output_path.name,
             },
             sort_keys=True,

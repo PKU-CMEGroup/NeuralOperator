@@ -21,11 +21,13 @@ from utility.time_dependent_no.latent_forecast import (
     IdentityRepresentation,
     LatentCode,
     LinearCodePCA,
+    OracleFrontKinematicPOD,
     VolumeWeightedPOD,
     cell_edges_from_centers,
     conditional_future_diagnostics,
     decode_coarse_conservative,
     decode_registered_state,
+    extract_euler1d_front_kinematics,
     extract_euler1d_fronts,
     fixed_scale_relative_l2,
     front_reconstruction_metrics,
@@ -385,6 +387,65 @@ def test_front_vector_rejects_nonfinite_values_before_masking_invalid_slots() ->
         Euler1DFrontSet.from_vector(vector)
 
 
+def test_front_kinematics_recovers_pressure_continuous_contact_speed() -> None:
+    num_cells = 128
+    x = (np.arange(num_cells) + 0.5) / num_cells
+    primitive = np.ones((num_cells, 3))
+    primitive[:, 1] = 0.37
+    primitive[num_cells // 2 :, 0] = 1.8
+
+    fronts = extract_euler1d_fronts(primitive, x)
+    kinematics = extract_euler1d_front_kinematics(
+        primitive,
+        x,
+        fronts=fronts,
+    )
+
+    np.testing.assert_array_equal(fronts.valid, [False, False, True])
+    assert kinematics.speed[2] == pytest.approx(0.37, abs=1.0e-12)
+    assert kinematics.consistency_residual[2] == pytest.approx(0.0, abs=1.0e-12)
+    np.testing.assert_allclose(kinematics.vector()[:2], 0.0)
+
+
+def test_front_kinematics_recovers_galilean_shifted_normal_shock_speed() -> None:
+    gamma = 1.4
+    num_cells = 128
+    x = (np.arange(num_cells) + 0.5) / num_cells
+    upstream_mach = 2.0
+    upstream_rho = 1.0
+    upstream_pressure = 1.0
+    upstream_velocity = upstream_mach * np.sqrt(
+        gamma * upstream_pressure / upstream_rho
+    )
+    density_ratio = (
+        (gamma + 1.0) * upstream_mach**2 / ((gamma - 1.0) * upstream_mach**2 + 2.0)
+    )
+    pressure_ratio = 1.0 + 2.0 * gamma / (gamma + 1.0) * (upstream_mach**2 - 1.0)
+    shock_speed = 0.4
+    left = np.array([upstream_rho, upstream_velocity + shock_speed, upstream_pressure])
+    right = np.array(
+        [
+            upstream_rho * density_ratio,
+            upstream_velocity / density_ratio + shock_speed,
+            upstream_pressure * pressure_ratio,
+        ]
+    )
+    primitive = np.broadcast_to(left, (num_cells, 3)).copy()
+    primitive[num_cells // 2 :] = right
+
+    fronts = extract_euler1d_fronts(primitive, x, gamma=gamma)
+    kinematics = extract_euler1d_front_kinematics(
+        primitive,
+        x,
+        fronts=fronts,
+        gamma=gamma,
+    )
+
+    assert fronts.valid[0]
+    assert kinematics.speed[0] == pytest.approx(shock_speed, abs=1.0e-12)
+    assert kinematics.consistency_residual[0] == pytest.approx(0.0, abs=1.0e-12)
+
+
 def test_registration_preserves_integrals_and_reports_roundtrip_blur() -> None:
     num_cells = 64
     x = ((np.arange(num_cells) + 0.5) / num_cells) ** 1.3
@@ -469,6 +530,39 @@ def test_oracle_phase_registration_lowers_pod_rank_for_translated_steps() -> Non
 
     assert raw_pod.rank > 4
     assert registered_pod.rank < raw_pod.rank
+
+
+def test_kinematic_oracle_trades_three_residual_modes_at_fixed_total_size() -> None:
+    num_cells = 64
+    x = (np.arange(num_cells) + 0.5) / num_cells
+    volume = np.full(num_cells, 1.0 / num_cells)
+    primitive_states = []
+    for front_cell in range(14, 51, 3):
+        primitive = np.empty((num_cells, 3))
+        primitive[:front_cell] = [1.0, 0.5, 1.0]
+        primitive[front_cell:] = [1.8, 0.2, 1.4]
+        primitive_states.append(primitive)
+    primitive_batch = np.stack(primitive_states)
+
+    representation = OracleFrontKinematicPOD.fit(
+        primitive_batch,
+        x,
+        volume,
+        np.ones(3),
+        total_size=19,
+    )
+    code = representation.encode(primitive_batch, x)
+    decoded = representation.decode_conservative(code, x)
+    base_decoded = representation.base_representation.decode_conservative(
+        code[:, :-3], x
+    )
+
+    assert representation.total_size == 19
+    assert representation.base_representation.total_size == 16
+    assert representation.residual_rank == 4
+    assert code.shape == (primitive_batch.shape[0], 19)
+    assert np.isfinite(code[:, -3:]).all()
+    np.testing.assert_allclose(decoded, base_decoded, rtol=0.0, atol=0.0)
 
 
 def test_conditional_ambiguity_detects_collisions_and_excludes_same_group() -> None:

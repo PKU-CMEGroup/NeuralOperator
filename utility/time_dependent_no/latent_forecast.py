@@ -707,6 +707,142 @@ def extract_euler1d_fronts(
     )
 
 
+@dataclass(frozen=True)
+class Euler1DFrontKinematics:
+    """Current-state oracle speeds for the three declared front slots."""
+
+    speed: np.ndarray
+    consistency_residual: np.ndarray
+    valid: np.ndarray
+
+    def vector(self) -> np.ndarray:
+        return np.where(self.valid, self.speed, 0.0)
+
+
+def _primitive_state_and_flux(
+    rho: float,
+    velocity: float,
+    pressure: float,
+    gamma: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    energy = pressure / (gamma - 1.0) + 0.5 * rho * velocity**2
+    conservative = np.array((rho, rho * velocity, energy), dtype=np.float64)
+    flux = np.array(
+        (
+            rho * velocity,
+            rho * velocity**2 + pressure,
+            velocity * (energy + pressure),
+        ),
+        dtype=np.float64,
+    )
+    return conservative, flux
+
+
+def extract_euler1d_front_kinematics(
+    primitive: np.ndarray,
+    x: np.ndarray,
+    *,
+    fronts: Euler1DFrontSet | None = None,
+    gamma: float = 1.4,
+) -> Euler1DFrontKinematics:
+    """Estimate shock/contact speeds using only the current physical state.
+
+    Pressure-front speeds use a least-squares Rankine--Hugoniot estimate from
+    fixed plateau windows.  The contact speed is the mean plateau velocity.
+    This is a privileged one-state diagnostic, not trajectory differencing.
+    """
+
+    states = np.asarray(primitive, dtype=np.float64)
+    squeeze = states.ndim == 2
+    if squeeze:
+        states = states[None]
+    if states.ndim != 3 or states.shape[-1] != 3:
+        raise ValueError("primitive must have shape [samples, cells, 3]")
+    coordinates = np.asarray(x, dtype=np.float64)
+    if coordinates.ndim == 1:
+        coordinates = np.broadcast_to(coordinates, states.shape[:2])
+    if coordinates.shape != states.shape[:2]:
+        raise ValueError("x must have shape [cells] or [samples, cells]")
+    if gamma <= 1.0:
+        raise ValueError("gamma must be greater than one")
+    selected_fronts = (
+        extract_euler1d_fronts(states, coordinates, gamma=gamma)
+        if fronts is None
+        else fronts
+    )
+    front_position = np.asarray(selected_fronts.position_fraction, dtype=np.float64)
+    front_valid = np.asarray(selected_fronts.valid, dtype=bool)
+    if front_position.ndim == 1:
+        front_position = front_position[None]
+        front_valid = front_valid[None]
+    if front_position.shape != (states.shape[0], 3) or front_valid.shape != (
+        states.shape[0],
+        3,
+    ):
+        raise ValueError("fronts must align with primitive samples and three slots")
+
+    speed = np.zeros_like(front_position)
+    consistency = np.zeros_like(front_position)
+    for sample in range(states.shape[0]):
+        state = states[sample]
+        edges = cell_edges_from_centers(coordinates[sample])
+        face_x = 0.5 * (coordinates[sample, :-1] + coordinates[sample, 1:])
+        for slot in range(3):
+            if not front_valid[sample, slot]:
+                continue
+            physical_position = edges[0] + front_position[sample, slot] * (
+                edges[-1] - edges[0]
+            )
+            face = int(np.argmin(np.abs(face_x - physical_position)))
+            left_rho, right_rho = _plateau_means(state[:, 0], face)
+            left_velocity, right_velocity = _plateau_means(state[:, 1], face)
+            left_pressure, right_pressure = _plateau_means(state[:, 2], face)
+            if min(left_rho, right_rho, left_pressure, right_pressure) <= 0.0:
+                raise ValueError("front kinematics require positive plateau states")
+            if slot == 2:
+                speed[sample, slot] = 0.5 * (left_velocity + right_velocity)
+                sound_scale = max(
+                    np.sqrt(gamma * left_pressure / left_rho),
+                    np.sqrt(gamma * right_pressure / right_rho),
+                    1.0e-12,
+                )
+                consistency[sample, slot] = (
+                    abs(right_velocity - left_velocity) / sound_scale
+                )
+                continue
+
+            left_state, left_flux = _primitive_state_and_flux(
+                left_rho, left_velocity, left_pressure, gamma
+            )
+            right_state, right_flux = _primitive_state_and_flux(
+                right_rho, right_velocity, right_pressure, gamma
+            )
+            state_jump = right_state - left_state
+            flux_jump = right_flux - left_flux
+            denominator = float(np.dot(state_jump, state_jump))
+            if denominator <= 1.0e-24:
+                raise ValueError("pressure-front state jump is too small for a speed")
+            estimate = float(np.dot(state_jump, flux_jump) / denominator)
+            speed[sample, slot] = estimate
+            consistency[sample, slot] = float(
+                np.linalg.norm(flux_jump - estimate * state_jump)
+                / max(np.linalg.norm(flux_jump), np.linalg.norm(state_jump), 1.0e-12)
+            )
+
+    result = Euler1DFrontKinematics(
+        speed=speed,
+        consistency_residual=consistency,
+        valid=front_valid,
+    )
+    if not squeeze:
+        return result
+    return Euler1DFrontKinematics(
+        speed=result.speed[0],
+        consistency_residual=result.consistency_residual[0],
+        valid=result.valid[0],
+    )
+
+
 def _piecewise_constant_integral(
     values: np.ndarray,
     source_edges: np.ndarray,
@@ -1009,6 +1145,63 @@ class OracleFrontPOD:
                 registered[index], coordinates[index], _front_sample(fronts, index)
             )
         return decoded[0] if squeeze else decoded
+
+    def decode(self, code: np.ndarray, x: np.ndarray) -> np.ndarray:
+        conservative = self.decode_conservative(code, x)
+        return conservative_to_primitive_np(conservative, self.gamma)
+
+
+@dataclass(frozen=True)
+class OracleFrontKinematicPOD:
+    """Matched oracle chart that trades three residual modes for speeds."""
+
+    base_representation: OracleFrontPOD
+    total_size: int
+    gamma: float
+
+    @property
+    def residual_rank(self) -> int:
+        return self.base_representation.residual_rank
+
+    @classmethod
+    def fit(
+        cls,
+        primitive: np.ndarray,
+        x: np.ndarray,
+        cell_volume: np.ndarray,
+        component_scale: np.ndarray,
+        *,
+        total_size: int,
+        gamma: float = 1.4,
+    ) -> "OracleFrontKinematicPOD":
+        if total_size < 19:
+            raise ValueError("kinematic oracle code needs at least 19 scalars")
+        base = OracleFrontPOD.fit(
+            primitive,
+            x,
+            cell_volume,
+            component_scale,
+            total_size=total_size - 3,
+            gamma=gamma,
+        )
+        return cls(base_representation=base, total_size=total_size, gamma=gamma)
+
+    def encode(self, primitive: np.ndarray, x: np.ndarray) -> np.ndarray:
+        base_code = np.asarray(self.base_representation.encode(primitive, x))
+        fronts = Euler1DFrontSet.from_vector(base_code[..., :12])
+        kinematics = extract_euler1d_front_kinematics(
+            primitive,
+            x,
+            fronts=fronts,
+            gamma=self.gamma,
+        )
+        return np.concatenate((base_code, kinematics.vector()), axis=-1)
+
+    def decode_conservative(self, code: np.ndarray, x: np.ndarray) -> np.ndarray:
+        values = np.asarray(code, dtype=np.float64)
+        if values.shape[-1] != self.total_size:
+            raise ValueError("kinematic oracle code has the wrong scalar size")
+        return self.base_representation.decode_conservative(values[..., :-3], x)
 
     def decode(self, code: np.ndarray, x: np.ndarray) -> np.ndarray:
         conservative = self.decode_conservative(code, x)

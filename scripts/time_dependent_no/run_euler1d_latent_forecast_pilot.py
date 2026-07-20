@@ -47,7 +47,7 @@ from utility.time_dependent_no.latent_forecast import (
 )
 
 
-SCHEMA_VERSION = "euler1d_latent_forecast_preflight_v2"
+SCHEMA_VERSION = "euler1d_latent_forecast_preflight_v3"
 EXPECTED_SHAPE = (512, 101, 256, 3)
 SPLIT_SEED = 20260707
 TRAIN_CASES = 384
@@ -243,6 +243,19 @@ def _fronts_flatten(fronts: Euler1DFrontSet) -> Euler1DFrontSet:
         signed_strength=np.asarray(fronts.signed_strength).reshape(-1, 3),
         valid=np.asarray(fronts.valid).reshape(-1, 3),
         score=np.asarray(fronts.score).reshape(-1, 3),
+    )
+
+
+def _fronts_take(fronts: Euler1DFrontSet, indices: np.ndarray) -> Euler1DFrontSet:
+    selected = np.asarray(indices)
+    return Euler1DFrontSet(
+        position_fraction=np.asarray(fronts.position_fraction).reshape(-1, 3)[selected],
+        thickness_fraction=np.asarray(fronts.thickness_fraction).reshape(-1, 3)[
+            selected
+        ],
+        signed_strength=np.asarray(fronts.signed_strength).reshape(-1, 3)[selected],
+        valid=np.asarray(fronts.valid).reshape(-1, 3)[selected],
+        score=np.asarray(fronts.score).reshape(-1, 3)[selected],
     )
 
 
@@ -479,6 +492,165 @@ def _chart_diagnostics(fronts: Euler1DFrontSet) -> dict[str, Any]:
         "maximum_slope": float(np.max(maximum)),
         "conditioned_fraction": float(np.mean(conditioned)),
     }
+
+
+def _chart_sample_geometry(fronts: Euler1DFrontSet) -> dict[str, np.ndarray]:
+    valid = np.asarray(fronts.valid, dtype=bool).reshape(-1, 3)
+    position = np.asarray(fronts.position_fraction, dtype=np.float64).reshape(-1, 3)
+    pressure_front_count = np.sum(valid[:, :2], axis=1)
+    front_count = np.sum(valid, axis=1)
+    minimum_slope = np.full(valid.shape[0], np.nan)
+    maximum_slope = np.full(valid.shape[0], np.nan)
+    boundary_margin = np.full(valid.shape[0], np.nan)
+    minimum_separation = np.full(valid.shape[0], np.nan)
+    conditioned = np.zeros(valid.shape[0], dtype=bool)
+    for sample in range(valid.shape[0]):
+        anchors = np.sort(position[sample, valid[sample]])
+        if anchors.size == 0:
+            continue
+        reference = np.arange(1, anchors.size + 1, dtype=np.float64) / (
+            anchors.size + 1
+        )
+        physical_knots = np.concatenate(([0.0], anchors, [1.0]))
+        reference_knots = np.concatenate(([0.0], reference, [1.0]))
+        slopes = np.diff(physical_knots) / np.diff(reference_knots)
+        minimum_slope[sample] = float(np.min(slopes))
+        maximum_slope[sample] = float(np.max(slopes))
+        boundary_margin[sample] = float(min(anchors[0], 1.0 - anchors[-1]))
+        if anchors.size > 1:
+            minimum_separation[sample] = float(np.min(np.diff(anchors)))
+        conditioned[sample] = (
+            minimum_slope[sample] >= 0.25 and maximum_slope[sample] <= 4.0
+        )
+    return {
+        "pressure_front_count": pressure_front_count,
+        "front_count": front_count,
+        "minimum_slope": minimum_slope,
+        "maximum_slope": maximum_slope,
+        "boundary_margin": boundary_margin,
+        "minimum_separation": minimum_separation,
+        "conditioned": conditioned,
+    }
+
+
+def _chart_cohort_masks(geometry: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    conditioned = np.asarray(geometry["conditioned"], dtype=bool)
+    pressure_count = np.asarray(geometry["pressure_front_count"])
+    return {
+        "all": np.ones(conditioned.shape, dtype=bool),
+        "conditioned": conditioned,
+        "unconditioned": ~conditioned,
+        "conditioned_single_pressure": conditioned & (pressure_count == 1),
+        "conditioned_double_pressure": conditioned & (pressure_count == 2),
+        "unconditioned_single_pressure": (~conditioned) & (pressure_count == 1),
+        "unconditioned_double_pressure": (~conditioned) & (pressure_count == 2),
+    }
+
+
+def _remap_gate_statistics(
+    indices: np.ndarray,
+    state_error: np.ndarray,
+    admissible: np.ndarray,
+    truth_front_count: np.ndarray,
+    predicted_front_count: np.ndarray,
+    common_front_count: np.ndarray,
+    thickness_distortion: np.ndarray,
+) -> dict[str, float]:
+    selected = np.asarray(indices, dtype=np.int64)
+    if selected.size == 0:
+        raise ValueError("remap cohort must contain at least one snapshot")
+    state = np.asarray(state_error, dtype=np.float64)[selected]
+    is_admissible = np.asarray(admissible, dtype=np.float64)[selected]
+    truth_count = float(np.sum(np.asarray(truth_front_count)[selected]))
+    predicted_count = float(np.sum(np.asarray(predicted_front_count)[selected]))
+    common_count = float(np.sum(np.asarray(common_front_count)[selected]))
+    distortion = np.asarray(thickness_distortion, dtype=np.float64)[selected]
+    finite_distortion = distortion[np.isfinite(distortion)]
+    return {
+        "state_relative_l2_p95": float(np.quantile(state, 0.95)),
+        "front_recall": common_count / truth_count if truth_count > 0.0 else np.nan,
+        "front_precision": (
+            common_count / predicted_count if predicted_count > 0.0 else np.nan
+        ),
+        "thickness_symmetric_distortion_p95": (
+            float(np.quantile(finite_distortion, 0.95))
+            if finite_distortion.size > 0
+            else np.nan
+        ),
+        "admissible_fraction": float(np.mean(is_admissible)),
+    }
+
+
+def _grouped_bootstrap_remap_cohort(
+    mask: np.ndarray,
+    groups: np.ndarray,
+    state_error: np.ndarray,
+    admissible: np.ndarray,
+    truth_front_count: np.ndarray,
+    predicted_front_count: np.ndarray,
+    common_front_count: np.ndarray,
+    thickness_distortion: np.ndarray,
+    *,
+    repetitions: int,
+    seed: int,
+) -> dict[str, dict[str, float | int]]:
+    selected_mask = np.asarray(mask, dtype=bool)
+    group_values = np.asarray(groups)
+    if selected_mask.shape != group_values.shape:
+        raise ValueError("remap cohort mask and groups must align")
+    selected_indices = np.flatnonzero(selected_mask)
+    unique_groups = np.unique(group_values[selected_indices])
+    if selected_indices.size == 0 or unique_groups.size < 2:
+        raise ValueError("remap cohort needs snapshots from at least two groups")
+    group_indices = {
+        group: np.flatnonzero(selected_mask & (group_values == group))
+        for group in unique_groups
+    }
+    estimate = _remap_gate_statistics(
+        selected_indices,
+        state_error,
+        admissible,
+        truth_front_count,
+        predicted_front_count,
+        common_front_count,
+        thickness_distortion,
+    )
+    draws = {name: np.empty(repetitions, dtype=np.float64) for name in estimate}
+    rng = np.random.default_rng(seed)
+    for repetition in range(repetitions):
+        sampled_groups = rng.choice(
+            unique_groups, size=unique_groups.size, replace=True
+        )
+        sampled_indices = np.concatenate(
+            [group_indices[group] for group in sampled_groups]
+        )
+        sampled = _remap_gate_statistics(
+            sampled_indices,
+            state_error,
+            admissible,
+            truth_front_count,
+            predicted_front_count,
+            common_front_count,
+            thickness_distortion,
+        )
+        for name, value in sampled.items():
+            draws[name][repetition] = value
+    output: dict[str, dict[str, float | int]] = {}
+    for name, value in estimate.items():
+        finite = draws[name][np.isfinite(draws[name])]
+        if finite.size == 0:
+            lower = upper = np.nan
+        else:
+            lower, upper = np.quantile(finite, (0.025, 0.975))
+        output[name] = {
+            "estimate": value,
+            "ci95_lower": float(lower),
+            "ci95_upper": float(upper),
+            "groups": int(unique_groups.size),
+            "snapshots": int(selected_indices.size),
+            "repetitions": repetitions,
+        }
+    return output
 
 
 def _gate(
@@ -793,6 +965,15 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         "fixed_size_history_not_materially_better",
         "fixed_size_history_encoded_not_materially_better",
     ]
+    chart_attribution_gate_names = [
+        "favorable_chart_snapshot_support",
+        "favorable_chart_group_support",
+        "favorable_chart_state_p95",
+        "favorable_chart_front_recall",
+        "favorable_chart_front_precision",
+        "favorable_chart_thickness_preservation",
+        "favorable_chart_reconstruction_admissibility",
+    ]
     kinematic_gate_names = [
         "kinematic_speed_completion",
         "kinematic_reconstruction_admissibility",
@@ -808,6 +989,7 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         "kinematic_history_not_materially_better",
         "kinematic_history_encoded_not_materially_better",
     ]
+    required_gate_names.extend(chart_attribution_gate_names)
     required_gate_names.extend(kinematic_gate_names)
 
     if compression_eligible:
@@ -885,6 +1067,165 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
                 float(item["maximum_chart_slope"]) for item in full_rank_chart
             ),
         }
+        full_rank_case_admissible = (
+            np.isfinite(full_rank_primitive).all(axis=(1, 2))
+            & (full_rank_primitive[..., 0] > 0.0).all(axis=1)
+            & (full_rank_primitive[..., 2] > 0.0).all(axis=1)
+        )
+        truth_valid_by_sample = np.asarray(
+            validation_fronts_flat.valid, dtype=bool
+        ).reshape(-1, 3)
+        predicted_valid_by_sample = np.asarray(
+            full_rank_fronts.valid, dtype=bool
+        ).reshape(-1, 3)
+        common_valid_by_sample = truth_valid_by_sample & predicted_valid_by_sample
+        truth_front_count_by_sample = np.sum(truth_valid_by_sample, axis=1)
+        predicted_front_count_by_sample = np.sum(predicted_valid_by_sample, axis=1)
+        common_front_count_by_sample = np.sum(common_valid_by_sample, axis=1)
+        thickness_distortion_by_sample = np.full(
+            truth_valid_by_sample.shape, np.nan, dtype=np.float64
+        )
+        truth_thickness = np.asarray(
+            validation_fronts_flat.thickness_fraction, dtype=np.float64
+        ).reshape(-1, 3)
+        predicted_thickness = np.asarray(
+            full_rank_fronts.thickness_fraction, dtype=np.float64
+        ).reshape(-1, 3)
+        common_thickness_ratio = predicted_thickness[common_valid_by_sample] / (
+            np.maximum(truth_thickness[common_valid_by_sample], 1.0 / source.num_cells)
+        )
+        thickness_distortion_by_sample[common_valid_by_sample] = np.maximum(
+            common_thickness_ratio,
+            1.0 / np.maximum(common_thickness_ratio, 1.0e-12),
+        )
+        validation_chart_geometry = _chart_sample_geometry(validation_fronts_flat)
+        validation_chart_cohort_masks = _chart_cohort_masks(validation_chart_geometry)
+        chart_cohorts: dict[str, Any] = {}
+        for cohort_offset, (cohort_name, cohort_mask) in enumerate(
+            validation_chart_cohort_masks.items()
+        ):
+            cohort_indices = np.flatnonzero(cohort_mask)
+            cohort_group_count = int(
+                np.unique(validation_groups_snapshot[cohort_indices]).size
+            )
+            if cohort_indices.size == 0:
+                chart_cohorts[cohort_name] = {
+                    "snapshots": 0,
+                    "groups": 0,
+                    "point_metrics": None,
+                    "grouped_bootstrap": None,
+                }
+                continue
+            cohort_truth_fronts = _fronts_take(validation_fronts_flat, cohort_indices)
+            cohort_predicted_fronts = _fronts_take(full_rank_fronts, cohort_indices)
+            point_metrics = _remap_gate_statistics(
+                cohort_indices,
+                remap_state_error,
+                full_rank_case_admissible,
+                truth_front_count_by_sample,
+                predicted_front_count_by_sample,
+                common_front_count_by_sample,
+                thickness_distortion_by_sample,
+            )
+            grouped_bootstrap = (
+                _grouped_bootstrap_remap_cohort(
+                    cohort_mask,
+                    validation_groups_snapshot,
+                    remap_state_error,
+                    full_rank_case_admissible,
+                    truth_front_count_by_sample,
+                    predicted_front_count_by_sample,
+                    common_front_count_by_sample,
+                    thickness_distortion_by_sample,
+                    repetitions=args.bootstrap_repetitions,
+                    seed=BOOTSTRAP_SEED + 100 + cohort_offset,
+                )
+                if cohort_group_count >= 2
+                else None
+            )
+            chart_cohorts[cohort_name] = {
+                "snapshots": int(cohort_indices.size),
+                "groups": cohort_group_count,
+                "pressure_front_count": _summary(
+                    validation_chart_geometry["pressure_front_count"][cohort_indices]
+                ),
+                "front_count": _summary(
+                    validation_chart_geometry["front_count"][cohort_indices]
+                ),
+                "minimum_chart_slope": _summary(
+                    validation_chart_geometry["minimum_slope"][cohort_indices]
+                ),
+                "maximum_chart_slope": _summary(
+                    validation_chart_geometry["maximum_slope"][cohort_indices]
+                ),
+                "boundary_margin_fraction": _summary(
+                    validation_chart_geometry["boundary_margin"][cohort_indices]
+                ),
+                "minimum_front_separation_fraction": _summary(
+                    validation_chart_geometry["minimum_separation"][cohort_indices]
+                ),
+                "state_relative_l2": _summary(remap_state_error[cohort_indices]),
+                "front": front_reconstruction_metrics(
+                    cohort_truth_fronts,
+                    cohort_predicted_fronts,
+                    num_cells=source.num_cells,
+                ),
+                "point_metrics": point_metrics,
+                "grouped_bootstrap": grouped_bootstrap,
+            }
+        favorable_chart = chart_cohorts["conditioned_single_pressure"]
+        favorable_bootstrap = favorable_chart["grouped_bootstrap"]
+        artifact["metrics"]["chart_attribution"] = {
+            "favorable_cohort": "conditioned_single_pressure",
+            "favorable_definition": (
+                "chart slopes in [0.25,4.0] and exactly one pressure-front "
+                "slot valid; a contact may also be present"
+            ),
+            "cohorts": chart_cohorts,
+        }
+        gates["favorable_chart_snapshot_support"] = _gate(
+            favorable_chart["snapshots"], ">=", 128
+        )
+        gates["favorable_chart_group_support"] = _gate(
+            favorable_chart["groups"], ">=", 16
+        )
+        gates["favorable_chart_state_p95"] = _gate(
+            None
+            if favorable_bootstrap is None
+            else favorable_bootstrap["state_relative_l2_p95"]["ci95_upper"],
+            "<=",
+            0.01,
+        )
+        gates["favorable_chart_front_recall"] = _gate(
+            None
+            if favorable_bootstrap is None
+            else favorable_bootstrap["front_recall"]["ci95_lower"],
+            ">=",
+            0.95,
+        )
+        gates["favorable_chart_front_precision"] = _gate(
+            None
+            if favorable_bootstrap is None
+            else favorable_bootstrap["front_precision"]["ci95_lower"],
+            ">=",
+            0.95,
+        )
+        gates["favorable_chart_thickness_preservation"] = _gate(
+            None
+            if favorable_bootstrap is None
+            else favorable_bootstrap["thickness_symmetric_distortion_p95"][
+                "ci95_upper"
+            ],
+            "<=",
+            1.05,
+        )
+        gates["favorable_chart_reconstruction_admissibility"] = _gate(
+            None
+            if favorable_bootstrap is None
+            else favorable_bootstrap["admissible_fraction"]["ci95_lower"],
+            "==",
+            1.0,
+        )
         gates["remap_front_retention"] = _gate(remap_retention, ">=", 0.95)
         gates["remap_front_precision"] = _gate(remap_precision, ">=", 0.95)
         gates["remap_thickness_preservation"] = _gate(
@@ -1960,6 +2301,11 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         for gate_name in kinematic_gate_names
         if not gates[gate_name]["passed"]
     ]
+    failed_chart_attribution_gates = [
+        gate_name
+        for gate_name in chart_attribution_gate_names
+        if not gates[gate_name]["passed"]
+    ]
     if not failed_gates:
         failure_classification = None
     elif any(name.startswith("remap_") for name in failed_gates):
@@ -1978,6 +2324,28 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         failure_classification = "precondition_or_admissibility"
     artifact["required_gate_names"] = required_gate_names
     artifact["failed_gates"] = failed_gates
+    artifact["chart_attribution_component"] = {
+        "hypothesis": (
+            "full-rank remap defects disappear on well-conditioned snapshots "
+            "with exactly one pressure-front slot"
+        ),
+        "matched_control": (
+            "same full-rank encode-decode remap on all and unfavorable "
+            "validation cohorts"
+        ),
+        "required_gate_names": chart_attribution_gate_names,
+        "failed_gates": failed_chart_attribution_gates,
+        "passed": not failed_chart_attribution_gates,
+        "ownership_boundary": (
+            "Line 4 diagnoses the coordinate transform; any conservative "
+            "front-remapping redesign remains Line 3 owned"
+        ),
+        "decision": (
+            "favorable_cohort_valid_await_line3_inherited_front_representation"
+            if not failed_chart_attribution_gates
+            else "reject_existing_oracle_remap_even_in_favorable_cohort"
+        ),
+    }
     artifact["kinematic_component"] = {
         "hypothesis": (
             "three current-state RH/contact speeds remove the material history "
@@ -1988,7 +2356,7 @@ def run_preflight(args: argparse.Namespace) -> dict[str, Any]:
         "failed_gates": failed_kinematic_gates,
         "passed": not failed_kinematic_gates,
         "decision": (
-            "eligible_for_separate_chart_redesign"
+            "eligible_for_line3_owned_chart_handoff"
             if not failed_kinematic_gates
             else "reject_current_state_front_speed_augmentation"
         ),
@@ -2017,6 +2385,12 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "status": artifact["status"],
                 "promotion_passed": artifact["promotion_passed"],
                 "failed_gates": artifact["failed_gates"],
+                "chart_attribution_passed": artifact["chart_attribution_component"][
+                    "passed"
+                ],
+                "failed_chart_attribution_gates": artifact[
+                    "chart_attribution_component"
+                ]["failed_gates"],
                 "kinematic_component_passed": artifact["kinematic_component"]["passed"],
                 "failed_kinematic_gates": artifact["kinematic_component"][
                     "failed_gates"

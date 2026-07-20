@@ -7,7 +7,10 @@ import pytest
 import torch
 
 from scripts.time_dependent_no.run_euler1d_latent_forecast_pilot import (
+    _chart_cohort_masks,
+    _chart_sample_geometry,
     _conditioned_transition_code,
+    _grouped_bootstrap_remap_cohort,
     _history_not_materially_better_gate,
 )
 from utility.time_dependent_no.euler1d_data import (
@@ -385,6 +388,94 @@ def test_front_vector_rejects_nonfinite_values_before_masking_invalid_slots() ->
 
     with pytest.raises(ValueError, match="finite"):
         Euler1DFrontSet.from_vector(vector)
+
+
+def test_chart_cohorts_isolate_conditioned_single_pressure_topology() -> None:
+    fronts = Euler1DFrontSet(
+        position_fraction=np.array(
+            [
+                [0.50, 0.00, 0.00],
+                [0.20, 0.80, 0.00],
+                [0.01, 0.00, 0.00],
+                [0.40, 0.00, 0.60],
+            ]
+        ),
+        thickness_fraction=np.full((4, 3), 0.02),
+        signed_strength=np.ones((4, 3)),
+        valid=np.array(
+            [
+                [True, False, False],
+                [True, True, False],
+                [True, False, False],
+                [True, False, True],
+            ]
+        ),
+        score=np.ones((4, 3)),
+    )
+
+    geometry = _chart_sample_geometry(fronts)
+    cohorts = _chart_cohort_masks(geometry)
+
+    np.testing.assert_array_equal(geometry["conditioned"], [True, True, False, True])
+    np.testing.assert_array_equal(geometry["pressure_front_count"], [1, 2, 1, 1])
+    np.testing.assert_array_equal(
+        cohorts["conditioned_single_pressure"], [True, False, False, True]
+    )
+    np.testing.assert_array_equal(
+        cohorts["conditioned_double_pressure"], [False, True, False, False]
+    )
+    np.testing.assert_array_equal(
+        cohorts["unconditioned_single_pressure"], [False, False, True, False]
+    )
+    assert np.isnan(geometry["minimum_separation"][0])
+    assert geometry["minimum_separation"][3] == pytest.approx(0.20)
+
+
+def test_grouped_remap_cohort_bootstrap_is_deterministic_and_clustered() -> None:
+    groups = np.repeat(np.arange(3), 2)
+    mask = np.ones(6, dtype=bool)
+    state_error = np.arange(1, 7, dtype=np.float64) * 1.0e-3
+    admissible = np.ones(6, dtype=bool)
+    truth_count = np.ones(6, dtype=np.int64)
+    predicted_count = np.ones(6, dtype=np.int64)
+    common_count = np.ones(6, dtype=np.int64)
+    thickness_distortion = np.full((6, 3), np.nan)
+    thickness_distortion[:, 0] = 1.0
+
+    first = _grouped_bootstrap_remap_cohort(
+        mask,
+        groups,
+        state_error,
+        admissible,
+        truth_count,
+        predicted_count,
+        common_count,
+        thickness_distortion,
+        repetitions=200,
+        seed=123,
+    )
+    second = _grouped_bootstrap_remap_cohort(
+        mask,
+        groups,
+        state_error,
+        admissible,
+        truth_count,
+        predicted_count,
+        common_count,
+        thickness_distortion,
+        repetitions=200,
+        seed=123,
+    )
+
+    assert first == second
+    assert first["front_recall"]["estimate"] == pytest.approx(1.0)
+    assert first["front_precision"]["estimate"] == pytest.approx(1.0)
+    assert first["thickness_symmetric_distortion_p95"]["ci95_upper"] == pytest.approx(
+        1.0
+    )
+    assert first["admissible_fraction"]["ci95_lower"] == pytest.approx(1.0)
+    assert first["state_relative_l2_p95"]["groups"] == 3
+    assert first["state_relative_l2_p95"]["snapshots"] == 6
 
 
 def test_front_kinematics_recovers_pressure_continuous_contact_speed() -> None:

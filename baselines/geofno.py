@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
+from timeit import default_timer
 ## FNO 1D and 2D
 
 
@@ -388,6 +389,7 @@ def GeoFNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
 
 
     for ep in range(epochs):
+        t1 = default_timer()
         train_rel_l2 = 0
 
         model.train()
@@ -435,12 +437,19 @@ def GeoFNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, 
         train_rel_l2_losses.append(train_rel_l2)
         test_rel_l2_losses.append(test_rel_l2)
         test_l2_losses.append(test_l2)
-    
 
+        t2 = default_timer()
+        
+        # Print progress
+        print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
+        '''
         if (ep %10 == 0) or (ep == epochs -1):
             print("Epoch : ", ep, " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2, flush=True)
             torch.save(model, save_model_name)
-    
+        ''' 
+        if (ep %100 == 99) or (ep == epochs -1):    
+            if save_model_name:
+                torch.save(model.state_dict(), save_model_name + ".pth")
     
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
 

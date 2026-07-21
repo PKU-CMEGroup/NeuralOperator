@@ -83,6 +83,7 @@ def load_data_to_torch(data_file_path, to_divide = None, factor = 1.0):
     features = torch.from_numpy(features.astype(np.float32))
     directed_edges = torch.from_numpy(directed_edges.astype(np.int64))
     edge_gradient_weights = torch.from_numpy(edge_gradient_weights.astype(np.float32))
+    edge_gradient_weights /= 10
 
     return nnodes, node_mask, nodes, node_weights, node_rhos, features, directed_edges, edge_gradient_weights, to_divide
 

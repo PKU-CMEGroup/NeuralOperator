@@ -15,7 +15,6 @@ mkdir -p "$SAVE_DIR"
 mkdir -p log
 
 python transolver_train.py \
-  --data_npz "${DATA_NPZ}" \
   --n_train 400 \
   --n_test 80 \
   --epochs 200 \

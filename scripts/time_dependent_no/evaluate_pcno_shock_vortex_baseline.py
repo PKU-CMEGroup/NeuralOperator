@@ -36,6 +36,7 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     parameter_count,
 )
 from utility.time_dependent_no.pcno_ripple_diagnostics import (  # noqa: E402
+    conservative_to_primitive_raw,
     raw_admissibility_summary,
     weighted_relative_l2_numpy,
 )

@@ -20,12 +20,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import random
 import time
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, replace
 from datetime import datetime
+from itertools import islice
 from pathlib import Path
 from typing import Any, Sequence, cast
 
@@ -36,7 +39,6 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 import sys
-
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -66,7 +68,6 @@ from utility.time_dependent_no.euler1d_targets import (
     canonicalize_owner_oriented_face_flux,
     make_target_adapter,
 )
-
 
 EPS = 1.0e-12
 NEAR_FLOOR = 1.0e-6
@@ -318,10 +319,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--target", choices=(*ARG_TARGET_CHOICES, "all"), default="all")
     parser.add_argument("--epochs", type=int, default=80)
     parser.add_argument(
+        "--one-step-presentations",
+        type=int,
+        default=None,
+        help=(
+            "Exact number of one-step examples to present across --epochs. "
+            "When set, every validation milestone consumes the same number "
+            "of full batches and the data loader cycles as needed."
+        ),
+    )
+    parser.add_argument(
         "--unroll-epochs",
         type=int,
         default=0,
         help="Autoregressive fine-tuning epochs after one-step training.",
+    )
+    parser.add_argument(
+        "--unroll-window-presentations",
+        type=int,
+        default=None,
+        help=(
+            "Exact number of recurrent windows to present across "
+            "--unroll-epochs. Each window still contains --unroll-steps "
+            "model calls."
+        ),
     )
     parser.add_argument(
         "--unroll-steps",
@@ -535,6 +556,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--save-checkpoints",
         action="store_true",
         help="Save final model checkpoints under the run output directory.",
+    )
+    parser.add_argument(
+        "--save-candidate-checkpoints",
+        action="store_true",
+        help=(
+            "Retain the model at every validation milestone, with a SHA256 "
+            "index, so checkpoint selection can be audited or replayed."
+        ),
     )
     parser.add_argument("--fail-fast", action="store_true")
     parser.add_argument(
@@ -1432,11 +1461,14 @@ def train_one_epoch(
     flux_reference_samples = 0
     total_rel_l2 = 0.0
     total_samples = 0
+    total_batches = 0
     deferred_loss: list[torch.Tensor] = []
     deferred_state_loss: list[torch.Tensor] = []
+    deferred_flux_loss: list[torch.Tensor] = []
     deferred_relative_l2: list[torch.Tensor] = []
 
     for batch in loader:
+        total_batches += 1
         batch = batch.to(device)
         if batch.target_primitive is None:
             raise RuntimeError("training batch is missing target_primitive")
@@ -1464,8 +1496,11 @@ def train_one_epoch(
 
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
-        if grad_clip > 0.0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(),
+            grad_clip if grad_clip > 0.0 else float("inf"),
+            error_if_nonfinite=True,
+        )
         optimizer.step()
 
         batch_size = batch.current_primitive.shape[0]
@@ -1493,6 +1528,9 @@ def train_one_epoch(
         if defer_metric_sync:
             deferred_loss.append(loss.detach() * batch_size)
             deferred_state_loss.append(state_loss.detach() * batch_size)
+            if flux_loss is not None:
+                deferred_flux_loss.append(flux_loss.detach() * batch_size)
+                flux_loss_samples += batch_size
             deferred_relative_l2.append(rel_l2.detach().sum())
         else:
             total_loss += finite_scalar(loss) * batch_size
@@ -1506,6 +1544,8 @@ def train_one_epoch(
     if defer_metric_sync:
         total_loss = float(torch.stack(deferred_loss).sum().cpu().item())
         total_state_loss = float(torch.stack(deferred_state_loss).sum().cpu().item())
+        if deferred_flux_loss:
+            total_flux_loss = float(torch.stack(deferred_flux_loss).sum().cpu().item())
         total_rel_l2 = float(torch.stack(deferred_relative_l2).sum().cpu().item())
     flux_reference_mse = (
         total_flux_reference_mse / flux_reference_samples
@@ -1518,6 +1558,8 @@ def train_one_epoch(
         else float("nan")
     )
     return {
+        "num_batches": total_batches,
+        "num_presentations": total_samples,
         "loss": total_loss / max(total_samples, 1),
         "state_loss": total_state_loss / max(total_samples, 1),
         "flux_loss": (
@@ -1609,6 +1651,7 @@ def train_unrolled_epoch(
     total_admissibility_loss = 0.0
     total_rel_l2 = 0.0
     total_samples = 0
+    total_batches = 0
     total_burn_in_relative_l2 = 0.0
     total_burn_in_samples = 0
     total_burn_in_nonpositive_samples = 0
@@ -1620,6 +1663,7 @@ def train_unrolled_epoch(
     deferred_relative_l2: list[torch.Tensor] = []
 
     for initial_batch, target_sequence, dt_sequence in loader:
+        total_batches += 1
         initial_batch = initial_batch.to(device)
         target_sequence = target_sequence.to(device)
         dt_sequence = dt_sequence.to(device)
@@ -1804,8 +1848,11 @@ def train_unrolled_epoch(
         elif not torch.isfinite(loss):
             raise FloatingPointError("non-finite unrolled training loss")
         loss.backward()
-        if grad_clip > 0.0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(),
+            grad_clip if grad_clip > 0.0 else float("inf"),
+            error_if_nonfinite=True,
+        )
         optimizer.step()
 
         rel_l2 = torch.stack(step_relative_l2, dim=1).mean(dim=1)
@@ -1829,6 +1876,8 @@ def train_unrolled_epoch(
         )
         total_rel_l2 = float(torch.stack(deferred_relative_l2).sum().cpu().item())
     return {
+        "num_batches": total_batches,
+        "num_presentations": total_samples,
         "loss": total_loss / max(total_samples, 1),
         "state_loss": total_state_loss / max(total_samples, 1),
         "admissibility_loss": total_admissibility_loss / max(total_samples, 1),
@@ -2473,6 +2522,48 @@ def json_ready(value: Any) -> Any:
     return value
 
 
+def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def presentation_batches_per_milestone(
+    total_presentations: int | None,
+    *,
+    batch_size: int,
+    milestones: int,
+) -> int | None:
+    """Return the exact full-batch count for each validation milestone."""
+
+    if total_presentations is None:
+        return None
+    if total_presentations <= 0:
+        raise ValueError("total presentations must be positive")
+    if batch_size <= 0 or milestones <= 0:
+        raise ValueError("batch size and milestone count must be positive")
+    divisor = batch_size * milestones
+    if total_presentations % divisor:
+        raise ValueError(
+            "total presentations must be divisible by batch_size * milestones"
+        )
+    return total_presentations // divisor
+
+
+def cycle_batches(loader: Iterable[Any]) -> Iterator[Any]:
+    """Cycle a finite loader while preserving its deterministic sampler state."""
+
+    while True:
+        yielded = False
+        for batch in loader:
+            yielded = True
+            yield batch
+        if not yielded:
+            raise ValueError("cannot cycle an empty data loader")
+
+
 def model_implementation_name(model_name: str, args: argparse.Namespace) -> str:
     if model_name == "fno":
         return (
@@ -2596,6 +2687,10 @@ def run_single(
         run_name += "_continuation"
     run_dir = args.output_dir / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
+    data_sha256 = sha256_file(args.data_path)
+    saved_time_sha256 = hashlib.sha256(
+        np.ascontiguousarray(source.t).view(np.uint8)
+    ).hexdigest()
 
     train_dataset = Euler1DTimePairDataset(
         source,
@@ -2625,6 +2720,7 @@ def run_single(
         sampler=train_sampler,
         collate_fn=collate_euler1d_pairs,
         generator=generator,
+        drop_last=args.one_step_presentations is not None,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -2638,7 +2734,18 @@ def run_single(
         shuffle=False,
         collate_fn=collate_euler1d_pairs,
     )
+    one_step_batches_per_milestone = presentation_batches_per_milestone(
+        args.one_step_presentations,
+        batch_size=args.batch_size,
+        milestones=args.epochs,
+    )
+    one_step_batch_stream = (
+        None if one_step_batches_per_milestone is None else cycle_batches(train_loader)
+    )
+    unroll_dataset: Euler1DRolloutWindowDataset | None = None
     unroll_loader: DataLoader | None = None
+    unroll_batches_per_milestone: int | None = None
+    unroll_batch_stream: Iterator[Any] | None = None
     unroll_density_margin = float("nan")
     unroll_pressure_margin = float("nan")
     if args.unroll_epochs > 0:
@@ -2662,7 +2769,15 @@ def run_single(
             sampler=unroll_sampler,
             collate_fn=collate_euler1d_rollout_windows,
             generator=unroll_generator,
+            drop_last=args.unroll_window_presentations is not None,
         )
+        unroll_batches_per_milestone = presentation_batches_per_milestone(
+            args.unroll_window_presentations,
+            batch_size=args.batch_size,
+            milestones=args.unroll_epochs,
+        )
+        if unroll_batches_per_milestone is not None:
+            unroll_batch_stream = cycle_batches(unroll_loader)
         train_primitive = source.data[train_cases]
         margin_fraction = float(args.unroll_admissibility_margin_fraction)
         unroll_density_margin = margin_fraction * float(np.min(train_primitive[..., 0]))
@@ -2759,12 +2874,107 @@ def run_single(
     best_score = float("inf")
     best_val_eval: dict[str, float] | None = None
     best_val_rollout: dict[str, Any] | None = None
+    cumulative_one_step_presentations = 0
+    cumulative_unroll_presentations = 0
+    candidate_index: list[dict[str, Any]] = []
+
+    def save_candidate_checkpoint(
+        *,
+        epoch: int,
+        stage: str,
+        stage_epoch: int,
+        selection_score: float,
+        cumulative_presentations: int,
+        is_best: bool,
+    ) -> None:
+        if not args.save_candidate_checkpoints:
+            return
+        checkpoint_dir = run_dir / "checkpoints"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        path = checkpoint_dir / f"candidate_{epoch:03d}_{stage}.pt"
+        torch.save(
+            {
+                "model_state_dict": clone_state_dict_cpu(model),
+                "data_sha256": data_sha256,
+                "saved_time_sha256": saved_time_sha256,
+                "model": model_name,
+                "model_implementation": implementation,
+                "parameter_count": parameter_count,
+                "target": target_name,
+                "args": json_ready(vars(args)),
+                "train_cases": train_cases,
+                "val_cases": val_cases,
+                "test_cases": test_cases,
+                "best_epoch": best_epoch,
+                "checkpoint_epoch": epoch,
+                "checkpoint_stage": stage,
+                "checkpoint_stage_epoch": stage_epoch,
+                "checkpoint_cumulative_presentations": cumulative_presentations,
+                "checkpoint_is_best_at_save": is_best,
+                "selection_score": selection_score,
+                "selection_metric": (
+                    "completed_admissible_val_rollout_then_mean_survival_then_one_step"
+                ),
+                "input_noise_mode": input_noise_mode,
+                "input_coordinates": args.input_coordinates,
+                "recurrent_coordinates": args.recurrent_coordinates,
+                "predicted_quantity": predicted_quantity_name(target_name),
+                "target_supervision": args.target_supervision,
+                "flux_gauge_mode": args.flux_gauge_mode,
+                "interface_flux_mode": args.interface_flux_mode,
+                "loss_coordinates": args.loss_coordinates,
+                "input_normalization": input_normalization,
+                "loss_normalization": args.loss_normalization,
+                "flux_loss_normalization": args.flux_loss_normalization,
+                "flux_loss_weight": args.flux_loss_weight,
+                "normalizer_mean": normalizer.mean.detach().cpu(),
+                "normalizer_std": normalizer.std.detach().cpu(),
+                "flux_normalizer_mean": (
+                    None
+                    if flux_normalizer is None
+                    else flux_normalizer.mean.detach().cpu()
+                ),
+                "flux_normalizer_std": (
+                    None
+                    if flux_normalizer is None
+                    else flux_normalizer.std.detach().cpu()
+                ),
+                "input_normalizer_mean": input_normalizer.mean.detach().cpu(),
+                "input_normalizer_std": input_normalizer.std.detach().cpu(),
+            },
+            path,
+        )
+        candidate_index.append(
+            {
+                "epoch": epoch,
+                "stage": stage,
+                "stage_epoch": stage_epoch,
+                "cumulative_presentations": cumulative_presentations,
+                "selection_score": selection_score,
+                "is_best_at_save": is_best,
+                "path": str(path.relative_to(run_dir)),
+                "sha256": sha256_file(path),
+            }
+        )
+        (run_dir / "checkpoint_index.json").write_text(
+            json.dumps(json_ready(candidate_index), indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
     for epoch in range(1, args.epochs + 1):
+        milestone_loader: Iterable[Any]
+        if one_step_batches_per_milestone is None:
+            milestone_loader = train_loader
+        else:
+            assert one_step_batch_stream is not None
+            milestone_loader = islice(
+                one_step_batch_stream,
+                one_step_batches_per_milestone,
+            )
         train_metrics = train_one_epoch(
             model,
             adapter,
-            train_loader,
+            milestone_loader,
             normalizer,
             optimizer,
             device,
@@ -2778,6 +2988,7 @@ def run_single(
             boundary_exchange_normalizer=training_boundary_exchange_normalizer,
             boundary_exchange_loss_weight=args.boundary_exchange_loss_weight,
         )
+        cumulative_one_step_presentations += int(train_metrics["num_presentations"])
         val_metrics = evaluate_one_step(
             model,
             adapter,
@@ -2809,6 +3020,11 @@ def run_single(
             "epoch": epoch,
             "stage": "one_step",
             "stage_epoch": epoch,
+            "stage_presentations": int(train_metrics["num_presentations"]),
+            "cumulative_stage_presentations": cumulative_one_step_presentations,
+            "equivalent_dataset_passes": (
+                cumulative_one_step_presentations / len(train_dataset)
+            ),
             "train_loss": train_metrics["loss"],
             "train_state_loss": train_metrics["state_loss"],
             "train_admissibility_loss": float("nan"),
@@ -2852,6 +3068,14 @@ def run_single(
             "selection_score": selection_score,
             "is_best_checkpoint": epoch == best_epoch,
         }
+        save_candidate_checkpoint(
+            epoch=epoch,
+            stage="one_step",
+            stage_epoch=epoch,
+            selection_score=selection_score,
+            cumulative_presentations=cumulative_one_step_presentations,
+            is_best=epoch == best_epoch,
+        )
         history.append(row)
         write_history(run_dir / "history.csv", history)
         print(
@@ -2872,10 +3096,19 @@ def run_single(
         )
         for stage_epoch in range(1, args.unroll_epochs + 1):
             epoch = args.epochs + stage_epoch
+            unroll_milestone_loader: Iterable[Any]
+            if unroll_batches_per_milestone is None:
+                unroll_milestone_loader = unroll_loader
+            else:
+                assert unroll_batch_stream is not None
+                unroll_milestone_loader = islice(
+                    unroll_batch_stream,
+                    unroll_batches_per_milestone,
+                )
             train_metrics = train_unrolled_epoch(
                 model,
                 adapter,
-                unroll_loader,
+                unroll_milestone_loader,
                 normalizer,
                 optimizer,
                 device,
@@ -2891,6 +3124,7 @@ def run_single(
                 boundary_exchange_normalizer=training_boundary_exchange_normalizer,
                 boundary_exchange_loss_weight=args.boundary_exchange_loss_weight,
             )
+            cumulative_unroll_presentations += int(train_metrics["num_presentations"])
             val_metrics = evaluate_one_step(
                 model,
                 adapter,
@@ -2922,6 +3156,11 @@ def run_single(
                 "epoch": epoch,
                 "stage": "autoregressive",
                 "stage_epoch": stage_epoch,
+                "stage_presentations": int(train_metrics["num_presentations"]),
+                "cumulative_stage_presentations": cumulative_unroll_presentations,
+                "equivalent_dataset_passes": (
+                    cumulative_unroll_presentations / len(unroll_dataset)
+                ),
                 "train_loss": train_metrics["loss"],
                 "train_state_loss": train_metrics["state_loss"],
                 "train_admissibility_loss": train_metrics["admissibility_loss"],
@@ -2956,6 +3195,14 @@ def run_single(
                 "selection_score": selection_score,
                 "is_best_checkpoint": epoch == best_epoch,
             }
+            save_candidate_checkpoint(
+                epoch=epoch,
+                stage="autoregressive",
+                stage_epoch=stage_epoch,
+                selection_score=selection_score,
+                cumulative_presentations=cumulative_unroll_presentations,
+                is_best=epoch == best_epoch,
+            )
             history.append(row)
             write_history(run_dir / "history.csv", history)
             train_loss_value = row["train_loss"]
@@ -3034,6 +3281,8 @@ def run_single(
         "flux_loss_weight": args.flux_loss_weight,
         "status": "ok",
         "data_path": args.data_path,
+        "data_sha256": data_sha256,
+        "saved_time_sha256": saved_time_sha256,
         "train_cases": train_cases,
         "val_cases": val_cases,
         "test_cases": test_cases,
@@ -3041,7 +3290,20 @@ def run_single(
         "split_seed": args.split_seed,
         "seed_count": 1,
         "epochs": args.epochs,
+        "one_step_presentations_requested": args.one_step_presentations,
+        "one_step_presentations_actual": cumulative_one_step_presentations,
+        "one_step_examples_per_dataset_pass": len(train_dataset),
+        "one_step_batches_per_milestone": one_step_batches_per_milestone,
         "unroll_epochs": args.unroll_epochs,
+        "unroll_window_presentations_requested": (args.unroll_window_presentations),
+        "unroll_window_presentations_actual": cumulative_unroll_presentations,
+        "unroll_windows_per_dataset_pass": (
+            0 if unroll_dataset is None else len(unroll_dataset)
+        ),
+        "unroll_batches_per_milestone": unroll_batches_per_milestone,
+        "unroll_supervised_call_presentations": (
+            cumulative_unroll_presentations * args.unroll_steps
+        ),
         "unroll_steps": args.unroll_steps if args.unroll_epochs > 0 else 0,
         "unroll_burn_in_steps": (
             args.unroll_burn_in_steps if args.unroll_epochs > 0 else 0
@@ -3115,14 +3377,17 @@ def run_single(
     )
 
     if args.save_checkpoints:
+        checkpoint_path = run_dir / "checkpoint.pt"
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
+                "data_sha256": data_sha256,
+                "saved_time_sha256": saved_time_sha256,
                 "model": model_name,
                 "model_implementation": implementation,
                 "parameter_count": parameter_count,
                 "target": target_name,
-                "args": vars(args),
+                "args": json_ready(vars(args)),
                 "train_cases": train_cases,
                 "val_cases": val_cases,
                 "test_cases": test_cases,
@@ -3157,7 +3422,33 @@ def run_single(
                 "input_normalizer_mean": input_normalizer.mean.detach().cpu(),
                 "input_normalizer_std": input_normalizer.std.detach().cpu(),
             },
-            run_dir / "checkpoint.pt",
+            checkpoint_path,
+        )
+        (run_dir / "checkpoint_manifest.json").write_text(
+            json.dumps(
+                {
+                    "data_path": str(args.data_path),
+                    "data_sha256": data_sha256,
+                    "saved_time_sha256": saved_time_sha256,
+                    "selected_checkpoint": str(checkpoint_path.relative_to(run_dir)),
+                    "selected_checkpoint_sha256": sha256_file(checkpoint_path),
+                    "best_epoch": best_epoch,
+                    "selection_score": best_score,
+                    "candidate_index": (
+                        "checkpoint_index.json"
+                        if args.save_candidate_checkpoints
+                        else None
+                    ),
+                    "one_step_presentations": cumulative_one_step_presentations,
+                    "unroll_window_presentations": cumulative_unroll_presentations,
+                    "unroll_supervised_call_presentations": (
+                        cumulative_unroll_presentations * args.unroll_steps
+                    ),
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            encoding="utf-8",
         )
 
     row = {
@@ -3193,7 +3484,20 @@ def run_single(
         "test_cases_count": int(test_cases.size),
         "best_epoch": best_epoch,
         "epochs": args.epochs,
+        "one_step_presentations_requested": args.one_step_presentations,
+        "one_step_presentations_actual": cumulative_one_step_presentations,
+        "one_step_examples_per_dataset_pass": len(train_dataset),
+        "one_step_batches_per_milestone": one_step_batches_per_milestone,
         "unroll_epochs": args.unroll_epochs,
+        "unroll_window_presentations_requested": (args.unroll_window_presentations),
+        "unroll_window_presentations_actual": cumulative_unroll_presentations,
+        "unroll_windows_per_dataset_pass": (
+            0 if unroll_dataset is None else len(unroll_dataset)
+        ),
+        "unroll_batches_per_milestone": unroll_batches_per_milestone,
+        "unroll_supervised_call_presentations": (
+            cumulative_unroll_presentations * args.unroll_steps
+        ),
         "unroll_steps": args.unroll_steps if args.unroll_epochs > 0 else 0,
         "unroll_burn_in_steps": (
             args.unroll_burn_in_steps if args.unroll_epochs > 0 else 0
@@ -3322,8 +3626,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     if args.epochs < 1:
         raise ValueError("--epochs must be >= 1")
+    if args.batch_size < 1:
+        raise ValueError("--batch-size must be >= 1")
     if args.unroll_epochs < 0:
         raise ValueError("--unroll-epochs must be >= 0")
+    presentation_batches_per_milestone(
+        args.one_step_presentations,
+        batch_size=args.batch_size,
+        milestones=args.epochs,
+    )
+    if args.unroll_window_presentations is not None and args.unroll_epochs == 0:
+        raise ValueError("--unroll-window-presentations requires --unroll-epochs > 0")
+    if args.unroll_epochs > 0:
+        presentation_batches_per_milestone(
+            args.unroll_window_presentations,
+            batch_size=args.batch_size,
+            milestones=args.unroll_epochs,
+        )
     if args.unroll_steps < 2:
         raise ValueError("--unroll-steps must be >= 2")
     if args.unroll_burn_in_steps < 0:
@@ -3403,9 +3722,19 @@ def main(argv: Sequence[str] | None = None) -> None:
         torch.set_num_threads(args.torch_threads)
     set_seed(args.seed)
     device = select_device(args)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
 
     source = load_euler1d_npz(args.data_path)
+    if args.step_stride <= 0:
+        raise ValueError("--step-stride must be positive")
+    if args.rollout_final_frame not in range(1, source.num_frames):
+        raise ValueError(
+            "--rollout-final-frame must name a noninitial serialized frame"
+        )
+    if args.rollout_final_frame % args.step_stride != 0:
+        raise ValueError(
+            "--rollout-final-frame must be divisible by --step-stride so every "
+            "reported rollout ends at a serialized truth frame"
+        )
     if args.boundary_exchange_loss_weight > 0.0 and source.face_flux_integral is None:
         raise ValueError(
             "boundary-exchange supervision requires face_flux_integral in the dataset"
@@ -3416,6 +3745,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     train_cases, val_cases, test_cases = split_cases(source, args)
     experiment_pairs = requested_experiment_pairs(args.model, args.target)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
 
     print(
         json.dumps(
@@ -3510,6 +3840,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         ),
         flush=True,
     )
+    failed_rows = [row for row in summary_rows if row.get("status") == "failed"]
+    if failed_rows:
+        raise SystemExit(
+            f"{len(failed_rows)} experiment(s) failed; see summary.json for details"
+        )
 
 
 if __name__ == "__main__":

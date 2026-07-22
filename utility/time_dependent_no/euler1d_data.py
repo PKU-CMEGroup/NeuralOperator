@@ -41,6 +41,8 @@ class Euler1DNPZ:
     def validate(self) -> None:
         if self.data.ndim != 4 or self.data.shape[-1] != 3:
             raise ValueError("data must have shape [cases, frames, cells, 3]")
+        if any(size < 1 for size in self.data.shape[:3]):
+            raise ValueError("data case, frame, and cell axes must be nonempty")
         if self.x.shape != (self.num_cases, self.num_cells):
             raise ValueError("x must have shape [cases, cells]")
         if self.t.shape != (self.num_cases, self.num_frames):
@@ -58,6 +60,32 @@ class Euler1DNPZ:
             raise ValueError(
                 "face_flux_integral must have shape [cases, frames - 1, cells + 1, 3]"
             )
+        arrays = {
+            "data": self.data,
+            "x": self.x,
+            "t": self.t,
+            "left_states": self.left_states,
+            "right_states": self.right_states,
+        }
+        if self.face_flux_integral is not None:
+            arrays["face_flux_integral"] = self.face_flux_integral
+        for name, values in arrays.items():
+            if not np.isfinite(values).all():
+                raise ValueError(f"{name} must contain only finite values")
+        if not np.isfinite(self.gamma) or self.gamma <= 1.0:
+            raise ValueError("gamma must be finite and greater than one")
+        if self.num_cells > 1 and np.any(np.diff(self.x, axis=1) <= 0.0):
+            raise ValueError("x must be strictly increasing within every case")
+        if self.num_frames > 1 and np.any(np.diff(self.t, axis=1) <= 0.0):
+            raise ValueError("t must be strictly increasing within every case")
+        if np.any(self.data[..., 0] <= 0.0) or np.any(self.data[..., 2] <= 0.0):
+            raise ValueError("serialized density and pressure must be positive")
+        for name, states in (
+            ("left_states", self.left_states),
+            ("right_states", self.right_states),
+        ):
+            if np.any(states[:, 0] <= 0.0) or np.any(states[:, 2] <= 0.0):
+                raise ValueError(f"{name} density and pressure must be positive")
 
 
 def load_euler1d_npz(path: str | Path) -> Euler1DNPZ:
@@ -84,9 +112,11 @@ def load_euler1d_npz(path: str | Path) -> Euler1DNPZ:
             right_states=np.asarray(arrays["right_states"], dtype=np.float32),
             gamma=float(np.asarray(arrays["gamma"]).item()),
             metadata=metadata,
-            face_flux_integral=None
-            if "face_flux_integral" not in arrays
-            else np.asarray(arrays["face_flux_integral"], dtype=np.float32),
+            face_flux_integral=(
+                None
+                if "face_flux_integral" not in arrays
+                else np.asarray(arrays["face_flux_integral"], dtype=np.float32)
+            ),
         )
     dataset.validate()
     return dataset

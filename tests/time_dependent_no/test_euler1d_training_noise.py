@@ -114,6 +114,69 @@ def test_deferred_one_step_metrics_preserve_updates_and_metrics():
         assert deferred_metrics[key] == pytest.approx(regular_metrics[key], rel=1.0e-7)
 
 
+def test_deferred_one_step_metrics_include_direct_flux_loss():
+    ladder = _load_ladder_module()
+    base = _batch()
+    target_face_flux = torch.full((1, 7, 3), 0.125)
+    batch = make_euler1d_batch(
+        base.current_primitive,
+        base.geometry.cell_centers.squeeze(-1),
+        base.dt,
+        target_primitive=base.target_primitive,
+        target_face_flux=target_face_flux,
+        left_boundary_primitive=base.left_boundary_primitive,
+        right_initial_primitive=base.right_initial_primitive,
+    )
+
+    class LearnableFaceFlux(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.raw = torch.nn.Parameter(torch.zeros(1, 7, 3))
+
+        def forward(self, step_batch):
+            return self.raw.expand(step_batch.current_primitive.shape[0], -1, -1)
+
+    regular = LearnableFaceFlux()
+    deferred = LearnableFaceFlux()
+    deferred.load_state_dict(regular.state_dict())
+    regular_optimizer = torch.optim.SGD(regular.parameters(), lr=1.0e-3)
+    deferred_optimizer = torch.optim.SGD(deferred.parameters(), lr=1.0e-3)
+    state_normalizer = _fixed_conservative_normalizer(ladder)
+    flux_normalizer = _fixed_conservative_normalizer(ladder)
+
+    regular_metrics = ladder.train_one_epoch(
+        regular,
+        FluxTargetAdapter(),
+        [batch, batch],
+        state_normalizer,
+        regular_optimizer,
+        torch.device("cpu"),
+        grad_clip=1.0,
+        loss_coordinates="conservative",
+        target_supervision="direct_flux",
+        flux_normalizer=flux_normalizer,
+    )
+    deferred_metrics = ladder.train_one_epoch(
+        deferred,
+        FluxTargetAdapter(),
+        [batch, batch],
+        state_normalizer,
+        deferred_optimizer,
+        torch.device("cpu"),
+        grad_clip=1.0,
+        loss_coordinates="conservative",
+        target_supervision="direct_flux",
+        flux_normalizer=flux_normalizer,
+        defer_metric_sync=True,
+    )
+
+    torch.testing.assert_close(deferred.raw, regular.raw, rtol=0.0, atol=0.0)
+    assert np.isfinite(deferred_metrics["flux_loss"])
+    assert deferred_metrics["flux_loss"] == pytest.approx(
+        regular_metrics["flux_loss"], rel=1.0e-7
+    )
+
+
 def test_deferred_metrics_reject_nonfinite_loss():
     ladder = _load_ladder_module()
     model = _ScalarResidual()
@@ -133,6 +196,45 @@ def test_deferred_metrics_reject_nonfinite_loss():
             loss_coordinates="conservative",
             target_supervision="state",
             defer_metric_sync=True,
+        )
+
+
+@pytest.mark.parametrize("grad_clip", [0.0, 1.0])
+def test_training_rejects_nonfinite_gradient_norm(grad_clip):
+    ladder = _load_ladder_module()
+
+    class FiniteForwardNanBackward(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, value):
+            return value * 0.0
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            return torch.full_like(grad_output, float("nan"))
+
+    class NanGradientResidual(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.tensor(1.0))
+
+        def forward(self, batch):
+            value = FiniteForwardNanBackward.apply(self.weight)
+            return value * torch.ones_like(batch.current_primitive)
+
+    model = NanGradientResidual()
+    optimizer = torch.optim.SGD(model.parameters(), lr=1.0e-3)
+
+    with pytest.raises(RuntimeError, match="non-finite"):
+        ladder.train_one_epoch(
+            model,
+            ConservativeResidualTargetAdapter(),
+            [_batch()],
+            _fixed_conservative_normalizer(ladder),
+            optimizer,
+            torch.device("cpu"),
+            grad_clip=grad_clip,
+            loss_coordinates="conservative",
+            target_supervision="state",
         )
 
 
@@ -198,6 +300,71 @@ def test_split_seed_is_independent_of_training_seed():
 
     for indices_a, indices_b in zip(split_a, split_b, strict=True):
         np.testing.assert_array_equal(indices_a, indices_b)
+
+
+def test_presentation_budget_is_exact_and_stride_independent():
+    ladder = _load_ladder_module()
+
+    assert (
+        ladder.presentation_batches_per_milestone(
+            1_920_000,
+            batch_size=8,
+            milestones=50,
+        )
+        == 4_800
+    )
+    assert (
+        ladder.presentation_batches_per_milestone(
+            372_480,
+            batch_size=8,
+            milestones=10,
+        )
+        == 4_656
+    )
+    with pytest.raises(ValueError, match="divisible"):
+        ladder.presentation_batches_per_milestone(
+            101,
+            batch_size=8,
+            milestones=2,
+        )
+
+
+def test_cycle_batches_restarts_without_dropping_the_boundary_batch():
+    ladder = _load_ladder_module()
+    stream = ladder.cycle_batches([[0], [1], [2]])
+
+    assert [next(stream) for _ in range(8)] == [
+        [0],
+        [1],
+        [2],
+        [0],
+        [1],
+        [2],
+        [0],
+        [1],
+    ]
+
+    empty = ladder.cycle_batches([])
+    with pytest.raises(ValueError, match="empty"):
+        next(empty)
+
+
+def test_checkpoint_arguments_serialize_paths_as_plain_strings(tmp_path: Path):
+    ladder = _load_ladder_module()
+    portable = ladder.json_ready(
+        {
+            "data_path": tmp_path / "dataset.npz",
+            "output_dir": tmp_path / "run",
+            "step_stride": 8,
+        }
+    )
+    checkpoint_path = tmp_path / "portable.pt"
+    torch.save({"args": portable}, checkpoint_path)
+    restored = torch.load(checkpoint_path, weights_only=False)
+
+    assert isinstance(restored["args"]["data_path"], str)
+    assert isinstance(restored["args"]["output_dir"], str)
+    assert restored["args"]["step_stride"] == 8
 
 
 def test_continuation_checkpoint_loads_compatible_smaller_stride_weights(

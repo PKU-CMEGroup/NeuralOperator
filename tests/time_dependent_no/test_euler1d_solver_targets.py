@@ -1,6 +1,8 @@
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
+import pytest
 import torch
 
 from utility.time_dependent_no.euler1d import (
@@ -11,6 +13,7 @@ from utility.time_dependent_no.euler1d import (
     rusanov_flux_from_primitive,
 )
 from utility.time_dependent_no.euler1d_data import (
+    Euler1DNPZ,
     Euler1DRolloutWindowDataset,
     Euler1DTimePairDataset,
     collate_euler1d_pairs,
@@ -550,6 +553,36 @@ def test_positive_limited_interface_state_adapter_forces_positive_interface():
     assert torch.all(prediction.aux["limiter_theta"] <= 1.0)
     assert torch.all(primitive[..., 0] > 0.0)
     assert torch.all(primitive[..., 2] > 0.0)
+
+
+def test_euler1d_npz_validation_rejects_nonphysical_or_nonmonotone_data():
+    data = np.ones((1, 3, 4, 3), dtype=np.float32)
+    data[..., 1] = 0.0
+    source = Euler1DNPZ(
+        data=data,
+        x=np.linspace(0.0, 1.0, 4, dtype=np.float32)[None],
+        t=np.array([[0.0, 0.1, 0.2]], dtype=np.float32),
+        left_states=np.array([[1.0, 0.0, 1.0]], dtype=np.float32),
+        right_states=np.array([[1.0, 0.0, 1.0]], dtype=np.float32),
+        gamma=1.4,
+        metadata={},
+    )
+    source.validate()
+
+    bad_time = source.t.copy()
+    bad_time[0, 2] = bad_time[0, 1]
+    with pytest.raises(ValueError, match="t must be strictly increasing"):
+        replace(source, t=bad_time).validate()
+
+    bad_state = source.data.copy()
+    bad_state[0, 1, 2, 2] = -1.0
+    with pytest.raises(ValueError, match="density and pressure"):
+        replace(source, data=bad_state).validate()
+
+    nonfinite = source.x.copy()
+    nonfinite[0, 1] = np.nan
+    with pytest.raises(ValueError, match="x must contain only finite"):
+        replace(source, x=nonfinite).validate()
 
 
 def test_euler1d_npz_loader_and_collate(tmp_path: Path):

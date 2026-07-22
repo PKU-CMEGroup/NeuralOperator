@@ -2,7 +2,8 @@
 
 The script evaluates each checkpoint at its native saved-frame stride. It keeps
 teacher-forced update spectra separate from autoregressive state-error spectra:
-solver fluxes and trajectory increments are valid labels only on truth states.
+solver fluxes, when present, and trajectory increments are valid labels only on
+truth states.
 """
 
 from __future__ import annotations
@@ -21,7 +22,6 @@ from typing import Any, Sequence, cast
 import numpy as np
 import torch
 from torch import nn
-
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -45,11 +45,12 @@ from utility.time_dependent_no.euler1d_data import (  # noqa: E402
 from utility.time_dependent_no.euler1d_models import Euler1DTarget  # noqa: E402
 from utility.time_dependent_no.euler1d_targets import make_target_adapter  # noqa: E402
 
-
 EPS = 1.0e-12
 SPECTRAL_BANDS = {
     "low_1_4": (1, 5),
     "mid_5_16": (5, 17),
+    # Legacy artifact key: modes=24 retains k=0..23, so k=24 is just outside
+    # the learned spectral convolution even though it remains in this band.
     "resolved_17_24": (17, 25),
     "high_25_64": (25, 65),
     "tail_65_nyquist": (65, None),
@@ -109,6 +110,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Use one for bitwise agreement with the canonical per-case evaluator.",
     )
     parser.add_argument("--shock-radius-cells", type=int, default=4)
+    parser.add_argument(
+        "--modal-truth-floor-fraction",
+        type=float,
+        default=1.0e-8,
+        help=(
+            "Mark a mode unresolved when its mean truth power is at most this "
+            "fraction of total nonzero-mode truth power."
+        ),
+    )
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args(argv)
@@ -126,6 +136,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--rollout-batch-size must be positive")
     if args.shock_radius_cells < 0:
         parser.error("--shock-radius-cells must be nonnegative")
+    if not 0.0 <= args.modal_truth_floor_fraction < 1.0:
+        parser.error("--modal-truth-floor-fraction must lie in [0, 1)")
     return args
 
 
@@ -192,9 +204,7 @@ def load_frozen_model(
             getattr(args, "flux_correction_scale_floor", 1.0e-6)
         ),
         flux_gauge_mode=str(getattr(args, "flux_gauge_mode", "raw")),
-        interface_flux_mode=str(
-            getattr(args, "interface_flux_mode", "rusanov")
-        ),
+        interface_flux_mode=str(getattr(args, "interface_flux_mode", "rusanov")),
     ).to(device)
     return FrozenModel(
         name=name,
@@ -253,10 +263,7 @@ def decode_batch(
     face_flux = decoded.aux.get("face_flux")
     return {
         "primitive": decoded.primitive.detach().cpu().numpy().astype(np.float64),
-        "conservative": decoded.conservative.detach()
-        .cpu()
-        .numpy()
-        .astype(np.float64),
+        "conservative": decoded.conservative.detach().cpu().numpy().astype(np.float64),
         "face_flux": (
             face_flux.detach().cpu().numpy().astype(np.float64)
             if isinstance(face_flux, torch.Tensor)
@@ -348,9 +355,7 @@ def spectral_pair_metrics(
         target_energy = np.sum(np.abs(target_band) ** 2, axis=(1, 2))
         pred_energy = np.sum(np.abs(pred_band) ** 2, axis=(1, 2))
         error_energy = np.sum(np.abs(error_band) ** 2, axis=(1, 2))
-        cross = np.real(
-            np.sum(pred_band * np.conj(target_band), axis=(1, 2))
-        )
+        cross = np.real(np.sum(pred_band * np.conj(target_band), axis=(1, 2)))
         result[f"{prefix}_{band}_projection_gain"] = cross / np.maximum(
             target_energy,
             EPS,
@@ -366,6 +371,181 @@ def spectral_pair_metrics(
             EPS,
         )
     return result
+
+
+@dataclass
+class _ModalSpectrumSums:
+    prediction_power: np.ndarray
+    target_power: np.ndarray
+    error_power: np.ndarray
+    cross_real: np.ndarray
+    cross_imag: np.ndarray
+    sample_count: int
+    channel_observation_count: int
+
+
+class ModalSpectrumAccumulator:
+    """Aggregate per-mode sufficient statistics across rollout batch chunks."""
+
+    def __init__(self, truth_floor_fraction: float = 1.0e-8) -> None:
+        if not 0.0 <= truth_floor_fraction < 1.0:
+            raise ValueError("truth_floor_fraction must lie in [0, 1)")
+        self.truth_floor_fraction = float(truth_floor_fraction)
+        self._sums: dict[
+            tuple[str, str, int, int, int],
+            _ModalSpectrumSums,
+        ] = {}
+
+    def add(
+        self,
+        prediction: np.ndarray,
+        target: np.ndarray,
+        *,
+        evaluation_mode: str,
+        model: str,
+        stride: int,
+        source_frame: int,
+        target_frame: int,
+        valid_mask: np.ndarray | None = None,
+    ) -> None:
+        """Accumulate mean-free Hann-windowed spectra for valid samples."""
+
+        prediction = np.asarray(prediction, dtype=np.float64)
+        target = np.asarray(target, dtype=np.float64)
+        if (
+            prediction.shape != target.shape
+            or prediction.ndim != 3
+            or prediction.shape[-1] != 3
+        ):
+            raise ValueError("modal fields must share shape [batch, cells, 3]")
+        if valid_mask is None:
+            valid = np.ones(prediction.shape[0], dtype=bool)
+        else:
+            valid = np.asarray(valid_mask, dtype=bool)
+            if valid.shape != (prediction.shape[0],):
+                raise ValueError("valid_mask must have shape [batch]")
+        valid &= np.isfinite(prediction).all(axis=(1, 2))
+        valid &= np.isfinite(target).all(axis=(1, 2))
+        if not np.any(valid):
+            return
+
+        prediction = prediction[valid]
+        target = target[valid]
+        window = np.hanning(prediction.shape[1]).reshape(1, -1, 1)
+
+        def transform(values: np.ndarray) -> np.ndarray:
+            centered = values - np.mean(values, axis=1, keepdims=True)
+            return np.fft.rfft(centered * window, axis=1, norm="ortho")[:, 1:]
+
+        prediction_hat = transform(prediction)
+        target_hat = transform(target)
+        error_hat = prediction_hat - target_hat
+        prediction_power = np.sum(np.abs(prediction_hat) ** 2, axis=(0, 2))
+        target_power = np.sum(np.abs(target_hat) ** 2, axis=(0, 2))
+        error_power = np.sum(np.abs(error_hat) ** 2, axis=(0, 2))
+        cross = np.sum(prediction_hat * np.conj(target_hat), axis=(0, 2))
+        sample_count = int(prediction.shape[0])
+        observation_count = sample_count * int(prediction.shape[2])
+        key = (
+            str(evaluation_mode),
+            str(model),
+            int(stride),
+            int(source_frame),
+            int(target_frame),
+        )
+        aggregate = self._sums.get(key)
+        if aggregate is None:
+            self._sums[key] = _ModalSpectrumSums(
+                prediction_power=prediction_power,
+                target_power=target_power,
+                error_power=error_power,
+                cross_real=np.real(cross),
+                cross_imag=np.imag(cross),
+                sample_count=sample_count,
+                channel_observation_count=observation_count,
+            )
+            return
+        if aggregate.prediction_power.shape != prediction_power.shape:
+            raise ValueError("inconsistent modal grid for one aggregate key")
+        aggregate.prediction_power += prediction_power
+        aggregate.target_power += target_power
+        aggregate.error_power += error_power
+        aggregate.cross_real += np.real(cross)
+        aggregate.cross_imag += np.imag(cross)
+        aggregate.sample_count += sample_count
+        aggregate.channel_observation_count += observation_count
+
+    def rows(self) -> list[dict[str, Any]]:
+        """Materialize derived metrics, masking truth-unresolved ratios."""
+
+        rows: list[dict[str, Any]] = []
+        for key, aggregate in sorted(self._sums.items()):
+            evaluation_mode, model, stride, source_frame, target_frame = key
+            count = max(aggregate.channel_observation_count, 1)
+            prediction_power = aggregate.prediction_power / count
+            target_power = aggregate.target_power / count
+            error_power = aggregate.error_power / count
+            cross_real = aggregate.cross_real / count
+            cross_imag = aggregate.cross_imag / count
+            total_target_power = float(np.sum(target_power))
+            total_error_power = float(np.sum(error_power))
+            truth_floor = self.truth_floor_fraction * total_target_power
+            for mode_offset in range(target_power.size):
+                mode = mode_offset + 1
+                target_mode_power = float(target_power[mode_offset])
+                prediction_mode_power = float(prediction_power[mode_offset])
+                error_mode_power = float(error_power[mode_offset])
+                cross_mode_real = float(cross_real[mode_offset])
+                cross_mode_imag = float(cross_imag[mode_offset])
+                resolved = bool(
+                    target_mode_power > truth_floor and target_mode_power > 0.0
+                )
+                if resolved:
+                    relative_error = math.sqrt(error_mode_power / target_mode_power)
+                    amplitude_ratio = math.sqrt(
+                        prediction_mode_power / target_mode_power
+                    )
+                    coherence = cross_mode_real / max(
+                        math.sqrt(prediction_mode_power * target_mode_power),
+                        EPS,
+                    )
+                    phase_error = math.atan2(cross_mode_imag, cross_mode_real)
+                else:
+                    relative_error = float("nan")
+                    amplitude_ratio = float("nan")
+                    coherence = float("nan")
+                    phase_error = float("nan")
+                rows.append(
+                    {
+                        "evaluation_mode": evaluation_mode,
+                        "model": model,
+                        "stride": stride,
+                        "source_frame": source_frame,
+                        "target_frame": target_frame,
+                        "mode_index": mode,
+                        "num_samples": aggregate.sample_count,
+                        "num_channel_observations": (
+                            aggregate.channel_observation_count
+                        ),
+                        "truth_resolved": resolved,
+                        "truth_floor_fraction": self.truth_floor_fraction,
+                        "truth_power_floor": truth_floor,
+                        "modal_prediction_power_mean": prediction_mode_power,
+                        "modal_target_power_mean": target_mode_power,
+                        "modal_error_power_mean": error_mode_power,
+                        "modal_relative_error_rms": relative_error,
+                        "modal_prediction_to_truth_amplitude_ratio": amplitude_ratio,
+                        "modal_real_coherence": coherence,
+                        "modal_cross_phase_radians": phase_error,
+                        "modal_error_energy_fraction": (
+                            error_mode_power / max(total_error_power, EPS)
+                        ),
+                        "modal_target_energy_fraction": (
+                            target_mode_power / max(total_target_power, EPS)
+                        ),
+                    }
+                )
+        return rows
 
 
 def shock_masks(
@@ -432,17 +612,43 @@ def difference_metrics(
     prediction: np.ndarray,
     target: np.ndarray,
     dx: np.ndarray,
+    *,
+    shock_masks: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
     dx1 = dx.reshape(-1, 1, 1)
     first = np.diff(error, axis=1) / dx1
     second = np.diff(error, n=2, axis=1) / dx1**2
     pred_tv = np.sum(np.abs(np.diff(prediction, axis=1)), axis=(1, 2))
     truth_tv = np.sum(np.abs(np.diff(target, axis=1)), axis=(1, 2))
-    return {
+    result = {
         "error_d1_rms": np.sqrt(np.mean(first**2, axis=(1, 2))),
         "error_d2_rms": np.sqrt(np.mean(second**2, axis=(1, 2))),
         "state_tv_ratio": pred_tv / np.maximum(truth_tv, EPS),
     }
+    if shock_masks is not None:
+        smooth = ~np.asarray(shock_masks, dtype=bool)
+        smooth_faces = smooth[:, :-1] & smooth[:, 1:]
+        smooth_stencils = smooth[:, :-2] & smooth[:, 1:-1] & smooth[:, 2:]
+        pred_difference = np.diff(prediction, axis=1)
+        truth_difference = np.diff(target, axis=1)
+        smooth_face_weight = smooth_faces[..., None]
+        smooth_pred_tv = np.sum(
+            np.abs(pred_difference) * smooth_face_weight,
+            axis=(1, 2),
+        )
+        smooth_truth_tv = np.sum(
+            np.abs(truth_difference) * smooth_face_weight,
+            axis=(1, 2),
+        )
+        result.update(
+            {
+                "smooth_error_d1_rms": masked_rms(first, smooth_faces),
+                "smooth_error_d2_rms": masked_rms(second, smooth_stencils),
+                "smooth_state_tv_ratio": smooth_pred_tv
+                / np.maximum(smooth_truth_tv, EPS),
+            }
+        )
+    return result
 
 
 def state_metrics(
@@ -487,9 +693,14 @@ def state_metrics(
             prediction_conservative / scale,
             target_scaled,
             dx,
+            shock_masks=masks,
         )
     )
-    metrics.update(characteristic_metrics(prediction_conservative - truth_conservative, truth_primitive, gamma))
+    metrics.update(
+        characteristic_metrics(
+            prediction_conservative - truth_conservative, truth_primitive, gamma
+        )
+    )
     front_position = np.full(error.shape[0], np.nan, dtype=np.float64)
     front_strength = np.full_like(front_position, np.nan)
     for sample_id in range(error.shape[0]):
@@ -519,7 +730,9 @@ def update_metrics(
         truth_delta,
         prefix="update",
     )
-    result.update(spectral_metrics(prediction_delta - truth_delta, prefix="update_error"))
+    result.update(
+        spectral_metrics(prediction_delta - truth_delta, prefix="update_error")
+    )
     return result
 
 
@@ -557,12 +770,7 @@ def batch_rows(
     rows: list[dict[str, Any]] = []
     for sample_id, case_id in enumerate(case_ids):
         row = {**common, "case_id": int(case_id)}
-        row.update(
-            {
-                key: float(value[sample_id])
-                for key, value in metrics.items()
-            }
-        )
+        row.update({key: float(value[sample_id]) for key, value in metrics.items()})
         rows.append(row)
     return rows
 
@@ -616,6 +824,7 @@ def evaluate_teacher_forced(
     *,
     frame_step: int,
     shock_radius_cells: int,
+    modal_accumulator: ModalSpectrumAccumulator | None = None,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     case_ids = frozen.test_cases
@@ -673,6 +882,18 @@ def evaluate_teacher_forced(
                 )
             )
         valid, reasons = prediction_validity(prediction_primitive)
+        if modal_accumulator is not None:
+            scale = conservative_scale(source.gamma).reshape(1, 1, 3)
+            modal_accumulator.add(
+                (prediction_conservative - current_conservative) / scale,
+                (truth_conservative - current_conservative) / scale,
+                evaluation_mode="teacher_update",
+                model=frozen.name,
+                stride=stride,
+                source_frame=frame,
+                target_frame=target_frame,
+                valid_mask=valid,
+            )
         frame_rows = batch_rows(
             {
                 "mode": "teacher_forced",
@@ -702,6 +923,7 @@ def evaluate_rollout(
     max_calls: int,
     shock_radius_cells: int,
     rollout_batch_size: int,
+    modal_accumulator: ModalSpectrumAccumulator | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     case_ids = frozen.test_cases
     if rollout_batch_size < case_ids.size:
@@ -716,6 +938,7 @@ def evaluate_rollout(
                 max_calls=max_calls,
                 shock_radius_cells=shock_radius_cells,
                 rollout_batch_size=chunk.size,
+                modal_accumulator=modal_accumulator,
             )
             rows.extend(chunk_rows)
         return rows, summarize_rollout_population(
@@ -738,19 +961,17 @@ def evaluate_rollout(
         gamma=source.gamma,
     )
     x_t = torch.from_numpy(np.ascontiguousarray(source.x[case_ids])).to(device)
-    left_t = torch.from_numpy(
-        np.ascontiguousarray(source.left_states[case_ids])
-    ).to(device)
-    right_t = torch.from_numpy(
-        np.ascontiguousarray(source.right_states[case_ids])
-    ).to(device)
+    left_t = torch.from_numpy(np.ascontiguousarray(source.left_states[case_ids])).to(
+        device
+    )
+    right_t = torch.from_numpy(np.ascontiguousarray(source.right_states[case_ids])).to(
+        device
+    )
     active = np.ones(case_ids.size, dtype=bool)
     failure_calls: dict[int, int] = {}
     failure_reasons: dict[int, str] = {}
     rows: list[dict[str, Any]] = []
-    row_ids_by_case: dict[int, list[int]] = {
-        int(case_id): [] for case_id in case_ids
-    }
+    row_ids_by_case: dict[int, list[int]] = {int(case_id): [] for case_id in case_ids}
 
     for call in range(1, max_calls + 1):
         active_indices = np.flatnonzero(active)
@@ -759,10 +980,13 @@ def evaluate_rollout(
         active_cases = case_ids[active_indices]
         source_frame = (call - 1) * stride
         target_frame = call * stride
-        dt = source.t[active_cases, target_frame] - source.t[
-            active_cases,
-            source_frame,
-        ]
+        dt = (
+            source.t[active_cases, target_frame]
+            - source.t[
+                active_cases,
+                source_frame,
+            ]
+        )
         all_active = active_indices.size == case_ids.size
         if all_active:
             active_primitive = current_primitive
@@ -799,9 +1023,7 @@ def evaluate_rollout(
             active_x,
             torch.as_tensor(dt, dtype=current_primitive.dtype, device=device),
             current_conservative_state=(
-                active_conservative
-                if recurrent_coordinates == "conservative"
-                else None
+                active_conservative if recurrent_coordinates == "conservative" else None
             ),
             gamma=source.gamma,
             left_boundary_primitive=active_left,
@@ -812,12 +1034,8 @@ def evaluate_rollout(
             decoded = frozen.adapter(raw, batch)
         proposed_primitive = decoded.primitive.detach()
         proposed_conservative = decoded.conservative.detach()
-        prediction_primitive = (
-            proposed_primitive.cpu().numpy().astype(np.float64)
-        )
-        prediction_conservative = (
-            proposed_conservative.cpu().numpy().astype(np.float64)
-        )
+        prediction_primitive = proposed_primitive.cpu().numpy().astype(np.float64)
+        prediction_conservative = proposed_conservative.cpu().numpy().astype(np.float64)
         truth_primitive = source.data[active_cases, target_frame].astype(np.float64)
         truth_conservative = primitive_to_conservative_np(
             truth_primitive,
@@ -833,6 +1051,18 @@ def evaluate_rollout(
             shock_radius_cells=shock_radius_cells,
         )
         valid, reasons = prediction_validity(prediction_primitive)
+        if modal_accumulator is not None:
+            scale = conservative_scale(source.gamma).reshape(1, 1, 3)
+            modal_accumulator.add(
+                prediction_conservative / scale,
+                truth_conservative / scale,
+                evaluation_mode="autoregressive_state",
+                model=frozen.name,
+                stride=stride,
+                source_frame=source_frame,
+                target_frame=target_frame,
+                valid_mask=valid,
+            )
         call_rows = batch_rows(
             {
                 "mode": "autoregressive",
@@ -916,18 +1146,16 @@ def summarize_rollout_population(
     max_calls: int,
 ) -> dict[str, Any]:
     invalid_rows = [row for row in rows if not bool(row["proposal_valid"])]
-    failure_calls = {
-        int(row["case_id"]): int(row["call"])
-        for row in invalid_rows
-    }
+    failure_calls = {int(row["case_id"]): int(row["call"]) for row in invalid_rows}
     failure_reasons = {
-        int(row["case_id"]): str(row["termination_reason"])
-        for row in invalid_rows
+        int(row["case_id"]): str(row["termination_reason"]) for row in invalid_rows
     }
     reason_counts: dict[str, int] = {}
     for reason in failure_reasons.values():
         reason_counts[reason] = reason_counts.get(reason, 0) + 1
-    valid_lengths = [failure_calls.get(int(case), max_calls + 1) - 1 for case in case_ids]
+    valid_lengths = [
+        failure_calls.get(int(case), max_calls + 1) - 1 for case in case_ids
+    ]
     num_completed = int(case_ids.size - len(failure_calls))
     return {
         "model": model_name,
@@ -938,9 +1166,7 @@ def summarize_rollout_population(
         "failure_reason_counts": reason_counts,
         "valid_calls_mean": float(np.mean(valid_lengths)),
         "valid_calls_median": float(np.median(valid_lengths)),
-        "first_failure_call": (
-            min(failure_calls.values()) if failure_calls else None
-        ),
+        "first_failure_call": (min(failure_calls.values()) if failure_calls else None),
         "last_failure_call": max(failure_calls.values()) if failure_calls else None,
     }
 
@@ -980,9 +1206,7 @@ def summarize_subset(
         except (TypeError, ValueError):
             continue
         finite = values[np.isfinite(values)]
-        result[f"{key}_mean"] = (
-            float(np.mean(finite)) if finite.size else float("nan")
-        )
+        result[f"{key}_mean"] = float(np.mean(finite)) if finite.size else float("nan")
         result[f"{key}_median"] = (
             float(np.median(finite)) if finite.size else float("nan")
         )
@@ -1142,7 +1366,9 @@ def matched_failure_contrast(
         denominator = np.asarray([float(pair[1][metric]) for pair in pairs])
         finite = np.isfinite(numerator) & np.isfinite(denominator)
         result[f"{metric}_mean_ratio"] = (
-            safe_ratio(float(np.mean(numerator[finite])), float(np.mean(denominator[finite])))
+            safe_ratio(
+                float(np.mean(numerator[finite])), float(np.mean(denominator[finite]))
+            )
             if np.any(finite)
             else float("nan")
         )
@@ -1408,8 +1634,6 @@ def build_report(
 def run(args: argparse.Namespace) -> dict[str, Any]:
     started = time.perf_counter()
     source = load_euler1d_npz(args.data_path)
-    if source.face_flux_integral is None:
-        raise RuntimeError("D013 requires a dataset with face_flux_integral")
     device = select_device(args.device, args.gpu)
     models = {
         name: load_frozen_model(name, Path(path), device)
@@ -1430,6 +1654,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     all_rows: list[dict[str, Any]] = []
     rollout_summaries: list[dict[str, Any]] = []
+    modal_accumulator = ModalSpectrumAccumulator(
+        getattr(args, "modal_truth_floor_fraction", 1.0e-8)
+    )
     for model_id, (name, frozen) in enumerate(models.items(), start=1):
         print(
             f"D013 model={name} ({model_id}/{len(models)}) "
@@ -1442,6 +1669,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             device,
             frame_step=args.teacher_frame_step,
             shock_radius_cells=args.shock_radius_cells,
+            modal_accumulator=modal_accumulator,
         )
         max_available = (source.num_frames - 1) // frozen.stride
         max_calls = call_overrides.get(name, max_available)
@@ -1452,6 +1680,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             max_calls=max_calls,
             shock_radius_cells=args.shock_radius_cells,
             rollout_batch_size=args.rollout_batch_size,
+            modal_accumulator=modal_accumulator,
         )
         all_rows.extend(teacher_rows)
         all_rows.extend(rollout_rows)
@@ -1471,11 +1700,36 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         source,
         time.perf_counter() - started,
     )
+    modal_rows = modal_accumulator.rows()
     write_csv(args.output_dir / "per_sample_metrics.csv", all_rows)
     write_csv(args.output_dir / "teacher_summary.csv", teacher_summary)
     write_csv(args.output_dir / "rollout_summary.csv", rollout_summary)
+    modal_path = args.output_dir / "mode_spectra.csv"
+    write_csv(modal_path, modal_rows)
     if precursor_summary:
         write_csv(args.output_dir / "failure_precursor_summary.csv", precursor_summary)
+    report["modal_spectra"] = {
+        "path": str(modal_path),
+        "sha256": hashlib.sha256(modal_path.read_bytes()).hexdigest(),
+        "row_count": len(modal_rows),
+        "truth_floor_fraction": modal_accumulator.truth_floor_fraction,
+        "teacher_frame_step": int(args.teacher_frame_step),
+        "rollout_batch_size": int(args.rollout_batch_size),
+        "shock_radius_cells": int(args.shock_radius_cells),
+        "field_contract": {
+            "teacher_update": (
+                "fixed-scale conservative one-call update on truth inputs"
+            ),
+            "autoregressive_state": (
+                "fixed-scale conservative recurrent state on raw-admissible cases"
+            ),
+        },
+        "transform": "spatial-mean removal, Hann window, orthonormal real FFT",
+        "ratio_mask": (
+            "truth-normalized modal ratios are NaN below the recorded relative "
+            "truth-power floor"
+        ),
+    }
     (args.output_dir / "report.json").write_text(
         json.dumps(json_ready(report), indent=2, sort_keys=True),
         encoding="utf-8",

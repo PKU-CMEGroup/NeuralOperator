@@ -7,7 +7,10 @@ import h5py
 import numpy as np
 import pytest
 
-from scripts.time_dependent_no.audit_cpg_mesh_contract import main
+from scripts.time_dependent_no.audit_cpg_mesh_contract import (
+    choose_vtu_alignment,
+    main,
+)
 from scripts.time_dependent_no.evaluate_cpg_release import (
     LEGAL_BOUNDARY_MODE,
     load_mesh_audit,
@@ -21,12 +24,14 @@ from utility.time_dependent_no.cpg_mesh_contract import (
     apply_causal_nodal_boundaries,
     apply_torch_boundary_policy,
     audit_bump_julia_config,
+    boundary_stencil_sha256,
     build_boundary_stencil,
     build_torch_boundary_policy,
     expected_cpg_node_types,
     freestream_primitive,
     mesh_primal_edges,
     parse_abaqus_mesh,
+    primitive_error,
     read_ascii_vtu,
     recover_boundary_geometry,
     recover_graph_boundary_geometry,
@@ -34,7 +39,10 @@ from utility.time_dependent_no.cpg_mesh_contract import (
     validate_vtu_mesh_identity,
     vtu_primitive,
 )
-from utility.time_dependent_no.cpg_release import sha256_file
+from utility.time_dependent_no.cpg_release import (
+    sha256_file,
+    validate_cpg_static_graph,
+)
 
 
 def _write_mesh(path: Path) -> None:
@@ -249,6 +257,149 @@ def test_ascii_vtu_matches_abaqus_points_cells_and_primitives(tmp_path: Path):
     np.testing.assert_allclose(vtu_primitive(frame), primitive)
 
 
+@pytest.mark.parametrize(
+    ("array_name", "original", "replacement"),
+    [
+        ("connectivity", "0", "0.5"),
+        ("offsets", "2", "2.5"),
+        ("types", "3", "3.5"),
+    ],
+)
+def test_ascii_vtu_rejects_fractional_topology(
+    tmp_path: Path,
+    array_name: str,
+    original: str,
+    replacement: str,
+):
+    mesh = _synthetic_mesh(tmp_path)
+    primitive = np.ones((mesh.num_nodes, 4), dtype=np.float64)
+    path = tmp_path / "sol_1.vtu"
+    _write_vtu(path, mesh, primitive)
+    text = path.read_text(encoding="utf-8")
+    marker = f'Name="{array_name}" format="ascii">'
+    prefix, values = text.split(marker, maxsplit=1)
+    values = values.replace(original, replacement, 1)
+    path.write_text(prefix + marker + values, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not integral"):
+        read_ascii_vtu(path)
+
+
+def test_mesh_and_primitive_checks_reject_nonfinite_values(tmp_path: Path):
+    mesh = _synthetic_mesh(tmp_path)
+    edges = mesh_primal_edges(mesh)
+    node_type = expected_cpg_node_types(mesh)
+    bad_pos = mesh.points.copy()
+    bad_pos[0, 0] = np.nan
+    with pytest.raises(ValueError, match="nonfinite"):
+        validate_hdf_mesh_identity(
+            mesh,
+            hdf_pos=bad_pos,
+            hdf_edges=edges,
+            hdf_node_type=node_type,
+        )
+
+    primitive = np.ones((mesh.num_nodes, 4), dtype=np.float64)
+    path = tmp_path / "sol_1.vtu"
+    _write_vtu(path, mesh, primitive)
+    frame = read_ascii_vtu(path)
+    frame.points[0, 0] = np.inf
+    with pytest.raises(ValueError, match="nonfinite"):
+        validate_vtu_mesh_identity(mesh, frame)
+
+    with pytest.raises(ValueError, match="nonfinite"):
+        primitive_error(primitive, np.where(np.eye(mesh.num_nodes, 4), np.nan, 1.0))
+
+
+def test_primitive_relative_error_is_json_safe_for_zero_reference():
+    reference = np.zeros((2, 4), dtype=np.float64)
+    candidate = reference.copy()
+    candidate[:, 1] = 1.0
+
+    error = primitive_error(reference, candidate)
+
+    assert error["channel_relative_l2"] == [0.0, None, 0.0, 0.0]
+    assert error["channel_relative_l2_status"][1] == (
+        "zero_reference_nonzero_error"
+    )
+    json.dumps(error, allow_nan=False)
+
+
+def test_temporal_alignment_uses_midpoint_and_tolerance():
+    zero = np.zeros((2, 4), dtype=np.float64)
+    one = np.ones((2, 4), dtype=np.float64)
+    two = np.full((2, 4), 2.0, dtype=np.float64)
+    hdf_frames = {0: zero, 1: one, 2: two}
+    vtu_frames = {
+        0: np.full((2, 4), 9.0),
+        1: zero,
+        2: np.full((2, 4), 8.0),
+        3: two,
+    }
+
+    with pytest.raises(ValueError, match="within tolerance"):
+        choose_vtu_alignment(
+            hdf_frames=hdf_frames,
+            vtu_frames=vtu_frames,
+            primitive_atol=1.0e-12,
+        )
+
+    vtu_frames[2] = one
+    offset, candidates = choose_vtu_alignment(
+        hdf_frames=hdf_frames,
+        vtu_frames=vtu_frames,
+        primitive_atol=1.0e-12,
+    )
+    assert offset == 1
+    assert candidates["1"]["sampled_hdf_frames"] == [0, 1, 2]
+
+    identical = {0: zero, 1: zero, 2: zero, 3: zero}
+    with pytest.raises(ValueError, match="ambiguous"):
+        choose_vtu_alignment(
+            hdf_frames={0: zero, 1: zero, 2: zero},
+            vtu_frames=identical,
+            primitive_atol=1.0e-12,
+        )
+
+
+def test_temporal_alignment_requires_two_sampled_hdf_frames():
+    state = np.ones((4, 4), dtype=np.float64)
+    with pytest.raises(ValueError, match="at least two sampled HDF frames"):
+        choose_vtu_alignment(
+            hdf_frames={0: state},
+            vtu_frames={0: state},
+            primitive_atol=1.0e-12,
+        )
+
+
+def test_static_graph_validation_checks_middle_frames(tmp_path: Path):
+    mesh = _synthetic_mesh(tmp_path)
+    frames = 3
+    pos = np.tile(mesh.points[None], (frames, 1, 1))
+    pos[1, 4, 0] += 0.01
+    edges = mesh_primal_edges(mesh)
+    node_type = expected_cpg_node_types(mesh)
+    group = {
+        "rho": np.ones((frames, mesh.num_nodes, 1)),
+        "v1": np.ones((frames, mesh.num_nodes, 1)),
+        "v2": np.zeros((frames, mesh.num_nodes, 1)),
+        "pres": np.ones((frames, mesh.num_nodes, 1)),
+        "pos": pos,
+        "edges": np.tile(edges[None], (frames, 1, 1)),
+        "node_type": np.tile(node_type[None, :, None], (frames, 1, 1)),
+        "Mach": np.full((frames, mesh.num_nodes, 1), 2.5),
+    }
+
+    with pytest.raises(ValueError, match="frame 1"):
+        validate_cpg_static_graph(group)
+
+    group["pos"] = np.tile(mesh.points[None], (frames, 1, 1))
+    group["edges"] = group["edges"].astype(np.float64)
+    group["edges"][1, 0, 0] = 0.5
+    with pytest.raises(ValueError, match="integer indices"):
+        validate_cpg_static_graph(group)
+
+
 def test_causal_nodal_boundary_operator_uses_only_current_interior_state(
     tmp_path: Path,
 ):
@@ -284,6 +435,16 @@ def test_causal_nodal_boundary_operator_uses_only_current_interior_state(
     np.testing.assert_allclose(result[[1, 7], 3], 5.0)
     np.testing.assert_allclose(result[4], state[4])
     assert stencil.fallback_target_count == 0
+    stencil_digest = boundary_stencil_sha256(stencil)
+    assert len(stencil_digest) == 64
+    changed_stencil = type(stencil)(
+        target_nodes=stencil.target_nodes,
+        target_rows=stencil.target_rows,
+        source_nodes=stencil.source_nodes,
+        weights=stencil.weights + 1.0e-12,
+        fallback_target_count=stencil.fallback_target_count,
+    )
+    assert boundary_stencil_sha256(changed_stencil) != stencil_digest
 
     nonphysical = state.copy()
     nonphysical[4, 3] = -2.0
@@ -395,7 +556,7 @@ save_solution = SaveSolutionCallback(dt = 0.025)
     states = [base.copy() for _ in range(3)]
     states[1][4] = [1.6, 2.4, 0.1, 1.2]
     states[2][4] = [1.8, 2.3, 0.2, 1.4]
-    for index, state in enumerate(states):
+    for index, state in enumerate(states[1:], start=1):
         _write_vtu(case_dir / "outFO" / f"sol_{index}.vtu", mesh, state)
 
     dataset_path = tmp_path / "test.h5"
@@ -415,13 +576,37 @@ save_solution = SaveSolutionCallback(dt = 0.025)
         for channel, key in enumerate(("rho", "v1", "v2", "pres")):
             group.create_dataset(key, data=hdf_state[:, :, channel, None])
 
+    common_args = [
+        "--dataset-h5",
+        str(dataset_path),
+        "--raw-case-root",
+        str(raw_root),
+    ]
+    with pytest.raises(ValueError, match="requires --case-offset 1"):
+        main(
+            [
+                *common_args,
+                "--output-dir",
+                str(tmp_path / "bad_offset"),
+                "--case-offset",
+                "0",
+            ]
+        )
+    with pytest.raises(ValueError, match="requires --max-boundary-source-hops 3"):
+        main(
+            [
+                *common_args,
+                "--output-dir",
+                str(tmp_path / "bad_hops"),
+                "--max-boundary-source-hops",
+                "2",
+            ]
+        )
+
     assert (
         main(
             [
-                "--dataset-h5",
-                str(dataset_path),
-                "--raw-case-root",
-                str(raw_root),
+                *common_args,
                 "--output-dir",
                 str(output),
             ]
@@ -432,7 +617,15 @@ save_solution = SaveSolutionCallback(dt = 0.025)
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     assert summary["status"] == "valid"
     assert summary["case_count"] == 1
+    assert summary["case_offset"] == 1
+    assert summary["max_boundary_source_hops"] == 3
     assert summary["temporal_alignment_offsets"] == [1]
+    assert summary["cases"][0]["boundary"][
+        "causal_outflow_normal_mach_min"
+    ] > 1.0
+    assert len(
+        summary["cases"][0]["boundary"]["boundary_stencil_sha256"]
+    ) == 64
     assert summary["cases"][0]["raw_case_id"] == 1
     assert summary["cases"][0]["graph_to_dg_status"] == (
         "incompatible_with_one_to_one_nominal_dg_dof_count"
@@ -450,5 +643,59 @@ save_solution = SaveSolutionCallback(dt = 0.025)
         load_mesh_audit(
             output / "summary.json",
             dataset_sha256="0" * 64,
+            selected_keys=["00"],
+        )
+
+    legacy = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    legacy["schema"] = "cpg_bump_mesh_provenance_audit_v1"
+    legacy.pop("temporal_alignment_evidence")
+    legacy.pop("static_graph_evidence")
+    legacy["cases"][0].pop("temporal_alignment_sampled_hdf_frames")
+    legacy["cases"][0]["boundary"].pop("causal_outflow_normal_mach_min")
+    legacy["cases"][0]["boundary"].pop("causal_outflow_normal_mach_max")
+    legacy["cases"][0]["boundary"].pop("causal_outflow_evidence")
+    legacy_summary = tmp_path / "legacy_summary.json"
+    legacy_summary.write_text(json.dumps(legacy), encoding="utf-8")
+    legacy_audit, _ = load_mesh_audit(
+        legacy_summary,
+        dataset_sha256=sha256_file(dataset_path),
+        selected_keys=["00"],
+    )
+    assert legacy_audit["contract_completeness"] == (
+        "legacy_endpoint_temporal_alignment"
+    )
+
+    malformed_summary = tmp_path / "malformed_summary.json"
+    malformed_summary.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="root must be an object"):
+        load_mesh_audit(
+            malformed_summary,
+            dataset_sha256=sha256_file(dataset_path),
+            selected_keys=["00"],
+        )
+
+    incompatible = json.loads(
+        (output / "summary.json").read_text(encoding="utf-8")
+    )
+    incompatible["cases"][0]["config"]["save_dt"] = 0.01
+    bad_summary = tmp_path / "bad_summary.json"
+    bad_summary.write_text(json.dumps(incompatible), encoding="utf-8")
+    with pytest.raises(ValueError, match="pinned model dt"):
+        load_mesh_audit(
+            bad_summary,
+            dataset_sha256=sha256_file(dataset_path),
+            selected_keys=["00"],
+        )
+
+    incompatible = json.loads(
+        (output / "summary.json").read_text(encoding="utf-8")
+    )
+    incompatible["cases"][0]["boundary"]["boundary_stencil_sha256"] = "invalid"
+    bad_stencil_summary = tmp_path / "bad_stencil_summary.json"
+    bad_stencil_summary.write_text(json.dumps(incompatible), encoding="utf-8")
+    with pytest.raises(ValueError, match="lacks a stencil digest"):
+        load_mesh_audit(
+            bad_stencil_summary,
+            dataset_sha256=sha256_file(dataset_path),
             selected_keys=["00"],
         )

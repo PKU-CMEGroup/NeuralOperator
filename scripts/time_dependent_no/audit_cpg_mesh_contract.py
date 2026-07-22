@@ -3,7 +3,8 @@
 This is a provenance and geometry gate, not a rollout.  For each selected test
 trajectory it verifies the expected zero-based HDF group to one-based raw-case
 mapping, exact point order, quadrilateral primal-edge topology, boundary node
-labels, outward normals, VTU cell identity, and HDF-to-VTU temporal alignment.
+labels, outward normals, VTU cell identity, and a sampled first/midpoint/last
+HDF-to-VTU offset check.  The sampled offset is not full temporal identity.
 
 The output includes compact geometry NPZ files for a later frozen legal-
 boundary counterfactual.  It explicitly does not claim graph vertices are
@@ -35,6 +36,7 @@ from utility.time_dependent_no.cpg_mesh_contract import (  # noqa: E402
     WALL_NODE,
     apply_causal_nodal_boundaries,
     audit_bump_julia_config,
+    boundary_stencil_sha256,
     build_boundary_stencil,
     freestream_primitive,
     parse_abaqus_mesh,
@@ -45,15 +47,18 @@ from utility.time_dependent_no.cpg_mesh_contract import (  # noqa: E402
     vtu_primitive,
 )
 from utility.time_dependent_no.cpg_release import (  # noqa: E402
-    cpg_graph_frame_metadata,
+    CPG_LEGAL_BOUNDARY_MAX_SOURCE_HOPS,
+    CPG_MESH_AUDIT_SCHEMA,
     sha256_file,
+    validate_cpg_model_dt,
+    validate_cpg_static_graph,
 )
 
 
-AUDIT_SCHEMA = "cpg_bump_mesh_provenance_audit_v1"
+AUDIT_SCHEMA = CPG_MESH_AUDIT_SCHEMA
 DEFAULT_POSITION_ATOL = 2.0e-6
 DEFAULT_PRIMITIVE_ATOL = 2.0e-10
-DEFAULT_SOURCE_HOPS = 3
+DEFAULT_SOURCE_HOPS = CPG_LEGAL_BOUNDARY_MAX_SOURCE_HOPS
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -75,7 +80,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--case-offset", type=int, default=1)
     parser.add_argument("--position-atol", type=float, default=DEFAULT_POSITION_ATOL)
     parser.add_argument("--primitive-atol", type=float, default=DEFAULT_PRIMITIVE_ATOL)
-    parser.add_argument("--max-boundary-source-hops", type=int, default=3)
+    parser.add_argument(
+        "--max-boundary-source-hops", type=int, default=DEFAULT_SOURCE_HOPS
+    )
     parser.add_argument("--expected-dataset-sha256")
     return parser.parse_args(argv)
 
@@ -100,8 +107,8 @@ def raw_case_id(trajectory_key: str, case_offset: int) -> int:
             f"trajectory key {trajectory_key!r} cannot use integer case mapping"
         )
     case_id = int(trajectory_key) + case_offset
-    if case_id < 0:
-        raise ValueError("raw case id must be nonnegative")
+    if case_id < 1:
+        raise ValueError("raw case id must be one-based and positive")
     return case_id
 
 
@@ -114,52 +121,60 @@ def primitive_frame(group: Any, frame: int) -> np.ndarray:
         if values.ndim != 2 or values.shape[1] != 1:
             raise ValueError(f"{key} frame has unsupported shape {values.shape}")
         arrays.append(values)
-    return np.concatenate(arrays, axis=1)
+    primitive = np.concatenate(arrays, axis=1)
+    if not np.all(np.isfinite(primitive)):
+        raise ValueError(f"HDF primitive frame {frame} contains nonfinite values")
+    return primitive
 
 
 def choose_vtu_alignment(
     *,
-    hdf_first: np.ndarray,
-    hdf_last: np.ndarray,
+    hdf_frames: dict[int, np.ndarray],
     vtu_frames: dict[int, np.ndarray],
-    hdf_frame_count: int,
+    primitive_atol: float,
 ) -> tuple[int, dict[str, Any]]:
+    if not hdf_frames:
+        raise ValueError("HDF-to-VTU temporal alignment needs sampled HDF frames")
+    if len(hdf_frames) < 2:
+        raise ValueError(
+            "HDF-to-VTU temporal alignment needs at least two sampled HDF frames"
+        )
+    if not np.isfinite(primitive_atol) or primitive_atol <= 0.0:
+        raise ValueError("primitive_atol must be finite and positive")
     candidates: dict[str, Any] = {}
     for offset in (0, 1):
-        first_index = offset
-        last_index = hdf_frame_count - 1 + offset
-        if first_index not in vtu_frames or last_index not in vtu_frames:
+        if any(index + offset not in vtu_frames for index in hdf_frames):
             continue
-        first_error = primitive_error(hdf_first, vtu_frames[first_index])
-        last_error = primitive_error(hdf_last, vtu_frames[last_index])
+        frame_errors = {
+            str(index): {
+                "vtu_index": index + offset,
+                **primitive_error(state, vtu_frames[index + offset]),
+            }
+            for index, state in sorted(hdf_frames.items())
+        }
         candidates[str(offset)] = {
-            "first_vtu_index": first_index,
-            "last_vtu_index": last_index,
-            "first": first_error,
-            "last": last_error,
-            "score": max(first_error["max_abs"], last_error["max_abs"]),
+            "sampled_hdf_frames": sorted(hdf_frames),
+            "frames": frame_errors,
+            "score": max(error["max_abs"] for error in frame_errors.values()),
         }
     if not candidates:
         raise ValueError("no complete HDF-to-VTU temporal alignment candidate exists")
-    ordered = sorted(candidates.items(), key=lambda item: (item[1]["score"], item[0]))
-    selected = int(ordered[0][0])
-    if len(ordered) > 1 and ordered[0][1]["score"] == ordered[1][1]["score"]:
-        raise ValueError("HDF-to-VTU temporal alignment is ambiguous")
-    return selected, candidates
-
-
-def _validate_static_graph(
-    group: Any,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    first = cpg_graph_frame_metadata(group, frame=0)
-    last_frame = int(group["rho"].shape[0]) - 1
-    last = cpg_graph_frame_metadata(group, frame=last_frame)
-    for name, left, right in zip(
-        ("pos", "edges", "node_type", "Mach"), first, last, strict=True
-    ):
-        if not np.array_equal(left, right):
-            raise ValueError(f"{name} changes within one HDF trajectory")
-    return first
+    acceptable = [
+        key
+        for key, candidate in candidates.items()
+        if candidate["score"] <= primitive_atol
+    ]
+    if not acceptable:
+        best = min(candidate["score"] for candidate in candidates.values())
+        raise ValueError(
+            "no HDF-to-VTU temporal alignment candidate is within tolerance "
+            f"(best max error {best})"
+        )
+    if len(acceptable) != 1:
+        raise ValueError(
+            "HDF-to-VTU temporal alignment is ambiguous within tolerance"
+        )
+    return int(acceptable[0]), candidates
 
 
 def _boundary_reference_summary(
@@ -180,6 +195,12 @@ def _boundary_reference_summary(
         values = np.asarray(group[key][:, boundary_ids, :], dtype=np.float64)
         field_arrays.append(values.reshape(values.shape[0], boundary_ids.size, 1))
     boundary_state = np.concatenate(field_arrays, axis=2)
+    if not np.all(np.isfinite(boundary_state)):
+        raise ValueError("HDF boundary reference contains nonfinite primitives")
+    if np.any(boundary_state[:, :, 0] <= 0.0) or np.any(
+        boundary_state[:, :, 3] <= 0.0
+    ):
+        raise ValueError("HDF boundary reference is not physically admissible")
     boundary_types = node_type[boundary_ids]
     boundary_normals = node_normal[boundary_ids]
     inflow = boundary_types == INFLOW_NODE
@@ -207,6 +228,9 @@ def _boundary_reference_summary(
     outflow_sound_speed = np.sqrt(
         float(config["gamma"]) * outflow_state[:, :, 3] / outflow_state[:, :, 0]
     )
+    reference_outflow_mach = outflow_normal_velocity / outflow_sound_speed
+    if float(np.min(reference_outflow_mach)) <= 1.0:
+        raise ValueError("reference outflow is not outward-supersonic at every frame")
 
     stencil = build_boundary_stencil(
         pos=pos,
@@ -215,6 +239,59 @@ def _boundary_reference_summary(
         node_normal=node_normal,
         max_source_hops=max_source_hops,
     )
+    unique_sources, source_inverse = np.unique(
+        stencil.source_nodes, return_inverse=True
+    )
+    source_fields = []
+    for key in ("rho", "v1", "v2", "pres"):
+        values = np.asarray(
+            group[key][:, unique_sources, :],
+            dtype=np.float64,
+        )
+        source_fields.append(values[:, source_inverse, :])
+    source_state = np.concatenate(source_fields, axis=2)
+    if not np.all(np.isfinite(source_state)):
+        raise ValueError("causal boundary source states contain nonfinite values")
+    extrapolated = np.zeros(
+        (source_state.shape[0], stencil.target_nodes.size, 4),
+        dtype=np.float64,
+    )
+    for entry, (target_row, weight) in enumerate(
+        zip(stencil.target_rows, stencil.weights, strict=True)
+    ):
+        extrapolated[:, int(target_row), :] += (
+            source_state[:, entry, :] * float(weight)
+        )
+    outflow_rows = np.flatnonzero(
+        node_type[stencil.target_nodes] == OUTFLOW_NODE
+    )
+    if outflow_rows.size == 0:
+        raise ValueError("causal boundary stencil has no outflow targets")
+    causal_outflow = extrapolated[:, outflow_rows, :]
+    if (
+        not np.all(np.isfinite(causal_outflow))
+        or np.any(causal_outflow[:, :, 0] <= 0.0)
+        or np.any(causal_outflow[:, :, 3] <= 0.0)
+    ):
+        raise ValueError("causal outflow extrapolation is not physically admissible")
+    causal_outflow_nodes = stencil.target_nodes[outflow_rows]
+    causal_outflow_normal = node_normal[causal_outflow_nodes]
+    causal_outflow_normal_velocity = np.sum(
+        causal_outflow[:, :, 1:3] * causal_outflow_normal[None, :, :],
+        axis=2,
+    )
+    causal_outflow_sound_speed = np.sqrt(
+        float(config["gamma"])
+        * causal_outflow[:, :, 3]
+        / causal_outflow[:, :, 0]
+    )
+    causal_outflow_mach = (
+        causal_outflow_normal_velocity / causal_outflow_sound_speed
+    )
+    if float(np.min(causal_outflow_mach)) <= 1.0:
+        raise ValueError(
+            "causal outflow extrapolation is not outward-supersonic at every frame"
+        )
     remapping: dict[str, list[float]] = {"wall": [], "outflow": [], "boundary": []}
     total_frames = int(group["rho"].shape[0])
     selected_frames = sorted(
@@ -247,11 +324,14 @@ def _boundary_reference_summary(
         "wall_normal_velocity_max_abs": float(np.max(np.abs(wall_normal_velocity))),
         "wall_normal_velocity_rms": float(np.sqrt(np.mean(wall_normal_velocity**2))),
         "outflow_normal_mach_min": float(
-            np.min(outflow_normal_velocity / outflow_sound_speed)
+            np.min(reference_outflow_mach)
         ),
         "outflow_normal_mach_max": float(
-            np.max(outflow_normal_velocity / outflow_sound_speed)
+            np.max(reference_outflow_mach)
         ),
+        "causal_outflow_normal_mach_min": float(np.min(causal_outflow_mach)),
+        "causal_outflow_normal_mach_max": float(np.max(causal_outflow_mach)),
+        "causal_outflow_evidence": "all_frames_extrapolated_from_interior_stencil",
         "legal_nodal_remapping_frames": selected_frames,
         "legal_nodal_remapping_rmse": {
             name: {
@@ -264,6 +344,7 @@ def _boundary_reference_summary(
         "boundary_stencil_target_count": int(stencil.target_nodes.size),
         "boundary_stencil_entry_count": int(stencil.source_nodes.size),
         "boundary_stencil_fallback_target_count": stencil.fallback_target_count,
+        "boundary_stencil_sha256": boundary_stencil_sha256(stencil),
         "sharp_wall_corner_count": int(
             np.count_nonzero((node_type == WALL_NODE) & (wall_normal_coherence < 0.95))
         ),
@@ -324,6 +405,8 @@ def _report(summary: dict[str, Any]) -> str:
         f"- Status: `{summary['status']}`",
         f"- Cases: `{summary['case_count']}`",
         f"- HDF-to-VTU offsets: `{summary['temporal_alignment_offsets']}`",
+        "- Temporal alignment evidence: sampled first/midpoint/last frames only; "
+        "full temporal identity was not established.",
         "- Graph nodes: verified Abaqus/VTU point samples.",
         "- Graph edges: verified quadrilateral primal mesh edges.",
         "- Boundary labels and outward normals: verified from named mesh sets.",
@@ -350,10 +433,20 @@ def _json_scalar(value: Any) -> Any:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    if args.position_atol <= 0.0 or args.primitive_atol <= 0.0:
-        raise ValueError("audit tolerances must be positive")
-    if args.max_boundary_source_hops < 1:
-        raise ValueError("max-boundary-source-hops must be positive")
+    if (
+        not np.isfinite(args.position_atol)
+        or not np.isfinite(args.primitive_atol)
+        or args.position_atol <= 0.0
+        or args.primitive_atol <= 0.0
+    ):
+        raise ValueError("audit tolerances must be finite and positive")
+    if args.case_offset != 1:
+        raise ValueError("the CPG release contract requires --case-offset 1")
+    if args.max_boundary_source_hops != CPG_LEGAL_BOUNDARY_MAX_SOURCE_HOPS:
+        raise ValueError(
+            "the CPG legal-boundary contract requires "
+            f"--max-boundary-source-hops {CPG_LEGAL_BOUNDARY_MAX_SOURCE_HOPS}"
+        )
     if not args.dataset_h5.is_file():
         raise FileNotFoundError(args.dataset_h5)
     if not args.raw_case_root.is_dir():
@@ -387,7 +480,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise FileNotFoundError(f"raw case {case_id} is incomplete")
 
             mesh = parse_abaqus_mesh(mesh_path)
-            pos, edges, node_type, mach_field = _validate_static_graph(group)
+            pos, edges, node_type, mach_field = validate_cpg_static_graph(group)
             mesh_summary, geometry = validate_hdf_mesh_identity(
                 mesh,
                 hdf_pos=pos,
@@ -396,38 +489,53 @@ def main(argv: Sequence[str] | None = None) -> int:
                 position_atol=args.position_atol,
             )
             mach = float(mach_path.read_text(encoding="utf-8").strip())
+            if not np.isfinite(mach) or not np.all(np.isfinite(mach_field)):
+                raise ValueError(
+                    f"trajectory {trajectory_key} Mach contains nonfinite values"
+                )
             mach_error = float(np.max(np.abs(mach_field - mach)))
             if mach_error > args.primitive_atol:
                 raise ValueError(
                     f"trajectory {trajectory_key} Mach field disagrees with raw case"
                 )
             config = audit_bump_julia_config(julia_path)
+            try:
+                validate_cpg_model_dt(config["save_dt"])
+            except ValueError as exc:
+                raise ValueError(
+                    f"raw case {case_id} does not use the pinned CPG model timestep"
+                ) from exc
 
             hdf_frames = int(group["rho"].shape[0])
-            vtu_indices = sorted({0, 1, hdf_frames - 1, hdf_frames})
+            sampled_hdf_indices = sorted({0, hdf_frames // 2, hdf_frames - 1})
+            sampled_hdf_frames = {
+                index: primitive_frame(group, index)
+                for index in sampled_hdf_indices
+            }
+            vtu_indices = sorted(
+                {
+                    index + offset
+                    for index in sampled_hdf_indices
+                    for offset in (0, 1)
+                }
+            )
             vtu_states: dict[int, np.ndarray] = {}
             vtu_mesh_summaries: dict[str, Any] = {}
             vtu_hashes: dict[str, str] = {}
             for index in vtu_indices:
                 vtu_path = case_dir / "outFO" / f"sol_{index}.vtu"
                 if not vtu_path.is_file():
-                    raise FileNotFoundError(vtu_path)
+                    continue
                 vtu = read_ascii_vtu(vtu_path)
                 vtu_mesh_summaries[str(index)] = validate_vtu_mesh_identity(mesh, vtu)
                 vtu_states[index] = vtu_primitive(vtu)
                 vtu_hashes[str(index)] = sha256_file(vtu_path)
             selected_offset, alignment_candidates = choose_vtu_alignment(
-                hdf_first=primitive_frame(group, 0),
-                hdf_last=primitive_frame(group, hdf_frames - 1),
+                hdf_frames=sampled_hdf_frames,
                 vtu_frames=vtu_states,
-                hdf_frame_count=hdf_frames,
+                primitive_atol=args.primitive_atol,
             )
             alignment = alignment_candidates[str(selected_offset)]
-            if alignment["score"] > args.primitive_atol:
-                raise ValueError(
-                    f"trajectory {trajectory_key} best HDF-to-VTU alignment has "
-                    f"max error {alignment['score']}"
-                )
 
             boundary_summary, stencil = _boundary_reference_summary(
                 group,
@@ -467,6 +575,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "mesh": mesh_summary,
                 "vtu_mesh": vtu_mesh_summaries,
                 "temporal_alignment_offset": selected_offset,
+                "temporal_alignment_sampled_hdf_frames": sampled_hdf_indices,
                 "temporal_alignment_candidates": alignment_candidates,
                 "config": config,
                 "nominal_discontinuous_dg_dofs_per_scalar": nominal_dg_dofs,
@@ -529,8 +638,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "primitive_atol": args.primitive_atol,
         "max_boundary_source_hops": args.max_boundary_source_hops,
         "temporal_alignment_offsets": offsets,
+        "temporal_alignment_evidence": (
+            "sampled_first_midpoint_last_not_full_temporal_identity"
+        ),
         "shared_case_configuration": len(config_signatures) == 1,
         "graph_mesh_identity": "verified_all_selected_cases",
+        "static_graph_evidence": "all_frames_exact_release_facing_metadata",
         "boundary_geometry": "verified_all_selected_cases",
         "legal_boundary_counterfactual": (
             "enabled_causal_nodal_projection_not_exact_dg_boundary_replay"
@@ -546,6 +659,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "mesh_utility": sha256_file(
                 ROOT / "utility" / "time_dependent_no" / "cpg_mesh_contract.py"
             ),
+            "provenance_utility": sha256_file(
+                ROOT / "utility" / "time_dependent_no" / "cpg_release.py"
+            ),
         },
     }
     if summary["status"] != "valid":
@@ -553,7 +669,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "selected cases do not share one mesh/configuration contract"
         )
     (args.output_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True, default=_json_scalar) + "\n",
+        json.dumps(
+            summary,
+            indent=2,
+            sort_keys=True,
+            default=_json_scalar,
+            allow_nan=False,
+        )
+        + "\n",
         encoding="utf-8",
     )
     _write_csv(args.output_dir / "cases.csv", csv_rows)
@@ -565,6 +688,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for key in ("status", "case_count", "temporal_alignment_offsets")
             },
             sort_keys=True,
+            allow_nan=False,
         )
     )
     return 0

@@ -15,6 +15,7 @@ diagnostics, not proof of the measure used by the released learned update.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 import re
 from typing import Any, Mapping
@@ -78,6 +79,27 @@ class BoundaryStencil:
     source_nodes: np.ndarray
     weights: np.ndarray
     fallback_target_count: int
+
+
+def boundary_stencil_sha256(stencil: BoundaryStencil) -> str:
+    """Hash the complete sparse boundary stencil in a canonical byte order."""
+
+    digest = sha256(b"cpg_boundary_stencil_v1\0")
+    arrays = (
+        ("target_nodes", stencil.target_nodes, np.dtype("<i8")),
+        ("target_rows", stencil.target_rows, np.dtype("<i8")),
+        ("source_nodes", stencil.source_nodes, np.dtype("<i8")),
+        ("weights", stencil.weights, np.dtype("<f8")),
+    )
+    for name, value, dtype in arrays:
+        encoded_name = name.encode("ascii")
+        array = np.ascontiguousarray(np.asarray(value, dtype=dtype).reshape(-1))
+        digest.update(len(encoded_name).to_bytes(2, "little"))
+        digest.update(encoded_name)
+        digest.update(array.size.to_bytes(8, "little"))
+        digest.update(array.tobytes(order="C"))
+    digest.update(int(stencil.fallback_target_count).to_bytes(8, "little", signed=True))
+    return digest.hexdigest()
 
 
 GRAPH_BOUNDARY_GEOMETRY_ATOL = 5.0e-6
@@ -500,11 +522,15 @@ def validate_hdf_mesh_identity(
 ) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     """Validate exact HDF node/label identity and primal-edge set equality."""
 
+    if not np.isfinite(position_atol) or position_atol <= 0.0:
+        raise ValueError("position_atol must be finite and positive")
     pos = np.asarray(hdf_pos, dtype=np.float64)
     if pos.shape != mesh.points.shape:
         raise ValueError(
             f"HDF positions have shape {pos.shape}; mesh has {mesh.points.shape}"
         )
+    if not np.all(np.isfinite(pos)) or not np.all(np.isfinite(mesh.points)):
+        raise ValueError("HDF or Abaqus positions contain nonfinite coordinates")
     position_error = float(np.max(np.abs(pos - mesh.points)))
     if position_error > position_atol:
         raise ValueError(
@@ -641,9 +667,16 @@ def read_ascii_vtu(path: str | Path) -> VTUFrame:
     missing = [name for name in required if name not in cell_arrays]
     if missing:
         raise ValueError(f"{vtu_path} is missing cell arrays {missing}")
+    for name in required:
+        values = cell_arrays[name]
+        if not np.all(np.isfinite(values)) or not np.all(values == np.floor(values)):
+            raise ValueError(f"{vtu_path} cell array {name!r} is not integral")
     connectivity = cell_arrays["connectivity"].astype(np.int64)
     offsets = cell_arrays["offsets"].astype(np.int64)
-    cell_types = cell_arrays["types"].astype(np.uint8)
+    raw_cell_types = cell_arrays["types"]
+    if np.any(raw_cell_types < 0) or np.any(raw_cell_types > 255):
+        raise ValueError(f"{vtu_path} cell types are outside the UInt8 range")
+    cell_types = raw_cell_types.astype(np.uint8)
     if offsets.shape != (number_of_cells,) or cell_types.shape != (number_of_cells,):
         raise ValueError(f"{vtu_path} cell metadata count is inconsistent")
     return VTUFrame(
@@ -662,8 +695,14 @@ def validate_vtu_mesh_identity(
 ) -> dict[str, Any]:
     """Validate point order and every line/quad cell against the Abaqus mesh."""
 
+    if not np.isfinite(position_atol) or position_atol <= 0.0:
+        raise ValueError("position_atol must be finite and positive")
     if frame.points.shape != mesh.points.shape:
         raise ValueError("VTU and Abaqus point counts differ")
+    if not np.all(np.isfinite(frame.points)) or not np.all(
+        np.isfinite(mesh.points)
+    ):
+        raise ValueError("VTU or Abaqus points contain nonfinite coordinates")
     position_error = float(np.max(np.abs(frame.points - mesh.points)))
     if position_error > position_atol:
         raise ValueError(f"VTU points do not match Abaqus nodes (max {position_error})")
@@ -708,6 +747,8 @@ def vtu_primitive(frame: VTUFrame) -> np.ndarray:
     ).astype(np.float64)
     if primitive.shape != (frame.number_of_points, 4):
         raise ValueError("VTU primitive fields have inconsistent point counts")
+    if not np.all(np.isfinite(primitive)):
+        raise ValueError("VTU primitive fields contain nonfinite values")
     return primitive
 
 
@@ -718,18 +759,30 @@ def primitive_error(reference: Any, candidate: Any) -> dict[str, Any]:
     right = np.asarray(candidate, dtype=np.float64)
     if left.shape != right.shape or left.ndim != 2 or left.shape[1] != 4:
         raise ValueError("primitive arrays must share shape (num_nodes, 4)")
+    if not np.all(np.isfinite(left)) or not np.all(np.isfinite(right)):
+        raise ValueError("primitive arrays contain nonfinite values")
     difference = left - right
     channel_norm = np.linalg.norm(left, axis=0)
-    relative = np.divide(
-        np.linalg.norm(difference, axis=0),
-        channel_norm,
-        out=np.full(4, np.inf, dtype=np.float64),
-        where=channel_norm > 0.0,
-    )
+    difference_norm = np.linalg.norm(difference, axis=0)
+    relative: list[float | None] = []
+    relative_status: list[str] = []
+    for numerator, denominator in zip(
+        difference_norm, channel_norm, strict=True
+    ):
+        if denominator > 0.0:
+            relative.append(float(numerator / denominator))
+            relative_status.append("finite_reference")
+        elif numerator == 0.0:
+            relative.append(0.0)
+            relative_status.append("both_zero")
+        else:
+            relative.append(None)
+            relative_status.append("zero_reference_nonzero_error")
     return {
         "max_abs": float(np.max(np.abs(difference))),
         "channel_max_abs": np.max(np.abs(difference), axis=0).tolist(),
-        "channel_relative_l2": relative.tolist(),
+        "channel_relative_l2": relative,
+        "channel_relative_l2_status": relative_status,
     }
 
 
@@ -746,6 +799,22 @@ def audit_bump_julia_config(path: str | Path) -> dict[str, Any]:
             source, r"SaveSolutionCallback\s*\(\s*dt\s*=\s*([0-9.eE+-]+)"
         ),
     }
+    physical = (
+        result["gamma"],
+        result["rho_inf"],
+        result["p_inf"],
+        result["save_dt"],
+    )
+    if not all(np.isfinite(value) for value in physical):
+        raise ValueError("Bump.jl physical configuration contains nonfinite values")
+    if (
+        result["gamma"] <= 1.0
+        or result["rho_inf"] <= 0.0
+        or result["p_inf"] <= 0.0
+        or result["save_dt"] <= 0.0
+        or result["polydeg"] < 0
+    ):
+        raise ValueError("Bump.jl physical configuration is invalid")
     required_evidence = {
         "inflow": "BoundaryConditionDirichlet(initial_condition_mach3_flow)",
         "outflow": "flux = Trixi.flux(u_inner, normal_direction, equations)",
@@ -770,7 +839,14 @@ def freestream_primitive(
 ) -> np.ndarray:
     """Return the bump-case freestream primitive state."""
 
-    if mach <= 0.0 or gamma <= 1.0 or rho_inf <= 0.0 or p_inf <= 0.0:
+    parameters = np.asarray([mach, gamma, rho_inf, p_inf], dtype=np.float64)
+    if (
+        not np.all(np.isfinite(parameters))
+        or mach <= 0.0
+        or gamma <= 1.0
+        or rho_inf <= 0.0
+        or p_inf <= 0.0
+    ):
         raise ValueError("freestream parameters must be physical")
     sound_speed = np.sqrt(gamma * p_inf / rho_inf)
     return np.asarray([rho_inf, mach * sound_speed, 0.0, p_inf], dtype=np.float64)
@@ -951,6 +1027,7 @@ def build_torch_boundary_policy(
         raise ValueError("boundary geometry must match node_type")
     target_type = types[stencil.target_nodes]
     wall_rows = np.flatnonzero(target_type == WALL_NODE)
+    outflow_rows = np.flatnonzero(target_type == OUTFLOW_NODE)
     sharp_wall_rows = np.flatnonzero(
         (target_type == WALL_NODE) & (coherence[stencil.target_nodes] < 0.95)
     )
@@ -974,6 +1051,9 @@ def build_torch_boundary_policy(
         ),
         "weights": torch.as_tensor(stencil.weights, dtype=torch.float32, device=device),
         "wall_rows": torch.as_tensor(wall_rows, dtype=torch.long, device=device),
+        "outflow_rows": torch.as_tensor(
+            outflow_rows, dtype=torch.long, device=device
+        ),
         "sharp_wall_rows": torch.as_tensor(
             sharp_wall_rows, dtype=torch.long, device=device
         ),
@@ -982,7 +1062,30 @@ def build_torch_boundary_policy(
         ),
         "inflow_nodes": torch.as_tensor(inflow_nodes, dtype=torch.long, device=device),
         "freestream": torch.as_tensor(stream, dtype=torch.float32, device=device),
+        "gamma": float(config["gamma"]),
     }
+
+
+def legal_outflow_normal_mach_min(
+    torch: Any,
+    state: Any,
+    policy: Mapping[str, Any],
+) -> float | None:
+    """Return the minimum outward Mach number after a legal boundary closure."""
+
+    if "outflow_rows" not in policy:
+        return None
+    outflow_rows = policy["outflow_rows"]
+    if outflow_rows.numel() == 0:
+        raise ValueError("legal boundary policy has no outflow rows")
+    outflow_nodes = policy["target_nodes"][outflow_rows]
+    outflow = state[outflow_nodes]
+    normals = policy["target_normals"][outflow_rows].to(dtype=state.dtype)
+    normal_speed = torch.sum(outflow[:, 1:3] * normals, dim=1)
+    sound_speed = torch.sqrt(
+        float(policy["gamma"]) * outflow[:, 3] / outflow[:, 0]
+    )
+    return float(torch.min(normal_speed / sound_speed).detach().cpu())
 
 
 def apply_torch_boundary_policy(

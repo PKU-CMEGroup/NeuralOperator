@@ -33,6 +33,18 @@ _TARGET_HASH_SCHEMA = "cpg_float32_rollout_targets_v1"
 _GEOMETRY_HASH_SCHEMA = "cpg_release_graph_frame_v1"
 
 CPG_REFERENCE_COMMIT = "b127e5e9489dc8e218f8f9b94147153e6998ea89"
+CPG_MODEL_DT = 0.025
+CPG_LEGAL_BOUNDARY_MAX_SOURCE_HOPS = 3
+CPG_TERMINATION_ACCOUNTING_SCHEMA = "cpg_admissible_prefix_v1"
+CPG_MESH_AUDIT_SCHEMA = "cpg_bump_mesh_provenance_audit_v2"
+CPG_LEGACY_MESH_AUDIT_SCHEMA = "cpg_bump_mesh_provenance_audit_v1"
+CPG_REFERENCE_EVALUATION_RUNTIME_PIN_SCHEMA = (
+    "cpggnspdes_b127e5_evaluation_runtime_v1"
+)
+CPG_REFERENCE_RUNTIME_PIN_SCHEMA = "cpggnspdes_b127e5_runtime_v2"
+CPG_LEGACY_TRAINING_PIN_OMISSIONS = frozenset(
+    {"utils/lossCompute.py", "utils/noise.py"}
+)
 CPG_REFERENCE_RUNTIME_SHA256 = {
     "dataset/__init__.py": "9b7786ae561bdf0e4feaa67924ca4481aef2a375f67b84293efa83750f9d2bed",
     "dataset/fpc.py": "a64a4362acf947ffa78a0805790d2437c6095ce9ac09cec319343d5b9be83f70",
@@ -48,6 +60,8 @@ CPG_REFERENCE_RUNTIME_SHA256 = {
     "utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "utils/normalization.py": "6726d74f5ffdbcfb2c5673f0b0202871cea4734983cd195df94e4518fd448fde",
     "utils/GeometricEstimates.py": "819daf84ef5116a601613261925efa588b0f852f6be310dd55c096bab8ce555b",
+    "utils/lossCompute.py": "935a1025787d723d9980375275b3c4167ea931ad95b6c4c70b7694fe702ecc42",
+    "utils/noise.py": "67269a162bf812e3d43da988bc9ce41feba3b083ef204863144b22f59f6ffcb2",
     "utils/to_undirected.py": "7a5724998484492c9898d926cfe1099cdf8474bc53b454780500f2b0048ba9d7",
     "utils/utils.py": "6a05f67a6632cd6fba5cbec58aefe3168d8277feb2f6e167ef5a23dd7970ba9e",
     "utils/ghost_marker.py": "c649401f1ed7bc53a1076b1b725661fd2e1867cd313d3967ac61c7f4c6abe6e8",
@@ -58,6 +72,31 @@ CPG_REFERENCE_RUNTIME_SHA256 = {
     "rollout.py": "31f79f370bd6e8ff6483b51db057e51b817063526b8bddaee905f0525fc27cfa",
     "trainMulti.py": "26b84f12af37f97ae5f60799a9e354a19a6d958f0d912ad024c48e136bde0d8f",
     "trainMultiScheduled.py": "dd6332c1870c0616d8cb4e75c767b56312be9c3c91ab9865e5227ac44687294a",
+}
+CPG_REFERENCE_EVALUATION_RUNTIME_SHA256 = {
+    path: digest
+    for path, digest in CPG_REFERENCE_RUNTIME_SHA256.items()
+    if path not in CPG_LEGACY_TRAINING_PIN_OMISSIONS
+}
+CPG_LOCAL_TRAINING_SOURCE_SCHEMA = "cpg_local_training_source_v1"
+CPG_LOCAL_TRAINING_SOURCE_FILES = {
+    "trainer": "scripts/time_dependent_no/train_cpg_legal_boundary.py",
+    "boundary_utility": "utility/time_dependent_no/cpg_mesh_contract.py",
+    "provenance_utility": "utility/time_dependent_no/cpg_release.py",
+    "euler2d_utility": "utility/time_dependent_no/euler2d.py",
+}
+CPG_LEGACY_LOCAL_TRAINING_SOURCE_COMMIT = (
+    "4654225e93a1566e7fb5fbc46ba81825a040b30b"
+)
+CPG_ARCHIVAL_LOCAL_TRAINING_SOURCE_SHA256 = {
+    "trainer": "510be9f9705328ea83c580d641f6b452aa94318713282a118128d588cf07b682",
+    "boundary_utility": "9e0069a0798f74738af242b7bacbf0324fb9d6ad18e9a12de77e4e83dd577abf",
+    "provenance_utility": "5fd0132678d44152039107feca30320b927e262997d7227b0767ffdf8fc5b372",
+    "euler2d_utility": "75ad2ccc09e51ed914ed5fe81f19fefe8019ab93ca307a7e33a0df77c39652d2",
+}
+CPG_LEGACY_LOCAL_TRAINING_SOURCE_SHA256 = {
+    name: CPG_ARCHIVAL_LOCAL_TRAINING_SOURCE_SHA256[name]
+    for name in ("trainer", "boundary_utility")
 }
 CPG_EVALUATOR_SOURCE_FILES = (
     "scripts/time_dependent_no/evaluate_cpg_release.py",
@@ -100,6 +139,22 @@ def sha256_file(path: str | Path, *, chunk_bytes: int = _HASH_CHUNK_BYTES) -> st
     return digest.hexdigest()
 
 
+def validate_cpg_model_dt(value: float) -> float:
+    """Require the macro timestep hardcoded by the released CPGNet model."""
+
+    try:
+        dt = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"released CPGNet hardcodes dt={CPG_MODEL_DT}; got {value!r}"
+        ) from exc
+    if not np.isfinite(dt) or dt != CPG_MODEL_DT:
+        raise ValueError(
+            f"released CPGNet hardcodes dt={CPG_MODEL_DT}; got {value!r}"
+        )
+    return dt
+
+
 def cpg_evaluator_source_manifest(repo_root: str | Path) -> dict[str, str]:
     """Hash the complete local source surface used by the release evaluator."""
 
@@ -110,7 +165,118 @@ def cpg_evaluator_source_manifest(repo_root: str | Path) -> dict[str, str]:
     }
 
 
-def validate_cpg_reference_source(repo: str | Path) -> dict[str, Any]:
+def cpg_local_training_source_manifest(repo_root: str | Path) -> dict[str, Any]:
+    """Bind every local training dependency to a clean Git commit."""
+
+    root = Path(repo_root)
+    commit = _git_output(root, "rev-parse", "HEAD")
+    relative_paths = list(CPG_LOCAL_TRAINING_SOURCE_FILES.values())
+    status = _git_output(root, "status", "--short", "--", *relative_paths)
+    if status:
+        raise RuntimeError(
+            "local CPG training source files must be committed before training"
+        )
+    file_sha256 = {
+        label: _git_blob_sha256(root, commit, relative_path)
+        for label, relative_path in CPG_LOCAL_TRAINING_SOURCE_FILES.items()
+    }
+    working_tree_sha256 = {
+        label: sha256_file(root / relative_path)
+        for label, relative_path in CPG_LOCAL_TRAINING_SOURCE_FILES.items()
+    }
+    return {
+        "schema": CPG_LOCAL_TRAINING_SOURCE_SCHEMA,
+        "git_commit": commit,
+        "tracked_files_clean": True,
+        "file_hash_semantics": "git_blob_sha256",
+        "file_sha256": file_sha256,
+        "working_tree_sha256": working_tree_sha256,
+        "relative_paths": dict(CPG_LOCAL_TRAINING_SOURCE_FILES),
+    }
+
+
+def validate_cpg_local_training_source_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    repo_root: str | Path,
+) -> dict[str, Any]:
+    """Verify a training source manifest against immutable local Git blobs."""
+
+    if manifest.get("schema") != CPG_LOCAL_TRAINING_SOURCE_SCHEMA:
+        raise ValueError("local training source manifest has an unsupported schema")
+    commit = manifest.get("git_commit")
+    if (
+        not isinstance(commit, str)
+        or len(commit) != 40
+        or commit != commit.lower()
+        or any(character not in "0123456789abcdef" for character in commit)
+    ):
+        raise ValueError("local training source manifest has an invalid Git commit")
+    if manifest.get("tracked_files_clean") is not True:
+        raise ValueError("local training source manifest was not clean")
+    if manifest.get("file_hash_semantics") != "git_blob_sha256":
+        raise ValueError("local training source manifest has ambiguous hash semantics")
+    if manifest.get("relative_paths") != CPG_LOCAL_TRAINING_SOURCE_FILES:
+        raise ValueError("local training source paths differ from the required closure")
+    file_sha256 = manifest.get("file_sha256")
+    if not isinstance(file_sha256, Mapping) or set(file_sha256) != set(
+        CPG_LOCAL_TRAINING_SOURCE_FILES
+    ):
+        raise ValueError("local training source hash set is incomplete")
+    working_tree_sha256 = manifest.get("working_tree_sha256")
+    if working_tree_sha256 is not None and (
+        not isinstance(working_tree_sha256, Mapping)
+        or set(working_tree_sha256) != set(CPG_LOCAL_TRAINING_SOURCE_FILES)
+    ):
+        raise ValueError("local training working-tree hash set is incomplete")
+
+    root = Path(repo_root)
+    for label, relative_path in CPG_LOCAL_TRAINING_SOURCE_FILES.items():
+        digest = file_sha256[label]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or digest != digest.lower()
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("local training source manifest has an invalid SHA256")
+        if _git_blob_sha256(root, commit, relative_path) != digest:
+            raise ValueError(
+                f"local training source {relative_path} does not match Git commit"
+            )
+        if working_tree_sha256 is not None:
+            working_digest = working_tree_sha256[label]
+            if (
+                not isinstance(working_digest, str)
+                or len(working_digest) != 64
+                or working_digest != working_digest.lower()
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in working_digest
+                )
+            ):
+                raise ValueError(
+                    "local training source manifest has an invalid working-tree SHA256"
+                )
+    normalized = {
+        "schema": CPG_LOCAL_TRAINING_SOURCE_SCHEMA,
+        "git_commit": commit,
+        "tracked_files_clean": True,
+        "file_hash_semantics": "git_blob_sha256",
+        "file_sha256": dict(file_sha256),
+        "relative_paths": dict(CPG_LOCAL_TRAINING_SOURCE_FILES),
+        "completeness": "git_commit_and_full_local_source_closure",
+    }
+    if working_tree_sha256 is not None:
+        normalized["working_tree_sha256"] = dict(working_tree_sha256)
+    return normalized
+
+
+def validate_cpg_reference_source(
+    repo: str | Path,
+    *,
+    include_training_dependencies: bool = False,
+) -> dict[str, Any]:
     """Validate the exact public CPGNet source files used by the evaluator.
 
     A copied runtime tree can legitimately lack Git metadata. In that case the
@@ -124,9 +290,19 @@ def validate_cpg_reference_source(repo: str | Path) -> dict[str, Any]:
     if not source.is_dir():
         raise FileNotFoundError(f"reference source directory does not exist: {source}")
 
+    expected_hashes = (
+        CPG_REFERENCE_RUNTIME_SHA256
+        if include_training_dependencies
+        else CPG_REFERENCE_EVALUATION_RUNTIME_SHA256
+    )
+    pin_schema = (
+        CPG_REFERENCE_RUNTIME_PIN_SCHEMA
+        if include_training_dependencies
+        else CPG_REFERENCE_EVALUATION_RUNTIME_PIN_SCHEMA
+    )
     actual_hashes: dict[str, str] = {}
     failures: list[str] = []
-    for relative_path, expected_sha256 in CPG_REFERENCE_RUNTIME_SHA256.items():
+    for relative_path, expected_sha256 in expected_hashes.items():
         file_path = source / Path(relative_path)
         if not file_path.is_file():
             failures.append(f"missing {relative_path}")
@@ -143,6 +319,12 @@ def validate_cpg_reference_source(repo: str | Path) -> dict[str, Any]:
 
     manifest: dict[str, Any] = {
         "expected_commit": CPG_REFERENCE_COMMIT,
+        "runtime_pin_schema": pin_schema,
+        "runtime_scope": (
+            "evaluation_and_training"
+            if include_training_dependencies
+            else "evaluation_only"
+        ),
         "git_commit": None,
         "git_commit_verified": False,
         "tracked_clean": None,
@@ -269,7 +451,7 @@ def cpg_trajectory_dimensions(group: GroupLike) -> tuple[int, int, int]:
 
 
 def cpg_mach_range(group: GroupLike) -> tuple[float, float]:
-    """Return the finite Mach range over an entire trajectory."""
+    """Return the Mach range after requiring every entry to be finite."""
 
     if "Mach" not in group:
         raise KeyError("trajectory is missing Mach")
@@ -288,14 +470,24 @@ def cpg_graph_frame_metadata(
         raise IndexError(f"frame must be in [0, {time_steps}), got {frame}")
 
     pos = np.asarray(_frame_or_static(group["pos"], frame, time_steps, "pos"))
-    edges = np.asarray(
-        _frame_or_static(group["edges"], frame, time_steps, "edges"),
-        dtype=np.int64,
+    raw_edges = np.asarray(
+        _frame_or_static(group["edges"], frame, time_steps, "edges")
     )
-    node_type = np.asarray(
-        _frame_or_static(group["node_type"], frame, time_steps, "node_type"),
-        dtype=np.int64,
+    if not np.issubdtype(raw_edges.dtype, np.integer) and (
+        not np.all(np.isfinite(raw_edges))
+        or not np.all(raw_edges == np.floor(raw_edges))
+    ):
+        raise ValueError("edges must contain finite integer indices")
+    edges = raw_edges.astype(np.int64, copy=False)
+    raw_node_type = np.asarray(
+        _frame_or_static(group["node_type"], frame, time_steps, "node_type")
     ).reshape(-1)
+    if not np.issubdtype(raw_node_type.dtype, np.integer) and (
+        not np.all(np.isfinite(raw_node_type))
+        or not np.all(raw_node_type == np.floor(raw_node_type))
+    ):
+        raise ValueError("node_type must contain finite integer codes")
+    node_type = raw_node_type.astype(np.int64, copy=False)
     mach = np.asarray(
         _frame_or_static(group["Mach"], frame, time_steps, "Mach"),
         dtype=np.float32,
@@ -311,8 +503,34 @@ def cpg_graph_frame_metadata(
         )
     if mach.shape != (num_nodes,):
         raise ValueError(f"Mach must contain one value per node, got {mach.shape}")
+    if not np.all(np.isfinite(pos[:, :2])):
+        raise ValueError("pos contains nonfinite coordinates")
+    if not np.all(np.isfinite(mach)):
+        raise ValueError("Mach contains nonfinite values")
     _validate_edges(edges, num_nodes)
     return pos[:, :2].astype(np.float32), edges, node_type, mach
+
+
+def validate_cpg_static_graph(
+    group: GroupLike,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Require release graph metadata to remain identical at every frame."""
+
+    time_steps, _ = _primitive_shape(group)
+    reference = cpg_graph_frame_metadata(group, frame=0)
+    for frame in range(1, time_steps):
+        current = cpg_graph_frame_metadata(group, frame=frame)
+        for name, expected, actual in zip(
+            ("pos", "edges", "node_type", "Mach"),
+            reference,
+            current,
+            strict=True,
+        ):
+            if not np.array_equal(expected, actual):
+                raise ValueError(
+                    f"{name} changes within one HDF trajectory at frame {frame}"
+                )
+    return reference
 
 
 def hash_cpg_graph_frame(
@@ -355,6 +573,8 @@ def release_rollout_metrics(
             f"predictions and targets must share shape, got {pred.shape} and {truth.shape}"
         )
     _validate_rollout_shape(pred.shape, "predictions")
+    if not np.all(np.isfinite(pred)) or not np.all(np.isfinite(truth)):
+        raise ValueError("predictions and targets must contain only finite values")
 
     types = np.asarray(node_type, dtype=np.int64).reshape(-1)
     if types.shape != (pred.shape[1],):
@@ -424,6 +644,8 @@ def rollout_rmse_by_graph_distance(
     if pred.shape != truth.shape:
         raise ValueError("predictions and targets must share shape")
     _validate_rollout_shape(pred.shape, "predictions")
+    if not np.all(np.isfinite(pred)) or not np.all(np.isfinite(truth)):
+        raise ValueError("predictions and targets must contain only finite values")
     distances = np.asarray(distance, dtype=np.int64).reshape(-1)
     if distances.shape != (pred.shape[1],):
         raise ValueError("distance must contain one value per rollout node")
@@ -533,21 +755,23 @@ def _finite_min_max(value: ArrayLike) -> tuple[float, float]:
     shape = _shape(value)
     if not shape:
         array = np.asarray(value, dtype=np.float64).reshape(-1)
-        finite = array[np.isfinite(array)]
-        if not finite.size:
-            raise ValueError("Mach contains no finite values")
-        return float(np.min(finite)), float(np.max(finite))
+        if not np.all(np.isfinite(array)):
+            raise ValueError("Mach contains nonfinite values")
+        if not array.size:
+            raise ValueError("Mach contains no values")
+        return float(np.min(array)), float(np.max(array))
 
     minimum = np.inf
     maximum = -np.inf
     for index in range(shape[0]):
         array = np.asarray(value[index], dtype=np.float64)
-        finite = array[np.isfinite(array)]
-        if finite.size:
-            minimum = min(minimum, float(np.min(finite)))
-            maximum = max(maximum, float(np.max(finite)))
+        if not np.all(np.isfinite(array)):
+            raise ValueError("Mach contains nonfinite values")
+        if array.size:
+            minimum = min(minimum, float(np.min(array)))
+            maximum = max(maximum, float(np.max(array)))
     if not np.isfinite(minimum) or not np.isfinite(maximum):
-        raise ValueError("Mach contains no finite values")
+        raise ValueError("Mach contains no values")
     return minimum, maximum
 
 
@@ -580,3 +804,24 @@ def _git_output(repo: Path, *args: str) -> str:
         text=True,
     )
     return completed.stdout.strip()
+
+
+def _git_blob_sha256(repo: Path, commit: str, relative_path: str) -> str:
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "cat-file",
+                "blob",
+                f"{commit}:{relative_path}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(
+            f"Git commit {commit} does not contain {relative_path}"
+        ) from exc
+    return sha256(completed.stdout).hexdigest()

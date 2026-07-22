@@ -38,10 +38,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from utility.time_dependent_no.cpg_release import (  # noqa: E402
     CPG_EVALUATOR_SOURCE_FILES,
+    CPG_MODEL_DT,
     CPG_REFERENCE_COMMIT,
+    CPG_TERMINATION_ACCOUNTING_SCHEMA,
     CPGTrajectoryFingerprint,
     cpg_evaluator_source_manifest,
-    cpg_graph_frame_metadata,
     cpg_mach_range,
     cpg_trajectory_dimensions,
     fingerprint_cpg_trajectory,
@@ -50,7 +51,12 @@ from utility.time_dependent_no.cpg_release import (  # noqa: E402
     release_rollout_metrics,
     rollout_rmse_by_graph_distance,
     sha256_file,
+    validate_cpg_model_dt,
     validate_cpg_reference_source,
+    validate_cpg_static_graph,
+)
+from utility.time_dependent_no.cpg_reach import (  # noqa: E402
+    validate_release_graph_mapping,
 )
 from utility.time_dependent_no.euler2d import (  # noqa: E402
     EulerNodeType,
@@ -68,6 +74,7 @@ REQUIRED_INSTRUMENTATION = (
     "model_inputs",
     "model_mach",
     "injection_mask",
+    "boundary_node_mask",
     "model_pos",
     "directed_edges",
     "edge_attr_before_model",
@@ -95,7 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Required number of result files; set explicitly for a sanity subset.",
     )
     parser.add_argument("--expected-split", default="test")
-    parser.add_argument("--expected-dt", type=float, default=0.025)
+    parser.add_argument("--expected-dt", type=float, default=CPG_MODEL_DT)
     parser.add_argument("--expected-seed", type=int, default=0)
     return parser
 
@@ -104,8 +111,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     args = build_parser().parse_args(argv)
     if args.expected_results < 1:
         raise ValueError("--expected-results must be positive")
-    if args.expected_dt <= 0.0:
-        raise ValueError("--expected-dt must be positive")
+    args.expected_dt = validate_cpg_model_dt(args.expected_dt)
     return args
 
 
@@ -207,6 +213,214 @@ def _json_attribute(value: Any) -> Any:
     return value
 
 
+def _primitive_frames(group: Any, start: int, stop: int) -> np.ndarray:
+    arrays = []
+    for key in ("rho", "v1", "v2", "pres"):
+        values = np.asarray(group[key][start:stop], dtype=np.float32)
+        if values.ndim == 2:
+            values = values[:, :, None]
+        if values.ndim != 3 or values.shape[2] != 1:
+            raise ValueError(f"{key} has unsupported rollout shape {values.shape}")
+        arrays.append(values)
+    primitive = np.concatenate(arrays, axis=2)
+    if not np.all(np.isfinite(primitive)):
+        raise ValueError("dataset primitive rollout contains nonfinite values")
+    return primitive
+
+
+def _check_array_equal(
+    *,
+    result: Any,
+    dataset_name: str,
+    expected: np.ndarray,
+    result_file: str,
+    violations: list[str],
+) -> None:
+    if dataset_name not in result:
+        return
+    actual = np.asarray(result[dataset_name])
+    if actual.shape != expected.shape or not np.array_equal(actual, expected):
+        violations.append(
+            f"{result_file} {dataset_name} is not linked to the matched dataset"
+        )
+
+
+def _audit_instrumentation_linkage(
+    *,
+    result: Any,
+    result_file: str,
+    group: Any,
+    predictions: np.ndarray,
+    targets: np.ndarray,
+    pos: np.ndarray,
+    edges: np.ndarray,
+    node_type: np.ndarray,
+    mach: np.ndarray,
+    violations: list[str],
+) -> dict[str, Any]:
+    boundary_mask = node_type != int(EulerNodeType.NORMAL)
+    distance = graph_distance_from_sources(edges, boundary_mask)
+    steps = targets.shape[0]
+    reference_current = _primitive_frames(group, 0, steps)
+    expected_mach = np.broadcast_to(mach, (steps, mach.size)).copy()
+
+    for name, expected in (
+        ("pos", pos),
+        ("edges", edges),
+        ("node_type", node_type),
+        ("Mach", mach),
+        ("reference_current", reference_current),
+        ("model_mach", expected_mach),
+        ("injection_mask", boundary_mask),
+        ("boundary_node_mask", boundary_mask),
+        ("boundary_graph_distance", distance),
+    ):
+        _check_array_equal(
+            result=result,
+            dataset_name=name,
+            expected=np.asarray(expected),
+            result_file=result_file,
+            violations=violations,
+        )
+
+    if "inputs_before_boundary" in result:
+        inputs = np.asarray(result["inputs_before_boundary"])
+        expected_inputs = reference_current.copy()
+        if steps > 1:
+            expected_inputs[1:] = predictions[:-1]
+        if inputs.shape != expected_inputs.shape or not np.array_equal(
+            inputs, expected_inputs
+        ):
+            violations.append(
+                f"{result_file} inputs_before_boundary breaks rollout recurrence"
+            )
+    else:
+        inputs = None
+
+    if "model_inputs" in result and inputs is not None:
+        model_inputs = np.asarray(result["model_inputs"])
+        expected_model_inputs = inputs.copy()
+        expected_model_inputs[:, boundary_mask] = targets[:, boundary_mask]
+        if model_inputs.shape != expected_model_inputs.shape or not np.array_equal(
+            model_inputs, expected_model_inputs
+        ):
+            violations.append(
+                f"{result_file} model_inputs do not implement next-reference injection"
+            )
+
+    if not np.array_equal(
+        predictions[:, boundary_mask], targets[:, boundary_mask]
+    ):
+        violations.append(
+            f"{result_file} predicteds do not implement release boundary clamping"
+        )
+
+    state_arrays = (
+        "raw_predicteds",
+        "reference_current",
+        "inputs_before_boundary",
+        "model_inputs",
+        "model_mach",
+    )
+    for name in state_arrays:
+        if name in result and not np.all(np.isfinite(np.asarray(result[name]))):
+            violations.append(f"{result_file} {name} contains nonfinite values")
+    if "raw_predicteds" in result:
+        raw_predictions = np.asarray(result["raw_predicteds"])
+        if raw_predictions.shape != predictions.shape:
+            violations.append(
+                f"{result_file} raw_predicteds shape differs from predicteds"
+            )
+        elif not np.array_equal(
+            raw_predictions[:, ~boundary_mask],
+            predictions[:, ~boundary_mask],
+        ):
+            violations.append(
+                f"{result_file} postprocessing changes normal-node predictions"
+            )
+
+    graph_mapping = None
+    mapping_fields = (
+        "model_pos",
+        "directed_edges",
+        "edge_attr_before_model",
+    )
+    if all(name in result for name in mapping_fields):
+        try:
+            graph_mapping = validate_release_graph_mapping(
+                raw_pos=pos,
+                raw_edges=edges,
+                model_pos=np.asarray(result["model_pos"]),
+                directed_edges=np.asarray(result["directed_edges"]),
+                edge_attr_before_model=np.asarray(result["edge_attr_before_model"]),
+            )
+        except ValueError as exc:
+            violations.append(f"{result_file} model graph mapping failed: {exc}")
+    return {
+        "matched_dataset_arrays": [
+            "pos",
+            "edges",
+            "node_type",
+            "Mach",
+            "reference_current",
+            "model_mach",
+            "boundary_node_mask",
+            "boundary_graph_distance",
+        ],
+        "oracle_relationships": [
+            "injection_mask_equals_boundary_mask",
+            "inputs_before_boundary_follow_clamped_recurrence",
+            "model_inputs_inject_next_reference_on_boundary",
+            "predicteds_clamp_next_reference_on_boundary",
+        ],
+        "model_graph_mapping": graph_mapping,
+    }
+
+
+def _audit_complete_termination_contract(
+    *,
+    attrs: Mapping[str, Any],
+    target_steps: int,
+    result_file: str,
+    expected_schema: str,
+    violations: list[str],
+) -> dict[str, Any]:
+    expected = {
+        "completed": True,
+        "attempted_steps": target_steps,
+        "admissible_steps": target_steps,
+        "valid_steps": target_steps,
+        "expected_steps": target_steps,
+        "failure_step": -1,
+        "failure_step_one_based": -1,
+        "failure_reason": "",
+        "terminal_failure_included_in_arrays": False,
+        "metric_scope": "admissible_prefix_excluding_terminal_failure",
+        "termination_accounting_schema": expected_schema,
+    }
+    for name, value in expected.items():
+        if name not in attrs:
+            violations.append(
+                f"{result_file} has no termination attribute {name}"
+            )
+        elif attrs[name] != value:
+            violations.append(
+                f"{result_file} termination {name}={attrs[name]!r}, "
+                f"expected {value!r}"
+            )
+    return {
+        "completed": True,
+        "attempted_steps": target_steps,
+        "admissible_steps": target_steps,
+        "valid_steps": target_steps,
+        "expected_steps": target_steps,
+        "failure_step": None,
+        "failure_step_one_based": None,
+        "failure_reason": None,
+        "terminal_failure_included_in_arrays": False,
+    }
+
+
 def audit_results(
     result_dir: Path,
     test_file: Path,
@@ -216,6 +430,7 @@ def audit_results(
     expected_results: int,
     expected_attributes: Mapping[str, Any] | None = None,
     required_datasets: Sequence[str] = (),
+    expected_termination_accounting_schema: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     try:
         import h5py  # type: ignore[import-not-found]
@@ -258,6 +473,23 @@ def audit_results(
                 if predictions.shape != targets.shape:
                     violations.append(
                         f"{result_file.name} prediction/target shape mismatch"
+                    )
+                    continue
+                if not np.all(np.isfinite(predictions)) or not np.all(
+                    np.isfinite(targets)
+                ):
+                    violations.append(
+                        f"{result_file.name} predictions or targets contain nonfinite values"
+                    )
+                    continue
+                if predictions.dtype != np.dtype(np.float32):
+                    violations.append(
+                        f"{result_file.name} predictions are not canonical float32"
+                    )
+                    continue
+                if targets.dtype != np.dtype(np.float32):
+                    violations.append(
+                        f"{result_file.name} targets are not canonical float32"
                     )
                     continue
 
@@ -310,21 +542,75 @@ def audit_results(
                         f"{result_file.name} checkpoint hash does not match the audited checkpoint"
                     )
 
-                pos, edges, node_type, _ = cpg_graph_frame_metadata(
-                    dataset[trajectory_key], frame=0
-                )
+                group = dataset[trajectory_key]
+                pos, edges, node_type, mach = validate_cpg_static_graph(group)
                 if targets.shape[0] != fingerprint.target_steps:
                     violations.append(
                         f"{result_file.name} contains {targets.shape[0]} steps; "
                         f"trajectory {trajectory_key!r} requires {fingerprint.target_steps}"
                     )
+                    continue
                 if targets.shape[1] != fingerprint.num_nodes:
                     violations.append(
                         f"{result_file.name} node count does not match {trajectory_key!r}"
                     )
                     continue
+                canonical_targets = _primitive_frames(
+                    group, 1, fingerprint.target_steps + 1
+                )
+                if not np.array_equal(targets, canonical_targets):
+                    violations.append(
+                        f"{result_file.name} targets differ from the canonical "
+                        "float32 dataset trajectory"
+                    )
+                    continue
+                targets = canonical_targets
 
+                termination = None
+                if expected_termination_accounting_schema is not None:
+                    termination = _audit_complete_termination_contract(
+                        attrs=attrs,
+                        target_steps=fingerprint.target_steps,
+                        result_file=result_file.name,
+                        expected_schema=expected_termination_accounting_schema,
+                        violations=violations,
+                    )
+
+                linkage_start = len(violations)
+                linkage = _audit_instrumentation_linkage(
+                    result=result,
+                    result_file=result_file.name,
+                    group=group,
+                    predictions=predictions,
+                    targets=targets,
+                    pos=pos,
+                    edges=edges,
+                    node_type=node_type,
+                    mach=mach,
+                    violations=violations,
+                )
+                linkage["valid"] = (
+                    not missing_instrumentation
+                    and len(violations) == linkage_start
+                )
                 metrics = release_rollout_metrics(predictions, targets, node_type)
+                raw_metrics = None
+                if "raw_predicteds" in result:
+                    raw_predictions = np.asarray(result["raw_predicteds"])
+                    if (
+                        raw_predictions.dtype == np.dtype(np.float32)
+                        and
+                        raw_predictions.shape == predictions.shape
+                        and np.all(np.isfinite(raw_predictions))
+                    ):
+                        raw_metrics = release_rollout_metrics(
+                            raw_predictions, targets, node_type
+                        )
+                    elif raw_predictions.dtype != np.dtype(np.float32):
+                        violations.append(
+                            f"{result_file.name} raw predictions are not canonical "
+                            "float32"
+                        )
                 boundary_mask = node_type != int(EulerNodeType.NORMAL)
                 distance = graph_distance_from_sources(edges, boundary_mask)
                 rows.append(
@@ -336,7 +622,10 @@ def audit_results(
                         "checkpoint_bound": checkpoint_bound,
                         "attributes": attrs,
                         "graph_frame_sha256": fingerprint.graph_frame_sha256,
+                        "artifact_linkage": linkage,
                         "metrics": metrics,
+                        "raw_metrics": raw_metrics,
+                        "termination": termination,
                         "boundary_graph_distance": {
                             "max_finite_distance": int(np.max(distance)),
                             "unreachable_nodes": int(np.count_nonzero(distance < 0)),
@@ -430,6 +719,15 @@ def audit_run_manifest(
             },
             [f"run manifest could not be parsed: {exc}"],
         )
+    if not isinstance(payload, Mapping):
+        return (
+            {
+                "file_name": path.name,
+                "file_sha256": sha256_file(path),
+                "cross_checked": False,
+            },
+            ["run manifest root is not an object"],
+        )
 
     def expect(label: str, actual: Any, expected: Any) -> None:
         if actual != expected:
@@ -443,7 +741,14 @@ def audit_run_manifest(
     )
     expect("seed", payload.get("seed"), expected_attributes["seed"])
 
-    run_reference = payload.get("reference", {})
+    def object_field(name: str) -> Mapping[str, Any]:
+        value = payload.get(name)
+        if not isinstance(value, Mapping):
+            violations.append(f"run manifest {name} is not an object")
+            return {}
+        return value
+
+    run_reference = object_field("reference")
     expect(
         "reference.expected_commit",
         run_reference.get("expected_commit"),
@@ -454,15 +759,28 @@ def audit_run_manifest(
         run_reference.get("runtime_file_sha256"),
         reference["runtime_file_sha256"],
     )
+    for name in (
+        "runtime_pin_schema",
+        "runtime_scope",
+        "git_commit",
+        "git_commit_verified",
+        "tracked_clean",
+        "verification",
+    ):
+        expect(
+            f"reference.{name}",
+            run_reference.get(name),
+            reference.get(name),
+        )
 
-    run_evaluator = payload.get("evaluator", {})
+    run_evaluator = object_field("evaluator")
     expect(
         "evaluator.source_sha256",
         run_evaluator.get("source_sha256"),
         dict(evaluator_sources),
     )
 
-    run_checkpoint = payload.get("checkpoint", {})
+    run_checkpoint = object_field("checkpoint")
     expect(
         "checkpoint.sha256",
         run_checkpoint.get("sha256"),
@@ -474,7 +792,7 @@ def audit_run_manifest(
         "explicit Simulator.load_checkpoint argument",
     )
 
-    run_dataset = payload.get("dataset", {})
+    run_dataset = object_field("dataset")
     expect("dataset.sha256", run_dataset.get("sha256"), dataset["file_sha256"])
     expect("dataset.split", run_dataset.get("split"), expected_attributes["split"])
     expect(
@@ -485,7 +803,7 @@ def audit_run_manifest(
     expected_keys = [str(result["trajectory_key"]) for result in results]
     expect("dataset.selected_keys", run_dataset.get("selected_keys"), expected_keys)
 
-    model = payload.get("model_configuration", {})
+    model = object_field("model_configuration")
     expect("model.dt", model.get("dt"), expected_attributes["dt"])
     expect("model.message_passing_num", model.get("message_passing_num"), 12)
     expect("model.node_input_size", model.get("node_input_size"), 6)
@@ -524,8 +842,14 @@ def audit_run_manifest(
             record.get("trajectory_key"),
             result["trajectory_key"],
         )
+        if result.get("termination") is not None:
+            expect(
+                f"{result_file}.termination",
+                record.get("termination"),
+                result["termination"],
+            )
 
-    aggregate = payload.get("aggregate", {})
+    aggregate = object_field("aggregate")
     audited_aggregate = aggregate_metrics(list(results))
     if audited_aggregate is not None:
         for run_key, audit_key in (
@@ -546,6 +870,66 @@ def audit_run_manifest(
                 violations.append(
                     f"run manifest aggregate {run_key} does not match audited results"
                 )
+        raw_boundary = [
+            result["raw_metrics"]["boundary"]["rollout_rmse"]
+            for result in results
+            if result.get("raw_metrics") is not None
+            and result["raw_metrics"]["boundary"]["rollout_rmse"] is not None
+        ]
+        if len(raw_boundary) == len(results):
+            actual = np.asarray(
+                aggregate.get("raw_boundary_rollout_rmse"), dtype=np.float64
+            )
+            expected = np.mean(
+                np.asarray(raw_boundary, dtype=np.float64), axis=0
+            )
+            if actual.shape != expected.shape or not np.allclose(
+                actual,
+                expected,
+                rtol=1e-12,
+                atol=1e-12,
+            ):
+                violations.append(
+                    "run manifest aggregate raw_boundary_rollout_rmse does not "
+                    "match audited raw predictions"
+                )
+
+    terminations = [
+        result["termination"]
+        for result in results
+        if result.get("termination") is not None
+    ]
+    if len(terminations) == len(results) and terminations:
+        expect(
+            "evaluator.termination_accounting_schema",
+            run_evaluator.get("termination_accounting_schema"),
+            CPG_TERMINATION_ACCOUNTING_SCHEMA,
+        )
+        expect(
+            "aggregate.primary_metric_status",
+            aggregate.get("primary_metric_status"),
+            "complete_equal_horizon",
+        )
+        expect(
+            "aggregate.completed_trajectories",
+            aggregate.get("completed_trajectories"),
+            len(terminations),
+        )
+        expect(
+            "aggregate.minimum_valid_steps",
+            aggregate.get("minimum_valid_steps"),
+            min(item["valid_steps"] for item in terminations),
+        )
+        expect(
+            "aggregate.maximum_attempted_steps",
+            aggregate.get("maximum_attempted_steps"),
+            max(item["attempted_steps"] for item in terminations),
+        )
+        expect(
+            "aggregate.expected_steps",
+            aggregate.get("expected_steps"),
+            sorted({item["expected_steps"] for item in terminations}),
+        )
 
     return (
         {
@@ -589,6 +973,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "dataset_sha256": test["file_sha256"],
         "evaluator_sha256": evaluator_sources[CPG_EVALUATOR_SOURCE_FILES[0]],
         "reference_commit": CPG_REFERENCE_COMMIT,
+        "reference_verification": reference["verification"],
         "dt": args.expected_dt,
         "seed": args.expected_seed,
         "primitive_order": json.dumps(list(PRIMITIVE_NAMES)),
@@ -601,6 +986,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         expected_results=args.expected_results,
         expected_attributes=expected_attributes,
         required_datasets=REQUIRED_INSTRUMENTATION,
+        expected_termination_accounting_schema=(
+            CPG_TERMINATION_ACCOUNTING_SCHEMA
+        ),
     )
     violations.extend(result_violations)
     run_manifest, run_manifest_violations = audit_run_manifest(
@@ -628,6 +1016,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "tooling": {
             "audit_script_sha256": sha256_file(Path(__file__)),
             "evaluator_source_sha256": evaluator_sources,
+            "reach_utility_sha256": sha256_file(
+                REPO_ROOT / "utility/time_dependent_no/cpg_reach.py"
+            ),
         },
         "run_manifest": run_manifest,
         "dataset": {"train": train, "test": test},
@@ -661,7 +1052,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     manifest_path = output_dir / "provenance_manifest.json"
     manifest_path.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True),
+        json.dumps(manifest, indent=2, sort_keys=True, allow_nan=False),
         encoding="utf-8",
     )
     write_metrics_csv(output_dir / "trajectory_metrics.csv", results)
@@ -675,6 +1066,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "manifest": str(manifest_path),
             },
             indent=2,
+            allow_nan=False,
         )
     )
     return 0 if manifest["valid"] else 2

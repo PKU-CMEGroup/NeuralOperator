@@ -86,9 +86,17 @@ def test_diagnostic_script_writes_summary_from_combined_hdf5():
     assert per_time_path.is_file()
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert len(summary["diagnostic_source_sha256"]) == 64
     run = summary["runs"]["fixture"]
     assert run["trajectory_count"] == 1
     assert run["mean_per_trajectory_overall_rmse"]["pres"] > 0.0
     shock = summary["trajectory_summaries"]["fixture"][0]["shock_quantiles"]["q0.50"]
     assert shock["overlap"]["iou"]["mean"] < 1.0
     assert shock["alignment"]["relative_rmse_reduction"]["mean"] > 0.0
+    run_shock = run["shock_quantiles"]["q0.50"]
+    assert run_shock["aggregation_unit"] == "per_trajectory_time_mean"
+    assert run_shock["iou"]["count"] == 1
+    assert run_shock["iou"]["mean"] == pytest.approx(shock["overlap"]["iou"]["mean"])
+    assert run_shock["front_union_pressure_rmse"]["mean"] == pytest.approx(
+        shock["region_errors"]["front_union"]["rmse"]["pres"]
+    )

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import sys
@@ -484,6 +485,81 @@ def strip_private_arrays(item: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in item.items() if not key.startswith("_")}
 
 
+def distribution_stats(values: Sequence[float]) -> dict[str, float | int]:
+    arr = np.asarray(values, dtype=np.float64)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return {
+            "count": 0,
+            "mean": math.nan,
+            "median": math.nan,
+            "std": math.nan,
+            "min": math.nan,
+            "max": math.nan,
+        }
+    return {
+        "count": int(finite.size),
+        "mean": float(np.mean(finite)),
+        "median": float(np.median(finite)),
+        "std": float(np.std(finite)),
+        "min": float(np.min(finite)),
+        "max": float(np.max(finite)),
+    }
+
+
+def aggregate_shock_quantiles(
+    trajectories: list[dict[str, Any]],
+) -> dict[str, Any]:
+    metric_paths = {
+        "iou": ("overlap", "iou", "mean"),
+        "f1": ("overlap", "f1", "mean"),
+        "symmetric_chamfer_mean": (
+            "distance",
+            "symmetric_chamfer_mean",
+            "mean",
+        ),
+        "centroid_distance": ("distance", "centroid_distance", "mean"),
+        "alignment_relative_rmse_reduction": (
+            "alignment",
+            "relative_rmse_reduction",
+            "mean",
+        ),
+        "alignment_best_shift_norm": ("alignment", "best_shift_norm", "mean"),
+        "thickness_ratio": ("thickness_strength", "thickness_ratio", "mean"),
+        "strength_ratio": ("thickness_strength", "strength_ratio", "mean"),
+        "front_union_pressure_rmse": (
+            "region_errors",
+            "front_union",
+            "rmse",
+            "pres",
+        ),
+        "smooth_pressure_rmse": (
+            "region_errors",
+            "smooth",
+            "rmse",
+            "pres",
+        ),
+    }
+    quantiles = sorted(
+        {quantile for item in trajectories for quantile in item["shock_quantiles"]}
+    )
+    aggregate_quantiles: dict[str, Any] = {}
+    for quantile in quantiles:
+        aggregate_quantiles[quantile] = {"aggregation_unit": "per_trajectory_time_mean"}
+        for metric, path in metric_paths.items():
+            values = []
+            for item in trajectories:
+                value: Any = item["shock_quantiles"].get(quantile, {})
+                for key in path:
+                    if not isinstance(value, dict) or key not in value:
+                        value = math.nan
+                        break
+                    value = value[key]
+                values.append(float(value))
+            aggregate_quantiles[quantile][metric] = distribution_stats(values)
+    return aggregate_quantiles
+
+
 def aggregate(run: str, trajectories: list[dict[str, Any]]) -> dict[str, Any]:
     if not trajectories:
         return {"run": run, "trajectory_count": 0}
@@ -508,6 +584,7 @@ def aggregate(run: str, trajectories: list[dict[str, Any]]) -> dict[str, Any]:
         "mean_per_trajectory_overall_rmse": by_var(np.mean(overall, axis=0)),
         "std_per_trajectory_overall_rmse": by_var(np.std(overall, axis=0)),
         "mean_final_step_rmse": by_var(np.mean(final, axis=0)),
+        "shock_quantiles": aggregate_shock_quantiles(trajectories),
         "all_predictions_finite": bool(
             all(item["finite_prediction"] for item in trajectories)
         ),
@@ -698,6 +775,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             dataset.close()
 
     summary = {
+        "diagnostic_source_sha256": hashlib.sha256(
+            Path(__file__).read_bytes()
+        ).hexdigest(),
         "artifact_audit": audit,
         "runs": run_summaries,
         "trajectory_summaries": trajectory_summaries,

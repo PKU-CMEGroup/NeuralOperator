@@ -908,6 +908,9 @@ def load_pcno_point(contract: Mapping[str, Any]) -> dict[str, Any]:
     batch_throughput = float(source_cost["throughput_samples_per_second"])
     return {
         "mean_horizon_error": mean_error,
+        "pilot_mean_horizon_error": float(
+            np.mean([per_case_error[key] for key in contract["pilot_keys"]])
+        ),
         "per_case_horizon_error": per_case_error,
         "calibrated_horizon_seconds": float(contract["pcno_horizon_seconds"]),
         "calibrated_horizon_p95_envelope_seconds": float(
@@ -1040,7 +1043,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     selection = select_full_grids(
         pilot_aggregates,
         pcno_seconds=pcno["calibrated_horizon_seconds"],
-        pcno_error=pcno["mean_horizon_error"],
+        pcno_error=pcno["pilot_mean_horizon_error"],
         maximum=args.max_full_grids,
     )
     selected_names = set(selection["selected_grids"])
@@ -1203,7 +1206,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             "verified": (
                 "paired validation error and measured implementation cost against the "
                 "frozen D044 PCNO, with explicit conservative remapping floors and the "
-                "coarse solver's own physical boundary balance"
+                "measured coarse-solver own-boundary balance residual"
             ),
             "not_verified": [
                 "production-CFD performance",

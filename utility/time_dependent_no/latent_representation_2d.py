@@ -26,6 +26,7 @@ LINE3_HANDOFF_SHA256 = (
     "4b56baefe0f61fd635668c51e7dd71e82a783450a51131de74bcb7c7875cc9c5"
 )
 LINE4_REPRESENTATION_SCHEMA = "line4a_euler2d_representation_v1"
+LINE4_LOCAL_HAAR_SCHEMA = "line4a_conservative_local_haar_v1"
 LINE4_TOKEN_NX = 25
 LINE4_TOKEN_NY = 10
 LINE4_TOKEN_CHANNELS = 20
@@ -708,6 +709,456 @@ def fit_frozen_decoder_code(
         "loss_ratio": final_value / max(initial_value, torch.finfo(target.dtype).tiny),
         "loss_trace": trace,
         "per_state_fitting": True,
+        "forecast_evidence": False,
+    }
+
+
+def _geometry_digest(geometry: TokenGeometry) -> str:
+    """Hash the singleton geometry used by a fixed-resolution capacity chart."""
+
+    if geometry.nodes.shape[0] < 1:
+        raise ValueError("geometry must contain at least one batch item")
+    digest = hashlib.sha256()
+    for tensor in (geometry.nodes[0], geometry.volumes[0], geometry.token_ids[0]):
+        array = np.ascontiguousarray(tensor.detach().cpu().numpy())
+        digest.update(str(array.dtype).encode("ascii"))
+        digest.update(np.asarray(array.shape, dtype="<i8").tobytes())
+        digest.update(array.tobytes())
+    digest.update(
+        np.asarray((geometry.token_nx, geometry.token_ny), dtype="<i8").tobytes()
+    )
+    digest.update(np.asarray(geometry.domain, dtype="<f8").tobytes())
+    return digest.hexdigest()
+
+
+def _haar_1d_library(
+    unit_coordinate: torch.Tensor,
+    *,
+    maximum_level: int,
+) -> tuple[list[torch.Tensor], list[tuple[int, int]]]:
+    if maximum_level < 0:
+        raise ValueError("maximum_level must be nonnegative")
+    if unit_coordinate.ndim != 1 or not torch.isfinite(unit_coordinate).all():
+        raise ValueError("Haar coordinates must be one-dimensional and finite")
+    tolerance = 32.0 * torch.finfo(unit_coordinate.dtype).eps
+    in_token = (unit_coordinate >= -tolerance) & (unit_coordinate <= 1.0 + tolerance)
+    if not bool(torch.all(in_token)):
+        raise ValueError("Haar coordinates fall outside the token")
+    upper = 1.0 - torch.finfo(unit_coordinate.dtype).eps
+    coordinate = unit_coordinate.clamp(0.0, upper)
+    values = [torch.ones_like(coordinate)]
+    specifications = [(-1, 0)]
+    for level in range(maximum_level + 1):
+        count = 2**level
+        scaled = coordinate * count
+        for position in range(count):
+            relative = scaled - float(position)
+            support = (relative >= 0.0) & (relative < 1.0)
+            sign = torch.where(
+                relative < 0.5,
+                torch.ones_like(relative),
+                -torch.ones_like(relative),
+            )
+            values.append(torch.where(support, sign, torch.zeros_like(relative)))
+            specifications.append((level, position))
+    return values, specifications
+
+
+def _weighted_local_haar_basis(
+    local_coordinates: torch.Tensor,
+    normalized_weights: torch.Tensor,
+    *,
+    maximum_level: int,
+    tolerance: float = 1.0e-10,
+) -> torch.Tensor:
+    """Build a deterministic zero-mean discontinuous basis on one token."""
+
+    if local_coordinates.ndim != 2 or local_coordinates.shape[1] != 2:
+        raise ValueError("local coordinates must have shape [N,2]")
+    if normalized_weights.shape != local_coordinates.shape[:1]:
+        raise ValueError("local coordinates and weights disagree")
+    if not torch.isfinite(normalized_weights).all() or not torch.all(
+        normalized_weights > 0.0
+    ):
+        raise ValueError("local Haar weights must be finite and positive")
+    weights = normalized_weights.to(torch.float64)
+    weights = weights / weights.sum()
+    coordinates = local_coordinates.to(torch.float64)
+    x_values, x_specs = _haar_1d_library(
+        0.5 * (coordinates[:, 0] + 1.0), maximum_level=maximum_level
+    )
+    y_values, y_specs = _haar_1d_library(
+        0.5 * (coordinates[:, 1] + 1.0), maximum_level=maximum_level
+    )
+    pairs = [
+        (x_index, y_index)
+        for x_index in range(len(x_values))
+        for y_index in range(len(y_values))
+        if x_index != 0 or y_index != 0
+    ]
+
+    def ordering(pair: tuple[int, int]) -> tuple[int, ...]:
+        x_level, x_position = x_specs[pair[0]]
+        y_level, y_position = y_specs[pair[1]]
+        return (
+            max(x_level, y_level),
+            x_level + y_level,
+            x_level,
+            x_position,
+            y_level,
+            y_position,
+        )
+
+    pairs.sort(key=ordering)
+    basis: list[torch.Tensor] = []
+    maximum_rank = local_coordinates.shape[0] - 1
+    for x_index, y_index in pairs:
+        candidate = x_values[x_index] * y_values[y_index]
+        candidate = candidate - torch.dot(weights, candidate)
+        for _ in range(2):
+            if basis:
+                matrix = torch.stack(basis, dim=1)
+                coefficients = matrix.T @ (weights * candidate)
+                candidate = candidate - matrix @ coefficients
+        norm = torch.sqrt(torch.dot(weights, candidate.square()))
+        if float(norm) <= tolerance:
+            continue
+        basis.append(candidate / norm)
+        if len(basis) == maximum_rank:
+            break
+    if not basis:
+        raise ValueError("local Haar dictionary has zero usable rank")
+    matrix = torch.stack(basis, dim=1)
+    mean_error = torch.max(torch.abs(weights @ matrix))
+    gram = matrix.T @ (weights.unsqueeze(1) * matrix)
+    orthogonality_error = torch.max(
+        torch.abs(gram - torch.eye(gram.shape[0], dtype=gram.dtype))
+    )
+    if float(mean_error) > 5.0e-9 or float(orthogonality_error) > 5.0e-8:
+        raise RuntimeError("local Haar orthonormalization failed")
+    return matrix
+
+
+@dataclass(frozen=True)
+class ConservativeLocalHaarAtlas:
+    """Fixed-geometry conservative discontinuous chart for capacity testing."""
+
+    token_node_indices: tuple[torch.Tensor, ...]
+    token_basis: tuple[torch.Tensor, ...]
+    selected_modes: torch.Tensor
+    selected_directions: torch.Tensor
+    selected_training_energy: torch.Tensor
+    state_mean: torch.Tensor
+    state_scale: torch.Tensor
+    geometry_sha256: str
+    token_nx: int
+    token_ny: int
+    maximum_level: int
+    detail_channels: int
+    training_state_count: int
+    atlas_sha256: str
+
+    @property
+    def num_tokens(self) -> int:
+        return self.token_nx * self.token_ny
+
+    @property
+    def latent_size(self) -> int:
+        return self.num_tokens * (4 + self.detail_channels)
+
+    def _validate_geometry(self, geometry: TokenGeometry, batch_size: int) -> None:
+        if geometry.nodes.shape[0] not in (1, batch_size):
+            raise ValueError("state and geometry batch dimensions disagree")
+        if (geometry.token_nx, geometry.token_ny) != (
+            self.token_nx,
+            self.token_ny,
+        ):
+            raise ValueError("atlas and token lattices disagree")
+        if _geometry_digest(geometry) != self.geometry_sha256:
+            raise ValueError("atlas is bound to a different frozen geometry")
+        if geometry.nodes.shape[0] > 1 and not torch.equal(
+            geometry.token_ids,
+            geometry.token_ids[:1].expand_as(geometry.token_ids),
+        ):
+            raise ValueError("atlas requires one homogeneous geometry")
+
+    def encode(
+        self,
+        conservative: torch.Tensor,
+        geometry: TokenGeometry,
+    ) -> torch.Tensor:
+        """Project a state once; this is not iterative per-state fitting."""
+
+        if conservative.ndim == 2:
+            conservative = conservative.unsqueeze(0)
+        if conservative.ndim != 3 or conservative.shape[-1] != 4:
+            raise ValueError("conservative state must have shape [B,N,4]")
+        if not torch.isfinite(conservative).all():
+            raise ValueError("atlas encoder received nonfinite state")
+        batch_size = conservative.shape[0]
+        self._validate_geometry(geometry, batch_size)
+        batch_geometry = repeat_token_geometry(geometry, batch_size)
+        means = token_weighted_mean(conservative, batch_geometry)
+        code = conservative.new_zeros(
+            (batch_size, self.num_tokens, 4 + self.detail_channels)
+        )
+        state_mean = self.state_mean.to(conservative)
+        state_scale = self.state_scale.to(conservative)
+        code[..., :4] = (means - state_mean) / state_scale
+        for token, indices in enumerate(self.token_node_indices):
+            node_indices = indices.to(conservative.device)
+            weights = geometry.volumes[0, node_indices]
+            weights = weights / weights.sum()
+            residual = (
+                conservative[:, node_indices, :] - means[:, token : token + 1, :]
+            ) / state_scale
+            basis = self.token_basis[token].to(conservative)
+            mode_coefficients = torch.einsum("n,bnc,nm->bmc", weights, residual, basis)
+            modes = self.selected_modes[token].to(conservative.device)
+            directions = self.selected_directions[token].to(conservative)
+            code[:, token, 4:] = torch.einsum(
+                "bkc,kc->bk",
+                mode_coefficients[:, modes, :],
+                directions,
+            )
+        return code
+
+    def decode(self, code: torch.Tensor, geometry: TokenGeometry) -> torch.Tensor:
+        """Decode raw conservative values without clipping or smoothing."""
+
+        if code.ndim != 3 or code.shape[1:] != (
+            self.num_tokens,
+            4 + self.detail_channels,
+        ):
+            raise ValueError("local Haar code has the wrong shape")
+        if not torch.isfinite(code).all():
+            raise ValueError("atlas decoder received nonfinite code")
+        batch_size = code.shape[0]
+        self._validate_geometry(geometry, batch_size)
+        state_mean = self.state_mean.to(code)
+        state_scale = self.state_scale.to(code)
+        means = state_mean + state_scale * code[..., :4]
+        output = code.new_empty((batch_size, geometry.nodes.shape[1], 4))
+        for token, indices in enumerate(self.token_node_indices):
+            node_indices = indices.to(code.device)
+            basis = self.token_basis[token].to(code)
+            modes = self.selected_modes[token].to(code.device)
+            directions = self.selected_directions[token].to(code)
+            scaled_residual = torch.einsum(
+                "bk,nk,kc->bnc",
+                code[:, token, 4:],
+                basis[:, modes],
+                directions,
+            )
+            output[:, node_indices, :] = (
+                means[:, token : token + 1, :] + state_scale * scaled_residual
+            )
+        return output
+
+    def contract(self) -> dict[str, Any]:
+        basis_ranks = [basis.shape[1] for basis in self.token_basis]
+        return {
+            "schema": LINE4_LOCAL_HAAR_SCHEMA,
+            "spatially_indexed": True,
+            "token_lattice": [self.token_nx, self.token_ny],
+            "token_channels": 4 + self.detail_channels,
+            "latent_size": self.latent_size,
+            "fixed_conservative_channels": 4,
+            "training_selected_detail_channels": self.detail_channels,
+            "front_variables": 0,
+            "maximum_haar_level": self.maximum_level,
+            "minimum_local_basis_rank": min(basis_ranks),
+            "maximum_local_basis_rank": max(basis_ranks),
+            "minimum_selected_training_energy": float(
+                self.selected_training_energy.min().detach().cpu()
+            ),
+            "decoder_constraint": "exact_token_conservative_mean",
+            "resolution_contract": "fixed_geometry_fixed_resolution_capacity_only",
+            "raw_decode": True,
+            "per_state_fitting": False,
+            "clipping": False,
+            "floors": False,
+            "limiter": False,
+            "decode_reencode_projection": False,
+            "geometry_sha256": self.geometry_sha256,
+            "atlas_sha256": self.atlas_sha256,
+            "training_state_count": self.training_state_count,
+        }
+
+
+def fit_conservative_local_haar_atlas(
+    training_states: torch.Tensor,
+    geometry: TokenGeometry,
+    normalization: Euler2DNormalization | Mapping[str, Any],
+    *,
+    detail_channels: int = 16,
+    maximum_level: int = 3,
+) -> tuple[ConservativeLocalHaarAtlas, dict[str, Any]]:
+    """Fit one training-only discontinuous chart at a fixed latent budget."""
+
+    if not isinstance(normalization, Euler2DNormalization):
+        normalization = Euler2DNormalization.from_mapping(normalization)
+    if training_states.ndim != 3 or training_states.shape[1:] != (
+        geometry.nodes.shape[1],
+        4,
+    ):
+        raise ValueError("training states and geometry shapes disagree")
+    if geometry.nodes.shape[0] != 1:
+        raise ValueError("atlas fitting requires a singleton frozen geometry")
+    if training_states.shape[0] < 4:
+        raise ValueError("atlas fitting requires at least four training states")
+    if detail_channels < 1:
+        raise ValueError("detail_channels must be positive")
+    if not torch.isfinite(training_states).all():
+        raise ValueError("atlas fitting received nonfinite training states")
+
+    device = training_states.device
+    dtype = training_states.dtype
+    state_mean = torch.as_tensor(
+        normalization.state_mean,
+        dtype=dtype,
+        device=device,
+    ).view(1, 1, 4)
+    state_scale = torch.as_tensor(
+        normalization.state_scale,
+        dtype=dtype,
+        device=device,
+    ).view(1, 1, 4)
+    batch_geometry = repeat_token_geometry(geometry, training_states.shape[0])
+    means = token_weighted_mean(training_states, batch_geometry)
+    residual = (
+        training_states - gather_token_values(means, batch_geometry)
+    ) / state_scale
+
+    token_indices: list[torch.Tensor] = []
+    token_bases: list[torch.Tensor] = []
+    selected_modes: list[torch.Tensor] = []
+    selected_directions: list[torch.Tensor] = []
+    selected_energies: list[torch.Tensor] = []
+    basis_cache: dict[str, torch.Tensor] = {}
+    for token in range(geometry.num_tokens):
+        indices = torch.nonzero(
+            geometry.token_ids[0] == token,
+            as_tuple=False,
+        ).flatten()
+        weights = geometry.volumes[0, indices]
+        normalized_weights = weights / weights.sum()
+        local_coordinates = geometry.local_coordinates[0, indices]
+        cache_digest = hashlib.sha256()
+        for tensor in (local_coordinates, normalized_weights):
+            array = np.ascontiguousarray(
+                np.round(
+                    tensor.detach().cpu().to(torch.float64).numpy(),
+                    decimals=7,
+                )
+            )
+            cache_digest.update(array.tobytes())
+        cache_digest.update(str(maximum_level).encode("ascii"))
+        cache_key = cache_digest.hexdigest()
+        basis = basis_cache.get(cache_key)
+        if basis is None:
+            basis = _weighted_local_haar_basis(
+                local_coordinates,
+                normalized_weights,
+                maximum_level=maximum_level,
+            ).to(device=device, dtype=dtype)
+            basis_cache[cache_key] = basis
+        if basis.shape[1] * 4 < detail_channels:
+            raise ValueError("local Haar dictionary cannot supply the detail budget")
+        coefficients = torch.einsum(
+            "n,snc,nm->smc",
+            normalized_weights,
+            residual[:, indices, :],
+            basis,
+        )
+        _, singular_values, right_vectors = torch.linalg.svd(
+            coefficients.permute(1, 0, 2).to(torch.float64),
+            full_matrices=False,
+        )
+        candidates = [
+            (float(singular_values[mode, rank].square()), mode, rank)
+            for mode in range(singular_values.shape[0])
+            for rank in range(singular_values.shape[1])
+        ]
+        candidates.sort(key=lambda item: (-item[0], item[1], item[2]))
+        chosen = candidates[:detail_channels]
+        modes = torch.as_tensor(
+            [item[1] for item in chosen],
+            dtype=torch.long,
+            device=device,
+        )
+        directions = []
+        for _, mode, rank in chosen:
+            direction = right_vectors[mode, rank].clone()
+            pivot = int(torch.argmax(torch.abs(direction)))
+            if float(direction[pivot]) < 0.0:
+                direction = -direction
+            directions.append(direction)
+        direction_tensor = torch.stack(directions).to(device=device, dtype=dtype)
+        energy_tensor = torch.as_tensor(
+            [item[0] for item in chosen],
+            dtype=torch.float64,
+            device=device,
+        )
+        if (
+            not torch.isfinite(direction_tensor).all()
+            or not torch.isfinite(energy_tensor).all()
+        ):
+            raise RuntimeError("local Haar atom selection produced nonfinite values")
+        token_indices.append(indices)
+        token_bases.append(basis)
+        selected_modes.append(modes)
+        selected_directions.append(direction_tensor)
+        selected_energies.append(energy_tensor)
+
+    mode_tensor = torch.stack(selected_modes)
+    direction_tensor = torch.stack(selected_directions)
+    energy_tensor = torch.stack(selected_energies)
+    atlas_digest = hashlib.sha256()
+    for tensor in (
+        mode_tensor,
+        direction_tensor,
+        energy_tensor,
+        state_mean,
+        state_scale,
+    ):
+        array = np.ascontiguousarray(tensor.detach().cpu().numpy())
+        atlas_digest.update(str(array.dtype).encode("ascii"))
+        atlas_digest.update(array.tobytes())
+    for basis in token_bases:
+        atlas_digest.update(
+            np.ascontiguousarray(basis.detach().cpu().numpy()).tobytes()
+        )
+    geometry_sha256 = _geometry_digest(geometry)
+    atlas_digest.update(geometry_sha256.encode("ascii"))
+    atlas_digest.update(
+        np.asarray((maximum_level, detail_channels), dtype="<i8").tobytes()
+    )
+    atlas = ConservativeLocalHaarAtlas(
+        token_node_indices=tuple(token_indices),
+        token_basis=tuple(token_bases),
+        selected_modes=mode_tensor,
+        selected_directions=direction_tensor,
+        selected_training_energy=energy_tensor,
+        state_mean=state_mean,
+        state_scale=state_scale,
+        geometry_sha256=geometry_sha256,
+        token_nx=geometry.token_nx,
+        token_ny=geometry.token_ny,
+        maximum_level=maximum_level,
+        detail_channels=detail_channels,
+        training_state_count=training_states.shape[0],
+        atlas_sha256=atlas_digest.hexdigest(),
+    )
+    return atlas, {
+        "training_states": training_states.shape[0],
+        "unique_geometry_patterns": len(basis_cache),
+        "minimum_local_basis_rank": min(basis.shape[1] for basis in token_bases),
+        "maximum_local_basis_rank": max(basis.shape[1] for basis in token_bases),
+        "minimum_selected_training_energy": float(energy_tensor.min().cpu()),
+        "maximum_selected_training_energy": float(energy_tensor.max().cpu()),
+        "atlas_sha256": atlas.atlas_sha256,
+        "per_state_fitting": False,
         "forecast_evidence": False,
     }
 

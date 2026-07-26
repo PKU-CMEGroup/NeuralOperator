@@ -61,6 +61,16 @@ from utility.time_dependent_no.pcno_ripple_diagnostics import (  # noqa: E402
 )
 
 
+BRANCH_GAIN_SENSITIVITY_SCHEMA = "pcno_euler2d_branch_gain_d052_v1"
+BRANCH_GAIN_HIGH_PASS_ELASTICITY_MIN = 0.10
+BRANCH_GAIN_NONINFERIORITY_ELASTICITY_MIN = -0.05
+BRANCH_GAIN_REQUIRED_CASES = 5
+BRANCH_GAIN_REQUIRED_CALLS = 3
+BRANCH_GAIN_TOTAL_CASES = 6
+BRANCH_GAIN_TRACE_CALLS = (1, 10, 30, 60)
+BRANCH_GAIN_TOTAL_CALLS = 4
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, required=True)
@@ -86,6 +96,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--basis-call", type=int, default=10)
     parser.add_argument("--perturbation-call", type=int, default=10)
     parser.add_argument("--perturbation-fraction", type=float, default=0.25)
+    parser.add_argument("--branch-sensitivity-step", type=float, default=0.0)
     parser.add_argument("--lanczos-steps", type=int, default=20)
     parser.add_argument("--shock-quantile", type=float, default=0.9)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
@@ -115,6 +126,10 @@ def validate_args(args: argparse.Namespace) -> None:
             raise ValueError(f"{name} must lie within the requested rollout")
     if not 0.0 < args.perturbation_fraction < 1.0:
         raise ValueError("perturbation fraction must lie in (0,1)")
+    if not 0.0 <= args.branch_sensitivity_step < 1.0:
+        raise ValueError("branch sensitivity step must lie in [0,1)")
+    if 0.0 < args.branch_sensitivity_step < 1e-4:
+        raise ValueError("positive branch sensitivity step must be at least 1e-4")
     if args.lanczos_steps < 2:
         raise ValueError("Lanczos steps must be at least two")
     if not 0.0 < args.shock_quantile < 1.0:
@@ -946,6 +961,431 @@ def _median(values: Sequence[float | None]) -> float | None:
         if value is not None and math.isfinite(float(value))
     ]
     return None if not finite else float(np.median(finite))
+
+
+def _branch_sensitivity_metrics(
+    prediction: np.ndarray,
+    target: np.ndarray,
+    *,
+    positions: np.ndarray,
+    edges: np.ndarray,
+    node_type: np.ndarray,
+    proxy_weights: np.ndarray,
+    component_scale: np.ndarray,
+    gamma: float,
+    shock_quantile: float,
+    fixed_smooth_mask: np.ndarray | None = None,
+) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
+    shock, masks = shock_diagnostics(
+        prediction,
+        target,
+        positions,
+        edges,
+        node_type,
+        proxy_weights,
+        component_scale,
+        gamma=gamma,
+        quantile=shock_quantile,
+        phase_alignment=False,
+    )
+    metrics: dict[str, Any] = {
+        "state_error": weighted_relative_l2_numpy(
+            prediction, target, proxy_weights, component_scale
+        ),
+        "admissibility": raw_admissibility_summary(prediction, gamma=gamma),
+        "smooth_highpass_error": None,
+        "front_position_error": None,
+        "shock_strength_deviation": None,
+        "shock_thickness_deviation": None,
+        "median_edge_length": _scalar(shock.get("median_edge_length")),
+    }
+    if not masks:
+        return metrics, masks
+    smooth = (
+        np.asarray(fixed_smooth_mask, dtype=bool)
+        if fixed_smooth_mask is not None
+        else np.asarray(masks["smooth"], dtype=bool)
+    )
+    if smooth.shape != (prediction.shape[0],) or not np.any(smooth):
+        raise ValueError("frozen sensitivity smooth mask must select nodes")
+    scaled_error = (prediction - target) / component_scale.reshape(1, -1)
+    highpass = node_highpass_amplitude(scaled_error, edges)
+    mass = normalized_node_weights(proxy_weights, name="branch sensitivity")
+    metrics["smooth_highpass_error"] = float(
+        np.sqrt(np.sum(mass[smooth] * highpass[smooth] ** 2) / np.sum(mass[smooth]))
+    )
+    metrics["front_position_error"] = _scalar(
+        shock.get("front_centroid_distance_proxy_weighted")
+    )
+    for metric_name, ratio_name in (
+        ("shock_strength_deviation", "strength_ratio"),
+        ("shock_thickness_deviation", "thickness_ratio"),
+    ):
+        ratio = _scalar(shock.get(ratio_name))
+        metrics[metric_name] = None if ratio is None else abs(float(ratio) - 1.0)
+    return metrics, masks
+
+
+def _lower_is_better_gain_response(
+    base: float | None,
+    attenuated: float | None,
+    *,
+    step: float,
+    scale_floor: float,
+) -> tuple[float | None, float | None]:
+    if base is None or attenuated is None:
+        return None, None
+    base_value = float(base)
+    attenuated_value = float(attenuated)
+    if not math.isfinite(base_value) or not math.isfinite(attenuated_value):
+        return None, None
+    derivative = (base_value - attenuated_value) / step
+    elasticity = derivative / max(abs(base_value), float(scale_floor))
+    return float(derivative), float(elasticity)
+
+
+@torch.no_grad()
+def branch_gain_sensitivity_trace(
+    *,
+    trajectory: str,
+    source: str,
+    call_index: int,
+    model: PCNOEuler2DResidual,
+    sample: Mapping[str, torch.Tensor],
+    current: torch.Tensor,
+    target: np.ndarray,
+    positions: np.ndarray,
+    edges: np.ndarray,
+    node_type: np.ndarray,
+    proxy_weights: np.ndarray,
+    step: float,
+    shock_quantile: float,
+) -> dict[str, Any]:
+    """Estimate one-sided final-output sensitivity at every trained branch gain."""
+
+    if not 0.0 < step < 1.0:
+        raise ValueError("branch sensitivity step must lie in (0,1)")
+    model_input = model.normalized_input(
+        current,
+        nodes=sample["nodes"],
+        node_rhos=sample["node_rhos"],
+        node_type=sample["node_type"],
+        mach=sample["mach"],
+    )
+    aux = (
+        sample["node_mask"],
+        sample["nodes"],
+        sample["node_weights"],
+        sample["directed_edges"],
+        sample["edge_gradient_weights"],
+    )
+    normalized_base, _ = trace_pcno_branches(
+        model.backbone,
+        model_input,
+        aux,
+        collect_summaries=False,
+    )
+    traced_base = (current + normalized_base * model.residual_scale) * sample[
+        "node_mask"
+    ]
+    direct_base = model_call(model, sample, current)
+    replay_error = float(torch.max(torch.abs(traced_base - direct_base)).cpu())
+    base_prediction = traced_base[0].float().cpu().numpy()
+    component_scale = model.state_scale.detach().cpu().numpy().reshape(-1)
+    base_metrics, base_masks = _branch_sensitivity_metrics(
+        base_prediction,
+        target,
+        positions=positions,
+        edges=edges,
+        node_type=node_type,
+        proxy_weights=proxy_weights,
+        component_scale=component_scale,
+        gamma=model.gamma,
+        shock_quantile=shock_quantile,
+    )
+    if not base_masks:
+        raise ValueError("branch sensitivity requires an available shock-region mask")
+    frozen_smooth = np.asarray(base_masks["smooth"], dtype=bool)
+    interventions: list[dict[str, Any]] = []
+    metric_names = (
+        "state_error",
+        "smooth_highpass_error",
+        "front_position_error",
+        "shock_strength_deviation",
+        "shock_thickness_deviation",
+    )
+    for layer_index in range(len(model.backbone.ws)):
+        for branch_name in ("spectral", "pointwise", "differential"):
+            normalized_attenuated, _ = trace_pcno_branches(
+                model.backbone,
+                model_input,
+                aux,
+                branch_gains={(layer_index, branch_name): 1.0 - step},
+                collect_summaries=False,
+            )
+            attenuated_tensor = (
+                current + normalized_attenuated * model.residual_scale
+            ) * sample["node_mask"]
+            attenuated_prediction = attenuated_tensor[0].float().cpu().numpy()
+            attenuated_metrics, _ = _branch_sensitivity_metrics(
+                attenuated_prediction,
+                target,
+                positions=positions,
+                edges=edges,
+                node_type=node_type,
+                proxy_weights=proxy_weights,
+                component_scale=component_scale,
+                gamma=model.gamma,
+                shock_quantile=shock_quantile,
+                fixed_smooth_mask=frozen_smooth,
+            )
+            edge_scale = base_metrics["median_edge_length"]
+            scale_floors = {
+                "state_error": 1e-8,
+                "smooth_highpass_error": 1e-8,
+                "front_position_error": (
+                    1e-8 if edge_scale is None else max(float(edge_scale), 1e-8)
+                ),
+                "shock_strength_deviation": 0.05,
+                "shock_thickness_deviation": 0.05,
+            }
+            derivatives: dict[str, float | None] = {}
+            elasticities: dict[str, float | None] = {}
+            for metric_name in metric_names:
+                derivative, elasticity = _lower_is_better_gain_response(
+                    base_metrics[metric_name],
+                    attenuated_metrics[metric_name],
+                    step=step,
+                    scale_floor=scale_floors[metric_name],
+                )
+                derivatives[metric_name] = derivative
+                elasticities[metric_name] = elasticity
+            admissibility = attenuated_metrics["admissibility"]
+            interventions.append(
+                {
+                    "layer": layer_index,
+                    "branch": branch_name,
+                    "attenuated_gain": 1.0 - step,
+                    "metrics": attenuated_metrics,
+                    "metric_derivative_wrt_gain": derivatives,
+                    "attenuation_improvement_elasticity": elasticities,
+                    "prediction_change_norm": _weighted_scaled_norm(
+                        attenuated_prediction - base_prediction,
+                        proxy_weights,
+                        component_scale,
+                    ),
+                    "max_absolute_prediction_change": float(
+                        np.max(np.abs(attenuated_prediction - base_prediction))
+                    ),
+                    "attenuated_admissible": bool(
+                        admissibility["all_finite"] and admissibility["all_admissible"]
+                    ),
+                }
+            )
+
+    branch_decisions: dict[str, Any] = {}
+    for branch_name in ("spectral", "pointwise", "differential"):
+        rows = [row for row in interventions if row["branch"] == branch_name]
+        medians = {
+            metric_name: _median(
+                [row["attenuation_improvement_elasticity"][metric_name] for row in rows]
+            )
+            for metric_name in metric_names
+        }
+        highpass = medians["smooth_highpass_error"]
+        noninferiority = [
+            medians[name]
+            for name in (
+                "state_error",
+                "front_position_error",
+                "shock_strength_deviation",
+                "shock_thickness_deviation",
+            )
+        ]
+        passes = (
+            highpass is not None
+            and highpass >= BRANCH_GAIN_HIGH_PASS_ELASTICITY_MIN
+            and all(
+                value is not None and value >= BRANCH_GAIN_NONINFERIORITY_ELASTICITY_MIN
+                for value in noninferiority
+            )
+            and all(row["attenuated_admissible"] for row in rows)
+        )
+        branch_decisions[branch_name] = {
+            "passes_row_gate": bool(passes),
+            "median_attenuation_improvement_elasticity_across_layers": medians,
+            "all_attenuated_calls_admissible": all(
+                row["attenuated_admissible"] for row in rows
+            ),
+        }
+    return {
+        "schema": BRANCH_GAIN_SENSITIVITY_SCHEMA,
+        "trajectory": trajectory,
+        "source": source,
+        "call_index": int(call_index),
+        "one_sided_step": float(step),
+        "exact_replay_max_absolute_error": replay_error,
+        "base_metrics": base_metrics,
+        "smooth_mask_contract": (
+            "base_prediction_target_front_union_frozen_across_gain_calls"
+        ),
+        "interventions": interventions,
+        "branch_decisions": branch_decisions,
+        "thresholds": {
+            "minimum_smooth_highpass_elasticity": (
+                BRANCH_GAIN_HIGH_PASS_ELASTICITY_MIN
+            ),
+            "minimum_state_and_shock_elasticity": (
+                BRANCH_GAIN_NONINFERIORITY_ELASTICITY_MIN
+            ),
+        },
+        "claim_boundary": (
+            "one-sided frozen off-path sensitivity, not a trained ablation "
+            "or proof of causal independence"
+        ),
+    }
+
+
+def branch_gain_sensitivity_selector(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    expected_calls: Sequence[int] = BRANCH_GAIN_TRACE_CALLS,
+) -> dict[str, Any]:
+    """Route branch sensitivity after the declared six-case/four-call gate."""
+
+    expected = sorted(set(int(value) for value in expected_calls))
+    if not expected or expected[0] < 1:
+        raise ValueError("branch-gain selection requires positive expected calls")
+
+    selected_rows = [
+        row
+        for row in rows
+        if row.get("schema") == BRANCH_GAIN_SENSITIVITY_SCHEMA
+        and row.get("source") in {"teacher_forced", "rollout_state"}
+    ]
+    trajectories = sorted({str(row["trajectory"]) for row in selected_rows})
+    calls = sorted({int(row["call_index"]) for row in selected_rows})
+    row_map: dict[tuple[str, str, int], Mapping[str, Any]] = {}
+    duplicate_keys: list[tuple[str, str, int]] = []
+    for row in selected_rows:
+        key = (
+            str(row["source"]),
+            str(row["trajectory"]),
+            int(row["call_index"]),
+        )
+        if key in row_map:
+            duplicate_keys.append(key)
+        row_map[key] = row
+
+    contract_complete = (
+        not duplicate_keys
+        and len(trajectories) == BRANCH_GAIN_TOTAL_CASES
+        and len(expected) == BRANCH_GAIN_TOTAL_CALLS
+        and calls == expected
+        and all(
+            (source, trajectory, call_index) in row_map
+            for source in ("teacher_forced", "rollout_state")
+            for trajectory in trajectories
+            for call_index in calls
+        )
+    )
+    source_summaries: dict[str, Any] = {}
+    branches = ("spectral", "pointwise", "differential")
+    for source in ("teacher_forced", "rollout_state"):
+        branch_summaries: dict[str, Any] = {}
+        for branch_name in branches:
+            case_rows = []
+            for trajectory in trajectories:
+                available_calls = []
+                passing_calls = []
+                for call_index in calls:
+                    row = row_map.get((source, trajectory, call_index))
+                    if row is None:
+                        continue
+                    available_calls.append(call_index)
+                    decision = _nested(
+                        row,
+                        "branch_decisions",
+                        branch_name,
+                        "passes_row_gate",
+                    )
+                    if decision is True:
+                        passing_calls.append(call_index)
+                passes_case = (
+                    len(available_calls) == BRANCH_GAIN_TOTAL_CALLS
+                    and len(passing_calls) >= BRANCH_GAIN_REQUIRED_CALLS
+                )
+                case_rows.append(
+                    {
+                        "trajectory": trajectory,
+                        "available_calls": available_calls,
+                        "passing_calls": passing_calls,
+                        "passes_case_gate": passes_case,
+                    }
+                )
+            passing_cases = sum(int(row["passes_case_gate"]) for row in case_rows)
+            branch_summaries[branch_name] = {
+                "passes_source_gate": (
+                    contract_complete and passing_cases >= BRANCH_GAIN_REQUIRED_CASES
+                ),
+                "passing_case_count": passing_cases,
+                "case_rows": case_rows,
+            }
+        source_summaries[source] = {
+            "branches": branch_summaries,
+            "qualified_branches": [
+                name
+                for name, summary in branch_summaries.items()
+                if summary["passes_source_gate"]
+            ],
+        }
+
+    teacher = source_summaries["teacher_forced"]["qualified_branches"]
+    rollout = source_summaries["rollout_state"]["qualified_branches"]
+    selected_branch = None
+    if not contract_complete:
+        route = "insufficient_repeated_rows"
+        classification = "incomplete_frozen_contract"
+    elif len(teacher) == 1 and len(rollout) == 1 and teacher == rollout:
+        selected_branch = teacher[0]
+        route = {
+            "spectral": "directional_localized_spectral_capacity",
+            "pointwise": "bounded_highband_aware_pointwise_capacity",
+            "differential": "current_state_nonlinear_stencil_capacity",
+        }[selected_branch]
+        classification = "teacher_and_rollout_branch_consistent"
+    elif not teacher and len(rollout) == 1:
+        selected_branch = rollout[0]
+        route = "generated_state_exposure_after_one_step_gate"
+        classification = "rollout_specific_branch_sensitivity"
+    else:
+        route = "stop_line3_architecture_tinkering"
+        classification = "composite_or_unresolved"
+
+    return {
+        "version": "branch_gain_sensitivity_selector_d052_v2_stride_aware",
+        "contract_complete": contract_complete,
+        "trajectory_count": len(trajectories),
+        "call_count": len(calls),
+        "trajectories": trajectories,
+        "calls": calls,
+        "duplicate_keys": [list(key) for key in duplicate_keys],
+        "classification": classification,
+        "route": route,
+        "selected_branch": selected_branch,
+        "source_summaries": source_summaries,
+        "repetition_gate": {
+            "total_cases": BRANCH_GAIN_TOTAL_CASES,
+            "required_passing_cases": BRANCH_GAIN_REQUIRED_CASES,
+            "total_calls": BRANCH_GAIN_TOTAL_CALLS,
+            "required_passing_calls_per_case": BRANCH_GAIN_REQUIRED_CALLS,
+            "exact_calls": expected,
+        },
+        "claim_boundary": (
+            "selector routes one zero-training capacity test only; finite gain "
+            "sensitivities do not establish an independently causal branch"
+        ),
+    }
 
 
 def _nonnegative_diagnostic_ratio(
@@ -1850,10 +2290,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     call_rows: list[dict[str, Any]] = []
     basis_rows: list[dict[str, Any]] = []
     branch_rows: list[dict[str, Any]] = []
+    branch_sensitivity_rows: list[dict[str, Any]] = []
     perturbation_rows: list[dict[str, Any]] = []
     trajectory_rows: list[dict[str, Any]] = []
     calls_path = args.output_dir / "calls.jsonl"
     branches_path = args.output_dir / "branches.jsonl"
+    branch_sensitivities_path = args.output_dir / "branch_sensitivities.jsonl"
     for trajectory_index, key in enumerate(keys):
         states = store.states(key)
         final_target_index = args.start_frame + args.num_steps * step_stride
@@ -2029,6 +2471,24 @@ def main(argv: Sequence[str] | None = None) -> None:
                     trace["trajectory"] = key
                     branch_rows.append(trace)
                     append_jsonl(branches_path, trace)
+                    if args.branch_sensitivity_step > 0.0:
+                        sensitivity = branch_gain_sensitivity_trace(
+                            trajectory=key,
+                            source=source,
+                            call_index=call_index,
+                            model=model,
+                            sample=sample,
+                            current=trace_current,
+                            target=target_np,
+                            positions=positions,
+                            edges=edges,
+                            node_type=node_type,
+                            proxy_weights=proxy_weights,
+                            step=args.branch_sensitivity_step,
+                            shock_quantile=args.shock_quantile,
+                        )
+                        branch_sensitivity_rows.append(sensitivity)
+                        append_jsonl(branch_sensitivities_path, sensitivity)
             current = proposal
 
         valid_length = len(predictions)
@@ -2221,6 +2681,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             "physical_delta_t": dt,
             "diagnostic_calls": args.diagnostic_calls,
             "trace_calls": args.trace_calls,
+            "branch_sensitivity_step": args.branch_sensitivity_step,
             "basis_call": args.basis_call,
             "perturbation_call": args.perturbation_call,
             "device": str(device),
@@ -2232,6 +2693,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         ),
         "basis_audits": basis_rows,
         "paired_branch_response": paired_branch_response_summary(branch_rows),
+        "branch_gain_sensitivity": (
+            {
+                "status": "disabled",
+                "row_count": 0,
+                "selector": branch_gain_sensitivity_selector(
+                    [], expected_calls=args.trace_calls
+                ),
+            }
+            if args.branch_sensitivity_step == 0.0
+            else {
+                "status": "complete",
+                "row_count": len(branch_sensitivity_rows),
+                "selector": branch_gain_sensitivity_selector(
+                    branch_sensitivity_rows, expected_calls=args.trace_calls
+                ),
+            }
+        ),
         "mechanism_screen": screen,
         "line2_d014_interface": line2_interface(args.line2_d014_summary),
         "architecture_reach": {
@@ -2247,6 +2725,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         },
         "diagnostic_contract": {
             "primary_spectrum": "generalized graph Laplacian Lanczos bands",
+            "branch_band_transfer": (
+                "two-level neighbor-average low/mid/high proxy; exact "
+                "reconstruction but nonorthogonal energies"
+            ),
             "fft": "not used",
             "weights": {
                 "reconstructed_weight_proxy": (
@@ -2284,6 +2766,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             "calls_jsonl": "per-call shock, spectrum, geometry, admissibility",
             "branches_jsonl": (
                 "branchwise, paired-delta, cancellation, and counterfactual summaries"
+            ),
+            "branch_sensitivities_jsonl": (
+                "one-sided per-layer/branch final-output gain sensitivities"
             ),
             "basis_npz": "Gram matrices and both basis reconstructions",
         },

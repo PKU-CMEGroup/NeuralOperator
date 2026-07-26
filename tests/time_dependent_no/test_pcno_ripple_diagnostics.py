@@ -12,11 +12,19 @@ import torch
 
 from pcno.pcno import PCNO
 from scripts.time_dependent_no.diagnose_pcno_euler2d_ripples import (
+    BRANCH_GAIN_SENSITIVITY_SCHEMA,
     branch_cancellation_screen,
+    branch_gain_sensitivity_selector,
     main as diagnose_main,
     mechanism_screen,
     paired_branch_response_selector,
     paired_branch_response_summary,
+)
+from scripts.time_dependent_no.decompose_pcno_euler2d_rollout_error import (
+    ERROR_SOURCE_SCHEMA,
+    error_source_selector,
+    main as decompose_main,
+    weighted_decomposition_metrics,
 )
 from scripts.time_dependent_no.prepare_pcno_euler2d_shards import (
     main as prepare_main,
@@ -32,6 +40,8 @@ from utility.time_dependent_no.pcno_ripple_diagnostics import (
     fourier_reconstruction_audit,
     geometry_conditioning_features,
     graph_spectral_bands,
+    node_highpass_amplitude,
+    node_highpass_field,
     raw_admissibility_summary,
     spatial_correlation_summary,
     trace_pcno_branches,
@@ -237,6 +247,23 @@ def test_branch_trace_replays_pcno_and_supports_counterfactual() -> None:
         torch.testing.assert_close(value, original_state[name], rtol=0.0, atol=0.0)
     assert len(paired_summaries) == 2
     for layer in paired_summaries:
+        assert "input_hidden" in layer
+        assert "post_activation_hidden" in layer
+        bands = layer["graph_band_proxy"]
+        assert set(bands) == {
+            "input_hidden",
+            "spectral",
+            "pointwise",
+            "differential",
+            "combined_update",
+            "post_activation_hidden",
+        }
+        smooth_band = bands["spectral"]["regions"]["smooth_reference"]
+        assert smooth_band["equal_node_proxy"]["status"] == "available"
+        assert (
+            smooth_band["equal_node_proxy"]["relative_reconstruction_energy_residual"]
+            < 1e-6
+        )
         cancellation = layer["smooth_highpass_cancellation"]
         assert set(cancellation) == {
             "equal_node_proxy",
@@ -483,6 +510,178 @@ def test_paired_branch_selector_requires_repeated_layerwise_agreement() -> None:
     )
 
 
+def test_branch_gain_selector_requires_six_cases_and_four_calls() -> None:
+    def rows(
+        *,
+        teacher_branch: str | None,
+        rollout_branch: str | None,
+        calls: tuple[int, ...] = (1, 10, 30, 60),
+    ) -> list[dict]:
+        result = []
+        for source, selected in (
+            ("teacher_forced", teacher_branch),
+            ("rollout_state", rollout_branch),
+        ):
+            for trajectory_index in range(6):
+                for call_index in calls:
+                    result.append(
+                        {
+                            "schema": BRANCH_GAIN_SENSITIVITY_SCHEMA,
+                            "source": source,
+                            "trajectory": str(trajectory_index),
+                            "call_index": call_index,
+                            "branch_decisions": {
+                                name: {"passes_row_gate": name == selected}
+                                for name in (
+                                    "spectral",
+                                    "pointwise",
+                                    "differential",
+                                )
+                            },
+                        }
+                    )
+        return result
+
+    differential = branch_gain_sensitivity_selector(
+        rows(
+            teacher_branch="differential",
+            rollout_branch="differential",
+        )
+    )
+    assert differential["contract_complete"]
+    assert differential["selected_branch"] == "differential"
+    assert differential["route"] == "current_state_nonlinear_stencil_capacity"
+
+    rollout_only = branch_gain_sensitivity_selector(
+        rows(teacher_branch=None, rollout_branch="pointwise")
+    )
+    assert rollout_only["selected_branch"] == "pointwise"
+    assert rollout_only["route"] == "generated_state_exposure_after_one_step_gate"
+
+    stride_two_calls = (1, 5, 15, 30)
+    stride_two = branch_gain_sensitivity_selector(
+        rows(
+            teacher_branch="pointwise",
+            rollout_branch="pointwise",
+            calls=stride_two_calls,
+        ),
+        expected_calls=stride_two_calls,
+    )
+    assert stride_two["contract_complete"]
+    assert (
+        stride_two["version"] == "branch_gain_sensitivity_selector_d052_v2_stride_aware"
+    )
+    assert stride_two["repetition_gate"]["exact_calls"] == list(stride_two_calls)
+    assert stride_two["selected_branch"] == "pointwise"
+
+    mismatched_calls = branch_gain_sensitivity_selector(
+        rows(
+            teacher_branch="pointwise",
+            rollout_branch="pointwise",
+            calls=stride_two_calls,
+        )
+    )
+    assert not mismatched_calls["contract_complete"]
+    assert mismatched_calls["route"] == "insufficient_repeated_rows"
+
+    incomplete_rows = rows(
+        teacher_branch="spectral",
+        rollout_branch="spectral",
+    )[:-1]
+    incomplete = branch_gain_sensitivity_selector(incomplete_rows)
+    assert not incomplete["contract_complete"]
+    assert incomplete["route"] == "insufficient_repeated_rows"
+
+
+def test_linear_highpass_and_additive_error_decomposition_close() -> None:
+    edges = np.asarray([[0, 1], [1, 2], [2, 3]], dtype=np.int64)
+    left = np.arange(8, dtype=np.float64).reshape(4, 2)
+    right = np.flip(left, axis=0).copy()
+    np.testing.assert_allclose(
+        node_highpass_field(left + right, edges),
+        node_highpass_field(left, edges) + node_highpass_field(right, edges),
+        atol=1e-14,
+    )
+    np.testing.assert_allclose(
+        node_highpass_amplitude(left, edges),
+        np.linalg.norm(node_highpass_field(left, edges), axis=-1),
+    )
+
+    propagated = np.full((4, 2), 2.0)
+    fresh = np.ones((4, 2))
+    metrics = weighted_decomposition_metrics(
+        propagated + fresh,
+        propagated,
+        fresh,
+        np.ones(4),
+    )
+    assert metrics["status"] == "available"
+    assert metrics["propagated_magnitude_share"] == pytest.approx(2.0 / 3.0)
+    assert metrics["propagated_fresh_cosine"] == pytest.approx(1.0)
+    assert metrics["relative_reconstruction_residual"] < 1e-14
+    assert metrics["relative_energy_identity_residual"] < 1e-14
+    assert (
+        metrics["propagated_energy_fraction_of_total"]
+        + metrics["fresh_defect_energy_fraction_of_total"]
+        + metrics["cross_energy_fraction_of_total"]
+    ) == pytest.approx(1.0)
+
+
+def test_error_source_selector_requires_repeated_full_and_highpass_dominance() -> None:
+    def rows(full_late: float, high_late: float) -> list[dict]:
+        def region(share: float) -> dict:
+            return {
+                "status": "available",
+                "propagated_magnitude_share": share,
+                "relative_reconstruction_residual": 0.0,
+                "relative_energy_identity_residual": 0.0,
+            }
+
+        result = []
+        for trajectory in range(6):
+            for call_index in range(1, 61):
+                full_share = 0.0 if call_index == 1 else 0.5
+                high_share = 0.0 if call_index == 1 else 0.5
+                if call_index in (30, 60):
+                    full_share = full_late
+                    high_share = high_late
+                result.append(
+                    {
+                        "schema": ERROR_SOURCE_SCHEMA,
+                        "trajectory": str(trajectory),
+                        "call_index": call_index,
+                        "regions": {
+                            "interior_full": region(full_share),
+                            "smooth_highpass": region(high_share),
+                        },
+                        "mask_contract": {"smooth_fallback_to_interior": False},
+                        "source_replay": {"max_absolute_error": 0.0},
+                        "admissibility": {
+                            "rollout_prediction": {"all_admissible": True},
+                            "teacher_prediction": {"all_admissible": True},
+                        },
+                    }
+                )
+        return result
+
+    propagated = error_source_selector(rows(0.8, 0.75))
+    assert propagated["contract_complete"]
+    assert propagated["classification"] == "propagation_dominated"
+    assert propagated["route"].startswith("one_matched_short")
+
+    fresh = error_source_selector(rows(0.2, 0.3))
+    assert fresh["classification"] == "fresh_teacher_defect_dominated"
+    assert fresh["route"].startswith("target_or_representation")
+
+    split = error_source_selector(rows(0.8, 0.2))
+    assert split["classification"] == "mixed_or_split"
+    assert split["route"] == "no_learned_method"
+
+    incomplete = error_source_selector(rows(0.8, 0.75)[:-1])
+    assert not incomplete["contract_complete"]
+    assert incomplete["classification"] == "incomplete_contract"
+
+
 def test_mechanism_screen_routes_only_unique_supported_failure() -> None:
     def row(source: str, call: int, energy: float) -> dict:
         return {
@@ -583,6 +782,12 @@ def test_d013_cli_writes_closed_raw_recurrence_bundle(tmp_path) -> None:
             "all",
         ]
     )
+    manifest_path = shards / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["weight_provenance"] = "validated_physical_cell_volume_normalized"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     store = PCNOEuler2DShardStore(shards)
     normalization = fit_normalization(store, ["0"])
     model = PCNOEuler2DResidual(
@@ -637,6 +842,8 @@ def test_d013_cli_writes_closed_raw_recurrence_bundle(tmp_path) -> None:
             "1",
             "--perturbation-call",
             "1",
+            "--branch-sensitivity-step",
+            "0.01",
             "--device",
             "cpu",
         ]
@@ -681,3 +888,60 @@ def test_d013_cli_writes_closed_raw_recurrence_bundle(tmp_path) -> None:
     )
     assert all("paired_response" in layer for layer in paired["layers"])
     assert all("smooth_highpass_cancellation" in layer for layer in paired["layers"])
+    sensitivity_rows = [
+        json.loads(line)
+        for line in (output / "branch_sensitivities.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert len(sensitivity_rows) == 4
+    assert summary["branch_gain_sensitivity"]["row_count"] == 4
+    assert (
+        summary["branch_gain_sensitivity"]["selector"]["route"]
+        == "insufficient_repeated_rows"
+    )
+    for row in sensitivity_rows:
+        assert row["schema"] == BRANCH_GAIN_SENSITIVITY_SCHEMA
+        assert row["exact_replay_max_absolute_error"] < 1e-5
+        assert len(row["interventions"]) == 3 * len(model.backbone.ws)
+        assert set(row["branch_decisions"]) == {
+            "spectral",
+            "pointwise",
+            "differential",
+        }
+
+    decomposition_output = tmp_path / "error_decomposition"
+    decompose_main(
+        [
+            "--data-dir",
+            str(shards),
+            "--checkpoint",
+            str(checkpoint),
+            "--source-dir",
+            str(output),
+            "--output-dir",
+            str(decomposition_output),
+            "--device",
+            "cpu",
+        ]
+    )
+    decomposition = json.loads(
+        (decomposition_output / "summary.json").read_text(encoding="utf-8")
+    )
+    assert decomposition["status"] == "complete"
+    assert decomposition["evaluation"]["row_count"] == 2
+    assert (
+        decomposition["decomposition_contract"]["maximum_identity_relative_residual"]
+        < 1e-10
+    )
+    assert decomposition["selector"]["classification"] == "incomplete_contract"
+    error_rows = [
+        json.loads(line)
+        for line in (decomposition_output / "error_sources.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert len(error_rows) == 2
+    assert error_rows[0]["regions"]["interior_full"][
+        "propagated_magnitude_share"
+    ] == pytest.approx(0.0, abs=1e-8)

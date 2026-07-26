@@ -789,11 +789,12 @@ def induced_subgraph(
     return values[selected], remapping[kept_edges], restricted_weights[selected]
 
 
-def node_highpass_amplitude(field: np.ndarray, edges: np.ndarray) -> np.ndarray:
-    """Return norm of node value minus self-plus-neighbor graph average."""
+def node_highpass_field(field: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Return the linear self-plus-neighbor graph high-pass field."""
 
     values = np.asarray(field, dtype=np.float64)
-    if values.ndim == 1:
+    squeeze = values.ndim == 1
+    if squeeze:
         values = values[:, None]
     if values.ndim != 2:
         raise ValueError("high-pass field must have shape [N,C]")
@@ -807,6 +808,15 @@ def node_highpass_amplitude(field: np.ndarray, edges: np.ndarray) -> np.ndarray:
     np.add.at(degree, source, 1.0)
     np.add.at(degree, target, 1.0)
     highpass = values - aggregate / degree[:, None]
+    return highpass[:, 0] if squeeze else highpass
+
+
+def node_highpass_amplitude(field: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Return norm of node value minus self-plus-neighbor graph average."""
+
+    highpass = node_highpass_field(field, edges)
+    if highpass.ndim == 1:
+        return np.abs(highpass)
     return np.linalg.norm(highpass, axis=-1)
 
 
@@ -1203,6 +1213,127 @@ def _torch_smooth_highpass_energy_decomposition(
     return result
 
 
+def _torch_neighbor_band_proxy(
+    value: torch.Tensor,
+    *,
+    directed_edges: torch.Tensor,
+    node_mask: torch.Tensor,
+    region_masks: Mapping[str, torch.Tensor],
+    weight_maps: Mapping[str, torch.Tensor],
+) -> dict[str, Any]:
+    """Summarize a scalable, nonorthogonal three-band graph decomposition.
+
+    The bands use two applications of the D013 self-plus-neighbor average:
+    high=x-Sx, mid=Sx-S^2x, and low=S^2x. They reconstruct the input exactly
+    but are not graph-Laplacian eigenspaces, so their energy shares are
+    explicitly diagnostic proxies rather than an orthogonal spectrum.
+    """
+
+    if value.ndim != 3:
+        raise ValueError("band-proxy tensors must have shape [B,C,N]")
+    batch_size, channels, num_nodes = value.shape
+    if not region_masks:
+        raise ValueError("at least one band-proxy region mask is required")
+    if not weight_maps:
+        raise ValueError("at least one band-proxy weight map is required")
+
+    value_bnc = value.permute(0, 2, 1)
+    high = graph_neighbor_highpass(value_bnc, directed_edges, node_mask)
+    first_average = value_bnc - high
+    mid = graph_neighbor_highpass(first_average, directed_edges, node_mask)
+    low = first_average - mid
+    reconstructed = low + mid + high
+
+    if node_mask.shape == (batch_size, num_nodes, 1):
+        valid_nodes = node_mask[..., 0].to(dtype=torch.bool)
+    elif node_mask.shape == (batch_size, num_nodes):
+        valid_nodes = node_mask.to(dtype=torch.bool)
+    else:
+        raise ValueError("node mask must have shape [B,N] or [B,N,1]")
+
+    result: dict[str, Any] = {
+        "operator": "two_level_self_plus_directed_neighbor_average",
+        "orthogonal": False,
+        "bands": {"low": "S2x", "mid": "Sx-S2x", "high": "x-Sx"},
+        "regions": {},
+    }
+    band_values = {"low": low, "mid": mid, "high": high}
+    for region_name, raw_region in region_masks.items():
+        region = raw_region
+        if region.shape == (batch_size, num_nodes, 1):
+            region = region[..., 0]
+        if region.shape != (batch_size, num_nodes):
+            raise ValueError(
+                f"band-proxy region {region_name!r} must have shape [B,N] or [B,N,1]"
+            )
+        selected = region.to(device=value.device, dtype=torch.bool) & valid_nodes
+        region_result: dict[str, Any] = {}
+        for weight_name, raw_weights in weight_maps.items():
+            weights = raw_weights
+            if weights.shape == (batch_size, num_nodes, 1):
+                weights = weights[..., 0]
+            if weights.shape != (batch_size, num_nodes):
+                raise ValueError(
+                    f"band-proxy weight map {weight_name!r} must have shape "
+                    "[B,N] or [B,N,1]"
+                )
+            weights = weights.to(device=value.device, dtype=value.dtype)
+            if not bool(torch.isfinite(weights).all()) or bool((weights < 0.0).any()):
+                raise ValueError(
+                    f"band-proxy weight map {weight_name!r} must be finite "
+                    "and nonnegative"
+                )
+            selected_weights = weights * selected.to(dtype=weights.dtype)
+            selected_mass = selected_weights.sum()
+            node_count = int(selected.sum().detach().cpu())
+            if float(selected_mass.detach().cpu()) <= 0.0:
+                region_result[weight_name] = {
+                    "status": "unavailable_empty_or_zero_weight_region",
+                    "node_count": node_count,
+                }
+                continue
+            denominator = (selected_mass * channels).clamp_min(1e-30)
+
+            def energy(field: torch.Tensor) -> torch.Tensor:
+                return (
+                    selected_weights.unsqueeze(-1) * field.square()
+                ).sum() / denominator
+
+            original_energy = energy(value_bnc)
+            reconstructed_energy = energy(reconstructed)
+            band_energy = {name: energy(field) for name, field in band_values.items()}
+            sum_band_energy = sum(band_energy.values())
+            shares = {
+                name: float((item / sum_band_energy.clamp_min(1e-30)).detach().cpu())
+                for name, item in band_energy.items()
+            }
+            scale = torch.maximum(
+                original_energy.abs(), reconstructed_energy.abs()
+            ).clamp_min(1e-30)
+            region_result[weight_name] = {
+                "status": "available",
+                "node_count": node_count,
+                "original_rms": float(torch.sqrt(original_energy).detach().cpu()),
+                "band_rms": {
+                    name: float(torch.sqrt(item).detach().cpu())
+                    for name, item in band_energy.items()
+                },
+                "normalized_band_energy_share": shares,
+                "high_to_original_energy_ratio": float(
+                    (band_energy["high"] / original_energy.clamp_min(1e-30))
+                    .detach()
+                    .cpu()
+                ),
+                "relative_reconstruction_energy_residual": float(
+                    ((reconstructed_energy - original_energy).abs() / scale)
+                    .detach()
+                    .cpu()
+                ),
+            }
+        result["regions"][region_name] = region_result
+    return result
+
+
 @torch.no_grad()
 def trace_pcno_branches(
     backbone: torch.nn.Module,
@@ -1356,6 +1487,9 @@ def trace_pcno_branches(
             layer_summary = {
                 "layer": index,
                 "branch_gains": layer_gains,
+                "input_hidden": _torch_branch_stats(
+                    hidden, node_weights, directed_edges
+                ),
                 "branches": stats,
                 "combined": combined_stats,
                 "combined_to_sum_branch_rms": (
@@ -1401,6 +1535,38 @@ def trace_pcno_branches(
             next_hidden = hidden + backbone.act(update)
         else:
             next_hidden = update
+        if collect_summaries and layer_summary is not None:
+            layer_summary["post_activation_hidden"] = _torch_branch_stats(
+                next_hidden, node_weights, directed_edges
+            )
+            if (
+                reference_smooth_region_mask is not None
+                and diagnostic_weight_maps is not None
+            ):
+                valid_nodes = aux[0].to(dtype=torch.bool)
+                smooth_nodes = reference_smooth_region_mask.to(dtype=torch.bool)
+                layer_summary["graph_band_proxy"] = {
+                    name: _torch_neighbor_band_proxy(
+                        tensor,
+                        directed_edges=directed_edges,
+                        node_mask=aux[0],
+                        region_masks={
+                            "smooth_reference": smooth_nodes,
+                            "non_smooth_reference_complement": (
+                                valid_nodes & ~smooth_nodes
+                            ),
+                        },
+                        weight_maps=diagnostic_weight_maps,
+                    )
+                    for name, tensor in {
+                        "input_hidden": hidden,
+                        "spectral": spectral,
+                        "pointwise": pointwise,
+                        "differential": differential,
+                        "combined_update": update,
+                        "post_activation_hidden": next_hidden,
+                    }.items()
+                }
         if paired_original is not None and paired_hidden is not None:
             paired_update = sum(paired_original.values())
             if backbone.act is not None and index != final_layer:

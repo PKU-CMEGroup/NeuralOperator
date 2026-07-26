@@ -12,6 +12,9 @@ import torch
 from scripts.time_dependent_no.diagnose_euler2d_latent_code_reachability import (
     classify_reachability,
 )
+from scripts.time_dependent_no.diagnose_euler2d_latent_local_haar import (
+    classify_local_haar_capacity,
+)
 from scripts.time_dependent_no.train_euler2d_latent_representation import (
     _load_state_batch,
     _manifest_splits,
@@ -25,10 +28,12 @@ from utility.time_dependent_no.latent_representation_2d import (
     build_token_geometry,
     conditional_future_diagnostics,
     empirical_decoder_gains,
+    fit_conservative_local_haar_atlas,
     fit_frozen_decoder_code,
     fit_channel_whitener,
     reconstruction_metrics,
     representation_artifact_ledger,
+    repeat_token_geometry,
     token_weighted_mean,
     validate_line3_handoff,
 )
@@ -512,6 +517,156 @@ def test_weighted_pod_roundtrip_on_resolved_rank_two_data() -> None:
     assert pod.contract()["effective_rank"] == 2
     assert pod.contract()["resolution_contract"] == "fixed_mesh_only"
     assert pod.contract()["decode_reencode_projection"] is False
+
+
+def _sharp_haar_training_states(nodes: torch.Tensor) -> torch.Tensor:
+    base = _positive_state(nodes)[0]
+    x = nodes[:, 0]
+    y = nodes[:, 1]
+    patterns = (
+        torch.where(x < 1.0, -1.0, 1.0),
+        torch.where(y < 0.5, -1.0, 1.0),
+        torch.where((x < 1.0) == (y < 0.5), 1.0, -1.0),
+        torch.where(x < 0.5, -1.0, torch.where(x < 1.0, 1.0, 0.0)),
+    )
+    directions = torch.tensor(
+        [
+            [0.08, 0.04, 0.01, 0.20],
+            [0.03, -0.02, 0.02, 0.08],
+            [0.02, 0.01, -0.015, 0.05],
+            [0.04, 0.03, 0.00, 0.10],
+        ],
+        dtype=base.dtype,
+    )
+    return torch.stack(
+        [
+            base + pattern.unsqueeze(-1) * direction
+            for pattern, direction in zip(patterns, directions, strict=True)
+        ]
+    )
+
+
+def test_local_haar_atlas_is_deterministic_and_preserves_token_means() -> None:
+    nodes, volumes = _grid(8, 8)
+    geometry = build_token_geometry(nodes, volumes, token_nx=1, token_ny=1)
+    training = _sharp_haar_training_states(nodes)
+
+    atlas, diagnostics = fit_conservative_local_haar_atlas(
+        training,
+        geometry,
+        _normalization(),
+        detail_channels=16,
+        maximum_level=2,
+    )
+    second, _ = fit_conservative_local_haar_atlas(
+        training,
+        geometry,
+        _normalization(),
+        detail_channels=16,
+        maximum_level=2,
+    )
+    code = atlas.encode(training, geometry)
+    decoded = atlas.decode(code, geometry)
+    batch_geometry = repeat_token_geometry(geometry, training.shape[0])
+
+    torch.testing.assert_close(
+        token_weighted_mean(decoded, batch_geometry),
+        token_weighted_mean(training, batch_geometry),
+        rtol=2.0e-6,
+        atol=2.0e-6,
+    )
+    torch.testing.assert_close(atlas.selected_modes, second.selected_modes)
+    torch.testing.assert_close(
+        atlas.selected_directions,
+        second.selected_directions,
+    )
+    assert atlas.atlas_sha256 == second.atlas_sha256
+    assert code.shape == (4, 1, 20)
+    assert atlas.latent_size == 20
+    assert diagnostics["per_state_fitting"] is False
+    assert atlas.contract()["front_variables"] == 0
+    assert atlas.contract()["resolution_contract"].endswith("capacity_only")
+
+
+def test_local_haar_atlas_reconstructs_an_aligned_step_without_smoothing() -> None:
+    nodes, volumes = _grid(8, 8)
+    geometry = build_token_geometry(nodes, volumes, token_nx=1, token_ny=1)
+    training = _sharp_haar_training_states(nodes)
+    atlas, _ = fit_conservative_local_haar_atlas(
+        training,
+        geometry,
+        _normalization(),
+        detail_channels=16,
+        maximum_level=2,
+    )
+    target = training[:1]
+    decoded = atlas.decode(atlas.encode(target, geometry), geometry)
+    mean_only = token_weighted_mean(target, geometry).expand_as(target)
+    decoded_error = torch.mean((decoded - target).square())
+    mean_error = torch.mean((mean_only - target).square())
+
+    assert decoded_error < 1.0e-4 * mean_error
+    assert torch.unique(decoded[0, :, 0]).numel() > 2
+
+
+def test_local_haar_atlas_rejects_a_different_geometry() -> None:
+    nodes, volumes = _grid(8, 8)
+    geometry = build_token_geometry(nodes, volumes, token_nx=1, token_ny=1)
+    training = _sharp_haar_training_states(nodes)
+    atlas, _ = fit_conservative_local_haar_atlas(
+        training,
+        geometry,
+        _normalization(),
+        detail_channels=16,
+        maximum_level=2,
+    )
+    shifted_nodes = nodes.clone()
+    shifted_nodes[:, 0] += 1.0e-4
+    shifted = build_token_geometry(
+        shifted_nodes,
+        volumes,
+        token_nx=1,
+        token_ny=1,
+    )
+
+    with pytest.raises(ValueError, match="different frozen geometry"):
+        atlas.encode(training[:1], shifted)
+
+
+def test_local_haar_capacity_classification_requires_all_physical_gates() -> None:
+    aggregate = {
+        "mean_relative_l2": 0.0020,
+        "minimum_admissible_fraction": 1.0,
+        "mean_shock_strength_ratio": 0.99,
+        "mean_shock_thickness_ratio": 1.01,
+        "maximum_density_pressure_overshoot": 0.05,
+        "maximum_token_moment_relative_l2": 1.0e-7,
+        "maximum_global_budget_relative_l2_mean": 1.0e-7,
+    }
+    control = {"maximum_density_pressure_overshoot": 0.070851378}
+    contract = {
+        "latent_size": 5000,
+        "training_selected_detail_channels": 16,
+        "minimum_local_basis_rank": 99,
+        "minimum_selected_training_energy": 1.0e-8,
+    }
+
+    classification, gates = classify_local_haar_capacity(
+        aggregate,
+        control,
+        contract,
+    )
+    assert classification == "capacity_only_pass"
+    assert all(gates.values())
+
+    aggregate["mean_shock_thickness_ratio"] = 1.2
+    classification, gates = classify_local_haar_capacity(
+        aggregate,
+        control,
+        contract,
+    )
+    assert classification == "local_haar_capacity_rejected"
+    assert gates["mean_shock_thickness_within_5_percent"] is False
 
 
 def test_artifact_ledger_names_states_and_forbids_analysis() -> None:

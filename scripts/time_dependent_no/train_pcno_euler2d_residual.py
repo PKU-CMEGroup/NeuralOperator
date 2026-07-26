@@ -2610,6 +2610,13 @@ def main(argv: Sequence[str] | None = None) -> None:
         "elapsed_seconds": perf_counter() - run_start,
         "data_manifest_digest": store.manifest_digest,
         "config_digest": digest_mapping(jsonable_args(args)),
+        "code_sha256": {
+            "trainer": sha256_file(Path(__file__)),
+            "pcno_euler2d": sha256_file(
+                ROOT / "utility/time_dependent_no/pcno_euler2d.py"
+            ),
+            "pcno_core": sha256_file(ROOT / "pcno/pcno.py"),
+        },
         "parent_checkpoint": parent_checkpoint,
         "git": git_state(),
         "artifacts": {

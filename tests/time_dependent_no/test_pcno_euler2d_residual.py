@@ -628,6 +628,12 @@ def test_cpu_training_smoke_uses_requested_stride_and_writes_strict_json(
     assert summary["batch_size"] == 4
     assert summary["optimizer"]["scheduler"] == "constant"
     assert len(summary["config_digest"]) == 64
+    assert set(summary["code_sha256"]) == {
+        "trainer",
+        "pcno_euler2d",
+        "pcno_core",
+    }
+    assert all(len(value) == 64 for value in summary["code_sha256"].values())
     assert summary["parent_checkpoint"] is None
     assert summary["tiny_fit"]["passed"] is True
     assert len(split["rollout_keys"]) == 1

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
 
 from scripts.time_dependent_no.benchmark_pcno_shock_vortex_coarse_cfd import (
+    load_pcno_point,
     paired_case_bootstrap,
     select_full_grids,
 )
@@ -138,6 +141,54 @@ def test_pilot_selection_retains_cost_and_error_matches_without_a_sweep() -> Non
     assert selected["pilot_cost_match_grid"] == "50x20"
     assert selected["pilot_error_match_grid"] == "125x50"
     assert selected["selected_grids"] == ["50x20", "125x50"]
+
+
+def test_pcno_point_keeps_pilot_and_full_cohort_errors_distinct(tmp_path: Path) -> None:
+    call_metrics = tmp_path / "call_metrics.csv"
+    call_metrics.write_text(
+        "variant,call,trajectory,scaled_relative_l2_physical_volume\n"
+        "pcno_baseline,3,pilot_a,1.0\n"
+        "pcno_baseline,3,pilot_b,3.0\n"
+        "pcno_baseline,3,heldout,10.0\n",
+        encoding="utf-8",
+    )
+    trajectory_metrics = tmp_path / "trajectory_metrics.csv"
+    trajectory_metrics.write_text(
+        "variant,trajectory,total_forward_seconds\n"
+        "pcno_baseline,pilot_a,0.1\n"
+        "pcno_baseline,pilot_b,0.2\n"
+        "pcno_baseline,heldout,0.3\n",
+        encoding="utf-8",
+    )
+    contract = {
+        "source": {
+            "aggregates": {
+                "pcno_baseline": {
+                    "common_endpoint_mean_relative_l2": 14.0 / 3.0,
+                }
+            },
+            "cost": {
+                "throughput_samples_per_second": 120.0,
+                "throughput_batch_size": 4,
+            },
+        },
+        "num_steps": 3,
+        "keys": ["pilot_a", "pilot_b", "heldout"],
+        "pilot_keys": ["pilot_a", "pilot_b"],
+        "source_files": {
+            "call_metrics.csv": call_metrics,
+            "trajectory_metrics.csv": trajectory_metrics,
+        },
+        "timing": {"cost": {"contract": {"boundary": "device_resident"}}},
+        "pcno_horizon_seconds": 0.25,
+        "pcno_horizon_p95_envelope_seconds": 0.3,
+        "pcno_timing_p95_median_ratio": 1.2,
+    }
+
+    point = load_pcno_point(contract)
+
+    assert point["mean_horizon_error"] == pytest.approx(14.0 / 3.0)
+    assert point["pilot_mean_horizon_error"] == pytest.approx(2.0)
 
 
 def test_paired_case_bootstrap_reports_only_case_resampling() -> None:

@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=100:00:00
 
-module load conda
-source activate pytorch 
+source ~/.bashrc
+conda activate myconda
 
 GRAD="True"
 GEO="True"
@@ -21,9 +21,9 @@ BATCH_SIZE=8
 LAYERS=(64 64 64 64 64 64 64)
 ACT="gelu"
 
-GEO_ACT='soft_identity'
+GEO_ACT='softsign'
 
-K_MAX=8
+K_MAX=16
 # =============================
 
 

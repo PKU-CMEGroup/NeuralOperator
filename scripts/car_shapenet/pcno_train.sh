@@ -8,6 +8,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=100:00:00
 
-module load conda
-source activate pytorch 
+source ~/.bashrc
+conda activate myconda
+
 python pcno_car_test.py > PCNO_car.log

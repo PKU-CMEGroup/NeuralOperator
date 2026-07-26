@@ -31,9 +31,6 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.colors import ListedColormap, LogNorm
 
 if __package__:
-    from scripts.time_dependent_no.diagnose_euler1d_flow_map_solver_consistency import (
-        _validate_checkpoint_contract,
-    )
     from scripts.time_dependent_no.evaluate_euler1d_flow_map_frontier import (
         PHYSICAL_SCALES,
         _checkpoint_paths,
@@ -41,8 +38,7 @@ if __package__:
         _frozen_split,
         _predict_model_batch_state,
         _saved_time_sha256,
-    )
-    from scripts.time_dependent_no.evaluate_euler1d_resolution_transfer import (
+        _validate_checkpoint_contract,
         load_frozen_residual_checkpoint,
     )
     from scripts.time_dependent_no.train_euler1d_target_ladder import (
@@ -51,9 +47,6 @@ if __package__:
         sha256_file,
     )
 else:
-    from diagnose_euler1d_flow_map_solver_consistency import (
-        _validate_checkpoint_contract,
-    )
     from evaluate_euler1d_flow_map_frontier import (
         PHYSICAL_SCALES,
         _checkpoint_paths,
@@ -61,8 +54,7 @@ else:
         _frozen_split,
         _predict_model_batch_state,
         _saved_time_sha256,
-    )
-    from evaluate_euler1d_resolution_transfer import (
+        _validate_checkpoint_contract,
         load_frozen_residual_checkpoint,
     )
     from train_euler1d_target_ladder import (
@@ -149,8 +141,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "Optional per-mode table from diagnose_euler1d_scale_spectra.py; "
-            "enables common-scale modal heatmaps and band summaries."
+            "Optional frozen per-mode table; enables common-scale modal "
+            "heatmaps and band summaries."
         ),
     )
     ripple.add_argument("--output-dir", type=Path, required=True)

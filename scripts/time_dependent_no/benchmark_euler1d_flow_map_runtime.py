@@ -37,8 +37,6 @@ if __package__:
         _make_model_batch,
         _select_device,
         _synchronize,
-    )
-    from scripts.time_dependent_no.evaluate_euler1d_resolution_transfer import (
         load_frozen_residual_checkpoint,
     )
 else:
@@ -52,8 +50,6 @@ else:
         _make_model_batch,
         _select_device,
         _synchronize,
-    )
-    from evaluate_euler1d_resolution_transfer import (
         load_frozen_residual_checkpoint,
     )
 from utility.time_dependent_no.euler1d_data import (

@@ -23,19 +23,17 @@ import numpy as np
 import torch
 
 if __package__:
-    from scripts.time_dependent_no.evaluate_euler1d_resolution_transfer import (
-        load_frozen_residual_checkpoint,
-    )
     from scripts.time_dependent_no.train_euler1d_target_ladder import (
+        PrimitiveNormalizer,
+        build_model,
         json_ready,
         pressure_front_top2_metrics_np,
         sha256_file,
     )
 else:
-    from evaluate_euler1d_resolution_transfer import (
-        load_frozen_residual_checkpoint,
-    )
     from train_euler1d_target_ladder import (
+        PrimitiveNormalizer,
+        build_model,
         json_ready,
         pressure_front_top2_metrics_np,
         sha256_file,
@@ -48,9 +46,134 @@ from utility.time_dependent_no.euler1d_data import (
     load_euler1d_npz,
     primitive_to_conservative_np,
 )
+from utility.time_dependent_no.euler1d_targets import make_target_adapter
 
 EPS = 1.0e-12
 PHYSICAL_SCALES = np.array([1.0, 1.0, 2.5], dtype=np.float64)
+
+
+def _checkpoint_normalizer(
+    checkpoint: dict[str, Any],
+    prefix: str,
+    coordinates: str,
+    normalization: str,
+) -> PrimitiveNormalizer:
+    mean = torch.as_tensor(checkpoint[f"{prefix}_mean"], dtype=torch.float32).reshape(
+        1, 1, 3
+    )
+    std = torch.as_tensor(checkpoint[f"{prefix}_std"], dtype=torch.float32).reshape(
+        1, 1, 3
+    )
+    return PrimitiveNormalizer(
+        mean=mean,
+        std=std,
+        coordinates=coordinates,
+        normalization=normalization,
+    )
+
+
+def load_frozen_residual_checkpoint(
+    path: Path,
+    device: torch.device,
+) -> tuple[torch.nn.Module, torch.nn.Module, PrimitiveNormalizer, dict[str, Any]]:
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    if checkpoint.get("model") != "fno" or checkpoint.get("target") != "residual":
+        raise ValueError("resolution gate requires an FNO residual checkpoint")
+    checkpoint_args = dict(checkpoint.get("args", {}))
+    required_args = (
+        "fno_modes",
+        "fno_width",
+        "fno_layers",
+        "fno_fc_dim",
+        "fno_pad_ratio",
+        "input_coordinates",
+        "input_normalization",
+        "loss_coordinates",
+        "loss_normalization",
+        "recurrent_coordinates",
+        "step_stride",
+        "target_supervision",
+    )
+    missing = [key for key in required_args if key not in checkpoint_args]
+    if missing:
+        raise ValueError(f"checkpoint is missing required arguments: {missing}")
+    expected_contract = {
+        "input_coordinates": "conservative",
+        "input_normalization": "fixed_physical",
+        "loss_coordinates": "conservative",
+        "loss_normalization": "fixed_physical",
+        "recurrent_coordinates": "conservative",
+        "target_supervision": "state",
+    }
+    for key, expected in expected_contract.items():
+        if checkpoint_args[key] != expected:
+            raise ValueError(
+                f"checkpoint {key}={checkpoint_args[key]!r}, expected {expected!r}"
+            )
+    namespace = argparse.Namespace(**checkpoint_args)
+    input_normalizer = _checkpoint_normalizer(
+        checkpoint,
+        "input_normalizer",
+        checkpoint_args["input_coordinates"],
+        checkpoint_args["input_normalization"],
+    )
+    loss_normalizer = _checkpoint_normalizer(
+        checkpoint,
+        "normalizer",
+        checkpoint_args["loss_coordinates"],
+        checkpoint_args["loss_normalization"],
+    )
+    model = build_model("fno", "residual", namespace, input_normalizer).to(device)
+    model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    model.eval()
+    parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    if parameter_count != int(checkpoint["parameter_count"]):
+        raise ValueError("restored parameter count differs from checkpoint metadata")
+    adapter = make_target_adapter("residual").to(device)
+    return model, adapter, loss_normalizer, checkpoint
+
+
+def _validate_checkpoint_contract(
+    checkpoint: dict[str, Any],
+    *,
+    stride: int,
+    expected_cases: np.ndarray,
+    data_sha256: str,
+    saved_time_sha256: str,
+    split: str,
+) -> dict[str, Any]:
+    args = checkpoint["args"]
+    expected = {
+        "model": "fno",
+        "target": "residual",
+        "fno_width": 64,
+        "fno_modes": 24,
+        "fno_layers": 4,
+        "input_coordinates": "conservative",
+        "loss_coordinates": "conservative",
+        "recurrent_coordinates": "conservative",
+        "input_normalization": "fixed_physical",
+        "loss_normalization": "fixed_physical",
+        "step_stride": stride,
+    }
+    mismatches = {
+        name: {"actual": args.get(name), "expected": value}
+        for name, value in expected.items()
+        if args.get(name) != value
+    }
+    if mismatches:
+        raise ValueError(f"stride {stride} violates the frozen contract: {mismatches}")
+    split_key = "val_cases" if split == "validation" else "test_cases"
+    if not np.array_equal(
+        np.asarray(checkpoint[split_key], dtype=np.int64),
+        expected_cases,
+    ):
+        raise ValueError(f"stride {stride} uses a different frozen split")
+    if checkpoint.get("data_sha256") != data_sha256:
+        raise ValueError(f"stride {stride} uses a different dataset")
+    if checkpoint.get("saved_time_sha256") != saved_time_sha256:
+        raise ValueError(f"stride {stride} uses different saved times")
+    return expected
 
 
 @dataclass(frozen=True)

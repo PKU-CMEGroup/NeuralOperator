@@ -20,12 +20,6 @@ from scripts.time_dependent_no.diagnose_pcno_euler2d_ripples import (
     paired_branch_response_selector,
     paired_branch_response_summary,
 )
-from scripts.time_dependent_no.decompose_pcno_euler2d_rollout_error import (
-    ERROR_SOURCE_SCHEMA,
-    error_source_selector,
-    main as decompose_main,
-    weighted_decomposition_metrics,
-)
 from scripts.time_dependent_no.prepare_pcno_euler2d_shards import (
     main as prepare_main,
 )
@@ -607,80 +601,6 @@ def test_linear_highpass_and_additive_error_decomposition_close() -> None:
         np.linalg.norm(node_highpass_field(left, edges), axis=-1),
     )
 
-    propagated = np.full((4, 2), 2.0)
-    fresh = np.ones((4, 2))
-    metrics = weighted_decomposition_metrics(
-        propagated + fresh,
-        propagated,
-        fresh,
-        np.ones(4),
-    )
-    assert metrics["status"] == "available"
-    assert metrics["propagated_magnitude_share"] == pytest.approx(2.0 / 3.0)
-    assert metrics["propagated_fresh_cosine"] == pytest.approx(1.0)
-    assert metrics["relative_reconstruction_residual"] < 1e-14
-    assert metrics["relative_energy_identity_residual"] < 1e-14
-    assert (
-        metrics["propagated_energy_fraction_of_total"]
-        + metrics["fresh_defect_energy_fraction_of_total"]
-        + metrics["cross_energy_fraction_of_total"]
-    ) == pytest.approx(1.0)
-
-
-def test_error_source_selector_requires_repeated_full_and_highpass_dominance() -> None:
-    def rows(full_late: float, high_late: float) -> list[dict]:
-        def region(share: float) -> dict:
-            return {
-                "status": "available",
-                "propagated_magnitude_share": share,
-                "relative_reconstruction_residual": 0.0,
-                "relative_energy_identity_residual": 0.0,
-            }
-
-        result = []
-        for trajectory in range(6):
-            for call_index in range(1, 61):
-                full_share = 0.0 if call_index == 1 else 0.5
-                high_share = 0.0 if call_index == 1 else 0.5
-                if call_index in (30, 60):
-                    full_share = full_late
-                    high_share = high_late
-                result.append(
-                    {
-                        "schema": ERROR_SOURCE_SCHEMA,
-                        "trajectory": str(trajectory),
-                        "call_index": call_index,
-                        "regions": {
-                            "interior_full": region(full_share),
-                            "smooth_highpass": region(high_share),
-                        },
-                        "mask_contract": {"smooth_fallback_to_interior": False},
-                        "source_replay": {"max_absolute_error": 0.0},
-                        "admissibility": {
-                            "rollout_prediction": {"all_admissible": True},
-                            "teacher_prediction": {"all_admissible": True},
-                        },
-                    }
-                )
-        return result
-
-    propagated = error_source_selector(rows(0.8, 0.75))
-    assert propagated["contract_complete"]
-    assert propagated["classification"] == "propagation_dominated"
-    assert propagated["route"].startswith("one_matched_short")
-
-    fresh = error_source_selector(rows(0.2, 0.3))
-    assert fresh["classification"] == "fresh_teacher_defect_dominated"
-    assert fresh["route"].startswith("target_or_representation")
-
-    split = error_source_selector(rows(0.8, 0.2))
-    assert split["classification"] == "mixed_or_split"
-    assert split["route"] == "no_learned_method"
-
-    incomplete = error_source_selector(rows(0.8, 0.75)[:-1])
-    assert not incomplete["contract_complete"]
-    assert incomplete["classification"] == "incomplete_contract"
-
 
 def test_mechanism_screen_routes_only_unique_supported_failure() -> None:
     def row(source: str, call: int, energy: float) -> dict:
@@ -909,39 +829,3 @@ def test_d013_cli_writes_closed_raw_recurrence_bundle(tmp_path) -> None:
             "pointwise",
             "differential",
         }
-
-    decomposition_output = tmp_path / "error_decomposition"
-    decompose_main(
-        [
-            "--data-dir",
-            str(shards),
-            "--checkpoint",
-            str(checkpoint),
-            "--source-dir",
-            str(output),
-            "--output-dir",
-            str(decomposition_output),
-            "--device",
-            "cpu",
-        ]
-    )
-    decomposition = json.loads(
-        (decomposition_output / "summary.json").read_text(encoding="utf-8")
-    )
-    assert decomposition["status"] == "complete"
-    assert decomposition["evaluation"]["row_count"] == 2
-    assert (
-        decomposition["decomposition_contract"]["maximum_identity_relative_residual"]
-        < 1e-10
-    )
-    assert decomposition["selector"]["classification"] == "incomplete_contract"
-    error_rows = [
-        json.loads(line)
-        for line in (decomposition_output / "error_sources.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
-    assert len(error_rows) == 2
-    assert error_rows[0]["regions"]["interior_full"][
-        "propagated_magnitude_share"
-    ] == pytest.approx(0.0, abs=1e-8)

@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""Train and rollout-select a state-decoded PCNO on 2D Euler shards.
-
-The default remains the Line-3 centered conservative-residual baseline. The
-fixed-geometry alternatives are the state-loss-only shared physical-face
-decoder and the separately gated D048 divergence-active face target. Only the
-latter may load accepted reference face impulses, and then only to recover the
-physical boundary exchange used by the passed D047 direct projector. Every
-path uses raw recurrence.
-"""
+"""Train and rollout-select a conservative-residual PCNO on 2D Euler shards."""
 
 from __future__ import annotations
 
@@ -47,76 +39,15 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     weighted_scaled_mse,
     weighted_scaled_relative_l2,
 )
-from utility.time_dependent_no.fv_impulse_diagnostics import (  # noqa: E402
-    DirectMinimumNormProjector,
-    build_fv_impulse_operators,
-    factorize_direct_minimum_winv_norm_projector,
-)
-from utility.time_dependent_no.pcno_face_impulse import (  # noqa: E402
-    DIVERGENCE_ACTIVE_TARGET_KIND,
-    FACE_TARGET_KINDS,
-    FixedFVFaceGeometry,
-    PCNOEuler2DSharedFaceImpulse,
-    face_contract_summary,
-    load_fixed_fv_face_geometry,
-    load_fv_reference_face_trajectory,
-    winv_face_loss_and_relative_l2,
-)
 
 CHECKPOINT_SCHEMA_VERSION = 4
 RESIDUAL_TARGET_KIND = "conservative_variable_residual"
-D047_SCHEMA = "fv_divergence_active_target_preflight_v2"
-D048_SCHEMA = "pcno_euler2d_canonical_face_tiny_fit_v1"
-D048_EXPERIMENT_ID = "D048"
-D048_PARAMETER_COUNT = 19_210_028
-D048_TINY_BANK = (
-    ("sv_e08_y07", 8),
-    ("sv_e03_y03", 7),
-    ("sv_e03_y01", 44),
-    ("sv_e05_y07", 41),
-)
-D048_GATE_THRESHOLDS = {
-    "loss_ratio_max": 1.0e-2,
-    "face_relative_l2_max": 1.0e-1,
-    "decoded_state_relative_l2_max": 1.0e-3,
-    "canonical_reference_closure_relative_l2_max": 1.0e-8,
-    "canonical_shard_increment_closure_relative_l2_max": 1.0e-4,
-    "reference_closure_relative_l2_max": 1.0e-10,
-    "compatibility_relative_l2_max": 1.0e-10,
-    "compatibility_projection_relative_l2_max": 1.0e-10,
-    "reduced_solve_residual_relative_l2_max": 1.0e-10,
-    "canonical_full_winv_norm_ratio_max": 1.000001,
-    "wall_forbidden_exchange_absolute_max": 1.0e-14,
-}
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument(
-        "--target-kind",
-        choices=(RESIDUAL_TARGET_KIND, *sorted(FACE_TARGET_KINDS)),
-        default=RESIDUAL_TARGET_KIND,
-    )
-    parser.add_argument(
-        "--family-root",
-        type=Path,
-        default=None,
-        help=(
-            "Validated shock-vortex family root; required only for the "
-            "shared-face target's physical geometry."
-        ),
-    )
-    parser.add_argument(
-        "--canonical-preflight-summary",
-        type=Path,
-        default=None,
-        help=(
-            "Passed D047 summary.json; required only for the D048 "
-            "divergence-active face target."
-        ),
-    )
     parser.add_argument("--seed", type=int, default=20260718)
     parser.add_argument("--split-seed", type=int, default=20260718)
     parser.add_argument(
@@ -141,7 +72,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Repeat one immutable pair bank of this size; zero uses balanced sampling.",
     )
     parser.add_argument("--tiny-fit-rel-l2", type=float, default=0.01)
-    parser.add_argument("--tiny-fit-face-rel-l2", type=float, default=0.1)
     parser.add_argument("--tiny-fit-loss-ratio", type=float, default=0.01)
     parser.add_argument(
         "--stop-on-tiny-fit",
@@ -161,8 +91,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--layers", type=int, nargs="+", default=(128, 128, 128, 128, 128)
     )
     parser.add_argument("--fc-dim", type=int, default=128)
-    parser.add_argument("--face-latent-dim", type=int, default=32)
-    parser.add_argument("--face-hidden-dim", type=int, default=128)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-5)
     parser.add_argument(
@@ -241,37 +169,13 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
     for name, value in positive_ints.items():
         if value < 1:
             raise ValueError(f"--{name.replace('_', '-')} must be positive")
-    if args.face_latent_dim < 4 or args.face_hidden_dim < 1:
-        raise ValueError("face decoder widths must be positive and latent dim >= 4")
-    if args.target_kind in FACE_TARGET_KINDS:
-        if args.family_root is None:
-            raise ValueError("--family-root is required for the shared-face target")
-        if args.split_mode != "manifest":
-            raise ValueError("shared-face training requires --split-mode manifest")
-        if args.step_stride != 1:
-            raise ValueError("shared-face training currently requires --step-stride 1")
-    elif args.family_root is not None:
-        raise ValueError("--family-root is only used by the shared-face target")
-    if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-        if args.canonical_preflight_summary is None:
-            raise ValueError(
-                "--canonical-preflight-summary is required for the D048 target"
-            )
-    elif args.canonical_preflight_summary is not None:
-        raise ValueError(
-            "--canonical-preflight-summary is only used by the D048 target"
-        )
     if args.tiny_pairs < 0:
         raise ValueError("--tiny-pairs must be nonnegative")
     if args.stop_on_tiny_fit and args.tiny_pairs == 0:
         raise ValueError("--stop-on-tiny-fit requires --tiny-pairs")
     if args.rollout_start_frame < 0:
         raise ValueError("--rollout-start-frame must be nonnegative")
-    if (
-        args.tiny_fit_rel_l2 <= 0.0
-        or args.tiny_fit_face_rel_l2 <= 0.0
-        or args.tiny_fit_loss_ratio <= 0.0
-    ):
+    if args.tiny_fit_rel_l2 <= 0.0 or args.tiny_fit_loss_ratio <= 0.0:
         raise ValueError("tiny-fit thresholds must be positive")
     if args.learning_rate <= 0.0 or args.weight_decay < 0.0:
         raise ValueError("invalid optimizer configuration")
@@ -306,56 +210,6 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         and not torch.cuda.is_bf16_supported()
     ):
         raise RuntimeError("the selected CUDA device does not support bfloat16")
-    if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-        expected_exact = {
-            "seed": 20260718,
-            "split_seed": 20260718,
-            "epochs": 50,
-            "presentations_per_epoch": 64,
-            "val_presentations": 4,
-            "batch_size": 1,
-            "tiny_pairs": 4,
-            "k_max": 8,
-            "fc_dim": 128,
-            "face_latent_dim": 32,
-            "face_hidden_dim": 128,
-            "scheduler": "constant",
-            "amp": "bf16",
-        }
-        for name, expected in expected_exact.items():
-            actual = getattr(args, name)
-            if actual != expected:
-                raise ValueError(
-                    f"D048 freezes --{name.replace('_', '-')} at {expected!r}; "
-                    f"received {actual!r}"
-                )
-        expected_floats = {
-            "tiny_fit_rel_l2": D048_GATE_THRESHOLDS["decoded_state_relative_l2_max"],
-            "tiny_fit_face_rel_l2": D048_GATE_THRESHOLDS["face_relative_l2_max"],
-            "tiny_fit_loss_ratio": D048_GATE_THRESHOLDS["loss_ratio_max"],
-            "learning_rate": 1.0e-3,
-            "weight_decay": 1.0e-5,
-            "gradient_clip": 1.0,
-            "input_noise_std": 0.0,
-            "generated_state_exposure_weight": 0.0,
-        }
-        for name, expected in expected_floats.items():
-            actual = float(getattr(args, name))
-            if not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1.0e-15):
-                raise ValueError(
-                    f"D048 freezes --{name.replace('_', '-')} at {expected}; "
-                    f"received {actual}"
-                )
-        if tuple(args.domain_lengths) != (2.0, 1.0):
-            raise ValueError("D048 freezes --domain-lengths at 2 1")
-        if tuple(args.layers) != (128, 128, 128, 128, 128):
-            raise ValueError("D048 freezes --layers at five width-128 layers")
-        if not args.stop_on_tiny_fit:
-            raise ValueError("D048 requires --stop-on-tiny-fit")
-        if args.init_checkpoint is not None or args.resume_checkpoint is not None:
-            raise ValueError("D048 forbids initialization and resume checkpoints")
-        if device.type != "cuda" or args.device != "cuda":
-            raise ValueError("D048 requires explicit --device cuda")
 
 
 def jsonable_args(args: argparse.Namespace) -> dict[str, Any]:
@@ -612,21 +466,14 @@ def assert_checkpoint_contract(
             actual.get("target_kind", RESIDUAL_TARGET_KIND),
         )
     )
-    if saved_target_kind != args.target_kind:
-        raise ValueError("checkpoint and requested target kinds differ")
+    if saved_target_kind != RESIDUAL_TARGET_KIND:
+        raise ValueError("checkpoint target is not the conservative residual")
     expected = {
         "k_max": int(args.k_max),
         "domain_lengths": [float(value) for value in args.domain_lengths],
         "layers": [int(value) for value in args.layers],
         "fc_dim": int(args.fc_dim),
     }
-    if args.target_kind in FACE_TARGET_KINDS:
-        expected.update(
-            {
-                "latent_dim": int(args.face_latent_dim),
-                "face_hidden_dim": int(args.face_hidden_dim),
-            }
-        )
     for key, value in expected.items():
         if actual[key] != value:
             raise ValueError(
@@ -638,81 +485,23 @@ def build_model(
     args: argparse.Namespace,
     normalization: Euler2DNormalization,
     *,
-    face_geometry: FixedFVFaceGeometry | None,
     zero_initialize: bool,
 ) -> PCNOEuler2DResidual:
-    """Construct one declared state-decoded target without changing its shape."""
+    """Construct the conservative-residual baseline."""
 
-    common = {
-        "normalization": normalization,
-        "k_max": args.k_max,
-        "domain_lengths": args.domain_lengths,
-        "layers": args.layers,
-        "fc_dim": args.fc_dim,
-        "zero_initialize": zero_initialize,
-    }
-    if args.target_kind == RESIDUAL_TARGET_KIND:
-        if face_geometry is not None:
-            raise ValueError("residual model received an unused face geometry")
-        return PCNOEuler2DResidual(**common)
-    if face_geometry is None:
-        raise ValueError("shared-face model requires validated face geometry")
-    return PCNOEuler2DSharedFaceImpulse(
-        **common,
-        cell_volume=face_geometry.cell_volume,
-        face_center=face_geometry.face_center,
-        face_measure=face_geometry.face_measure,
-        face_normal=face_geometry.face_normal,
-        face_owner=face_geometry.face_owner,
-        face_neighbor=face_geometry.face_neighbor,
-        face_boundary_tag=face_geometry.face_boundary_tag,
-        boundary_tag_names=face_geometry.boundary_tag_names,
-        geometry_digest=face_geometry.physical_geometry_digest,
-        graph_geometry_digest=face_geometry.graph_geometry_digest,
-        fixed_delta_t=face_geometry.fixed_delta_t,
-        target_kind=args.target_kind,
-        supervision=(
-            "direct_canonical_face_winv_loss"
-            if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-            else "decoded_next_state_loss_only"
-        ),
-        reference_impulse_supervision=(
-            args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-        ),
-        latent_dim=args.face_latent_dim,
-        face_hidden_dim=args.face_hidden_dim,
+    return PCNOEuler2DResidual(
+        normalization=normalization,
+        k_max=args.k_max,
+        domain_lengths=args.domain_lengths,
+        layers=args.layers,
+        fc_dim=args.fc_dim,
+        zero_initialize=zero_initialize,
     )
 
 
-def target_contract(
-    model: PCNOEuler2DResidual,
-    face_geometry: FixedFVFaceGeometry | None,
-) -> dict[str, Any]:
-    """Describe what the optimized state loss does and does not identify."""
+def target_contract() -> dict[str, Any]:
+    """Describe the conservative-residual supervision contract."""
 
-    if isinstance(model, PCNOEuler2DSharedFaceImpulse):
-        if face_geometry is None:
-            raise ValueError("shared-face model is missing geometry provenance")
-        direct = model.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-        return {
-            **face_geometry.target_contract(
-                target_kind=model.target_kind,
-                supervision=model.supervision,
-                reference_impulse_supervision=model.reference_impulse_supervision,
-            ),
-            "model_face_contract": dict(face_contract_summary(model)),
-            "cycle_component_identifiability": (
-                "excluded_by_minimum_W_f^-1_divergence_active_target; "
-                "no_full_reference_cycle_loss"
-                if direct
-                else "not_identified_by_state_loss; no full-face reference loss"
-            ),
-            "decoded_state_role": (
-                "outcome_metric_only" if direct else "optimized_state_loss"
-            ),
-        }
-    if face_geometry is not None:
-        raise ValueError("residual target received an unused face geometry")
     return {
         "target_kind": RESIDUAL_TARGET_KIND,
         "supervision": "decoded_next_state_loss",
@@ -721,338 +510,6 @@ def target_contract(
         "reference_impulse_supervision": False,
         "conserved_totals_are_outcome_metrics_not_guaranteed_structure": True,
     }
-
-
-def load_d047_preflight_summary(
-    path: Path,
-    store: PCNOEuler2DShardStore,
-) -> dict[str, Any]:
-    """Load the sole passed D047 authorization and fail closed on drift."""
-
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        raise ValueError("D047 summary must be a JSON object")
-    required_equal = {
-        "schema": D047_SCHEMA,
-        "experiment_id": "D047",
-        "status": "passed",
-        "shard_manifest_digest": store.manifest_digest,
-        "family_id": store.manifest.get("source_family_id"),
-        "family_manifest_digest": store.manifest.get("source_family_manifest_digest"),
-    }
-    for name, expected in required_equal.items():
-        if raw.get(name) != expected:
-            raise ValueError(
-                f"D047 summary mismatch for {name}: {raw.get(name)!r} != {expected!r}"
-            )
-    config = raw.get("config")
-    if not isinstance(config, dict):
-        raise ValueError("D047 summary lacks its immutable configuration")
-    if config.get("schema") != D047_SCHEMA or config.get("experiment_id") != "D047":
-        raise ValueError("D047 summary configuration identity differs")
-    if config.get("canonical_solver") != "direct":
-        raise ValueError("D048 requires the direct D047 canonical solver")
-    if digest_mapping(config) != raw.get("config_digest"):
-        raise ValueError("D047 configuration digest does not reproduce")
-    source_key = str(config.get("source_geometry_key", ""))
-    if source_key not in store.keys or store.entry(source_key).get("split") != "train":
-        raise ValueError("D047 source geometry is not an available training case")
-    checks = raw.get("checks")
-    if (
-        not isinstance(checks, dict)
-        or not checks
-        or not all(value is True for value in checks.values())
-    ):
-        raise ValueError("D047 did not pass every registered check")
-    promotion = raw.get("promotion")
-    if (
-        not isinstance(promotion, dict)
-        or promotion.get("divergence_active_four_pair_tiny_fit_authorized") is not True
-    ):
-        raise ValueError("D047 does not authorize the four-pair tiny fit")
-    if any(
-        promotion.get(name) is not False
-        for name in (
-            "serious_training_authorized",
-            "full_reference_cycle_supervision_authorized",
-            "test_split_evaluation_authorized",
-        )
-    ):
-        raise ValueError("D047 promotion boundary differs from the registered contract")
-    accessed = raw.get("accessed_case_splits")
-    if not isinstance(accessed, dict) or accessed.get("test") != []:
-        raise ValueError("D047 summary does not prove test-split nonaccess")
-    if int(raw.get("row_count", -1)) != 24:
-        raise ValueError("D047 summary must contain the exact 24-row cohort")
-    code = raw.get("code_sha256")
-    current_projector_sha = sha256_file(
-        ROOT / "utility/time_dependent_no/fv_impulse_diagnostics.py"
-    )
-    if not isinstance(code, dict) or code.get("fv_impulse_diagnostics") != (
-        current_projector_sha
-    ):
-        raise ValueError("the D047 projector code has drifted since preflight")
-    direct = raw.get("direct_projector")
-    if not isinstance(direct, dict):
-        raise ValueError("D047 summary lacks direct-projector provenance")
-    expected_direct = {
-        "solver": "scipy_sparse_superlu",
-        "factorization_dtype": "float64",
-        "compatibility_projection": "componentwise_arithmetic_mean",
-        "regularization": "none",
-        "iterative_refinement": "none",
-    }
-    for name, expected in expected_direct.items():
-        if direct.get(name) != expected:
-            raise ValueError(f"D047 direct-projector contract differs for {name}")
-    thresholds = config.get("gate_thresholds")
-    required_thresholds = {
-        name: D048_GATE_THRESHOLDS[name]
-        for name in (
-            "canonical_reference_closure_relative_l2_max",
-            "canonical_shard_increment_closure_relative_l2_max",
-            "reference_closure_relative_l2_max",
-            "compatibility_relative_l2_max",
-            "canonical_full_winv_norm_ratio_max",
-            "wall_forbidden_exchange_absolute_max",
-        )
-    }
-    required_thresholds.update(
-        {
-            "direct_compatibility_projection_relative_l2_max": (
-                D048_GATE_THRESHOLDS["compatibility_projection_relative_l2_max"]
-            ),
-            "direct_reduced_solve_residual_relative_l2_max": (
-                D048_GATE_THRESHOLDS["reduced_solve_residual_relative_l2_max"]
-            ),
-        }
-    )
-    if not isinstance(thresholds, dict):
-        raise ValueError("D047 summary lacks gate thresholds")
-    for name, expected in required_thresholds.items():
-        if not math.isclose(
-            float(thresholds.get(name, float("nan"))),
-            expected,
-            rel_tol=0.0,
-            abs_tol=0.0,
-        ):
-            raise ValueError(f"D047 gate threshold differs for {name}")
-    return raw
-
-
-def validate_d047_geometry(
-    preflight: Mapping[str, Any],
-    geometry: FixedFVFaceGeometry,
-) -> None:
-    """Bind the passed D047 summary to the geometry loaded for D048."""
-
-    expected = {
-        "family_id": geometry.source_family_id,
-        "family_manifest_digest": geometry.source_family_manifest_digest,
-        "physical_geometry_digest": geometry.physical_geometry_digest,
-        "graph_geometry_digest": geometry.graph_geometry_digest,
-    }
-    for name, value in expected.items():
-        if preflight.get(name) != value:
-            raise ValueError(f"D047 and D048 geometry differ for {name}")
-
-
-def _relative_l2_numpy(actual: np.ndarray, expected: np.ndarray) -> float:
-    difference = float(np.linalg.norm(np.asarray(actual) - np.asarray(expected)))
-    denominator = float(np.linalg.norm(np.asarray(expected)))
-    if denominator > 0.0:
-        return difference / denominator
-    return 0.0 if difference == 0.0 else float(np.finfo(np.float64).max)
-
-
-def _winv_norm_numpy(face_field: np.ndarray, face_weight: np.ndarray) -> float:
-    values = np.asarray(face_field, dtype=np.float64)
-    weight = np.asarray(face_weight, dtype=np.float64)
-    return float(np.sqrt(np.sum(values * values / weight[:, None])))
-
-
-def build_d048_canonical_targets(
-    store: PCNOEuler2DShardStore,
-    *,
-    family_root: Path,
-    geometry: FixedFVFaceGeometry,
-    pairs: Sequence[tuple[str, int]],
-    preflight: Mapping[str, Any],
-) -> tuple[dict[tuple[str, int], torch.Tensor], np.ndarray, dict[str, Any]]:
-    """Build the four float32 labels once from float64 states and D047."""
-
-    operators = build_fv_impulse_operators(
-        cell_centers=geometry.cell_center,
-        cell_volume=geometry.cell_volume,
-        face_centers=geometry.face_center,
-        face_measure=geometry.face_measure,
-        face_owner=geometry.face_owner,
-        face_neighbor=geometry.face_neighbor,
-        face_boundary_tag=geometry.face_boundary_tag,
-    )
-    if operators.topology.to_dict() != preflight.get("topology"):
-        raise ValueError("D048 finite-volume topology differs from D047")
-    projector: DirectMinimumNormProjector = (
-        factorize_direct_minimum_winv_norm_projector(operators)
-    )
-    if projector.summary() != preflight.get("direct_projector"):
-        raise ValueError("D048 factorization does not reproduce D047 provenance")
-
-    unique_pairs = [(str(key), int(time_index)) for key, time_index in pairs]
-    if len(unique_pairs) != len(set(unique_pairs)):
-        raise ValueError("D048 canonical target bank contains duplicate pairs")
-    labels: dict[tuple[str, int], torch.Tensor] = {}
-    rows: list[dict[str, Any]] = []
-    boundary = operators.boundary_face_indices
-    wall_tags = {
-        geometry.boundary_tag_names.index("y_min"),
-        geometry.boundary_tag_names.index("y_max"),
-    }
-    wall = np.isin(geometry.face_boundary_tag, tuple(wall_tags))
-    for key, time_index in unique_pairs:
-        if key not in store.keys or store.entry(key).get("split") != "train":
-            raise ValueError(f"D048 may load only registered training cases: {key}")
-        reference = load_fv_reference_face_trajectory(
-            family_root,
-            store,
-            geometry,
-            key=key,
-        )
-        if reference.split != "train":
-            raise RuntimeError(f"D048 reference split is not train for {key}")
-        if not 0 <= time_index < reference.physical_times.size - 1:
-            raise IndexError(f"D048 time index is outside reference {key}")
-        reference_delta = (
-            reference.conservative_states[time_index + 1]
-            - reference.conservative_states[time_index]
-        )
-        shard_states = np.asarray(store.states(key), dtype=np.float64)
-        shard_delta = shard_states[time_index + 1] - shard_states[time_index]
-        target_integral = -geometry.cell_volume[:, None] * reference_delta
-        shard_target_integral = -geometry.cell_volume[:, None] * shard_delta
-        reference_impulse = reference.cumulative_face_impulses[time_index]
-        solution = projector.solve(
-            target_integral,
-            reference_impulse[boundary],
-        )
-        canonical = np.asarray(solution.face_impulse, dtype=np.float64)
-        decoded_reference = operators.incidence @ reference_impulse
-        decoded_canonical = solution.decoded_cell_integral
-        canonical_norm = _winv_norm_numpy(canonical, operators.face_weight)
-        reference_norm = _winv_norm_numpy(reference_impulse, operators.face_weight)
-        metrics = {
-            "reference_closure_relative_l2": _relative_l2_numpy(
-                decoded_reference, target_integral
-            ),
-            "canonical_reference_closure_relative_l2": _relative_l2_numpy(
-                decoded_canonical, target_integral
-            ),
-            "canonical_shard_increment_closure_relative_l2": _relative_l2_numpy(
-                decoded_canonical, shard_target_integral
-            ),
-            "compatibility_relative_l2": solution.compatibility_relative_l2,
-            "compatibility_projection_relative_l2": (
-                solution.compatibility_projection_relative_l2
-            ),
-            "reduced_solve_residual_relative_l2": (
-                solution.reduced_solve_residual_relative_l2
-            ),
-            "canonical_full_winv_norm_ratio": (
-                canonical_norm / reference_norm if reference_norm > 0.0 else 0.0
-            ),
-            "wall_forbidden_exchange_absolute": float(
-                np.max(np.abs(canonical[wall][:, (0, 1, 3)]), initial=0.0)
-            ),
-            "boundary_reproduction_absolute_max": float(
-                np.max(
-                    np.abs(canonical[boundary] - reference_impulse[boundary]),
-                    initial=0.0,
-                )
-            ),
-        }
-        threshold_names = {
-            "reference_closure_relative_l2": "reference_closure_relative_l2_max",
-            "canonical_reference_closure_relative_l2": (
-                "canonical_reference_closure_relative_l2_max"
-            ),
-            "canonical_shard_increment_closure_relative_l2": (
-                "canonical_shard_increment_closure_relative_l2_max"
-            ),
-            "compatibility_relative_l2": "compatibility_relative_l2_max",
-            "compatibility_projection_relative_l2": (
-                "compatibility_projection_relative_l2_max"
-            ),
-            "reduced_solve_residual_relative_l2": (
-                "reduced_solve_residual_relative_l2_max"
-            ),
-            "canonical_full_winv_norm_ratio": ("canonical_full_winv_norm_ratio_max"),
-            "wall_forbidden_exchange_absolute": (
-                "wall_forbidden_exchange_absolute_max"
-            ),
-        }
-        scalar_values = np.asarray(list(metrics.values()), dtype=np.float64)
-        if not np.all(np.isfinite(canonical)) or not np.all(np.isfinite(scalar_values)):
-            raise FloatingPointError(f"D048 canonical target is nonfinite for {key}")
-        for metric_name, threshold_name in threshold_names.items():
-            if float(metrics[metric_name]) > D048_GATE_THRESHOLDS[threshold_name]:
-                raise RuntimeError(
-                    f"D048 label {key}@{time_index} fails {metric_name}: "
-                    f"{metrics[metric_name]}"
-                )
-        if metrics["boundary_reproduction_absolute_max"] != 0.0:
-            raise RuntimeError(f"D048 boundary impulse was altered for {key}")
-
-        float32_label = np.asarray(canonical, dtype=np.float32)
-        float32_decoded = operators.incidence @ float32_label.astype(np.float64)
-        float32_closure = _relative_l2_numpy(float32_decoded, target_integral)
-        if (
-            float32_closure
-            > D048_GATE_THRESHOLDS["canonical_shard_increment_closure_relative_l2_max"]
-        ):
-            raise RuntimeError(f"D048 float32 label closure fails for {key}")
-        pair = (key, time_index)
-        labels[pair] = torch.from_numpy(float32_label.copy())
-        rows.append(
-            {
-                "trajectory": key,
-                "time_index": time_index,
-                "target_time_index": time_index + 1,
-                "physical_time": float(reference.physical_times[time_index]),
-                "target_physical_time": float(reference.physical_times[time_index + 1]),
-                "delta_t": float(
-                    reference.physical_times[time_index + 1]
-                    - reference.physical_times[time_index]
-                ),
-                "source_reference_sha256": reference.source_reference_sha256,
-                "label_sha256": digest_array(float32_label),
-                "float32_reference_closure_relative_l2": float32_closure,
-                **metrics,
-            }
-        )
-    label_digests = {
-        f"{key}@{time_index}": digest_array(labels[(key, time_index)].numpy())
-        for key, time_index in unique_pairs
-    }
-    metadata = {
-        "schema": D048_SCHEMA,
-        "experiment_id": D048_EXPERIMENT_ID,
-        "parent_experiment_id": "D047",
-        "parent_config_digest": preflight["config_digest"],
-        "direct_projector": projector.summary(),
-        "face_weight": "W_f=face_measure*dual_width; W_f^-1 relative loss",
-        "face_weight_sha256": digest_array(operators.face_weight),
-        "label_set_digest": digest_mapping(label_digests),
-        "pairs": rows,
-        "accessed_case_splits": {
-            "train": sorted({key for key, _ in pairs}),
-            "test": [],
-        },
-        "full_reference_cycle_supervision": False,
-        "gate_thresholds": dict(D048_GATE_THRESHOLDS),
-    }
-    return labels, np.asarray(operators.face_weight), metadata
 
 
 def forward_sample(
@@ -1103,186 +560,6 @@ def pair_metrics(
     return loss, relative_l2
 
 
-def forward_face_sample(
-    model: PCNOEuler2DSharedFaceImpulse,
-    sample: Mapping[str, torch.Tensor],
-    current: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    return model.forward_with_face_impulse(
-        current,
-        node_mask=sample["node_mask"],
-        nodes=sample["nodes"],
-        node_weights=sample["node_weights"],
-        node_rhos=sample["node_rhos"],
-        directed_edges=sample["directed_edges"],
-        edge_gradient_weights=sample["edge_gradient_weights"],
-        node_type=sample["node_type"],
-        mach=sample["mach"],
-    )
-
-
-def canonical_face_metrics(
-    prediction: torch.Tensor,
-    target: torch.Tensor,
-    *,
-    face_weight: np.ndarray | torch.Tensor,
-    face_is_interior: torch.Tensor,
-) -> dict[str, torch.Tensor]:
-    """Return D048's native loss and independent face-error outcomes."""
-
-    prediction = prediction.float()
-    target = target.float()
-    interior_loss, interior_relative_l2 = winv_face_loss_and_relative_l2(
-        prediction,
-        target,
-        face_weight=face_weight,
-        face_mask=face_is_interior,
-    )
-    boundary_loss, boundary_relative_l2 = winv_face_loss_and_relative_l2(
-        prediction,
-        target,
-        face_weight=face_weight,
-        face_mask=~face_is_interior,
-    )
-    _, full_relative_l2 = winv_face_loss_and_relative_l2(
-        prediction,
-        target,
-        face_weight=face_weight,
-    )
-    return {
-        "loss": 0.5 * (interior_loss + boundary_loss),
-        "face_relative_l2": full_relative_l2,
-        "interior_face_relative_l2": interior_relative_l2,
-        "boundary_face_relative_l2": boundary_relative_l2,
-        "interior_face_loss": interior_loss,
-        "boundary_face_loss": boundary_loss,
-    }
-
-
-def _canonical_target_batch(
-    targets: Mapping[tuple[str, int], torch.Tensor],
-    key: str,
-    time_indices: Sequence[int],
-    *,
-    device: torch.device,
-) -> torch.Tensor:
-    try:
-        batch = torch.stack([targets[(key, int(index))] for index in time_indices])
-    except KeyError as error:
-        raise KeyError(f"missing canonical D048 label for {error.args[0]}") from error
-    return batch.to(device=device, dtype=torch.float32)
-
-
-def _wall_forbidden_absolute_max(
-    face_impulse: torch.Tensor,
-    model: PCNOEuler2DSharedFaceImpulse,
-) -> torch.Tensor:
-    wall_tags = {
-        model.boundary_tag_names.index("y_min"),
-        model.boundary_tag_names.index("y_max"),
-    }
-    wall = torch.zeros_like(model.face_boundary_tag, dtype=torch.bool)
-    for tag in wall_tags:
-        wall |= model.face_boundary_tag == tag
-    return torch.max(torch.abs(face_impulse[:, wall][:, :, [0, 1, 3]]))
-
-
-@torch.no_grad()
-def evaluate_canonical_pairs(
-    model: PCNOEuler2DSharedFaceImpulse,
-    store: PCNOEuler2DShardStore,
-    pairs: Sequence[tuple[str, int]],
-    *,
-    canonical_targets: Mapping[tuple[str, int], torch.Tensor],
-    face_weight: np.ndarray,
-    step_stride: int,
-    batch_size: int,
-    device: torch.device,
-    amp: str,
-) -> dict[str, float]:
-    """Evaluate native D048 face fit and decoded-state outcomes together."""
-
-    model.eval()
-    sums = {
-        "loss": 0.0,
-        "face_relative_l2": 0.0,
-        "interior_face_relative_l2": 0.0,
-        "boundary_face_relative_l2": 0.0,
-        "interior_face_loss": 0.0,
-        "boundary_face_loss": 0.0,
-        "decoded_state_loss": 0.0,
-        "relative_l2": 0.0,
-    }
-    admissible = 0
-    wall_forbidden_max = 0.0
-    persistence_max = 0.0
-    batches = homogeneous_presentation_batches(pairs, batch_size=batch_size)
-    for key, time_indices in batches:
-        sample = store.tensor_batch(
-            key,
-            time_indices,
-            step_stride=step_stride,
-            device=device,
-        )
-        face_target = _canonical_target_batch(
-            canonical_targets,
-            key,
-            time_indices,
-            device=device,
-        )
-        with autocast_context(device, amp):
-            prediction, face_prediction = forward_face_sample(
-                model, sample, sample["current"]
-            )
-        face_result = canonical_face_metrics(
-            face_prediction,
-            face_target,
-            face_weight=face_weight,
-            face_is_interior=model.face_is_interior,
-        )
-        decoded_loss, decoded_relative = pair_metrics(
-            prediction.float(), sample["target"], sample, model
-        )
-        current_batch_size = len(time_indices)
-        for name in (
-            "loss",
-            "face_relative_l2",
-            "interior_face_relative_l2",
-            "boundary_face_relative_l2",
-            "interior_face_loss",
-            "boundary_face_loss",
-        ):
-            sums[name] += float(face_result[name].cpu()) * current_batch_size
-        sums["decoded_state_loss"] += float(decoded_loss.cpu()) * current_batch_size
-        sums["relative_l2"] += float(decoded_relative.cpu()) * current_batch_size
-        diagnostics = conservative_admissibility(prediction.float(), gamma=model.gamma)
-        per_sample_admissible = (
-            diagnostics["admissible"].reshape(prediction.shape[0], -1).all(dim=1)
-        )
-        admissible += int(per_sample_admissible.sum().cpu())
-        wall_forbidden_max = max(
-            wall_forbidden_max,
-            float(_wall_forbidden_absolute_max(face_prediction, model).cpu()),
-        )
-        persistence_max = max(
-            persistence_max,
-            float(torch.max(torch.abs(prediction.float() - sample["current"])).cpu()),
-        )
-    result = {name: value / len(pairs) for name, value in sums.items()}
-    result.update(
-        {
-            "admissible_fraction": admissible / len(pairs),
-            "wall_forbidden_exchange_absolute_max": wall_forbidden_max,
-            "max_persistence_absolute": persistence_max,
-            "presentations": len(pairs),
-        }
-    )
-    if not all(math.isfinite(float(value)) for value in result.values()):
-        raise FloatingPointError("D048 evaluation produced a nonfinite metric")
-    return result
-
-
-@torch.no_grad()
 def evaluate_pairs(
     model: PCNOEuler2DResidual,
     store: PCNOEuler2DShardStore,
@@ -1510,7 +787,6 @@ def tiny_fit_snapshot(
     *,
     relative_l2_threshold: float,
     loss_ratio_threshold: float,
-    face_relative_l2_threshold: float | None = None,
 ) -> dict[str, Any]:
     initial_loss = float(initial["loss"])
     current_loss = float(current["loss"])
@@ -1521,34 +797,15 @@ def tiny_fit_snapshot(
     )
     relative_l2 = float(current["relative_l2"])
     admissible_fraction = float(current["admissible_fraction"])
-    face_passed = True
-    if face_relative_l2_threshold is not None:
-        face_passed = (
-            all(
-                float(current[name]) <= face_relative_l2_threshold
-                for name in (
-                    "face_relative_l2",
-                    "interior_face_relative_l2",
-                    "boundary_face_relative_l2",
-                )
-            )
-            and float(current["wall_forbidden_exchange_absolute_max"]) == 0.0
-        )
     return {
         "metrics": dict(current),
         "loss_ratio": loss_ratio,
         "relative_l2_threshold": float(relative_l2_threshold),
-        "face_relative_l2_threshold": (
-            None
-            if face_relative_l2_threshold is None
-            else float(face_relative_l2_threshold)
-        ),
         "loss_ratio_threshold": float(loss_ratio_threshold),
         "passed": (
             relative_l2 <= relative_l2_threshold
             and loss_ratio <= loss_ratio_threshold
             and admissible_fraction == 1.0
-            and face_passed
         ),
     }
 
@@ -1559,26 +816,12 @@ def tiny_fit_selection(snapshot: Mapping[str, Any]) -> tuple[float, ...]:
         snapshot["relative_l2_threshold"]
     )
     loss_ratio = float(snapshot["loss_ratio"]) / float(snapshot["loss_ratio_threshold"])
-    face_threshold = snapshot.get("face_relative_l2_threshold")
-    face_ratios = (
-        []
-        if face_threshold is None
-        else [
-            float(metrics[name]) / float(face_threshold)
-            for name in (
-                "face_relative_l2",
-                "interior_face_relative_l2",
-                "boundary_face_relative_l2",
-            )
-        ]
-    )
-    maximum_ratio = max(relative_ratio, loss_ratio, *face_ratios)
+    maximum_ratio = max(relative_ratio, loss_ratio)
     return (
         float(bool(snapshot["passed"])),
         float(metrics["admissible_fraction"]),
         -maximum_ratio,
         -relative_ratio,
-        *(-ratio for ratio in face_ratios),
         -loss_ratio,
     )
 
@@ -1636,7 +879,7 @@ def checkpoint_payload(
         "split_mode": args.split_mode,
         "data_contract": dict(data_contract),
         "target_contract": dict(resolved_target_contract),
-        "target_kind": args.target_kind,
+        "target_kind": RESIDUAL_TARGET_KIND,
         "normalization_digest": data_contract["normalization_digest"],
         "data_manifest_digest": store.manifest_digest,
         "step_stride": int(args.step_stride),
@@ -1831,142 +1074,6 @@ def train_epoch(
     }
 
 
-def train_canonical_face_epoch(
-    model: PCNOEuler2DSharedFaceImpulse,
-    store: PCNOEuler2DShardStore,
-    pairs: Sequence[tuple[str, int]],
-    *,
-    canonical_targets: Mapping[tuple[str, int], torch.Tensor],
-    face_weight: np.ndarray,
-    optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler.LRScheduler,
-    scaler: torch.amp.GradScaler,
-    step_stride: int,
-    batch_size: int,
-    batch_rng: np.random.Generator,
-    device: torch.device,
-    amp: str,
-    gradient_clip: float,
-) -> dict[str, float | None]:
-    """Optimize only D048's equal interior/boundary canonical-face loss."""
-
-    model.train()
-    metric_names = (
-        "loss",
-        "face_relative_l2",
-        "interior_face_relative_l2",
-        "boundary_face_relative_l2",
-        "interior_face_loss",
-        "boundary_face_loss",
-        "decoded_state_loss",
-        "relative_l2",
-    )
-    sums = {name: 0.0 for name in metric_names}
-    wall_forbidden_max = 0.0
-    all_gradients_finite = True
-    batches = homogeneous_presentation_batches(
-        pairs,
-        batch_size=batch_size,
-        rng=batch_rng,
-    )
-    for key, time_indices in batches:
-        sample = store.tensor_batch(
-            key,
-            time_indices,
-            step_stride=step_stride,
-            device=device,
-        )
-        face_target = _canonical_target_batch(
-            canonical_targets,
-            key,
-            time_indices,
-            device=device,
-        )
-        optimizer.zero_grad(set_to_none=True)
-        with autocast_context(device, amp):
-            prediction, face_prediction = forward_face_sample(
-                model, sample, sample["current"]
-            )
-        face_result = canonical_face_metrics(
-            face_prediction,
-            face_target,
-            face_weight=face_weight,
-            face_is_interior=model.face_is_interior,
-        )
-        loss = face_result["loss"]
-        if not bool(torch.isfinite(loss)):
-            raise FloatingPointError(
-                f"nonfinite D048 face loss for trajectory {key} frames {time_indices}"
-            )
-        scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
-        gradients = [
-            parameter.grad
-            for parameter in model.parameters()
-            if parameter.grad is not None
-        ]
-        if not gradients:
-            raise RuntimeError("D048 face loss produced no model gradients")
-        gradients_finite = all(bool(torch.isfinite(value).all()) for value in gradients)
-        all_gradients_finite = all_gradients_finite and gradients_finite
-        if not gradients_finite:
-            raise FloatingPointError(
-                f"nonfinite D048 gradients for trajectory {key} frames {time_indices}"
-            )
-        if gradient_clip > 0.0:
-            gradient_norm = torch.nn.utils.clip_grad_norm_(
-                model.parameters(), gradient_clip
-            )
-            if not bool(torch.isfinite(gradient_norm)):
-                raise FloatingPointError("D048 gradient norm is nonfinite")
-        scaler.step(optimizer)
-        scaler.update()
-        scheduler.step()
-
-        with torch.no_grad():
-            decoded_loss, decoded_relative = pair_metrics(
-                prediction.float(), sample["target"], sample, model
-            )
-        current_batch_size = len(time_indices)
-        for name in (
-            "loss",
-            "face_relative_l2",
-            "interior_face_relative_l2",
-            "boundary_face_relative_l2",
-            "interior_face_loss",
-            "boundary_face_loss",
-        ):
-            sums[name] += float(face_result[name].detach().cpu()) * current_batch_size
-        sums["decoded_state_loss"] += (
-            float(decoded_loss.detach().cpu()) * current_batch_size
-        )
-        sums["relative_l2"] += (
-            float(decoded_relative.detach().cpu()) * current_batch_size
-        )
-        wall_forbidden_max = max(
-            wall_forbidden_max,
-            float(_wall_forbidden_absolute_max(face_prediction, model).detach().cpu()),
-        )
-    result: dict[str, float | None] = {
-        name: value / len(pairs) for name, value in sums.items()
-    }
-    result.update(
-        {
-            "wall_forbidden_exchange_absolute_max": wall_forbidden_max,
-            "gradients_finite": float(all_gradients_finite),
-            "clean_loss": result["loss"],
-            "clean_relative_l2": result["relative_l2"],
-            "generated_loss": None,
-            "generated_relative_l2": None,
-            "generated_input_relative_l2": None,
-            "generated_state_exposure_weight": 0.0,
-            "presentations": len(pairs),
-            "optimizer_steps": len(batches),
-        }
-    )
-    return result
-
-
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     device = select_device(args.device)
@@ -2013,29 +1120,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         data_contract,
     ):
         raise ValueError("checkpoint and current resolved data contracts differ")
-    d047_preflight = None
-    d047_preflight_sha256 = None
-    if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-        d047_preflight = load_d047_preflight_summary(
-            args.canonical_preflight_summary,
-            store,
-        )
-        d047_preflight_sha256 = sha256_file(args.canonical_preflight_summary)
-    face_geometry = None
-    if args.target_kind in FACE_TARGET_KINDS:
-        source_key = (
-            str(d047_preflight["config"]["source_geometry_key"])
-            if d047_preflight is not None
-            else train_keys[0]
-        )
-        face_geometry = load_fixed_fv_face_geometry(
-            args.family_root,
-            store,
-            source_key=source_key,
-        )
-        if d047_preflight is not None:
-            validate_d047_geometry(d047_preflight, face_geometry)
-
     if args.rollout_val_count > len(val_keys):
         raise ValueError("--rollout-val-count exceeds the validation split")
     rollout_selection_seed = args.seed + 1991
@@ -2051,17 +1135,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     model = build_model(
         args,
         normalization,
-        face_geometry=face_geometry,
         zero_initialize=checkpoint is None,
     ).to(device)
-    if (
-        args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-        and parameter_count(model) != D048_PARAMETER_COUNT
-    ):
-        raise RuntimeError(
-            "D048 parameterization drifted: "
-            f"{parameter_count(model)} != {D048_PARAMETER_COUNT}"
-        )
     tiny_bank = None
     if args.tiny_pairs:
         tiny_bank = fixed_tiny_presentations(
@@ -2071,55 +1146,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             count=args.tiny_pairs,
             seed=args.seed + 17,
         )
-    canonical_targets = None
-    canonical_face_weight = None
-    canonical_target_metadata = None
-    if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-        if tuple(tiny_bank or ()) != D048_TINY_BANK:
-            raise RuntimeError(
-                f"D048 immutable pair bank drifted: {tiny_bank!r} != "
-                f"{list(D048_TINY_BANK)!r}"
-            )
-        if face_geometry is None or d047_preflight is None:
-            raise RuntimeError("D048 geometry or D047 authorization is unresolved")
-        canonical_targets, canonical_face_weight, canonical_target_metadata = (
-            build_d048_canonical_targets(
-                store,
-                family_root=args.family_root,
-                geometry=face_geometry,
-                pairs=tiny_bank,
-                preflight=d047_preflight,
-            )
-        )
-        canonical_target_metadata.update(
-            {
-                "parent_summary_sha256": d047_preflight_sha256,
-                "code_sha256": {
-                    "trainer": sha256_file(Path(__file__)),
-                    "pcno_face_impulse": sha256_file(
-                        ROOT / "utility/time_dependent_no/pcno_face_impulse.py"
-                    ),
-                    "fv_impulse_diagnostics": sha256_file(
-                        ROOT / "utility/time_dependent_no/fv_impulse_diagnostics.py"
-                    ),
-                },
-            }
-        )
-    resolved_target_contract = target_contract(model, face_geometry)
-    if canonical_target_metadata is not None:
-        resolved_target_contract["canonical_target"] = canonical_target_metadata
-        resolved_target_contract["objective"] = (
-            "0.5*mean_component_relative_W_f^-1_interior_squared_error + "
-            "0.5*mean_component_relative_W_f^-1_boundary_squared_error"
-        )
-        resolved_target_contract["decoded_state_in_training_objective"] = False
-        resolved_target_contract["test_split_accessed"] = False
+    resolved_target_contract = target_contract()
     if checkpoint is not None:
         saved_target_contract = checkpoint.get("target_contract")
-        if saved_target_contract is None:
-            if args.target_kind in FACE_TARGET_KINDS:
-                raise ValueError("face-target checkpoint lacks its target contract")
-        elif saved_target_contract != resolved_target_contract:
+        if saved_target_contract not in (None, resolved_target_contract):
             raise ValueError("checkpoint and current target contracts differ")
     if checkpoint is not None:
         model.load_state_dict(checkpoint["model_state"], strict=True)
@@ -2194,45 +1224,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         rng=np.random.default_rng(args.seed + 991),
     )
     if tiny_bank is not None:
-        if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-            initial_train_metrics = evaluate_canonical_pairs(
-                model,
-                store,
-                tiny_bank,
-                canonical_targets=canonical_targets,
-                face_weight=canonical_face_weight,
-                step_stride=args.step_stride,
-                batch_size=args.batch_size,
-                device=device,
-                amp=args.amp,
-            )
-            for name in (
-                "loss",
-                "face_relative_l2",
-                "interior_face_relative_l2",
-                "boundary_face_relative_l2",
-            ):
-                if not math.isclose(
-                    float(initial_train_metrics[name]),
-                    1.0,
-                    rel_tol=0.0,
-                    abs_tol=2.0e-6,
-                ):
-                    raise RuntimeError(f"D048 zero-output unit check failed for {name}")
-            if initial_train_metrics["max_persistence_absolute"] != 0.0:
-                raise RuntimeError("D048 zero-output model is not exact persistence")
-            if initial_train_metrics["wall_forbidden_exchange_absolute_max"] != 0.0:
-                raise RuntimeError("D048 wall mask is not an exact structural zero")
-        else:
-            initial_train_metrics = evaluate_pairs(
-                model,
-                store,
-                tiny_bank,
-                step_stride=args.step_stride,
-                batch_size=args.batch_size,
-                device=device,
-                amp=args.amp,
-            )
+        initial_train_metrics = evaluate_pairs(
+            model,
+            store,
+            tiny_bank,
+            step_stride=args.step_stride,
+            batch_size=args.batch_size,
+            device=device,
+            amp=args.amp,
+        )
     else:
         initial_train_metrics = None
 
@@ -2273,43 +1273,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         else:
             repetitions = math.ceil(args.presentations_per_epoch / len(tiny_bank))
             pairs = (tiny_bank * repetitions)[: args.presentations_per_epoch]
-        if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-            if not isinstance(model, PCNOEuler2DSharedFaceImpulse):
-                raise TypeError("D048 requires the shared-face model")
-            last_train_metrics = train_canonical_face_epoch(
-                model,
-                store,
-                pairs,
-                canonical_targets=canonical_targets,
-                face_weight=canonical_face_weight,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                scaler=scaler,
-                step_stride=args.step_stride,
-                batch_size=args.batch_size,
-                batch_rng=np.random.default_rng(args.seed + 100_000 + epoch),
-                device=device,
-                amp=args.amp,
-                gradient_clip=args.gradient_clip,
-            )
-        else:
-            last_train_metrics = train_epoch(
-                model,
-                store,
-                pairs,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                scaler=scaler,
-                step_stride=args.step_stride,
-                batch_size=args.batch_size,
-                batch_rng=np.random.default_rng(args.seed + 100_000 + epoch),
-                device=device,
-                amp=args.amp,
-                input_noise_std=args.input_noise_std,
-                generated_state_exposure_weight=(args.generated_state_exposure_weight),
-                gradient_clip=args.gradient_clip,
-                noise_generator=noise_generator,
-            )
+        last_train_metrics = train_epoch(
+            model,
+            store,
+            pairs,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            step_stride=args.step_stride,
+            batch_size=args.batch_size,
+            batch_rng=np.random.default_rng(args.seed + 100_000 + epoch),
+            device=device,
+            amp=args.amp,
+            input_noise_std=args.input_noise_std,
+            generated_state_exposure_weight=(args.generated_state_exposure_weight),
+            gradient_clip=args.gradient_clip,
+            noise_generator=noise_generator,
+        )
         last_validation_metrics = evaluate_pairs(
             model,
             store,
@@ -2321,38 +1301,20 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         current_tiny_snapshot = None
         if tiny_bank is not None:
-            if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-                current_tiny_metrics = evaluate_canonical_pairs(
-                    model,
-                    store,
-                    tiny_bank,
-                    canonical_targets=canonical_targets,
-                    face_weight=canonical_face_weight,
-                    step_stride=args.step_stride,
-                    batch_size=args.batch_size,
-                    device=device,
-                    amp=args.amp,
-                )
-            else:
-                current_tiny_metrics = evaluate_pairs(
-                    model,
-                    store,
-                    tiny_bank,
-                    step_stride=args.step_stride,
-                    batch_size=args.batch_size,
-                    device=device,
-                    amp=args.amp,
-                )
+            current_tiny_metrics = evaluate_pairs(
+                model,
+                store,
+                tiny_bank,
+                step_stride=args.step_stride,
+                batch_size=args.batch_size,
+                device=device,
+                amp=args.amp,
+            )
             current_tiny_snapshot = tiny_fit_snapshot(
                 initial_train_metrics,
                 current_tiny_metrics,
                 relative_l2_threshold=args.tiny_fit_rel_l2,
                 loss_ratio_threshold=args.tiny_fit_loss_ratio,
-                face_relative_l2_threshold=(
-                    args.tiny_fit_face_rel_l2
-                    if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-                    else None
-                ),
             )
             current_tiny_selection = tiny_fit_selection(current_tiny_snapshot)
             if (
@@ -2475,38 +1437,20 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     tiny_fit = None
     if tiny_bank is not None:
-        if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND:
-            final_tiny = evaluate_canonical_pairs(
-                model,
-                store,
-                tiny_bank,
-                canonical_targets=canonical_targets,
-                face_weight=canonical_face_weight,
-                step_stride=args.step_stride,
-                batch_size=args.batch_size,
-                device=device,
-                amp=args.amp,
-            )
-        else:
-            final_tiny = evaluate_pairs(
-                model,
-                store,
-                tiny_bank,
-                step_stride=args.step_stride,
-                batch_size=args.batch_size,
-                device=device,
-                amp=args.amp,
-            )
+        final_tiny = evaluate_pairs(
+            model,
+            store,
+            tiny_bank,
+            step_stride=args.step_stride,
+            batch_size=args.batch_size,
+            device=device,
+            amp=args.amp,
+        )
         final_tiny_snapshot = tiny_fit_snapshot(
             initial_train_metrics,
             final_tiny,
             relative_l2_threshold=args.tiny_fit_rel_l2,
             loss_ratio_threshold=args.tiny_fit_loss_ratio,
-            face_relative_l2_threshold=(
-                args.tiny_fit_face_rel_l2
-                if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-                else None
-            ),
         )
         final_tiny_selection = tiny_fit_selection(final_tiny_snapshot)
         if best_tiny_selection is None or final_tiny_selection > best_tiny_selection:
@@ -2526,11 +1470,6 @@ def main(argv: Sequence[str] | None = None) -> None:
             "best_loss_ratio": best_tiny_snapshot["loss_ratio"],
             "best_epoch": best_tiny_epoch,
             "relative_l2_threshold": args.tiny_fit_rel_l2,
-            "face_relative_l2_threshold": (
-                args.tiny_fit_face_rel_l2
-                if args.target_kind == DIVERGENCE_ACTIVE_TARGET_KIND
-                else None
-            ),
             "loss_ratio_threshold": args.tiny_fit_loss_ratio,
             "passed": best_tiny_snapshot["passed"],
         }
@@ -2561,8 +1500,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             atomic_torch_save(tiny_payload, args.output_dir / "tiny_best.pt")
 
     summary = {
-        "mode": f"pcno_euler2d_{args.target_kind}",
-        "target_kind": args.target_kind,
+        "mode": f"pcno_euler2d_{RESIDUAL_TARGET_KIND}",
+        "target_kind": RESIDUAL_TARGET_KIND,
         "target_contract": resolved_target_contract,
         "device": str(device),
         "amp": args.amp,

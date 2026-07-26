@@ -1,6 +1,13 @@
-# Section 1.2 Corrected Baseline Protocol
+# Section 1.2 Corrected Baseline Record
 
-This note supersedes legacy Section 1.2 rows produced before the corrected CPGNet/FNO implementations landed.
+Status: Frozen historical result and labeling contract
+
+This record supersedes legacy Section 1.2 rows produced before the corrected
+CPGNet/FNO implementations landed. It preserves the final result record and
+analyzer contract; it does not authorize new training, reproduction, or sweep
+work. The pre-cleanup documentation, including the launch scaffold, is preserved
+at commit `31e5765`; retired implementation paths are recoverable through
+cleanup commit `729091b`.
 
 ## Deprecation Rules
 
@@ -11,127 +18,9 @@ This note supersedes legacy Section 1.2 rows produced before the corrected CPGNe
 - Rows with `model=fno` must report `model_implementation`. Width-32/modes-8 runs are legacy controls, not the main FNO baseline.
 - Corrected Section 1.2 tables must include `model_implementation`, `target_type`, `input_noise_std`, `step_stride`, `rollout_final_frame`, `seed_count`, one-step loss, rollout mean/final L2, shock error, conservation error, and density/pressure positivity diagnostics.
 
-## One-Seed Corrected Sweep
-
-Set these on AutoDL before launching commands:
-
-```bash
-DATA=/path/to/euler1d_dataset.npz
-BASE_OUT=artifacts/time_dependent_no/section12_corrected_v1
-SEED=20260707
-```
-
-Strong corrected FNO, main `limited_residual` target:
-
-```bash
-for noise in 0.003 0.02; do
-  for cfg in 64:16:4 64:24:4 96:24:4; do
-    IFS=: read -r width modes layers <<< "$cfg"
-    python scripts/time_dependent_no/train_euler1d_target_ladder.py \
-      --data-path "$DATA" \
-      --output-dir "$BASE_OUT/fno_w${width}_m${modes}_l${layers}_noise${noise}_seed${SEED}" \
-      --model fno \
-      --target limited_residual \
-      --epochs 80 \
-      --train-cases 384 --val-cases 64 --test-cases 64 \
-      --step-stride 4 --rollout-final-frame 80 \
-      --input-noise-std "$noise" \
-      --fno-width "$width" --fno-modes "$modes" --fno-layers "$layers" \
-      --seed "$SEED" --device cuda --gpu 0 --fail-fast
-  done
-done
-```
-
-Raw residual FNO control only:
-
-```bash
-for noise in 0.003 0.02; do
-  python scripts/time_dependent_no/train_euler1d_target_ladder.py \
-    --data-path "$DATA" \
-    --output-dir "$BASE_OUT/fno_raw_residual_w64_m24_l4_noise${noise}_seed${SEED}" \
-    --model fno \
-    --target residual \
-    --epochs 80 \
-    --train-cases 384 --val-cases 64 --test-cases 64 \
-    --step-stride 4 --rollout-final-frame 80 \
-    --input-noise-std "$noise" \
-    --fno-width 64 --fno-modes 24 --fno-layers 4 \
-    --seed "$SEED" --device cuda --gpu 0 --fail-fast
-done
-```
-
-Corrected solver-level 1D CPGNet adaptation:
-
-```bash
-python scripts/time_dependent_no/train_euler1d_target_ladder.py \
-  --data-path "$DATA" \
-  --output-dir "$BASE_OUT/cpgnet_solver_h128_mp12_noise0.02_seed${SEED}" \
-  --model cpgnet \
-  --target cpg_interface \
-  --epochs 15 --unroll-epochs 5 --unroll-steps 3 \
-  --train-cases 384 --val-cases 64 --test-cases 64 \
-  --step-stride 4 --rollout-final-frame 80 \
-  --input-noise-std 0.02 --unroll-noise-factor 0.1 \
-  --lr 1e-4 --weight-decay 0 \
-  --cpg-hidden-dim 128 --cpg-message-passing-steps 12 --cpg-mlp-layers 3 \
-  --seed "$SEED" --device cuda --gpu 0 --save-checkpoints --fail-fast
-```
-
-This adaptation keeps the released architecture's geometry-only edge encoder,
-12 unshared directed flow layers, target-node reconstruction, three scalar
-interface decoders, exponential density/pressure outputs, and 15+5 one-step /
-three-step curriculum with additive Gaussian primitive-input noise. It uses
-exact 1D control-volume geometry instead of the
-release's learned positive geometry factor, and enforces fixed-inflow /
-reflective-wall ghost states without target leakage. It uses one unique
-Rusanov flux per face and no post-update cell limiter or recurrence clamp.
-Checkpoint selection first requires a completed admissible validation horizon
-and ranks those checkpoints by final rollout L2. If no epoch completes, it
-ranks checkpoints by mean validation survival fraction and uses bounded
-one-step validation loss only to break survival ties.
-
-Before the full run, use this real-data CUDA contract smoke:
-
-```bash
-python scripts/time_dependent_no/train_euler1d_target_ladder.py \
-  --data-path "$DATA" \
-  --output-dir "$BASE_OUT/cpgnet_solver_contract_smoke" \
-  --model cpgnet --target cpg_interface \
-  --epochs 2 --unroll-epochs 1 --unroll-steps 3 \
-  --train-cases 32 --val-cases 8 --test-cases 8 \
-  --step-stride 4 --rollout-final-frame 8 \
-  --input-noise-std 0.02 --unroll-noise-factor 0.1 \
-  --cpg-hidden-dim 128 --cpg-message-passing-steps 12 --cpg-mlp-layers 3 \
-  --seed "$SEED" --device cuda --gpu 0 --fail-fast
-```
-
-The 15 one-step epochs are an explicit fit gate, not evidence of stability.
-Compare their held-out one-step error with the matched FNO and the deprecated
-roughly `0.1`-error head before interpreting rollout. If stride 4 still
-underfits badly, rerun the full command as a receptive-field control with
-`--step-stride 1 --rollout-final-frame 80` and a distinct output directory.
-Failure at both strides points back to implementation/optimization; good
-stride-1 fit but poor stride-4 fit supports the local macro-step limitation.
-
-## Three-Seed Confirmation
-
-After ranking the one-seed sweep, repeat only the best one or two corrected configs:
-
-```bash
-for seed in 20260707 20260708 20260709; do
-  python scripts/time_dependent_no/train_euler1d_target_ladder.py \
-    --data-path "$DATA" \
-    --output-dir "$BASE_OUT/best_config_seed${seed}" \
-    --model fno \
-    --target limited_residual \
-    --epochs 80 \
-    --train-cases 384 --val-cases 64 --test-cases 64 \
-    --step-stride 4 --rollout-final-frame 80 \
-    --input-noise-std 0.003 \
-    --fno-width 64 --fno-modes 24 --fno-layers 4 \
-    --seed "$seed" --device cuda --gpu 0 --fail-fast
-done
-```
+The obsolete launch matrix has been removed from this live record. Its exact
+commands remain available at commit `31e5765`; they are provenance, not an
+active experiment queue.
 
 ## Completed One-Seed AutoDL Sweep
 
@@ -170,8 +59,10 @@ Immediate read:
 - The mp12-to-mp28 comparison strongly implicates receptive-field coverage:
   test completion rises from `34/64` to `64/64`, first-rollout-step error falls
   by `88.6%`, and the initial-CFL/error Pearson correlation falls from `0.90`
-  to `-0.12`. Depth and parameter count changed together, so parameter-matched
-  controls remain required before attributing the entire gain to hop coverage.
+  to `-0.12`. Depth and parameter count changed together in that initial
+  comparison, but the later mp12/h193 and mp28/h85 controls support hop coverage
+  as the primary mechanism: width does not rescue the shallow model, while the
+  narrow deep model retains the gain.
 
 ## Stride-1 Conservative Flux-Form Continuation
 
@@ -214,9 +105,15 @@ The raw rollout completed with no nonpositive density or pressure and no
 limiter. This is not benchmark evidence; it only shows that the corrected
 architecture can fit a one-step map and backpropagate through recurrence.
 
-## Analysis Command
+## Retained Analysis Command
+
+This command analyzes existing frozen run directories only; it does not
+authorize training or create a new result row.
 
 ```bash
+BASE_OUT=/path/to/existing/section12_corrected_v1
+ANALYSIS_OUT=artifacts/time_dependent_no/section12_corrected_v1_analysis
+
 mapfile -t RUN_DIRS < <(
   find "$BASE_OUT" -mindepth 2 -maxdepth 2 -name summary.csv -printf '%h\n' \
     | grep -v '/smoke_'
@@ -224,8 +121,8 @@ mapfile -t RUN_DIRS < <(
 
 python scripts/time_dependent_no/analyze_euler1d_target_ladder.py \
   "${RUN_DIRS[@]}" \
-  --output-dir artifacts/time_dependent_no/section12_corrected_v1_analysis \
+  --output-dir "$ANALYSIS_OUT" \
   --group-by all
 ```
 
-Do not pass `"$BASE_OUT"/*` directly: that includes `logs/` and other non-run directories. Use `selector_ranked.csv` and `analysis.md` for the Section 1.2 table draft. The analyzer marks unlabeled legacy `cpgnet` summaries as `deprecated_result=yes`.
+Do not pass `"$BASE_OUT"/*` directly: that includes `logs/` and other non-run directories. Use `selector_ranked.csv` and `analysis.md` for the frozen Section 1.2 table record. The analyzer marks unlabeled legacy `cpgnet` summaries as `deprecated_result=yes`.

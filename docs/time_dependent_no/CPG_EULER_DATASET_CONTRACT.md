@@ -1,5 +1,7 @@
 # CPG Euler Dataset Contract
 
+Status: Live schema and reader contract
+
 The first benchmark source is the CPG-style data used by the Structure-Preserving Graph Neural Solver for 2D Euler / hyperbolic conservation laws.
 
 ## Required HDF5 Keys
@@ -51,7 +53,13 @@ pres      (80, N, 1)
 Mach      (80, N, 1)
 ```
 
-The HDF5 schema does not expose explicit cell areas, face normals, edge lengths, or cell volumes as top-level keys. Conservation diagnostics should state whether they use equal-node weights, approximate geometric weights, or recovered mesh weights.
+The HDF5 schema does not expose explicit cell areas, face normals, edge lengths,
+or cell volumes as top-level keys. Equal-node and approximate-weight sums are
+proxy diagnostics only; they must not be reported as physical conservation,
+conservative flux closure, or accurate boundary exchange. Those claims require
+validated cell volumes, physical face measures and normals, oriented face
+connectivity, boundary accounting, and a checked mesh-to-graph mapping. If
+recovered mesh weights are used, their source and validation must be recorded.
 
 ## Node Types
 

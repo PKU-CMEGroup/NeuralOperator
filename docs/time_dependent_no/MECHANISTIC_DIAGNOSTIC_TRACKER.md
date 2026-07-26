@@ -1,11 +1,16 @@
 # Mechanistic Diagnostic Tracker
 
 Date: 2026-07-04
-Updated: 2026-07-23
+Evidence frozen through: 2026-07-23
+Consolidated: 2026-07-26
+Status: Frozen evidence ledger; not an experiment queue
 
-This file is an evidence ledger. `TODO` or `BLOCKED` rows are not automatically
-approved next work; current method-design precedence is
-`RESEARCH_DIRECTION_DECISION.md`, then `HANDOFF.md`.
+This file preserves the historical experiment contracts, results, and stopping
+decisions. Status words and forward-looking language inside dated entries record
+what was true at that point in the campaign; they do not authorize current
+work. The current queue is report-only. Current method-design and authorization
+precedence is `RESEARCH_DIRECTION_DECISION.md`, then `HANDOFF.md`. Retired
+one-off implementations are recoverable from pre-cleanup commit `729091b`.
 
 | Run ID | Milestone | Purpose | System / Variant | Split | Metrics | Priority | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -17,25 +22,25 @@ approved next work; current method-design precedence is
 | D006 | M2 | Shock position and region decomposition | CPGNet one-step and two-stage | bump test full | shock-front IoU/F1, Chamfer/front distance, centroid, near-shock/smooth error, thickness, strength | MUST | DONE | Full q=0.85/0.90/0.95 shock diagnostics run on AutoDL. Shock-local error dominates smooth error, but best-shift alignment explains only a small fraction, so failure is shock-local shape/amplitude/stability plus phase, not pure displacement. |
 | D007 | M2 | Rollout animations and overlays | CPGNet one-step and two-stage | selected bump test | qualitative phase/smear/drift labels | MUST | DONE | Generated 32 selected-subset pressure/shock overlay PNGs plus JSON/Markdown gallery under `artifacts/time_dependent_no/cpg_shock_overlay_gallery_20260704/`. |
 | D008 | M3 | Equal-node physics diagnostics | CPGNet one-step and two-stage | bump test full | conservation drift, positivity, TV proxy | MUST | DONE | Equal-node normal-node total mismatch, positivity, and clamped-boundary leakage computed for full split. No positivity failures; boundary error is exactly zero under clamped rollout. |
-| D009 | M3 | Approximate-weight physics diagnostics | CPGNet one-step and two-stage | bump test | weighted conservation drift | NICE | BLOCKED | Requires mesh/cell weights or a validated geometric approximation; current diagnostics intentionally report equal-node totals only. |
-| D010 | M4 | Direct state-predictor control | Direct GNN or simplest available comparable model | bump train/test | B1-B5 metrics | NICE | BLOCKED | Wait for dominant defect |
+| D009 | M3 | Approximate-weight physics diagnostics | CPGNet one-step and two-stage | bump test | weighted conservation drift | NICE | LEGACY CLOSED / NOT RUN | Original block: mesh/cell weights or a validated geometric approximation were unavailable, so diagnostics intentionally reported equal-node totals only. The campaign closed without this run; equal-node or approximate bump sums are not physical conservation evidence. |
+| D010 | M4 | Direct state-predictor control | Direct GNN or simplest available comparable model | bump train/test | one-step/rollout error, perturbation, shock-region, and structure diagnostics | NICE | LEGACY CLOSED / NOT RUN | Original block: wait for a dominant defect before training a control. The campaign closed without this run, and it is not current authorized work. |
 | D011 | M5 | PCNO diagnostic replay | PCNO completed checkpoint via corrected preprocessing contract | selected bump test | AR RMSE, shock masks, positivity, boundary leakage, animations | MUST | DONE | D019 completed for trajectories 0, 6, 11, 13, 17 using the corrected HDF5-to-npy-to-reconstructed-npz path. The retired raw-HDF5 graph adapter should not be used for model conclusions. |
-| D012 | M6 | Correlation-time and geometric rollout aggregation | CPGNet one-step and two-stage | bump test full | high-correlation time, geometric relative error aggregation | MUST | TODO | Add APEBench/PDE-Refiner-style temporal metrics to existing raw-array diagnostic reports. |
-| D013 | M6 | Scale/spectral residual diagnostics | 1D residual FNO, flux FNO, and CPGNet mp28 first; then 2D CPGNet/PCNO | frozen 1D split, then bump full/subset | divergence-active flux spectra, first/second differences, characteristic and shock/smooth splits, pre-failure high-frequency growth; graph-native bins in 2D | MUST | DONE | The frozen 1D flux result and frozen serious-PCNO bump result both identify recurrent high-frequency growth. In 2D, rollout/teacher smooth high-band energy is `13.26x` at the late call, rollout growth is `45.28x`, and error-direction perturbation gain is `1.094`; the learned spectral branch is much smoother than the local branches. The repeated paired-response extension routes `local_pointwise_control`, but only as a next-experiment selector. Use graph-native evidence, not interpolation-to-grid FFT. |
+| D012 | M6 | Correlation-time and geometric rollout aggregation | CPGNet one-step and two-stage | bump test full | high-correlation time, geometric relative error aggregation | MUST | LEGACY CLOSED / NOT RUN | The original plan was to add APEBench/PDE-Refiner-style temporal metrics to existing raw-array reports. The campaign closed without this standalone aggregation, and it is not current authorized work. |
+| D013 | M6 | Scale/spectral residual diagnostics | 1D residual FNO, flux FNO, and CPGNet mp28 first; then 2D CPGNet/PCNO | frozen 1D split, then bump full/subset | divergence-active flux spectra, first/second differences, characteristic and shock/smooth splits, pre-failure high-frequency growth; graph-native bins in 2D | MUST | DONE | The frozen 1D flux result and frozen serious-PCNO bump result both identify recurrent high-frequency growth. In 2D, rollout/teacher smooth high-band energy is `13.26x` at the late call, rollout growth is `45.28x`, and error-direction perturbation gain is `1.094`; the learned spectral branch is much smoother than the local branches. The repeated paired-response extension historically selected `local_pointwise_control`; that selector is closed and authorizes no current experiment. Use graph-native evidence, not interpolation-to-grid FFT. |
 | D014 | M6 | Effective-CFL / receptive-field audit | CPGNet first, then PCNO | bump test full/subset | shock-front motion per step, median-edge-length units, message-passing/hop coverage, correlation with hard trajectories | MUST | DONE (partial) | Line 2 reports exact architectural current-state radius 13 and zero of 800 endpoint-sampled characteristic rows outside support. Unresolved DG substeps remain unbounded. A finite-hop obstruction does not apply to full PCNO because every spectral branch has global dependence. |
 | D015 | M7 | Recurrent/unrolled stabilization control | CPGNet or PCNO after D013/D014 | bump train/test | TF error, AR error, VPT, shock metrics, scale residuals | NICE | DONE (bounded pilot) | One detached depth-one generated-state-exposure continuation retained 5/5 admissible completion and improved selected rollout error only `2.3%` over clean, below the `10%` promotion gate; later epochs regressed. Do not launch the full confirmation or a weight sweep. |
 | D016 | M6 | Interface-state latent instrumentation | CPGNet one-step and two-stage bs2 | selected bump test frames | `reconstruct_prims`, one-sided trace metrics, LLF central/dissipation split, induced FV update, wave-type strata | MUST | DONE | Historical probe completed. The one-off implementation was retired from the active tree after the result was recorded; recover from git history only if exact reproduction is needed. |
 | D017 | M6 | Interface-state latent selected-frame run | CPGNet one-step and two-stage bs2 | trajectories 0, 6, 11, 13, 17; frames 0, 20, 40, 58, 78 | admissibility, trace-likeness, flux/update match, dissipation localization, speed projection, sampled edge table | MUST | DONE | AutoDL run completed under `artifacts/time_dependent_no/cpg_interface_latent_diagnostic_20260705_full/`; latents are admissible but not physical one-sided traces, induced update matches model delta but not true update exactly, and dissipation is only weakly shock-localized. |
 | D018 | M6 | Interface-latent mechanism probe | CPGNet one-step and two-stage bs2 | selected trajectories/frames; teacher-forced and autoregressive state sources | physical projection sensitivity, constrained inverse flux fit, TF-vs-AR latent drift | MUST | DONE | AutoDL run completed under `artifacts/time_dependent_no/cpg_interface_mechanism_probe_20260705_full/`; physical projections do not preserve learned flux/update, constrained physical inverse fits remain poor, and AR mode greatly increases learned-update error against the target next state. |
 | D019 | M5 | PCNO corrected preprocessed rollout replay | PCNO Euler checkpoint through collaborator-compatible preprocessing | trajectories 0, 6, 11, 13, 17 | AR RMSE, positivity, velocity blow-up, GIF gallery | MUST | DONE | AutoDL selected replay completed under ignored corrected PCNO rollout artifacts. Visual readout: PCNO initially tracks shock position better than CPGNet, but Fourier-style ripples grow and can trigger long-rollout crash; pressure mean RMSE across selected trajectories is about 2.13 and velocity errors can overflow. |
-| D020 | M6 | 1D Euler effective-CFL / receptive-field intervention | corrected CPGNet h128, mp12 versus mp28 | 384/64/64, stride 4, frame 80 | one-step fit, raw completion, survival, CFL correlations, shock, conservation | MUST | DONE | mp28 completed 64/64 raw test rollouts versus 34/64 for mp12; first-rollout-step error fell 88.6% and the initial-CFL/error Pearson correlation fell from 0.90 to -0.12. Depth and parameter count changed together, so the claim remains partial pending matched-parameter controls. |
+| D020 | M6 | 1D Euler effective-CFL / receptive-field intervention | corrected CPGNet h128, mp12 versus mp28 | 384/64/64, stride 4, frame 80 | one-step fit, raw completion, survival, CFL correlations, shock, conservation | MUST | DONE | mp28 completed 64/64 raw test rollouts versus 34/64 for mp12; first-rollout-step error fell 88.6% and the initial-CFL/error Pearson correlation fell from 0.90 to -0.12. The initial depth/capacity confound was later closed by the mp12/h193 and mp28/h85 controls, which support hop coverage as the primary mechanism. |
 | D021 | Idea 2.1 | Staged target-family optimization and solver screen | coordinate-selected FNO: next state, residual, state-loss-only flux, direct cumulative impulse, and joint supervision | frozen 1D ADER split, then stride ladder | label/endpoint/boundary closure, tiny-set fit, training floor, seed variance, supervised-objective/decoded error, shock/smooth curves, direct horizon, raw rollout, physics, transfer | MUST | DONE | The bounded target, exposure, stride, and resolution program is complete through D031. The 64/24/4 conservative-variable residual FNO remains the strong fixed-setting baseline. Rejected target, constraint, and continuation rows are closed; future Line-1 work is limited to frozen evaluation and the bounded theory package. |
-| D022 | Idea 2.1 | Separate later-time sampling from generated-state exposure | plain-residual FNO: clean 0+4, teacher-offset 8+4, generated 8+4 | fixed 64/16/16 split, seed 20260708 | matched one-step history/update count, H20/H50/H100 raw rollout, common-endpoint error, conservation, top-two front position/strength | MUST | DONE | Teacher offset gives no H50/H100 state benefit over clean. Generated exposure beats teacher by 13.9%, 33.9%, and 50.8% at H20/H50/H100 and completes 16/16 versus 14/16 at H100. It still regresses top-two front position versus clean at H20/H50, so full-scale promotion remains paused. |
+| D022 | Idea 2.1 | Separate later-time sampling from generated-state exposure | plain-residual FNO: clean 0+4, teacher-offset 8+4, generated 8+4 | fixed 64/16/16 split, seed 20260708 | matched one-step history/update count, H20/H50/H100 raw rollout, common-endpoint error, conservation, top-two front position/strength | MUST | DONE | Teacher offset gives no H50/H100 state benefit over clean. Generated exposure beats teacher by 13.9%, 33.9%, and 50.8% at H20/H50/H100 and completes 16/16 versus 14/16 at H100. It still regresses top-two front position versus clean at H20/H50, so full-scale promotion was paused at that gate and later superseded by the completed D023-D031 closeout. |
 | D023 | Idea 2.1 | Solver-consistency diagnostic from generated states | learned residual versus WENO-HLLC-ADER advancement initialized from the same generated state | all 16 D022 test cases, starts 0:10:80, prefix depths 0/2/4/8 | learned-vs-reference next-state defect, truth-next defect, shock/smooth and characteristic components, error-versus-prefix depth | MUST | DONE | At depth eight, generated/teacher error is 0.992 to original truth but 1.017 to the same-state solver continuation; correction alignment is only 0.074. Clean is closest to the solver. The result is mixed and rejects a large local PDE-map explanation for the rollout gain. |
 | D024 | M6 | Frozen-checkpoint conservative-dissipation probe | state-loss-only flux FNO plus small local interior diffusive face flux | full frozen split | H20/H50 survival and positivity, front position/strength, shock width, TV excess, conservation and boundary exchange | MUST | DONE | The paired five-coefficient probe gives no material H50 stability gain. Small diffusion leaves completion unchanged while worsening state/tail error; larger diffusion shortens survival even when modes 25--64 decrease. Boundary correction is exactly zero. |
 | D025 | Idea 2.1 | Global interface-latent FNO pilot | face-grid FNO with two relative directed traces, shared Rusanov or central decoder, exact FV update | tiny fit then 64/16/16 | one-step fit, raw H20/H50 rollout, positivity, conservation, top-two front geometry, decoder ablation | MUST | DONE (1D pilot) | The 317,126-parameter Rusanov model reaches selected test one-step relative L2 `0.00786` after frame-zero weighting and a training-only barrier, but every 16-case H50 rollout still becomes inadmissible within five calls. Short unrolling, temporal reweighting, and barrier weight `0.1` fail the `0.10` survival gate. Do not promote this parameterization to full scale or four-step training. |
 | D026 | Idea 2.1 | Identifiable boundary-exchange supervision | projected-residual FNO plus RMS-normalized net solver boundary-impulse loss | matched 64/16/16 stride-1 gate, H20 | one-step state, boundary exchange, raw rollout, shock, conservation, closure | MUST | DONE | Weights `0.1` and `0.01` improve boundary-exchange and conserved-total errors but worsen one-step, H20 state, and shock errors. Both retain 16/16 completion but fail the joint-accuracy gate. Stop without a full seed sweep. |
-| D027 | Idea 2.1 | Cold stride-2 transfer gate | plain-residual FNO, fixed stride 2, compared with composed frozen stride-1 model | matched 64/16/16, H20 selection then frame-100 replay | native fit, same-frame H20/H50/H100 state, survival, shock, conservation | MUST | DONE (partial) | Direct stride 2 improves common-case H20/H50/H100 state error by 25.0%/36.2%/48.6% and completes 16/16 at H100, but its direct frame-2 error is 1.216 times stride-1 composition and misses the 1.15 gate. Activate the continuation control before stride 4. |
+| D027 | Idea 2.1 | Cold stride-2 transfer gate | plain-residual FNO, fixed stride 2, compared with composed frozen stride-1 model | matched 64/16/16, H20 selection then frame-100 replay | native fit, same-frame H20/H50/H100 state, survival, shock, conservation | MUST | DONE (partial) | Direct stride 2 improves common-case H20/H50/H100 state error by 25.0%/36.2%/48.6% and completes 16/16 at H100, but its direct frame-2 error is 1.216 times stride-1 composition and misses the 1.15 gate. This historically routed the now-completed D028 continuation control; D027 authorizes no current stride action. |
 | D028 | Idea 2.1 | Stride-1 to stride-2 continuation gate | plain-residual FNO initialized from the frozen stride-1 weights, fresh stride-2 optimizer | matched D027 split/schedule, H20 selection then frame-100 replay | final-target fit floor, frame-2 defect, H20/H50/H100 state, survival, shock, conservation | MUST | DONE (partial) | Continuation repairs frame 2, lowers one-step/recurrent training floors by 42%/44%, and improves H100 state and pressure margin, but H50 state is 1.095 times cold and fails the 1.05 gate. Do not run the conditional total-exposure control or claim a uniformly better solver. |
 | D029 | Idea 2.1 | Frozen cross-resolution transfer gate | frozen plain-residual stride-1 and cold stride-2 FNOs trained at 256 cells | identical 512 physical cases at 128/256/512 cells; frozen 16-case test split | native-grid one-step, frame-2/H20/H50/H100 raw rollout, shock, conservation, completion, solver restriction gap | MUST | DONE (partial) | Neither checkpoint passes native-map resolution transfer: off-grid one-step error is 5.5--8.3 times nx256, high-resolution shock metrics regress, and cold stride 2 loses one case off-grid. The larger-step advantage itself transfers bidirectionally: stride 2 beats stride-1 composition at H20/H50/H100 on nx128 and nx512 with equal same-grid completion. |
 | D030 | Idea 2.1 | Restriction-consistent shared-resolution gate | one shared 64/24/4 residual FNO versus equal-presentation single-resolution oracles and the frozen native-nx256 baseline | exact-cell-average nx512 reference conservatively restricted to nx256/nx128; matched 64/16/16 split | label commutation, per-grid one-step, H20/H50/H100 raw rollout, shock, conservation, completion, native-solver diagnostic | MUST | DONE (partial) | The primary representation and frozen-baseline usefulness gates pass. The shared row stays within `1.418x` same-grid-oracle state error and `1.296x` one-step error, with no completion loss. It does not reproduce independently evolved native coarse-grid maps and still loses three pressure-limited cases by H100. Classify as `shared_restriction_operator_without_native_solver_equivalence`. |
@@ -48,16 +53,16 @@ approved next work; current method-design precedence is
 | D037 | Line 3 | Dynamic finite-volume conservative-correction oracle preflight | canonical Mach-1.1 shock--isentropic-vortex; consumed by the later D044 dynamic baseline | 250x100/500x200/1000x400 primary ladder plus one pinned boundary-matched SharpClaw 250x100 state run | reference convergence and saved-time provenance; independent state agreement; impulse identifiability and contraction; conservation, locality, update norm, raw admissibility, shock/vortex anti-smearing | MUST | DONE (CONTRACT CLOSED; CONSUMED BY D044) | The v3 audit closes the benchmark and direct same-primary-solver impulse contracts with all checks true. Primary state ratios are `0.484166/0.481540/0.397123`; SharpClaw final/time-mean errors `0.0315534/0.0156538` pass envelopes `0.0466208/0.0233192`; full/divergence-active/cycle/boundary impulse ratios are `0.463428/0.463362/0.463482/0.464003`. SharpClaw is state-only and the cycle field is discretization-specific. D044 later froze the perturbation split, neural baseline, D013, and rejecting oracle result; do not read those outcomes back into this reference-only row. |
 | D038 | Line 1B | Frozen modal-error evolution | D031 stride-1/2/4/8 checkpoints plus both stride-8 repeats | 64 frozen test cases; H8--H96 rollout endpoints and truth starts 0:5:90 | truth-normalized error by mode, error-energy share, spectral-shape moments, pooled teacher-update bands | MUST | DONE | Zero learned training. Stride-8 teacher-update error exceeds stride 4 in every band, with a `2.465--2.744x` excess in modes 17--24 across its three seeds. At H8 the primary stride-8 total modal error is `1.218x` stride 4 and all 101 truth-resolved modes are worse. At H32 total modal error is already `0.917x`, while centroid, normalized `k^4` shape, and tail share remain `1.203/1.327/1.857x`; all three seeds preserve the rougher shape. At H96 total modal error is `0.522x`, but the global shape ordering is not seed-stable. This supports broadband large-step defect injection followed by a fewer-call advantage and localized late roughness, not global high-frequency blow-up. |
 | D039 | Line 1B | Frozen operating-envelope closeout | registered D032--D038 source tables; no checkpoint replay | primary 64-case H8/H16/H32/H64/H96 endpoints; D034 fixed 16-case timing subset | cross-artifact provenance, metric-specific winners, paired case bootstrap, sustained crossover, global/local/runtime Pareto | MUST | DONE | Zero training, checkpoint evaluation, or solver calls. All ten provenance/mechanism invariants pass, including exact equality of 72 duplicated D036/D038 summary rows. Endpoint-error winners are stride 2 at H8, stride 4 at H16, and stride 8 at H32/H64/H96; only H16, H64, and H96 separate the winner from its runner-up under the paired 95% case-bootstrap interval. These are post-selection case intervals, not seed uncertainty or confirmatory winner intervals. Stride 8 first and sustainably beats stride 4 in endpoint error at H32, but only sustainably in time-mean error at H56. At H96 stride 8 wins global error, reliability at budget `0.05`, and latency, while stride 2 wins front position and away-front derivative/TV metrics. The stage is theory-ready but the optimum remains metric-dependent and right-censored. |
-| L1-OOD | Line 1 audit | Register existing mild-support OOD artifacts without rerun | frozen primary stride-1/2/4/8 set plus two stride-8 checkpoint substitutions | 32 OOD cases, H32/H64/H96; historical regime labels absent from rows | aggregate error, completion, seed sensitivity, provenance completeness | MUST | DONE (PROVENANCE-LIMITED) | At H96 primary stride-2/4/8 errors are `0.07938/0.04287/0.04890` with `31/32`, `32/32`, and `32/32` completion; stride-8 repeats are `0.04074/0.03611`, both `32/32`. Stride 4 and all observed stride-8 seeds beat the single stride-2 row, but stride 8 does not beat stride 4 for every seed and only stride 8 was repeated. Data hash and old evaluator hash agree across directories. The OOD NPZ is absent and historical rows omit regime labels/generator hash, so block-specific labels remain inferred and non-claim-eligible. Future evaluator output closes that provenance gap. |
-| XLINE-001 | Lines 1/3 | Frozen rollout-instability attribution | D031 FNO frontier, D041 bump PCNO failures, and D044 six-case D013 PCNO stable control; no training | FNO: at most four small-stride failures, same-case large-stride paths, and four descriptor-matched stable controls; bump: three failures plus three descriptor-matched completions; regimes remain separate | error/ripple/admissibility lifetimes; vector same-state decomposition; direct/composed and crossed-state paths; per-time learned/reference gain; first precursors; at most two intervention types per regime | MUST | REGISTERED; EXECUTION NOT AUTHORIZED | Distinguish approximation difficulty, recurrent distribution shift, learned versus reference amplification, shock-phase injection, roughness growth, boundary effects, and terminal pressure failure. Reuse D033/D035--D038 rather than regenerating them. D044 requires a focused generated-state restart preflight; the bump/DG branch has no validated restart and cannot support solver-versus-model decomposition. All cohorts are shock-bearing, so discontinuity necessity remains untested. Close as mixed/unresolved unless temporal precedence and a same-state fork or intervention agree; any method change needs separate Line-3 authorization. |
+| L1-OOD | Line 1 audit | Register existing mild-support OOD artifacts without rerun | frozen primary stride-1/2/4/8 set plus two stride-8 checkpoint substitutions | 32 OOD cases, H32/H64/H96; historical regime labels absent from rows | aggregate error, completion, seed sensitivity, provenance completeness | MUST | DONE (PROVENANCE-LIMITED) | At H96 primary stride-2/4/8 errors are `0.07938/0.04287/0.04890` with `31/32`, `32/32`, and `32/32` completion; stride-8 repeats are `0.04074/0.03611`, both `32/32`. Stride 4 and all observed stride-8 seeds beat the single stride-2 row, but stride 8 does not beat stride 4 for every seed and only stride 8 was repeated. Data hash and old evaluator hash agree across directories. The OOD NPZ is absent and historical rows omit regime labels/generator hash, so the provenance gap is frozen and block-specific labels remain inferred and non-claim-eligible; no evaluator rerun is authorized. |
+| XLINE-001 | Lines 1/3 | Frozen rollout-instability attribution | D031 FNO frontier, D041 bump PCNO failures, and D044 six-case D013 PCNO stable control; no training | FNO: at most four small-stride failures, same-case large-stride paths, and four descriptor-matched stable controls; bump: three failures plus three descriptor-matched completions; regimes remain separate | error/ripple/admissibility lifetimes; vector same-state decomposition; direct/composed and crossed-state paths; per-time learned/reference gain; first precursors; at most two intervention types per regime | MUST | CLOSED / NOT RUN | The registered attribution was never executed and closed as mixed/unresolved under the final queue freeze. Existing D033/D035--D038 evidence is retained without regeneration. The bump/DG branch has no validated restart, all cohorts are shock-bearing, and solver-versus-model decomposition and discontinuity necessity remain unresolved. No restart preflight, regeneration, or method action is currently authorized. |
 | D040 | Line 2 | CPGNet legal-boundary validity closeout | public release checkpoint under oracle and causal nodal boundaries; one legal-boundary-trained checkpoint | same 20 release-bundle test trajectories, 79 calls | evaluator/checkpoint/dataset identity, normal/all/boundary RMSE, distance strata, positivity, q0.90 shock metrics | MUST | DONE | Exact archived-evaluator oracle parity passes. Legal-boundary training lowers frozen-legal normal-node RMSE by 34--45%, improves all four variables on 19/20 trajectories, and remains finite/positive, but stays 1.6--2.4x worse than oracle. This is one-seed release-bundle evidence, not paper identity, exact DG replay, conservation evidence, or a general learned-solver result. Stop Line 2 without the matched decoder ablation. |
-| D041 | Line 3 | Official serious-PCNO holdout, branch counterfactual, and legal-boundary routing | frozen clean 19,155,720-parameter conservative-residual PCNO; pointwise gain `0.75`; full causal nodal policy; fixed inflow | all 20 held-out bump trajectories, 79 raw calls | one-step, mixed-prefix/completed/common endpoint, survival, positivity, graph high-pass, shock geometry, failure localization, batch-1 latency | MUST | DONE | Baseline completes 17/20 H79 runs after 20/20 at H20. Pointwise attenuation is strongly harmful. Full nodal remapping improves completion but fails accuracy/anti-smearing. Exact fixed inflow passes the tight baseline-contract gate and delays both inflow failures by 16 calls, but completion remains 17/20. This authorizes only a future matched boundary contract, not a learned stabilization or physical conservation claim. |
+| D041 | Line 3 | Official serious-PCNO holdout, branch counterfactual, and legal-boundary routing | frozen clean 19,155,720-parameter conservative-residual PCNO; pointwise gain `0.75`; full causal nodal policy; fixed inflow | all 20 held-out bump trajectories, 79 raw calls | one-step, mixed-prefix/completed/common endpoint, survival, positivity, graph high-pass, shock geometry, failure localization, batch-1 latency | MUST | DONE | Baseline completes 17/20 H79 runs after 20/20 at H20. Pointwise attenuation is strongly harmful. Full nodal remapping improves completion but fails accuracy/anti-smearing. Exact fixed inflow passes the tight baseline-contract gate and delays both inflow failures by 16 calls, but completion remains 17/20. This historically routed only a matched boundary contract; Line 2 later closed without it. It never authorized learned stabilization or a physical conservation claim. |
 | D042 | Line 3 | Fixed compact local-basis capacity counterfactual | 289-column geometry-only FPS/Wendland-C2 partition-of-unity projection versus the saved PCNO Fourier controls | five full-resolution held-out bump trajectories at call 1 | locality, rank, residual RMSE, shock-separated graph high-pass, raw decoded admissibility and anti-smearing | MUST | DONE; REJECTED | The local span is genuinely compact, full-rank, and halves smooth-region high-pass projection error, but residual RMSE remains `0.989/0.982x` the current Fourier control and all 10 decoded proxy/case rows fail anti-smearing/admissibility; six have nonpositive raw pressure/internal energy. Reject this fixed span without a radius, center-count, or kernel sweep. This is a projection-capacity result, not training or rollout evidence. |
-| D043 | Line 3 | Official-checkpoint paired branch-cancellation audit | frozen SHA-256 `2bb5ee3c...` conservative-residual PCNO; exact paired error-direction response | trajectories 16 and 60, call 10, all four hidden layers | smooth-region graph-high-pass energy identity under equal-node and reconstructed proxy weights; response gain and roughness | MUST | DONE | All 16 layer/case/proxy cancellation fractions are at most `0.00430` and the medians are negative, so the repeated paired-response screen falsifies strong inter-branch cancellation. The pointwise response is still roughest in all four layers and dominates RMS gain in three, but D041 already shows uniform attenuation is destructive. This routes future localized control; it is not causal attribution or a Jacobian result. |
-| D044 | Line 3 | Frozen dynamic-FV residual PCNO, physical rollout, D013, and constrained-oracle route | one seed-20260718 19,155,720-parameter conservative-residual PCNO on the frozen 135-case shock--vortex family | grouped 84/24/27 split; all 24 validation cases for H60 physical evaluation; predeclared six-case D013/oracle cohort; 27 test cases sealed | raw completion/error, front/shock/vortex/smooth hierarchy, physical totals and boundary exchange, branch/basis/recurrence mechanism, 20%-support/10%-update oracle at calls 10/30/60, Line-4 handoff flags | MUST | DONE; LOCAL CORRECTOR REJECTED | Epoch 44 gives 24/24 raw admissible H60 completion and physical-volume state error `0.00834190`, beating all three train-only controls on 24/24 cases. D013 is `unresolved`: every predeclared screen is false, the Gram contract is well-conditioned, and the paired branch selector is composite. The 18-row constrained oracle passes all structural gates but reaches only `0.05135/0.04164` median state/high-pass reduction, so it rejects a learned local correction. The strengthened Line-4 handoff authorizes training truth only for the frozen family, supplies no front candidate, and keeps transition training false. Test remains sealed. |
+| D043 | Line 3 | Official-checkpoint paired branch-cancellation audit | frozen SHA-256 `2bb5ee3c...` conservative-residual PCNO; exact paired error-direction response | trajectories 16 and 60, call 10, all four hidden layers | smooth-region graph-high-pass energy identity under equal-node and reconstructed proxy weights; response gain and roughness | MUST | DONE | All 16 layer/case/proxy cancellation fractions are at most `0.00430` and the medians are negative, so the repeated paired-response screen falsifies strong inter-branch cancellation. The pointwise response is still roughest in all four layers and dominates RMS gain in three, but D041 already shows uniform attenuation is destructive. This was a historical selector toward localized control; the later route closed without promotion. It is not causal attribution or a Jacobian result. |
+| D044 | Line 3 | Frozen dynamic-FV residual PCNO, physical rollout, D013, and constrained-oracle route | one seed-20260718 19,155,720-parameter conservative-residual PCNO on the frozen 135-case shock--vortex family | grouped 84/24/27 split; all 24 validation cases for H60 physical evaluation; predeclared six-case D013/oracle cohort; 27 test cases sealed | raw completion/error, front/shock/vortex/smooth hierarchy, physical totals and boundary exchange, branch/basis/recurrence mechanism, 20%-support/10%-update oracle at calls 10/30/60, Line-4 handoff flags | MUST | DONE; LOCAL CORRECTOR REJECTED | Epoch 44 gives 24/24 raw admissible H60 completion and physical-volume state error `0.00834190`, beating all three train-only controls on 24/24 cases. D013 is `unresolved`: every predeclared screen is false, the Gram contract is well-conditioned, and the paired branch selector is composite. The 18-row constrained oracle passes all structural gates but reaches only `0.05135/0.04164` median state/high-pass reduction, so it rejects a learned local correction. The strengthened Line-4 handoff recorded `line4_training_truth_authorized=true` only as a historical artifact field for the frozen family, supplied no front candidate, and kept transition training false. Current Line 4 is stopped and test remains sealed. |
 | D045 | Line 3 | State-loss-only shared-face-impulse contract and tiny-fit gate | one 19,210,028-parameter PCNO face decoder on the frozen full-resolution shock--vortex mesh | four immutable training pairs; corrected smoke, 800-update attempt, and one 3,200-update exposure retry; validation smoke only; 27 test cases sealed | provenance and mesh/graph equality, exact decode balance, tiny-fit state error/loss ratio, admissibility, precision attribution, reference-impulse non-use | MUST | DONE; TINY-FIT FAILED; SERIOUS STOPPED | The antisymmetric interior decoder and current-state boundary heads pass focused tests and close against predicted boundary exchange. Best state error/loss ratio improves from `0.00166965/0.0730244` at 800 updates to `0.000955675/0.0254377` at 3,200. The absolute error gate passes but the required 100-fold loss reduction fails; precision replay is nearly unchanged. No serious face row, divergence-active sweep, physical-conservation claim, or test evaluation is authorized. The Line-4 handoff flags remain unchanged. |
 | D046 | Line 3 | Canonical divergence-active/minimum-norm face-target preflight | zero-training weighted projection on the frozen full-resolution finite-volume mesh | four fixed train plus four fixed position-OOD validation cases at calls 1/30/60; 24 rows; strength-OOD test forbidden | artifact and split provenance, reference/shard decode closure, independent state-plus-boundary reconstruction, compatibility, cycle removal, weighted norm, wall exchange, sparse-solve status | MUST | DONE; PREFLIGHT FAILED; TRAINING STOPPED | The corrected 24-row run failed only canonical/reference-state closure: maximum `4.94497e-7` versus the frozen `1e-8` gate. Reference closure is `1.23427e-12`; shard closure `9.36905e-6`; independent field disagreement `1.61785e-8`; compatibility `2.94020e-12`; cycle divergence `5.18524e-10`; norm ratio `0.999440`; wall leakage `3.10460e-20`; all solve codes are accepted. Reference cycle energy is only `0.1129--0.6691%` (median `0.2646%`). No supervised tiny fit, tolerance retry, test access, or Line-4 flag change is authorized. |
-| D047 | Line 3 | Fixed-mesh direct canonical-projector preflight | one anchored float64 sparse factorization per connected component, reused across all right-hand sides; zero training | exact D046 24-row train/position-OOD-validation cohort; calls 1/30/60; strength-OOD test forbidden | unchanged D046 gates plus explicit compatibility projection, reduced-system residual, factor reuse, finiteness, and no-jitter provenance | MUST | DONE; ALL GATES PASSED | All 24 rows pass. Canonical closure is `1.09848e-9--3.40147e-9`, improving every D046 row by `144.97--157.64x`; independent disagreement is at most `8.42560e-10`, compatibility projection `1.85905e-14`, and reduced residual `1.13351e-12`. One 1,130,356-nnz factor is reused. This confirms the iterative-projector diagnosis and authorizes only D048's four-pair tiny fit. No serious run, test access, conservation claim, or Line-4 flag change follows. |
+| D047 | Line 3 | Fixed-mesh direct canonical-projector preflight | one anchored float64 sparse factorization per connected component, reused across all right-hand sides; zero training | exact D046 24-row train/position-OOD-validation cohort; calls 1/30/60; strength-OOD test forbidden | unchanged D046 gates plus explicit compatibility projection, reduced-system residual, factor reuse, finiteness, and no-jitter provenance | MUST | DONE; ALL GATES PASSED | All 24 rows pass. Canonical closure is `1.09848e-9--3.40147e-9`, improving every D046 row by `144.97--157.64x`; independent disagreement is at most `8.42560e-10`, compatibility projection `1.85905e-14`, and reduced residual `1.13351e-12`. One 1,130,356-nnz factor is reused. This confirmed the iterative-projector diagnosis and historically routed the now-completed, failed D048 four-pair tiny fit. No serious run, test access, conservation claim, or Line-4 flag change followed. |
 | D048 | Line 3 | Direct canonical-face supervised tiny-fit gate | D045's 19,210,028-parameter full-resolution shared-face PCNO with direct `W_f^{-1}` interior/boundary supervision | exact D045 four train pairs; 3,200 updates; validation smoke is not selection; test forbidden | label closure/provenance, native full/interior/boundary error and loss ratio, decoded-state error, admissibility, wall structure, finite gradients | MUST | DONE; TINY-FIT FAILED; BRANCH STOPPED | Label and code provenance pass and 15 epochs meet every native face-space gate, but no epoch is admissible or reaches the decoded-state gate. Best decoded error is `0.474958`; final is `0.500998`, versus `0.00628209` persistence. Final replay finds `1001--1581x` relative divergence amplification and 0/4 admissible states. Stop this exact canonical face-value objective without retry, mixture, serious run, test access, or conservation claim. |
 | D049 | Line 3 | Graph-band finite-volume divergence-conditioning audit | zero-training validated 250x100 physical perturbations plus analytic 250x100/500x200/1000x400 geometry controls | one accepted dynamic reference; three seeds; calls 1/6/12; no test/model access | band frequency/gain, canonical/cycle closure, admissibility and shock distortion, fixed-`Delta t` refinement scaling | MUST | DONE; ALL GATES PASSED | Median low/mid/high gains are `0.34903/0.97641/2.25444`, minimum high/low is `6.3866`, cycle gain is `1.24e-10`, and all six gates pass. Fixed-step flux gain doubles on analytic refinements, which carry no fine-grid shock truth. This supports discrete-divergence conditioning but does not identify Gibbs or a learned branch. |
 | D050 | Line 3 | Frozen D044 residual-to-face lift and boundary-headroom preflight | legal predicted-total minimum-norm x-boundary lift plus separate future-reference boundary oracle | six D013 validation trajectories at calls 1/10/30/60; no checkpoint execution; test sealed | legal reconstruction/closure/wall structure, oracle budget/state headroom, admissibility and anti-smearing | MUST | DONE; ARTIFACT FAILED; ROUTE STOPPED | The legal lift reconstructs D044 to `5.37e-12` with zero non-x exchange, but the frozen oracle-closure field was misbound to intentional target projection (`0.07610`) and formally fails. No rerun is allowed. Descriptive oracle H60 state reduction is only `7.41%` versus `15%` despite essentially exact budget repair, so the route would not promote even with corrected metric storage. |
@@ -66,7 +71,7 @@ approved next work; current method-design precedence is
 | D061 | Line 3 | Frozen multirate rollout-blend headroom | completed D044 stride-1 and D060 stride-2 serious raw validation trajectories; fixed equal blend plus 21-point truth-informed scalar oracle | six D013 cases at matched frames 2/10/30/60; 24 rows; no checkpoint execution; test sealed | aligned source contract, state/high-pass complementarity, raw admissibility, shock/vortex/total anti-smearing, disagreement localization, summed parent cost | MUST | DONE; HEADROOM FAILED; ROUTE STOPPED | All source checks close exactly and every blend is raw-admissible. At H60 the oracle reaches only `8.14%/10.10%` median state/high-pass reduction versus `10%/20%`, is jointly nonworse in 0/6, and passes anti-smearing in 0/6. D060 owns lower state error in 6/6 while D044 owns lower high-pass RMS in 6/6; averaging interpolates rather than dominates and damages shock/vortex metrics. Disagreement localization passes (`0.650` Spearman, `57.81%` top-20 capture), but does not establish alpha selection or realizability. Do not train the shared-backbone row. |
 | D062 | Line 3 | Front-fitted conservative-remap capacity oracle | frozen D060 stride-2 raw validation trajectories; target-informed row-wise front phase plus compact two-sided strength fit | six D013 cases at calls 15/30; 12 rows; no checkpoint execution; test sealed | exact row-total preservation, raw admissibility, state/front-curve/high-pass headroom, graph-front/shock/vortex anti-smearing, correction size | MUST | DONE; CAPACITY ORACLE FAILED; EXACT CHART STOPPED | All 12 rows are raw-admissible and conserve row/component totals to `2.69e-15`. At H60 the primary oracle improves front-curve MAE by `62.82%`, but median state error worsens by `41.88%`, high-pass RMS worsens by `828.08%`, joint nonworse is 0/6, and every structure count misses 5/6. The phase-only row already contains the failure. Do not train this front chart or change its extractor after results. |
 | L4A-001 | Line 4A | Zero-training representation and closure preflight | identity/POD/oracle-front POD, current-state front-speed augmentation, and full-rank oracle-remap attribution | frozen 512-case nx256 Line-1 dataset; 384/64/64 split; stride-compatible frames 0:8:96 | hierarchical reconstruction, conditional-future ambiguity, fixed-size history, chart conditioning, favorable-cohort grouped bootstrap | MUST | DONE; STOP | Rank-43 POD blurs fronts; the oracle chart does not improve closure over POD; history remains materially useful; current-state speeds fail; and the existing remap fails state, recall, precision, and thickness gates even on 243 favorable snapshots from all 64 validation trajectories. Stop before learned representations. D044 has now emitted the bounded training-truth handoff with no inheritable front candidate; it does not by itself authorize transition training. |
-| L4A-002 | Line 4A | Frozen-2D representation and closure gate | identity, matched rank-5000 physical-volume POD, one generic 25x10 spatial-token autoencoder, and one matched conservative-moment spatial-token candidate; no front variables or remap | D044's frozen 84/24 train/position-OOD-validation trajectories and 61 saved states on 250x100; engineering smoke used four spread train plus two endpoint-position validation cases at frames 0/15/30/45/60; 27 strength-OOD trajectories sealed | handoff completeness, reconstruction hierarchy, raw admissibility, physical totals, conditional-future ambiguity, one-step history control, decoder perturbation gain and doubled-query-resolution scaling, cost and intervention ledger | MUST | DONE; ENGINEERING SMOKE FAILED; CANDIDATE STOPPED | Strengthened preflight hashed all 78 staged arrays, loaded endpoints, and read no test arrays. The first actual 800-update matched smoke completed all 10 paired validation rows (summary SHA-256 `e742ccf4...`). The conservative-moment row beat generic L2 on 10/10 rows (`0.005430` versus `0.007605`) and enforced near-exact token/global budgets, but retained only `0.539` mean shock strength and broadened thickness to `2.672x`; generic retained `0.463` and broadened to `3.540x`. Both miss the `0.0021` reconstruction and 5% strength/thickness gates by large margins. The structured row's lower smooth high-pass energy is not ripple reduction because fronts remain blurred. Its conditional-future ambiguity is only `5.74%` below generic, one-code history ratios are approximately one, and doubled-resolution gain is stable at `1.002`; no POD comparison can rescue the failed physical gate. The earlier real-shard shape integration attempt stopped before model construction and zero optimizer steps. Do not continue the same loss/decoder, run rank-5000 POD or a serious representation job, train a transition, access test, or filter. One smoke remains unspent and requires a new explicit causal diagnostic authorization. |
+| L4A-002 | Line 4A | Frozen-2D representation and closure gate | identity, matched rank-5000 physical-volume POD, one generic 25x10 spatial-token autoencoder, and one matched conservative-moment spatial-token candidate; no front variables or remap | D044's frozen 84/24 train/position-OOD-validation trajectories and 61 saved states on 250x100; engineering smoke used four spread train plus two endpoint-position validation cases at frames 0/15/30/45/60; 27 strength-OOD trajectories sealed | handoff completeness, reconstruction hierarchy, raw admissibility, physical totals, conditional-future ambiguity, one-step history control, decoder perturbation gain and doubled-query-resolution scaling, cost and intervention ledger | MUST | DONE; ENGINEERING SMOKE FAILED; CANDIDATE STOPPED | Strengthened preflight hashed all 78 staged arrays, loaded endpoints, and read no test arrays. The first actual 800-update matched smoke completed all 10 paired validation rows (summary SHA-256 `e742ccf4...`). The conservative-moment row beat generic L2 on 10/10 rows (`0.005430` versus `0.007605`) and enforced near-exact token/global budgets, but retained only `0.539` mean shock strength and broadened thickness to `2.672x`; generic retained `0.463` and broadened to `3.540x`. Both miss the `0.0021` reconstruction and 5% strength/thickness gates by large margins. The structured row's lower smooth high-pass energy is not ripple reduction because fronts remain blurred. Its conditional-future ambiguity is only `5.74%` below generic, one-code history ratios are approximately one, and doubled-resolution gain is stable at `1.002`; no POD comparison can rescue the failed physical gate. The earlier real-shard shape integration attempt stopped before model construction and zero optimizer steps. Do not continue the same loss/decoder, run rank-5000 POD or a serious representation job, train a transition, access test, or filter. The second smoke was never spent, and the campaign closed that allowance; it conveys no current authorization. |
 | L4A-003 | Line 4A | Frozen-decoder code-reachability oracle | exact L4A-002 conservative checkpoint and fixed decoder/four moment channels; per-state L-BFGS fit of only 16 free channels | same two position-OOD validation trajectories and frames 0/15/30/45/60; 10 states; strength-OOD test sealed | inherited reconstruction/front/admissibility gates, overshoot, training-scale code displacement, cost and intervention ledger | MUST | DONE; DECODER MANIFOLD REJECTED; FAMILY STOPPED | Per-state fitting lowers mean L2 from `0.005430` to `0.003226` and thickness from `2.672x` to `2.109x`, but nine of 10 rows still miss `0.0021`, mean strength worsens from `0.539` to `0.490`, maximum overshoot increases, and every fitted code lies outside the one-scale training neighborhood (RMS `1.528--4.419`). All raw states are admissible, but lower smooth high-pass energy is not ripple reduction because fronts remain broad and weak. Summary SHA-256 begins `e9577b43`; cost is `0.00308` GPU-hour. Encoder remediation is ineligible. Stop serious training, POD rescue, transition, test access, and filtering for this family. This per-state oracle is capacity evidence only, not forecast evidence or a universal rejection of latent representations. |
 | L4A-004 | Line 4A | Conservative local-Haar capacity preflight | same 25x10x20 state and four exact token means; 16 deterministic training-selected discontinuous mode/direction atoms per token; no front variables | same four training and two position-OOD validation trajectories at frames 0/15/30/45/60; 10 validation states; strength-OOD test sealed | exact L4A-003 target/control binding, latent rank and digest, reconstruction/front/admissibility hierarchy, token/global moments, overshoot, cost and intervention ledger | MUST | DONE; CAPACITY REJECTED; CHART STOPPED | Preflight rehashed all 78 arrays, matched L4A-003 targets bitwise, used only 20 declared training states, and read no test array. Haar improves amortized-encoder L2 on 10/10 rows (`0.005430` to `0.004461`), strength from `0.539` to `0.830`, thickness from `2.672x` to `1.554x`, and IoU from `0.390` to `0.500`; admissibility, overshoot, rank, token moments, and global budgets pass. But only one row reaches `0.0021`, mean strength remains 17.0% weak, thickness 55.4% broad, and Haar loses L2 to the privileged fitted-code control on 10/10 rows. Summary SHA-256 begins `f91b78d5`; cost is `0.00276` CPU-hour. This supports only that discontinuous decoder regularity helps front fidelity; it rejects sufficiency of this fixed 16-detail chart. Stop without a level, atom, lattice, or dictionary sweep; no closure, serious training, transition, test access, filtering, geometry-transfer, or neural-operator claim is authorized. |
 
@@ -445,20 +450,22 @@ CTU/HLLC run remains a historical low-order mismatch: final/time-mean state
 errors `0.200259/0.092201` exceeded `0.047538/0.025736`, without identifying
 which discretization was more accurate.
 
-The truth-informed correction implementation remains
-`utility/time_dependent_no/conservative_correction_oracle.py`, exercised by
-`tests/time_dependent_no/test_conservative_correction_oracle.py`. It enforces
-interior cancellation, excludes boundary corrections, searches only raw
-density/pressure-admissible states, and accepts a frozen anti-smearing callback.
-Do not run it until one narrow perturbation family, grouped split, serious
-dynamic global baseline, and diagnostic definitions are frozen.
+The truth-informed correction scaffold was historically implemented at
+`utility/time_dependent_no/conservative_correction_oracle.py` and exercised by
+`tests/time_dependent_no/test_conservative_correction_oracle.py`. Both paths
+were retired from the active tree after closeout and are recoverable at
+pre-cleanup commit `729091b`. The scaffold enforced interior cancellation,
+excluded boundary corrections, searched only raw density/pressure-admissible
+states, and accepted a frozen anti-smearing callback. The run gate below records
+the historical ordering and is not current authorization.
 
-The next eligible action is to predeclare that perturbation family and split,
-then fit one serious conservative-residual global baseline. Benchmark closure
-does not establish neural quality or oracle headroom. Run the frozen
-20%-support/10%-update oracle before implementing a learned correction; even a
-pass would establish constrained representational headroom only, not
-learnability, inference-time localization, or causal attribution.
+At that historical gate, the next eligible action was to predeclare that
+perturbation family and split, then fit one serious conservative-residual global
+baseline. Benchmark closure did not establish neural quality or oracle
+headroom. The contract required the frozen 20%-support/10%-update oracle before
+any learned correction; even a pass would have established constrained
+representational headroom only, not learnability, inference-time localization,
+or causal attribution.
 
 ## 2026-07-19 D036 Frozen Ripple And Roughness Conflict
 
@@ -798,13 +805,18 @@ The diagnostic plan now incorporates lessons from four neural-operator failure-m
 - Add an effective-CFL/receptive-field audit to compare shock-front motion against graph spacing and model propagation depth.
 - Defer recurrent/unrolled control experiments until the scale/resolution and propagation diagnostics identify a concrete target.
 
-Current blockers:
+Blockers recorded at that time:
 
-- Approximate/mesh-weighted conservation remains blocked until geometric weights are validated.
-- Corrected PCNO replay is complete through the collaborator-compatible preprocessing path. Future PCNO conclusions should use that path, not the retired raw-HDF5 adapter.
-- The 1D scale/spectral diagnostic and D025 pilot are complete. The graph-native
-  2D scale extension remains pending but does not reopen D025.
-- New 2D CPG/PCNO recurrent controls remain blocked on D014.
+- Approximate/mesh-weighted conservation was blocked until geometric weights
+  could be validated; D009 later closed without that run.
+- Corrected PCNO replay was complete through the collaborator-compatible
+  preprocessing path. Subsequent PCNO conclusions were required to use that
+  path, not the retired raw-HDF5 adapter.
+- The 1D scale/spectral diagnostic and D025 pilot were complete. The
+  graph-native 2D extension was pending then and later closed through D013;
+  D025 remained closed.
+- New 2D CPG/PCNO recurrent controls were blocked on D014 at that time; D015
+  later completed only the bounded pilot recorded above.
 
 ## 2026-07-05 Interface-Latent Run Result
 
@@ -843,7 +855,11 @@ The tracked `time_dependent_no` surface was reduced to reusable utilities, activ
 
 The active weekly objective is now Idea 2.1: solver-facing target diagnostics. Use 1D Euler as the fast pilot to compare target parameterizations before transferring only the useful stabilized variants to CPGNet-style and 2D bump runs.
 
-The current target ladder should remain compact: choose one nonzero training-noise level from the active follow-up batch, then run the FNO stride-4 selector over `limited_residual`, `limited_flux`, and `positive_limited_interface` with noise `0` and the selected nonzero noise. Seed-confirm only the best one or two variants.
+The target ladder was kept compact: one nonzero training-noise level was chosen
+from the follow-up batch, then the FNO stride-4 selector ran over
+`limited_residual`, `limited_flux`, and `positive_limited_interface` with noise
+`0` and the selected nonzero noise. Seed confirmation was limited to the best
+one or two variants.
 
 This target-ladder work also supports later Idea 2.2. By making models predict residuals, fluxes, or interface states through explicit adapters, the learned quantities become inspectable as physical traces, flux corrections, dissipation controls, or nonphysical update coordinates.
 
@@ -883,7 +899,7 @@ Local verification: focused solver-target tests passed, `tests/time_dependent_no
 
 Remote smoke on the real 1D dataset passed. The zero-correction/base-Rusanov audit at stride 4 was poor (`one_step_l2` about `0.198`, final rollout L2 about `0.818`, shock MAE about `0.410`, and rollout limiter activation about `0.999`), so the learned correction must do real macro-step work rather than lightly polishing a good classical step.
 
-The first full scale-1 launch was interrupted after early live diagnostics showed test relative L2 near `0.10` and correction saturation around `0.18-0.20` with no teacher-forced limiter activation. Decision: run a short bound-scale probe over correction scales `1`, `2`, and `4` before spending the full training budget. Active ignored outputs use the relative pattern `artifacts/time_dependent_no/physical_flux_scale_probe_v1_*`, with log `artifacts/time_dependent_no/logs/euler1d_physical_flux_scale_probe_v1.log`.
+The first full scale-1 launch was interrupted after early live diagnostics showed test relative L2 near `0.10` and correction saturation around `0.18-0.20` with no teacher-forced limiter activation. The decision at that point was to run a short bound-scale probe over correction scales `1`, `2`, and `4` before spending the full training budget. Its ignored outputs used the relative pattern `artifacts/time_dependent_no/physical_flux_scale_probe_v1_*`, with log `artifacts/time_dependent_no/logs/euler1d_physical_flux_scale_probe_v1.log`.
 ## 2026-07-10 Physical Flux-Correction Scale Probe Result
 
 The short scale probe over correction scales `1`, `2`, and `4` completed on AutoDL. Ignored local analysis artifacts are under `artifacts/time_dependent_no/physical_flux_scale_probe_v1_analysis_20260710/`, with lightweight downloaded metrics under `artifacts/time_dependent_no/physical_flux_scale_probe_v1_metrics_20260710/`.
@@ -894,17 +910,18 @@ Interpretation: increasing the correction bound improves one-step fit but does n
 
 Decision: do not run the full noise `0`/`0.003` selector for this exact target family. Next flux-target work should prioritize direct macro-step time-integrated face-flux supervision or a stable/data-derived macro flux base.
 
-## 2026-07-13 Corrected Solver-Level CPGNet M0
+## 2026-07-13 Corrected Solver-Level CPGNet Gate
 
-The earlier `CPGNetEuler1DHead` rows are now deprecated: that generic directed target head did not execute the paper's solver-level interface-state/FV recurrence. The corrected M0 is `CPGNetEuler1D` with the exclusive `cpg_interface` target. It uses physical ghost nodes, directed geometry-only edge encoding, 12 unshared message-passing layers, target-node interface reconstruction, positive density/pressure interface decoders, one shared oriented Rusanov flux per face, and an exact finite-volume update. Left inflow is anchored to the case state; the right-wall exterior interface is the reflected owner-side prediction. Exact 1D geometry replaces the release model's learned positive geometry factor.
+The earlier `CPGNetEuler1DHead` rows are now deprecated: that generic directed target head did not execute the paper's solver-level interface-state/FV recurrence. The corrected solver-level implementation is `CPGNetEuler1D` with the exclusive `cpg_interface` target. It uses physical ghost nodes, directed geometry-only edge encoding, 12 unshared message-passing layers, target-node interface reconstruction, positive density/pressure interface decoders, one shared oriented Rusanov flux per face, and an exact finite-volume update. Left inflow is anchored to the case state; the right-wall exterior interface is the reflected owner-side prediction. Exact 1D geometry replaces the release model's learned positive geometry factor.
 
 No post-update cell-state floor or admissibility limiter is used in the corrected recurrence. Invalid raw density/pressure terminates and is counted by rollout diagnostics. Training now supports the paper-compatible two-stage schedule: one-step standardized next-state loss followed by three-step fully differentiable autoregressive fine-tuning with reduced learning rate and additive Gaussian primitive-input noise. The existing FNO path retains its admissibility-preserving log-normal density/pressure noise. Checkpoint selection prioritizes completed admissible validation rollouts by final error; if every candidate fails the horizon, one-step validation loss selects the best-fit failure for diagnosis rather than silently freezing on epoch 1.
 
 Local verification: all `tests/time_dependent_no` tests passed (`55 passed`), and a small synthetic CPU gate with the additive CPG noise path completed without nonpositive raw states. With a 16-hidden-channel, 2-layer smoke model trained for five one-step epochs plus one three-step autoregressive epoch, one-step relative L2 was `0.00177` and four-step final-rollout L2 was `0.00696`; final conservation error was `0.00129`. These numbers validate the implementation path only and are not benchmark evidence.
 
-This M0 launch gate is now closed by D020. The h128/mp28 run supplies the
-competitive-fit, raw-recurrence reference; remaining CPG work is limited to its
-shock-tail diagnostic and two matched-parameter locality controls.
+This solver-level launch gate was closed by D020. The h128/mp28 run supplied the
+competitive-fit, raw-recurrence reference; the later shock-tail diagnostic and
+mp12/h193 and mp28/h85 controls completed. This gate leaves no current CPG work
+authorized.
 
 ## 2026-07-14 1D Euler Receptive-Field Result
 
@@ -947,9 +964,11 @@ Mechanistic evidence:
   metric switches between two comparable fronts, but the persistent ghost
   front is not a metric artifact.
 
-Result-to-claim gate: `partial` with high internal confidence, pending an
-independent Codex review because unpublished results were not sent to an
-external tool without approval. The supported statement is narrow: on this
+At this checkpoint, the result-to-claim gate was `partial` with high internal
+confidence. Independent Codex review was not performed because unpublished
+results were not sent to an external tool without approval; this was a
+historical review-status note, not an open queue item. The supported statement
+is narrow: on this
 fixed 1D Euler stride-4 dataset, a CPGNet whose hop depth covers the observed
 macro-step domain of dependence can learn a stable feed-forward macro flow map,
 whereas mp12 underfits and fails high-CFL cases. The result does not yet prove
@@ -975,9 +994,10 @@ Completion update, 2026-07-15:
 - The frozen flux checkpoint then fails the 50-call extension at 1/64
   completion. Direct next state fails tiny fit on both declared seeds. The
   completed full-scale residual checkpoint reaches 64/64, 62/64, and 61/64 at
-  20/50/100 calls and wins 63/64 longer common-endpoint comparisons. D021 remains
-  open for seed confirmation, conservation-compatible residual projection,
-  stride, and resolution gates.
+  20/50/100 calls and wins 63/64 longer common-endpoint comparisons. At that
+  point D021 remained open for seed confirmation, conservation-compatible
+  residual projection, stride, and resolution gates; those gates later
+  completed through D031.
 
 ## 2026-07-16 Three-Seed Residual Projection Result
 
@@ -1129,10 +1149,11 @@ original reference next state, not the reference solver advanced from the
 generated state. D023 must quantify that operator-consistency gap before
 full-scale promotion.
 
-Local result-to-claim verdict is `partial` with high internal confidence:
+The local result-to-claim verdict at this stage was `partial` with high internal confidence:
 the narrow D022 mechanism claim is supported, while a PDE-consistent burn-in
-method claim is not. Independent Codex review is pending because unpublished
-results were not sent to an external tool without approval.
+method claim is not. Independent Codex review was not performed because
+unpublished results were not sent to an external tool without approval; this
+was not left as an active task.
 
 ## 2026-07-16 D023 Frozen Solver-Consistency Protocol
 
@@ -1342,9 +1363,9 @@ this auxiliary primarily reweights existing information. Moreover, the
 projected decoder distributes budget correction globally, while the dominant
 remaining errors are shock-local. The supported claim is narrow: direct
 boundary supervision can reduce budget error, but it is not a better joint
-accuracy/stability objective for this fixed projected-residual setting. Do not
-search more weights or promote to the full three-seed scale; proceed to the
-predeclared stride and resolution gates for the plain residual baseline.
+accuracy/stability objective for this fixed projected-residual setting. The
+campaign stopped the weight search and full three-seed promotion, then proceeded
+to the predeclared stride and resolution gates for the plain residual baseline.
 
 ## 2026-07-16 D027 Cold Stride-2 Gate
 
@@ -1824,22 +1845,24 @@ training preflight only: it neither filters the recurrent state nor changes the
 current trainer. On the bump artifact, all spatial weights remain diagnostic
 proxies and cannot support physical conservation or finite-volume flux claims.
 
-The queued paired-response audit has a frozen selector before its results are
-examined. At least two repeated trajectory/call rows must agree, and the same
+The historical paired-response audit had a frozen selector before its results
+were examined. At least two repeated trajectory/call rows had to agree, and the same
 branch must have both the largest finite-response RMS gain and the largest
 edge-to-node roughness in at least 60% of traced layers in every accepted row.
 It then routes exactly one of spectral-contract repair, local pointwise
 control, or local differential control; disagreement routes to
 `composite_or_unresolved`, and fewer than two rows route to
-`insufficient_repeated_rows`. This selector routes a next experiment only; it
+`insufficient_repeated_rows`. This selector was designed to route one subsequent
+experiment only; it
 is not an infinitesimal Jacobian estimate or causal branch attribution.
 
 The focused CPU suite passes all 15 PCNO residual and ripple-diagnostic tests,
 including exact gain-one replay, bounded-gain validation, reference-shock
 exclusion, differentiability, and repeated-row selector behavior. A learned
-local correction remains unauthorized until this audit selects a local route
-and the predeclared oracle constrained-decomposition test shows that a local,
-bounded, admissible correction can materially reduce the residual error.
+local correction was not authorized by this preflight. The historical gate
+required the audit to select a local route and the predeclared oracle
+constrained-decomposition test to show that a local, bounded, admissible
+correction could materially reduce the residual error.
 
 ## 2026-07-19 D013 Paired Branch-Response Audit
 
@@ -1875,10 +1898,10 @@ required oracle decomposition must enforce conservation, locality, bounded
 norm, and admissibility, while the current reconstructed vertex weights are
 only diagnostic proxies and the artifact still lacks validated control-volume
 volumes and oriented physical faces. A bump-only proxy correction cannot pass
-that conservation gate. The next eligible Line-3 step is therefore to freeze
-the narrow dynamic perturbation split and serious global baseline, then run the
-predeclared D037 oracle decomposition; do not launch pointwise-gain, smoothing,
-or learned-correction sweeps here.
+that conservation gate. The next eligible Line-3 step at that point was to
+freeze the narrow dynamic perturbation split and serious global baseline, then
+run the predeclared D037 oracle decomposition. The contract forbade
+pointwise-gain, smoothing, and learned-correction sweeps there.
 
 ## 2026-07-21 D044 Dynamic FV-PCNO And Oracle Closeout
 
@@ -1939,11 +1962,14 @@ split remains sealed.
 
 ## 2026-07-21 D045 Shared-Face Tiny-Fit Closeout
 
-D045 implements only the first predeclared structured-target row. Reusable code
-in `utility/time_dependent_no/pcno_face_impulse.py` validates the frozen family
-manifest, binds a training-case source artifact by SHA-256, reconstructs the
-physical-face PCNO graph, and byte-compares its graph and mesh-mapping arrays.
-The loader reads no cumulative reference face impulses. The model predicts one
+D045 implemented only the first predeclared structured-target row. Its reusable
+code was historically stored at
+`utility/time_dependent_no/pcno_face_impulse.py`; that path was retired from the
+active tree after closeout and is recoverable at pre-cleanup commit `729091b`.
+The implementation validated the frozen family manifest, bound a training-case
+source artifact by SHA-256, reconstructed the physical-face PCNO graph, and
+byte-compared its graph and mesh-mapping arrays. The loader read no cumulative
+reference face impulses. The model predicts one
 owner-oriented interior impulse with an antisymmetric shared head, uses a
 current-state-only boundary head, restricts reflecting-wall exchange to y
 momentum, and decodes through physical cell volumes. Zero output initialization
@@ -2292,8 +2318,9 @@ sweep from it.
 
 ## 2026-07-22 D053 Exact Rollout-Error Source Registration
 
-D053 is the only authorized next Line-3 diagnostic. It trains no model and
-uses only D052's six saved validation rollouts plus the same digest-bound D044
+At registration, D053 was the sole permitted Line-3 diagnostic at that
+historical stage. It trained no model and used only D052's six saved validation
+rollouts plus the same digest-bound D044
 checkpoint and shards. For every call `1--60`, let `G` be the legal raw PCNO
 map, `u_t` the reference state, and `uhat_t` the rollout state. Record the exact
 identity
@@ -2311,10 +2338,11 @@ At calls 30 and 60 define the propagated magnitude share as
 `||p||/(||p||+||d||)`. A source is propagation dominated only if both full-
 field and smooth-high-pass shares are at least `0.65` on at least five of six
 cases at both calls; it is fresh-defect dominated only if both are at most
-`0.35` under the same repetition rule. All other outcomes are mixed. Only the
-first outcome may route one matched short generated-state-exposure capacity
-test; the second routes target/representation diagnosis without recurrence
-training; a split or mixed result authorizes no learned method. D053 cannot
+`0.35` under the same repetition rule. All other outcomes are mixed. Under that
+historical contract, only the first outcome could route one matched short
+generated-state-exposure capacity test; the second routed
+target/representation diagnosis without recurrence training; a split or mixed
+result authorized no learned method. D053 cannot
 change D044, open strength OOD, or support a conservation or flux claim.
 
 ## 2026-07-22 D053 Attempt-A Replay-Binding Failure
@@ -2328,8 +2356,8 @@ teacher output at the identical current. Their full-field propagated norms are
 only `1.65e-7--1.84e-7`, but their shares are `1.97e-5--2.31e-5` full and
 `3.52e-4--4.31e-4` high-pass, above the frozen `1e-6` zero-control gate.
 
-Preserve attempt A as fail-closed implementation provenance. One corrected
-attempt B is authorized without changing any scientific threshold: evaluate
+Attempt A was preserved as fail-closed implementation provenance. At that
+historical gate, one corrected attempt B was authorized without changing any scientific threshold: evaluate
 both `G(uhat_t)` and `G(u_t)` in the same process, reuse one output when the
 saved currents are bit-identical, and record the maximum absolute replay
 difference from D052's saved proposal. That replay difference must be at most
@@ -2372,8 +2400,8 @@ explicitly authorized target/representation hypothesis has its own falsifier.
 
 ## 2026-07-22 D054 Fresh-Defect Locality Registration
 
-D054 is the only authorized next Line-3 action. It is a zero-training
-necessary-condition test for one new representation hypothesis: keep the
+At registration, D054 was the sole permitted Line-3 action at that historical
+stage. It was a zero-training necessary-condition test for one new representation hypothesis: keep the
 successful global conservative-residual PCNO path, but factor its target into
 a global component and a current-state shock-conditioned local detail. This is
 not a retry of D042's fixed geometry-only basis or D044's inference-time local
@@ -2394,8 +2422,8 @@ At both calls 30 and 60, at least five of six cases must meet each repeated
 gate: the 20% truth oracle captures at least 70% of smooth high-pass fresh-
 defect energy; the causal halo captures at least 50% while covering at most
 25% of interior nodes. All 360 rows, masks, raw teacher admissibility, and D053
-fresh-norm replay within `2e-4` relative are contract gates. Passing both
-conditions authorizes only drafting one matched tiny-fit contract for a zero-
+fresh-norm replay within `2e-4` relative are contract gates. Under the historical
+contract, passing both conditions would have authorized only drafting one matched tiny-fit contract for a zero-
 initialized shock-conditioned detail target. Oracle-only locality rejects a
 simple shock gate; failure of the oracle rejects the bounded local-target
 route. No serious run, test access, basis/sensor-radius sweep, conservation
@@ -2423,7 +2451,8 @@ sensor after seeing this result.
 
 ## 2026-07-22 D055 Frozen-Proposal Self-Sensor Registration
 
-D055 is the only authorized next Line-3 action. It tests one fixed legal score,
+At registration, D055 was the sole permitted Line-3 action at that historical
+stage. It tested one fixed legal score,
 not a sensor family: the nodewise norm of the graph high-pass of the frozen
 PCNO proposed conservative update `(G(u_t)-u_t)/scale`. Exclude exactly the
 two-hop halo of the current input's top-decile pressure-jump seed, rank the
@@ -2435,8 +2464,9 @@ strength OOD sealed. D053 fresh norms and D054 truth-oracle capture must replay
 within `2e-4` relative, every teacher proposal must be raw-admissible, and the
 selected support must remain at most 20% of the interior. At both calls 30 and
 60, at least five of six cases must capture at least 50% of D053 smooth-high-
-pass fresh-defect energy. A pass authorizes only writing one matched tiny-fit
-contract. Failure rejects the proposal-sensor-gated local-detail route. No
+pass fresh-defect energy. Under the historical contract, a pass would have
+authorized only writing one matched tiny-fit contract. Failure rejects the
+proposal-sensor-gated local-detail route. No
 score, exclusion-radius, support, or threshold sweep; no training, test access,
 conservation claim, D044 change, or Line-4 flag change is authorized by D055.
 
@@ -2456,12 +2486,13 @@ pass amplitude is `0.87482/0.73318`. Thus the frozen proposal exposes where
 the later one-step ripple is likely to occur even though current shock
 location does not. This is localization evidence only: it does not show that a
 bounded admissible correction of the right sign is realizable or learnable.
-D055 returns `proposal_self_sensor_candidate` and authorizes the D056 contract
-below, not a training run.
+D055 returned `proposal_self_sensor_candidate` and historically routed the
+now-completed D056 contract below, not a training run.
 
 ## 2026-07-22 D056 Causal-Support Correction-Realizability Contract
 
-D056 is the only authorized next Line-3 action and remains zero-training. On
+At registration, D056 was the sole permitted Line-3 action at that historical
+stage and remained zero-training. On
 the same six validation trajectories and calls `1/10/30/60`, reconstruct the
 exact D055 support from current state plus frozen proposal. Within that already
 fixed support, truth may define an upper-bound state-correction direction.
@@ -2476,8 +2507,9 @@ volume-integral correction at most `1e-10`, raw density/pressure/internal-energy
 admissibility, and no more than 5% worsening in front position, shock strength,
 shock thickness, vortex core, or smooth high-pass energy. At calls 30 and 60,
 median state-error reduction must reach 15%, median smooth-high-pass reduction
-20%, and at least five of six cases must be nonworse on both. A pass authorizes
-implementation of one zero-initialized tiny detail-head fit with the global
+20%, and at least five of six cases must be nonworse on both. Under the
+historical contract, a pass would have authorized implementation of one
+zero-initialized tiny detail-head fit with the global
 D044 model frozen. Failure rejects that learned detail route. D056 cannot train,
 open test OOD, tune support/norm/line search, claim flux conservation, or change
 Line-4 flags.
@@ -2514,8 +2546,8 @@ falsifier. Strength OOD remains sealed and all Line-4 flags remain unchanged.
 
 ## 2026-07-22 D057 Joint-Objective Gradient-Compatibility Contract
 
-D057 is the only authorized next Line-3 action. It takes zero optimizer steps
-and never changes the D044 checkpoint. The new hypothesis is that the global
+At registration, D057 was the sole permitted Line-3 action at that historical
+stage. It took zero optimizer steps and never changed the D044 checkpoint. The new hypothesis was that the global
 map must be trained against both parts of D053's split mechanism rather than
 repaired afterward. At the frozen checkpoint define three full-model losses:
 the existing clean physical-volume/component-scaled state MSE; graph-high-pass
@@ -2539,9 +2571,9 @@ Every training directional cosine must be at least `0.05`. At each of calls 30
 and 60, at least five of six validation cases must have cosine at least `0.02`
 for all three losses. All gradients and losses must be finite, every generated
 input must remain raw-admissible, every smooth mask must have positive physical
-volume, and the exact split/pair/call contract must close. Passing authorizes
-only a separately frozen short full-resolution continuation contract; it does
-not authorize that run. Failure rejects naive equal-gradient scalarization,
+volume, and the exact split/pair/call contract must close. Under the historical
+contract, passing would have authorized only a separately frozen short
+full-resolution continuation contract; it did not authorize that run. Failure rejects naive equal-gradient scalarization,
 not all multiobjective optimization. D057 may not train, update buffers, use
 AMP, access test OOD, tune thresholds or loss definitions, alter D044, claim
 conservation, or change Line-4 flags.
@@ -2574,8 +2606,8 @@ direction estimated from D048's four-pair bank is not geometry-group robust.
 
 ## 2026-07-22 D058 Geometry-Group MGDA Contract
 
-D058 is the only authorized next Line-3 action and again takes zero optimizer
-steps. Use all 84 full-resolution training trajectories, equally weighted at
+At registration, D058 was the sole permitted Line-3 action at that historical
+stage and again took zero optimizer steps. It used all 84 full-resolution training trajectories, equally weighted at
 calls 30 and 60. For each training `y_index` group `1--7`, independently
 average clean-state and detached-generated-state gradients over all 12 training
 strengths and both calls; unit-normalize those two aggregates, sum them, and
@@ -2596,8 +2628,9 @@ smooth-high-pass, and generated losses simultaneously.
 
 All full-resolution data, split/digest bindings, positive smooth mass, raw
 generated-state admissibility, parameter-state equality, zero-step ledger, and
-test nonaccess are structural gates. A pass authorizes only drafting one short
-full-resolution geometry-group MGDA continuation contract. Failure stops this
+test nonaccess are structural gates. Under the historical contract, a pass would
+have authorized only drafting one short full-resolution geometry-group MGDA
+continuation contract. Failure stops this
 joint-objective route. D058 cannot train, use AMP/noise in the audit, access
 strength OOD, alter the objectives/groups/calls after inspection, claim
 conservation, modify D044, or change Line-4 flags.
@@ -2639,7 +2672,8 @@ condition and cost falsifier.
 
 ## 2026-07-22 D059 Direct-Stride-2 PCNO Tiny-Fit Contract
 
-D059 is the only authorized next Line-3 action. D053 shows that smooth-region
+At registration, D059 was the sole permitted Line-3 action at that historical
+stage. D053 shows that smooth-region
 high-pass error is freshly injected by the one-call defect while the dominant
 state error is carried nearly neutrally. Rather than add another loss or branch,
 D059 changes only the fixed macro-map from one saved interval to two. A direct
@@ -2662,8 +2696,9 @@ Pass requires best tiny-bank relative L2 at most `0.01`, loss ratio at most
 30-call position-OOD validation smoke with no future boundary, floor, clip,
 limiter, smoothing, or projection. All model/data/split/normalization/code
 digests and the explicit pair bank must be saved. The run budget is one attempt
-and at most 0.05 GPU-hour. A pass authorizes only drafting a matched serious
-stride-2 contract; it does not authorize that training. Failure stops direct
+and at most 0.05 GPU-hour. Under the historical contract, a pass would have
+authorized only drafting a matched serious stride-2 contract; it did not
+authorize that training. Failure stops direct
 stride 2 without a warm start, threshold retry, stride-4 fallback, or
 architecture/loss change.
 
@@ -2690,13 +2725,14 @@ errors are `2.083/1.994x`, and its relative loss reduction is slightly
 stronger (`0.009778` versus `0.009972`). D059 therefore verifies target
 fitability without revealing a new optimization pathology. The smoke case and
 stride-1 tiny fit use different validation trajectories, so their rollout
-errors are not comparable. D059 authorizes drafting D060 only; it is not
+errors are not comparable. D059 historically permitted drafting the
+now-completed D060 contract only; it is not
 evidence that stride 2 improves rollout, ripple, shocks, conservation, or OOD.
 
 ## D060 Matched Serious Stride-2 Result (promotion failed 2026-07-22)
 
-The authorized one-seed run changes only D044's `step_stride` from one to two
-and its validation rollout length from 60 to 30 calls. Freeze seed/split seed
+The historically authorized one-seed run changed only D044's `step_stride` from
+one to two and its validation rollout length from 60 to 30 calls. It froze seed/split seed
 `20260718`, 50 epochs, 1,024 training and 256 validation presentations per
 epoch, batch four, all 24 position-OOD validation rollouts every five epochs,
 the same architecture/optimizer/BF16 settings, training-only primitive noise
@@ -2704,14 +2740,14 @@ the same architecture/optimizer/BF16 settings, training-only primitive noise
 recurrence, and the full-resolution data contract. Estimated budget is at most
 2.5 GPU-hours and 1 GiB retained storage.
 
-Select only by all-24 raw H60 validation. Promotion requires 24/24 finite,
+Selection used only all-24 raw H60 validation. Promotion required 24/24 finite,
 admissible completion; at least 10% lower mean H60 physical-volume state error
 than D044; at least 20% lower six-case D013 H60 smooth-high-pass RMS; no more
 than 5% regression in shock position, strength, thickness, vortex-core error,
 or physical-total mismatch; direct frame-2 error at most 1.15 times two
 composed D044 calls; and measured H60 wall time at most 0.65 times D044 on the
-same host. Report mixed-prefix, completed-case, common-endpoint, and raw
-failure statistics. The 27 strength-OOD cases remain sealed.
+same host. The contract required mixed-prefix, completed-case, common-endpoint,
+and raw failure statistics. The 27 strength-OOD cases remained sealed.
 
 The frozen row completed all 50 epochs as
 `pcno_shock_vortex_stride2_serious_d060_s20260718_20260722a`. It selects epoch
@@ -2755,17 +2791,17 @@ descriptive. Timing cannot rescue the failed physical conjunction. Strength OOD
 remains sealed. No retry, extra seed, stride 4, warm start, loss change, method
 add-on, Line-4 flag change, or data-assimilation work is authorized.
 
-## D061 Frozen Multirate Rollout-Blend Headroom Contract (authorized 2026-07-22)
+## D061 Frozen Multirate Rollout-Blend Headroom Contract (historically authorized 2026-07-22)
 
-D061 is the only next Line-3 action and is frozen-artifact synthesis, not a
-training run or method add-on. Use the completed D044 stride-1 and D060 stride-2
+At registration, D061 was the sole permitted Line-3 action at that historical
+stage and was frozen-artifact synthesis, not a training run or method add-on. It used the completed D044 stride-1 and D060 stride-2
 raw validation artifacts for exactly the six D013 trajectories. Align stride-1
 frames `2/10/30/60` with stride-2 calls `1/5/15/30`. Evaluate the two parent
 paths, one legal fixed `alpha=0.5` convex blend, and one truth-informed global
 convex oracle on the fixed 21-point grid `alpha=0,0.05,...,1`. The oracle may
 use the aligned target only to select alpha and is never an autonomous result.
 
-Promotion is conjunctive. All 24 case/call rows and all four variants must be
+Promotion was conjunctive. All 24 case/call rows and all four variants had to be
 finite and raw-admissible. At H60, oracle state error must improve by at least
 10% over the better parent in the median case; smooth-region graph-high-pass
 RMS must improve by at least 20% over D060; oracle state and high-pass must both
@@ -2777,9 +2813,10 @@ target-free direct/composed disagreement reaches median late-call Spearman
 `>=0.5` and whether its top-20% nodes capture at least 50% of better-parent
 error energy; this localization readout does not choose oracle alpha.
 
-The run budget is zero GPU-hours, no checkpoint execution, at most 0.5 GiB
-retained output, no strength-OOD or test access, and no threshold retry. A full
-pass authorizes only drafting one shared-backbone multirate tiny-fit contract;
+The run budget was zero GPU-hours, no checkpoint execution, at most 0.5 GiB
+retained output, no strength-OOD or test access, and no threshold retry. Under
+the historical contract, a full pass would have authorized only drafting one
+shared-backbone multirate tiny-fit contract;
 failure rejects this two-rate blend as the next stabilization branch. Neither
 outcome establishes a cheaper solver, model-predicted face flux, or physical
 conservation.
@@ -2830,10 +2867,10 @@ spectral, pointwise, or differential branches for both teacher-forced and
 rollout sources. The former `incomplete_frozen_contract` label was bookkeeping,
 not mechanism evidence.
 
-## D062 Front-Fitted Conservative-Remap Oracle Contract (authorized 2026-07-23)
+## D062 Front-Fitted Conservative-Remap Oracle Contract (historically authorized 2026-07-23)
 
-D062 is the sole next Line-3 action and takes zero optimizer steps. Use only
-the completed D060 stride-2 raw validation artifacts for the frozen six D013
+At registration, D062 was the sole permitted Line-3 action at that historical
+stage and took zero optimizer steps. It used only the completed D060 stride-2 raw validation artifacts for the frozen six D013
 trajectories at calls 15 and 30 (physical frames 30 and 60). Reconstruct the
 audited identity-mapped 250x100 tensor grid. In every row, extract one shock
 coordinate `x_s(y)` from the absolute pressure jump on x-faces within the
@@ -2874,9 +2911,10 @@ warp-Jacobian range, the fitted left/right offsets, correction-to-error and
 correction-to-model-update norms, and physical-total/reference-boundary
 metrics; these reports do not relax a failed gate.
 
-The run budget is zero GPU-hours, no checkpoint execution, at most 0.25 GiB
+The run budget was zero GPU-hours, no checkpoint execution, at most 0.25 GiB
 retained output, no strength-OOD or test access, and no threshold or extractor
-retry. A full pass authorizes only drafting one tiny-fit contract for this
+retry. Under the historical contract, a full pass would have authorized only
+drafting one tiny-fit contract for this
 front chart. Failure rejects the exact row-graph `x_s(y)` plus two-sided-
 constant-strength chart as the next method; it does not reject every possible
 level-set, discontinuous-coordinate, or shock-fitting representation. Neither

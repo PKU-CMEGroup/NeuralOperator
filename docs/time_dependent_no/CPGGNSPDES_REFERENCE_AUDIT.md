@@ -1,6 +1,11 @@
 ﻿# cpgGNSpdes Reference Audit
 
-Reference repo inspected locally before this branch was created. Keep the checkout path in private `LOCAL_CONTEXT.md`, not in committed documentation.
+Status: Frozen provenance for the completed bounded adaptation
+
+The reference repository was inspected locally before this branch was created.
+This page records that bounded source audit; it is not an implementation queue.
+Keep the checkout path in private `LOCAL_CONTEXT.md`, not in committed
+documentation.
 
 Reference state at prior inspection:
 
@@ -13,9 +18,11 @@ HEAD b127e5e add codes
 
 The reference repo is a compact research-code release, not a turn-key benchmark package. It defines the HDF5 schema, boundary convention, training loop, rollout behavior, and structure-preserving model idea, but the dataset is not included in the clone.
 
-The code should be treated as a reference for reimplementation, not vendored wholesale.
+The public code was used as implementation evidence for the branch's completed
+bounded CPG adaptation. It is not proof of an unreleased paper dataset or
+checkpoint contract and must not be vendored wholesale.
 
-## Core Mechanism To Reimplement Cleanly
+## Core Mechanism Captured In The Bounded Adaptation
 
 The main model family is `modelEdgeUpd.Simulator`:
 
@@ -41,7 +48,11 @@ This is the paper-relevant idea: learn interface reconstruction and use a Rieman
 - Positivity is only partially enforced: decoded edge density/pressure are positive, but updated node density/pressure can still violate positivity.
 - The public reader does not obviously expose physical cell areas, edge lengths, face normals, or cell volumes.
 
-## Branch Policy
+## Frozen Branch Policy
 
-Do not run the reference training scripts as-is on AutoDL, HPC, or shared machines. Reimplement only the required components in this branch with explicit configs, safe device handling, and diagnostic logging.
+Do not run the reference training scripts as-is on AutoDL, HPC, or shared
+machines. The required bounded components were reimplemented in this branch
+with explicit configuration, safe device handling, and diagnostic logging.
+Further reproduction or expansion requires a new authorization; this frozen
+audit does not authorize another port, training run, or mechanism sweep.
 

@@ -978,6 +978,30 @@ and structural conflict to general PCNO work.
 checkpoint that first passes state/structure gates and then exhibits a material
 six-channel boundary-local residual under the same causal projection.
 
+### Retained Splice Evaluator Review (2026-07-29)
+
+**Verified evidence.** The completed H20 result remains bound to evaluator v1
+SHA-256 `c7de7f3fa7ade94fb895d188bf9436fe81ca8a743022beccd908c438508df17c`
+and test SHA-256
+`158f9a4c5a2dacce74a45e039b9f388fb18d3e7175790eee1c59582467e77031`.
+A post-closeout review hardened the retained evaluator to schema v2: frame-zero
+reference binding, reference stride and complete policy-digest checks, literal
+child-parameter freezing, recorded `start_frame`, and 30-pair structural gate
+counts. Current evaluator/test SHA-256 values are
+`ea48ce218f0bbeb29e5686cd248803d628af6e559895f290ea569d0fc1477a38`
+and `2beeb3f60d01480efd65f8b143838cf878d5b766089cccf9578ad68069693c69`;
+9/9 focused and 50/50 combined relevant CPU tests pass.
+
+**Plausible mechanism or inference.** This is fail-closed provenance hardening,
+not new method evidence. **Missing evidence.** No v2 GPU replay was run.
+**Alternative explanation.** The comparison gaps did not affect the registered
+command, whose frozen stride/policies/pair counts satisfy v2; literal freezing
+also cannot alter an eval-only forward without backward. **Claim implication.**
+The v1 metrics and closeout stand; future authorized reuse must use v2 without
+rewriting historical hashes. **Minimum decisive next experiment.** None unless
+the line later meets its registered re-entry conditions; then begin with a
+one-trajectory v2 preflight.
+
 ## 2026-07-27 L3R-U0 Prospective Unchecked-Continuation Contract
 
 Status: **FAILED / CLOSED AT THE CALL-7 REPLAY GATE**. This was a frozen-checkpoint

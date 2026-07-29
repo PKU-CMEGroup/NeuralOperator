@@ -1467,7 +1467,7 @@ the exact 30-trajectory validation population, BF16, the same normalization
 digest `d2d07a4000acc3cfd45ff105a19e7437177d553cee4c18d50858f5572de7efec`,
 and minimum-change recurrence. Each hybrid evaluated both frozen models on the
 same recurrent input, spliced raw whole-state node proposals, and applied one
-shared `P_B^*`. No optimizer step, trainable parameter, test population, or
+shared `P_B^*`. No optimizer step or parameter update, test population, or
 sealed population was used. Each H20 variant consumed 2,912 learned calls.
 
 The bound source is base commit
@@ -1485,7 +1485,8 @@ The first smoke preflight stopped before evaluation because legacy D041 has no
 declared normalization-digest field. Its complete normalization payload is
 exactly equal to the teacher payload; the corrected evaluator recomputes both
 digests and still rejects any declared digest inconsistent with its payload.
-Six focused and 47 broader local tests pass.
+At the result freeze, six focused tests passed, and 47 tests passed in the
+combined splice, multistep-training, and residual-PCNO CPU suite.
 
 | H20 validation field | Frozen D041 | Teacher checkpoint | D041 normal + teacher boundary | Teacher normal + D041 boundary |
 | --- | ---: | ---: | ---: | ---: |
@@ -1502,8 +1503,8 @@ trajectories, but its paired median ratio is only `0.99354` and it retains much
 less than the required half of the aggregate teacher gain. The reverse hybrid
 improves 25/30 cases with paired median all-state ratio `0.90343`; it is also
 `0.98019` median relative to the full teacher checkpoint at H20. Thus the
-teacher normal-node proposal carries all of the state gain in this splice and
-combines more favorably with the D041 boundary proposal than with its own.
+teacher normal-node proposal carries the dominant state gain under this splice
+and combines more favorably with the D041 boundary proposal than with its own.
 
 The H20 paired structural median ratios relative to D041 are, respectively,
 `0.99470/0.98396/1.19086/1.07505` for high-pass/front centroid/shock-thickness
@@ -1570,7 +1571,7 @@ approved; operational closure does not depend on that second opinion.
 
 | Question | Terminal evidence | Disposition |
 | --- | --- | --- |
-| Must rollout obey a causal hard boundary contract? | Native recurrence is fragile; D041 plus `P_B^*` improves H20 state, H79 completion, and common-survivor state error while keeping physical residuals near numerical noise. | **YES as the deployment invariant**, with the registered H79 thickness and reference-trace caveats. |
+| Must rollout obey a causal hard boundary contract? | Native recurrence is fragile; D041 plus `P_B^*` improves H20 state, H79 completion, and common-survivor state error while keeping wall/inflow constraint residuals near numerical noise. | **YES as the deployment invariant**, with the registered H79 thickness and reference-trace caveats. |
 | Does a stronger boundary-reference loss improve learned interior dynamics? | BG0's projected-boundary/near-band auxiliaries fail; RB0 greatly improves raw boundary fit and H20 but worsens selected H79 state/structure; RA0P supplies no method evidence. | **NO for the tested objectives.** Do not retry or retune them. |
 | Should gradients traverse the model's own two-step recurrence? | The attached `K=2` arm fails one-step and H20 while the projected-teacher control improves state. | **NO for the tested continuation scale.** |
 | Is the projected-teacher gain boundary-local? | Boundary-only splicing retains only `18.81%/17.20%` of its H20 all/normal gain; the reverse retains `136.82%/137.45%`. | **NO.** The useful state change is primarily in normal-node/interior output. |
@@ -1620,6 +1621,63 @@ still isolates a material boundary-local residual, and (3) the proposed method
 changes only legal free boundary degrees under causal `P_B^*`. Otherwise the
 line stays closed. Exact DG/characteristic work additionally requires new face,
 ghost-state, and flux provenance before implementation or conservation claims.
+
+### Post-Closeout Retained-Code Review (2026-07-29)
+
+**Verified evidence.** A line-by-line review found four future-invocation
+contract gaps in the retained splice evaluator, not a mismatch in the frozen
+H20 metrics. The result-generating v1 summary did not record `start_frame`; the
+reference summaries do record `step_stride` and per-trajectory minimum-change
+policy digests, but v1 did not validate them; its H20 gate did not explicitly
+require all 30 paired structural values; and its `trainable_parameters: 0`
+field described the no-training diagnostic although the child checkpoint
+parameters still had `requires_grad=True`. No backward pass, gradient
+accumulation, optimizer step, or parameter update occurred. Rollout, structure,
+and projection-decomposition evaluation used no-gradient contexts; the shared
+one-step evaluator ran in eval mode, constructed only transient autograd graphs,
+and detached every reported metric. The frozen H20 artifact has stride 1, its
+policy digests exactly equal both frozen reference summaries, and all four
+structural gate fields contain 30/30 pairs. The registered invocation used the
+source default `start_frame=0`.
+
+The maintained evaluator is now schema v2. It rejects nonzero start frames
+because the v1 reference-summary schema cannot bind them, validates stride and
+the complete policy-digest population against both references, literally
+freezes both child modules, records `start_frame`, and requires 30 paired values
+for every structural gate field. Its SHA-256 is
+`ea48ce218f0bbeb29e5686cd248803d628af6e559895f290ea569d0fc1477a38`;
+the nine-test source SHA-256 is
+`2beeb3f60d01480efd65f8b143838cf878d5b766089cccf9578ad68069693c69`.
+All nine focused tests and all 50 combined splice, multistep-training, and
+residual-PCNO CPU tests pass; syntax, Black, and diff checks pass.
+
+**Plausible mechanism or inference.** These were provenance and fail-closed
+retention defects, not evidence of a different learned mechanism. Every newly
+explicit comparison condition is already satisfied by the frozen H20 run; and
+literal parameter freezing cannot change an eval-only forward with no backward
+pass. No reported state, boundary, structure, admissibility, or outflow value is
+expected to change.
+
+**Missing evidence.** The v2 evaluator has not rerun either checkpoint on GPU,
+so byte-for-byte v2 metric equality is not claimed. The v1 summary itself still
+lacks a `start_frame` field; its frame-zero identity remains bound by the
+registered invocation and source default rather than by that JSON field.
+
+**Alternative explanation.** The four findings can be viewed as schema and
+defensive-validation omissions because the exact registered invocation already
+satisfied them. That does not make them safe for a reusable CLI, where a
+nonzero start, changed policy, changed stride, or incomplete pairing could have
+silently produced an invalid comparison.
+
+**Claim implication.** Keep the frozen v1 evaluator/test hashes and source
+archive above attached to the completed H20 result. Do not substitute the v2
+hash retroactively. Use v2 for any future authorized reuse. The scientific
+closeout and rejection of this checkpoint-pair adapter remain unchanged.
+
+**Minimum decisive next experiment.** None for closeout. If a future re-entry
+authorizes this diagnostic on another checkpoint pair, first run one validation
+trajectory through v2 and require all new contracts to pass before spending the
+registered population; that is a future preflight, not authorization here.
 
 ## Line 3 Restart Decision (2026-07-26)
 

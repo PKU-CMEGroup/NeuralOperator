@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -12,7 +13,11 @@ from scripts.time_dependent_no.evaluate_pcno_euler2d_boundary_splice import (
     boundary_h20_advance_gate,
     gain_fraction,
     paired_structure_ratios,
+    parse_args,
     splice_raw_predictions,
+    validate_args,
+    validate_policy_digests,
+    validate_summary_contract,
     verified_normalization_digest,
 )
 from scripts.time_dependent_no.evaluate_pcno_euler2d_boundary_protocol import (
@@ -85,9 +90,10 @@ class _OffsetModel(torch.nn.Module):
         self.register_buffer("residual_scale", torch.ones(4))
         self.register_buffer("mach_mean", torch.tensor(0.0))
         self.register_buffer("mach_scale", torch.tensor(1.0))
+        self.weight = torch.nn.Parameter(torch.tensor(1.0))
 
     def forward(self, current: torch.Tensor, **_: torch.Tensor) -> torch.Tensor:
-        return current + self.offset
+        return current + self.offset * self.weight
 
 
 def test_boundary_splice_model_calls_both_models_on_the_same_state() -> None:
@@ -114,6 +120,8 @@ def test_boundary_splice_model_calls_both_models_on_the_same_state() -> None:
     assert torch.equal(prediction[0, 0], torch.ones(4))
     assert torch.equal(prediction[0, 1], torch.full((4,), 10.0))
     assert torch.equal(prediction[0, 2], torch.ones(4))
+    assert not model.training
+    assert not any(parameter.requires_grad for parameter in model.parameters())
 
 
 def _structure_rows(multiplier: float) -> dict[str, object]:
@@ -139,7 +147,9 @@ def test_paired_structure_ratios_are_trajectory_matched() -> None:
 def test_gain_fraction_and_h20_gate_enforce_locality_contract() -> None:
     assert gain_fraction(10.0, 8.0, 9.0) == pytest.approx(0.5)
     assert gain_fraction(10.0, 10.0, 9.0) is None
-    endpoint = {field: {"median_ratio": 1.0} for field in STRUCTURE_ERROR_FIELDS}
+    endpoint = {
+        field: {"count": 30, "median_ratio": 1.0} for field in STRUCTURE_ERROR_FIELDS
+    }
     comparison = {
         "final_checkpoint": 20,
         "endpoint": {
@@ -160,6 +170,11 @@ def test_gain_fraction_and_h20_gate_enforce_locality_contract() -> None:
         "median_ratio"
     ] = 1.051
     assert not boundary_h20_advance_gate(failed, rollout)["passed"]
+    incomplete = deepcopy(comparison)
+    incomplete["structure_ratios"]["endpoints"]["20"][STRUCTURE_ERROR_FIELDS[0]][
+        "count"
+    ] = 29
+    assert not boundary_h20_advance_gate(incomplete, rollout)["passed"]
 
 
 def test_normalization_digest_accepts_legacy_missing_declaration() -> None:
@@ -184,3 +199,97 @@ def test_normalization_digest_accepts_legacy_missing_declaration() -> None:
     declared["normalization_digest"] = "0" * 64
     with pytest.raises(ValueError, match="does not match its payload"):
         verified_normalization_digest(declared, name="declared")
+
+
+def test_validate_args_rejects_unbound_nonzero_start_frame(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    paths = []
+    for name in ("parent.pt", "teacher.pt", "parent.json", "teacher.json"):
+        path = tmp_path / name
+        path.touch()
+        paths.append(path)
+    args = parse_args(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--parent-checkpoint",
+            str(paths[0]),
+            "--teacher-checkpoint",
+            str(paths[1]),
+            "--reference-summary",
+            str(paths[2]),
+            "--teacher-summary",
+            str(paths[3]),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--start-frame",
+            "1",
+            "--amp",
+            "none",
+        ]
+    )
+
+    with pytest.raises(ValueError, match="bound to start frame 0"):
+        validate_args(args, torch.device("cpu"))
+
+
+def _reference_summary(*, step_stride: int = 2) -> dict[str, object]:
+    return {
+        "schema": "pcno_euler2d_boundary_protocol_validation_v1",
+        "status": "complete",
+        "test_split_opened": False,
+        "checkpoint": {"sha256": "checkpoint"},
+        "evaluation": {
+            "validation_keys": ["a"],
+            "rollout_keys": ["a"],
+            "one_step_pairs": [{"trajectory": "a", "time_index": 0}],
+            "rollout_steps": 20,
+            "rollout_checkpoints": [1, 20],
+            "shock_quantile": 0.9,
+            "step_stride": step_stride,
+            "amp": "bf16",
+        },
+    }
+
+
+def test_validate_summary_contract_binds_step_stride() -> None:
+    args = SimpleNamespace(
+        rollout_count=1,
+        rollout_steps=20,
+        rollout_checkpoints=[1, 20],
+        shock_quantile=0.9,
+        amp="bf16",
+    )
+    arguments = {
+        "checkpoint_sha256": "checkpoint",
+        "validation_keys": ["a"],
+        "rollout_keys": ["a"],
+        "pairs": [("a", 0)],
+        "step_stride": 2,
+        "args": args,
+    }
+    validate_summary_contract(_reference_summary(), **arguments)
+
+    with pytest.raises(ValueError, match="step stride differs"):
+        validate_summary_contract(_reference_summary(step_stride=4), **arguments)
+
+
+def test_validate_policy_digests_binds_population_and_values() -> None:
+    summary = {
+        "minimum_change": {
+            "policy_metadata": {
+                "a": {"policy_digest": "digest-a"},
+                "b": {"policy_digest": "digest-b"},
+            }
+        }
+    }
+    observed = {"a": "digest-a", "b": "digest-b"}
+    validate_policy_digests(summary, observed, name="reference")
+
+    changed = deepcopy(summary)
+    changed["minimum_change"]["policy_metadata"]["b"]["policy_digest"] = "changed"
+    with pytest.raises(ValueError, match="trajectory b"):
+        validate_policy_digests(changed, observed, name="reference")
+    with pytest.raises(ValueError, match="population differs"):
+        validate_policy_digests(summary, {"a": "digest-a"}, name="reference")

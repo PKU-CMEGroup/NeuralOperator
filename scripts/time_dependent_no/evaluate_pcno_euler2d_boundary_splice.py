@@ -53,7 +53,7 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     normal_node_mask,
 )
 
-SCHEMA = "pcno_euler2d_boundary_output_splice_validation_v1"
+SCHEMA = "pcno_euler2d_boundary_output_splice_validation_v2"
 BOUNDARY_FROM_TEACHER = "parent_normal_teacher_boundary"
 NORMAL_FROM_TEACHER = "teacher_normal_parent_boundary"
 VARIANTS = (BOUNDARY_FROM_TEACHER, NORMAL_FROM_TEACHER)
@@ -103,8 +103,12 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
             raise FileNotFoundError(path)
     if args.one_step_presentations < 1 or args.rollout_count < 1:
         raise ValueError("presentation and rollout counts must be positive")
-    if args.rollout_steps < 1 or args.start_frame < 0:
-        raise ValueError("rollout steps must be positive and start frame nonnegative")
+    if args.rollout_steps < 1:
+        raise ValueError("rollout steps must be positive")
+    if args.start_frame != 0:
+        raise ValueError(
+            "boundary-protocol reference summaries are bound to start frame 0"
+        )
     checkpoints = sorted({int(value) for value in args.rollout_checkpoints})
     if not checkpoints or checkpoints[0] < 1 or checkpoints[-1] > args.rollout_steps:
         raise ValueError("rollout checkpoints must lie inside the requested horizon")
@@ -170,6 +174,8 @@ class BoundarySplicePCNO(torch.nn.Module):
         self.parent = parent
         self.teacher = teacher
         self.variant = variant
+        self.requires_grad_(False)
+        self.eval()
 
     @property
     def gamma(self) -> float:
@@ -371,6 +377,10 @@ def boundary_h20_advance_gate(
             normal_fraction is not None and float(normal_fraction) >= 0.5
         ),
         **{
+            f"{field}_paired_count_30": int(endpoint[field]["count"]) == 30
+            for field in STRUCTURE_ERROR_FIELDS
+        },
+        **{
             f"{field}_median_ratio_at_most_1p05": (
                 endpoint[field]["median_ratio"] is not None
                 and float(endpoint[field]["median_ratio"]) <= 1.05
@@ -379,7 +389,7 @@ def boundary_h20_advance_gate(
         },
     }
     return {
-        "schema": "pcno_euler2d_boundary_splice_h20_gate_v1",
+        "schema": "pcno_euler2d_boundary_splice_h20_gate_v2",
         "checks": checks,
         "passed": all(checks.values()),
         "if_passed": "evaluate only the boundary-from-teacher hybrid at H79",
@@ -394,6 +404,7 @@ def validate_summary_contract(
     validation_keys: Sequence[str],
     rollout_keys: Sequence[str],
     pairs: Sequence[tuple[str, int]],
+    step_stride: int,
     args: argparse.Namespace,
 ) -> None:
     if summary.get("schema") != "pcno_euler2d_boundary_protocol_validation_v1":
@@ -415,6 +426,8 @@ def validate_summary_contract(
     ]
     if evaluation["one_step_pairs"] != expected_pairs:
         raise ValueError("reference summary one-step pair stream differs")
+    if int(evaluation["step_stride"]) != step_stride:
+        raise ValueError("reference summary step stride differs")
     if int(evaluation["rollout_steps"]) < args.rollout_steps:
         raise ValueError("reference summary does not reach the requested horizon")
     if not set(args.rollout_checkpoints).issubset(evaluation["rollout_checkpoints"]):
@@ -423,6 +436,29 @@ def validate_summary_contract(
         raise ValueError("reference summary shock quantile differs")
     if str(evaluation["amp"]) != args.amp:
         raise ValueError("reference summary precision differs")
+
+
+def validate_policy_digests(
+    summary: Mapping[str, Any],
+    observed: Mapping[str, str],
+    *,
+    name: str,
+) -> None:
+    metadata = summary.get("minimum_change", {}).get("policy_metadata")
+    if not isinstance(metadata, Mapping):
+        raise ValueError(f"{name} lacks minimum-change policy metadata")
+    expected = {
+        str(key): str(record["policy_digest"])
+        for key, record in metadata.items()
+        if isinstance(record, Mapping) and "policy_digest" in record
+    }
+    if expected.keys() != observed.keys():
+        raise ValueError(f"{name} minimum-change policy population differs")
+    for key, digest in observed.items():
+        if expected[key] != digest:
+            raise ValueError(
+                f"{name} minimum-change policy digest differs for trajectory {key}"
+            )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -491,6 +527,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         validation_keys=validation_keys,
         rollout_keys=rollout_keys,
         pairs=pairs,
+        step_stride=step_stride,
         args=args,
     )
     validate_summary_contract(
@@ -499,6 +536,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         validation_keys=validation_keys,
         rollout_keys=rollout_keys,
         pairs=pairs,
+        step_stride=step_stride,
         args=args,
     )
     parent = build_model(parent_checkpoint, device)
@@ -519,6 +557,16 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         policies[key] = policy
         policy_digests[key] = record["policy_digest"]
+    validate_policy_digests(
+        reference_summary,
+        policy_digests,
+        name="parent reference summary",
+    )
+    validate_policy_digests(
+        teacher_summary,
+        policy_digests,
+        name="teacher reference summary",
+    )
     reference = reference_summary["minimum_change"]
     teacher_reference = teacher_summary["minimum_change"]
     variants: dict[str, Any] = {}
@@ -660,6 +708,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 for key, time_index in pairs
             ],
             "presentation_seed": args.presentation_seed,
+            "start_frame": args.start_frame,
             "rollout_steps": args.rollout_steps,
             "rollout_checkpoints": args.rollout_checkpoints,
             "shock_quantile": args.shock_quantile,

@@ -316,7 +316,11 @@ Active CPU and synthetic-fixture tests live under `tests/time_dependent_no/`:
   `test_shock_vortex_coarse_cfd.py`, `test_shock_vortex_family.py`,
   `test_shock_vortex_fv.py`, and `test_shock_vortex_sharpclaw_adapter.py`.
 
-The CPG and PCNO evaluation files above remain frozen reproducibility surfaces.
+The CPG and PCNO evaluation files above are maintained reproducibility surfaces,
+with each completed result bound to its recorded source hash. In particular,
+the frozen boundary-splice result used evaluator schema v1; the retained schema
+v2 adds fail-closed provenance checks and must not be substituted retroactively.
+See the research decision and tracker for both hashes and the review disposition.
 The historical L3R-B0 contract authorized the trainer/evaluator implementation,
 but B0P failed and B0 stayed unlaunched. The current B1P contract authorizes the
 revised native-causal evaluator, parity-aware trainer, exact comparator replay,

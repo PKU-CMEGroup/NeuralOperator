@@ -369,6 +369,17 @@ the interior signal and structural failures to general PCNO work; boundary
 localization may re-enter only after a one-call checkpoint passes joint state
 and structure gates.
 
+A post-closeout implementation review leaves the frozen H20 result unchanged
+and bound to its recorded v1 source hash. The maintained splice evaluator is
+now schema v2: it is frame-zero-only because the v1 references omit start-frame
+provenance, validates reference stride and every policy digest, freezes both
+child modules literally, records the start frame, and requires 30/30 paired
+structural values. Its evaluator/test SHA-256 values are
+`ea48ce218f0bbeb29e5686cd248803d628af6e559895f290ea569d0fc1477a38`
+and `2beeb3f60d01480efd65f8b143838cf878d5b766089cccf9578ad68069693c69`;
+9 focused and 50 combined relevant CPU tests pass. No GPU replay, new result,
+run authorization, or scientific disposition follows from this hardening.
+
 The boundary-information line is therefore safe to close for the current bump-
 PCNO lineage. Its result-to-claim verdict is `partial`, high confidence: causal
 minimum-change projection is retained as a deployment invariant with an anti-

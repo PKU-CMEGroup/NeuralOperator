@@ -4,15 +4,17 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
 import hashlib
 import json
 import math
 import os
-from pathlib import Path
+import platform
 import random
+import shutil
 import subprocess
 import sys
+from contextlib import nullcontext
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Mapping, Sequence
 
@@ -23,17 +25,27 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utility.time_dependent_no.cpg_mesh_contract import NORMAL_NODE  # noqa: E402
 from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     Euler2DNormalization,
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     apply_admissible_primitive_noise,
+    apply_causal_boundary_conservative_batch,
+    apply_minimum_change_boundary_conservative_batch,
     balanced_presentations,
+    boundary_band_normal_node_mask,
+    build_graph_causal_boundary_policy,
+    build_graph_minimum_change_boundary_policy,
     conservative_admissibility,
+    conservative_to_primitive_torch,
     digest_mapping,
     fit_normalization,
     fixed_tiny_presentations,
+    full_coverage_presentations,
+    homogeneous_optimizer_step_count,
     homogeneous_presentation_batches,
+    normal_node_mask,
     parameter_count,
     stratified_train_val_split,
     weighted_scaled_mse,
@@ -42,6 +54,43 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
 
 CHECKPOINT_SCHEMA_VERSION = 4
 RESIDUAL_TARGET_KIND = "conservative_variable_residual"
+CAUSAL_BOUNDARY_MODE = "causal_nodal_physical"
+MINIMUM_CHANGE_BOUNDARY_MODE = "minimum_change_nodal_physical"
+NORMAL_CLOSED_PRIMARY_OBJECTIVE = "normal_closed"
+RAW_ALL_NODES_PRIMARY_OBJECTIVE = "raw_all_nodes"
+LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE = "learned_dofs_closed"
+NO_BOUNDARY_AUXILIARY = "none"
+PROJECTED_BOUNDARY_AUXILIARY = "projected_target"
+NEAR_BOUNDARY_AUXILIARY = "near_boundary_band"
+RAW_BOUNDARY_REFERENCE_AUXILIARY = "raw_boundary_reference"
+NO_INIT_BOUNDARY_TRANSITION = "none"
+RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION = "model_all_nodes_to_causal_nodal_physical"
+RAW_TO_MINIMUM_CHANGE_INIT_BOUNDARY_TRANSITION = (
+    "model_all_nodes_to_minimum_change_nodal_physical"
+)
+HISTORICAL_SELECTION_MODE = "historical_all_node"
+INTERIOR_SELECTION_MODE = "interior_rollout"
+FIXED_HORIZON_BLOCKS_PRESENTATION_MODE = "fixed_horizon_blocks"
+ATTACHED_PREDICTION_MULTISTEP_INPUT = "attached_prediction"
+PROJECTED_TEACHER_MULTISTEP_INPUT = "projected_teacher"
+SOURCE_SNAPSHOT_FILES = (
+    "docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md",
+    "docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md",
+    "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
+    "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
+    "utility/time_dependent_no/pcno_euler2d.py",
+    "utility/time_dependent_no/cpg_mesh_contract.py",
+    "pcno/pcno.py",
+)
+RESUME_MUTABLE_ARGS = {
+    "checkpoint_every",
+    "device",
+    "init_checkpoint",
+    "init_boundary_mode_transition",
+    "max_wall_hours",
+    "output_dir",
+    "resume_checkpoint",
+}
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -62,14 +111,39 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--val-count", type=int, default=30)
     parser.add_argument("--step-stride", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument(
+        "--presentation-mode",
+        choices=(
+            "balanced",
+            "full_coverage",
+            FIXED_HORIZON_BLOCKS_PRESENTATION_MODE,
+        ),
+        default="balanced",
+        help=(
+            "Use sampled trajectory-balanced presentations or visit every "
+            "eligible transition exactly once per epoch. Fixed horizon blocks "
+            "construct one deterministic same-trajectory multistep screen."
+        ),
+    )
     parser.add_argument("--presentations-per-epoch", type=int, default=4096)
     parser.add_argument("--val-presentations", type=int, default=128)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=1,
+        help=(
+            "Accumulate this many trajectory-homogeneous microbatches before "
+            "one optimizer/scheduler step."
+        ),
+    )
+    parser.add_argument(
         "--tiny-pairs",
         type=int,
         default=0,
-        help="Repeat one immutable pair bank of this size; zero uses balanced sampling.",
+        help=(
+            "Repeat one immutable pair bank of this size; zero uses balanced sampling."
+        ),
     )
     parser.add_argument("--tiny-fit-rel-l2", type=float, default=0.01)
     parser.add_argument("--tiny-fit-loss-ratio", type=float, default=0.01)
@@ -95,12 +169,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--weight-decay", type=float, default=1e-5)
     parser.add_argument(
         "--scheduler",
-        choices=("constant", "onecycle"),
+        choices=("constant", "onecycle", "warmup_cosine"),
         default="constant",
         help="Use the strong residual-FNO recipe by default; OneCycle is explicit.",
     )
     parser.add_argument("--lr-div-factor", type=float, default=10.0)
     parser.add_argument("--lr-final-div-factor", type=float, default=1000.0)
+    parser.add_argument("--warmup-fraction", type=float, default=0.02)
+    parser.add_argument("--warmup-start-factor", type=float, default=0.1)
+    parser.add_argument("--min-learning-rate", type=float, default=2e-5)
     parser.add_argument("--gradient-clip", type=float, default=1.0)
     parser.add_argument("--input-noise-std", type=float, default=0.0)
     parser.add_argument(
@@ -112,10 +189,119 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "the clean one-step anchor; zero disables exposure."
         ),
     )
+    parser.add_argument(
+        "--multistep-loss-steps",
+        type=int,
+        default=1,
+        help=(
+            "Number of differentiable recurrent calls in the training objective; "
+            "one preserves the one-step baseline."
+        ),
+    )
+    parser.add_argument(
+        "--multistep-loss-weight",
+        type=float,
+        default=0.0,
+        help=(
+            "Total auxiliary weight for normal-node losses at recurrent calls "
+            "2..K; zero is required when K=1."
+        ),
+    )
+    parser.add_argument(
+        "--multistep-recurrent-input",
+        choices=(
+            ATTACHED_PREDICTION_MULTISTEP_INPUT,
+            PROJECTED_TEACHER_MULTISTEP_INPUT,
+        ),
+        default=ATTACHED_PREDICTION_MULTISTEP_INPUT,
+        help=(
+            "Feed the deployed prediction through the differentiable recurrence, "
+            "or execute the call-matched projected-teacher control."
+        ),
+    )
     parser.add_argument("--rollout-every", type=int, default=5)
     parser.add_argument("--rollout-val-count", type=int, default=5)
     parser.add_argument("--rollout-steps", type=int, default=20)
+    parser.add_argument(
+        "--selection-mode",
+        choices=(HISTORICAL_SELECTION_MODE, INTERIOR_SELECTION_MODE),
+        default=HISTORICAL_SELECTION_MODE,
+        help=(
+            "Select checkpoints by the historical all-node rollout hierarchy or "
+            "by completion followed by normal-node long/short-horizon error."
+        ),
+    )
+    parser.add_argument(
+        "--selection-short-horizon",
+        type=int,
+        default=20,
+        help="Short normal-node endpoint used by interior-rollout selection.",
+    )
+    parser.add_argument(
+        "--rollout-checkpoints",
+        type=int,
+        nargs="*",
+        default=(),
+        help="Calls retained for checkpoint selection and horizon reporting.",
+    )
+    parser.add_argument(
+        "--parity-rollout-keys",
+        nargs="*",
+        default=(),
+        help="Validation-only keys used for an exact historical parity gate.",
+    )
+    parser.add_argument("--parity-rollout-horizon", type=int, default=20)
+    parser.add_argument("--parity-max-rollout-relative-l2", type=float, default=None)
+    parser.add_argument("--parity-max-one-step-relative-l2", type=float, default=None)
     parser.add_argument("--rollout-start-frame", type=int, default=0)
+    parser.add_argument(
+        "--boundary-mode",
+        choices=(
+            "model_all_nodes",
+            CAUSAL_BOUNDARY_MODE,
+            MINIMUM_CHANGE_BOUNDARY_MODE,
+        ),
+        default="model_all_nodes",
+    )
+    parser.add_argument("--boundary-max-source-hops", type=int, default=3)
+    parser.add_argument("--boundary-rho-inf", type=float, default=1.4)
+    parser.add_argument("--boundary-p-inf", type=float, default=1.0)
+    parser.add_argument(
+        "--primary-objective",
+        choices=(
+            NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+            RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+            LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+        ),
+        default=NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+        help=(
+            "Optimize the deployed proposal on normal nodes, directly supervise "
+            "the raw proposal on every valid node, or supervise every deployed "
+            "free degree of freedom through the minimum-change projection."
+        ),
+    )
+    parser.add_argument(
+        "--boundary-auxiliary",
+        choices=(
+            NO_BOUNDARY_AUXILIARY,
+            PROJECTED_BOUNDARY_AUXILIARY,
+            NEAR_BOUNDARY_AUXILIARY,
+            RAW_BOUNDARY_REFERENCE_AUXILIARY,
+        ),
+        default=NO_BOUNDARY_AUXILIARY,
+        help=(
+            "Add one boundary training signal while preserving the "
+            "normal-node next-state objective and inference closure."
+        ),
+    )
+    parser.add_argument("--boundary-auxiliary-weight", type=float, default=0.0)
+    parser.add_argument("--near-boundary-hops", type=int, default=2)
+    parser.add_argument(
+        "--max-wall-hours",
+        type=float,
+        default=0.0,
+        help="Gracefully stop before another epoch would exceed this wall budget.",
+    )
     parser.add_argument("--checkpoint-every", type=int, default=1)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--amp", choices=("none", "bf16", "fp16"), default="bf16")
@@ -131,6 +317,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help="Resume model, optimizer, scheduler, epoch, and best-selection state.",
+    )
+    parser.add_argument(
+        "--init-boundary-mode-transition",
+        choices=(
+            NO_INIT_BOUNDARY_TRANSITION,
+            RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION,
+            RAW_TO_MINIMUM_CHANGE_INIT_BOUNDARY_TRANSITION,
+        ),
+        default=NO_INIT_BOUNDARY_TRANSITION,
+        help=(
+            "Explicitly authorize a supported initialization-time boundary "
+            "contract transition; never applies to resume."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -159,12 +358,15 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         "presentations_per_epoch": args.presentations_per_epoch,
         "val_presentations": args.val_presentations,
         "batch_size": args.batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
         "step_stride": args.step_stride,
         "stats_time_stride": args.stats_time_stride,
         "rollout_every": args.rollout_every,
         "rollout_val_count": args.rollout_val_count,
         "rollout_steps": args.rollout_steps,
         "checkpoint_every": args.checkpoint_every,
+        "multistep_loss_steps": args.multistep_loss_steps,
+        "selection_short_horizon": args.selection_short_horizon,
     }
     for name, value in positive_ints.items():
         if value < 1:
@@ -183,10 +385,16 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         raise ValueError("--gradient-clip must be nonnegative")
     if args.lr_div_factor <= 0.0 or args.lr_final_div_factor <= 0.0:
         raise ValueError("OneCycle division factors must be positive")
-    if args.scheduler == "onecycle" and args.batch_size != 1:
-        raise ValueError(
-            "OneCycle currently requires --batch-size 1 for exact step accounting"
-        )
+    if not 0.0 < args.warmup_fraction < 1.0:
+        raise ValueError("--warmup-fraction must lie in (0,1)")
+    if not 0.0 < args.warmup_start_factor <= 1.0:
+        raise ValueError("--warmup-start-factor must lie in (0,1]")
+    if args.scheduler == "warmup_cosine" and (
+        not math.isfinite(args.min_learning_rate)
+        or args.min_learning_rate <= 0.0
+        or args.min_learning_rate >= args.learning_rate
+    ):
+        raise ValueError("--min-learning-rate must lie in (0, learning-rate)")
     if args.input_noise_std < 0.0:
         raise ValueError("--input-noise-std must be nonnegative")
     if (
@@ -200,6 +408,164 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         )
     if args.generated_state_exposure_weight > 0.0 and args.tiny_pairs > 0:
         raise ValueError("generated-state exposure is not a tiny-fit mode")
+    if args.multistep_loss_steps < 1:
+        raise ValueError("--multistep-loss-steps must be positive")
+    if (
+        not math.isfinite(args.multistep_loss_weight)
+        or args.multistep_loss_weight < 0.0
+    ):
+        raise ValueError("--multistep-loss-weight must be finite and nonnegative")
+    if args.multistep_loss_steps == 1 and args.multistep_loss_weight != 0.0:
+        raise ValueError("K=1 requires --multistep-loss-weight 0")
+    if (
+        args.multistep_loss_steps == 1
+        and args.multistep_recurrent_input != ATTACHED_PREDICTION_MULTISTEP_INPUT
+    ):
+        raise ValueError("K=1 has no multistep recurrent input")
+    if args.multistep_loss_steps > 1 and args.multistep_loss_weight <= 0.0:
+        raise ValueError("K>1 requires a positive --multistep-loss-weight")
+    if args.multistep_loss_steps > 1:
+        if args.presentation_mode not in (
+            "full_coverage",
+            FIXED_HORIZON_BLOCKS_PRESENTATION_MODE,
+        ):
+            raise ValueError(
+                "multistep loss requires full coverage or fixed horizon blocks"
+            )
+        if args.tiny_pairs > 0:
+            raise ValueError("differentiable multistep loss is not a tiny-fit mode")
+        if args.input_noise_std > 0.0:
+            raise ValueError(
+                "differentiable multistep loss and input noise are separate studies"
+            )
+        if args.generated_state_exposure_weight > 0.0:
+            raise ValueError(
+                "differentiable multistep loss and detached exposure are "
+                "separate studies"
+            )
+    if args.presentation_mode == FIXED_HORIZON_BLOCKS_PRESENTATION_MODE:
+        effective_batch_size = args.batch_size * args.gradient_accumulation_steps
+        if args.multistep_loss_steps < 2:
+            raise ValueError("fixed horizon blocks require K>1")
+        if args.epochs != 1:
+            raise ValueError("fixed horizon blocks are a one-epoch screen")
+        if args.presentations_per_epoch % effective_batch_size != 0:
+            raise ValueError(
+                "fixed horizon presentations must divide into complete effective batches"
+            )
+    if args.presentation_mode == "full_coverage" and args.tiny_pairs > 0:
+        raise ValueError("full coverage and tiny-fit sampling are separate modes")
+    if (
+        args.presentation_mode == "full_coverage"
+        and args.generated_state_exposure_weight > 0.0
+    ):
+        raise ValueError("the registered full-coverage baseline has no exposure loss")
+    rollout_checkpoints = sorted({int(value) for value in args.rollout_checkpoints})
+    if any(value < 1 or value > args.rollout_steps for value in rollout_checkpoints):
+        raise ValueError("rollout checkpoints must lie inside the requested horizon")
+    args.rollout_checkpoints = rollout_checkpoints
+    parity_keys = [str(key) for key in args.parity_rollout_keys]
+    if len(set(parity_keys)) != len(parity_keys):
+        raise ValueError("parity rollout keys must be unique")
+    args.parity_rollout_keys = parity_keys
+    parity_thresholds = (
+        args.parity_max_rollout_relative_l2,
+        args.parity_max_one_step_relative_l2,
+    )
+    if parity_keys:
+        if args.parity_rollout_horizon not in rollout_checkpoints:
+            raise ValueError(
+                "parity rollout horizon must be one of --rollout-checkpoints"
+            )
+        if any(
+            value is None or not math.isfinite(value) or value <= 0.0
+            for value in parity_thresholds
+        ):
+            raise ValueError("enabled parity thresholds must be positive and finite")
+    elif any(value is not None for value in parity_thresholds):
+        raise ValueError("parity thresholds require --parity-rollout-keys")
+    if args.selection_mode == INTERIOR_SELECTION_MODE:
+        if args.parity_rollout_keys:
+            raise ValueError(
+                "interior-rollout selection and the historical parity gate are "
+                "separate contracts"
+            )
+        if args.selection_short_horizon > args.rollout_steps:
+            raise ValueError("selection short horizon exceeds the rollout horizon")
+        if args.selection_short_horizon not in args.rollout_checkpoints:
+            raise ValueError(
+                "interior-rollout selection short horizon must be retained"
+            )
+    if args.boundary_max_source_hops < 1:
+        raise ValueError("--boundary-max-source-hops must be positive")
+    if args.near_boundary_hops < 1:
+        raise ValueError("--near-boundary-hops must be positive")
+    if (
+        not math.isfinite(args.boundary_auxiliary_weight)
+        or args.boundary_auxiliary_weight < 0.0
+    ):
+        raise ValueError("--boundary-auxiliary-weight must be finite and nonnegative")
+    if args.boundary_auxiliary == NO_BOUNDARY_AUXILIARY:
+        if args.boundary_auxiliary_weight != 0.0:
+            raise ValueError("a boundary auxiliary weight requires an auxiliary kind")
+    else:
+        if args.boundary_mode != CAUSAL_BOUNDARY_MODE:
+            raise ValueError("boundary auxiliaries require causal boundary mode")
+        if args.boundary_auxiliary_weight <= 0.0:
+            raise ValueError("an enabled boundary auxiliary requires positive weight")
+        if args.generated_state_exposure_weight > 0.0:
+            raise ValueError(
+                "boundary auxiliaries and generated-state exposure are separate studies"
+            )
+    if args.primary_objective == RAW_ALL_NODES_PRIMARY_OBJECTIVE:
+        if args.boundary_mode != CAUSAL_BOUNDARY_MODE:
+            raise ValueError("raw all-node supervision requires causal boundary mode")
+        if args.boundary_auxiliary != NO_BOUNDARY_AUXILIARY:
+            raise ValueError(
+                "raw all-node supervision and boundary auxiliaries are separate studies"
+            )
+        if args.generated_state_exposure_weight > 0.0:
+            raise ValueError(
+                "raw all-node supervision and generated-state exposure are "
+                "separate studies"
+            )
+        if args.multistep_loss_steps > 1:
+            raise ValueError(
+                "raw all-node supervision and deployed multistep loss are "
+                "separate studies"
+            )
+    if args.primary_objective == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE:
+        if args.boundary_mode != MINIMUM_CHANGE_BOUNDARY_MODE:
+            raise ValueError(
+                "learned-DOF supervision requires minimum-change boundary mode"
+            )
+        if args.boundary_auxiliary != NO_BOUNDARY_AUXILIARY:
+            raise ValueError(
+                "learned-DOF supervision already includes deployed boundary DOFs"
+            )
+        if args.generated_state_exposure_weight > 0.0:
+            raise ValueError(
+                "learned-DOF supervision and generated-state exposure are "
+                "separate studies"
+            )
+    if (
+        not math.isfinite(args.boundary_rho_inf)
+        or not math.isfinite(args.boundary_p_inf)
+        or args.boundary_rho_inf <= 0.0
+        or args.boundary_p_inf <= 0.0
+    ):
+        raise ValueError("boundary freestream density and pressure must be positive")
+    if not math.isfinite(args.max_wall_hours) or args.max_wall_hours < 0.0:
+        raise ValueError("--max-wall-hours must be finite and nonnegative")
+    if args.init_boundary_mode_transition != NO_INIT_BOUNDARY_TRANSITION:
+        if args.init_checkpoint is None:
+            raise ValueError(
+                "--init-boundary-mode-transition requires --init-checkpoint"
+            )
+        if args.resume_checkpoint is not None:
+            raise ValueError(
+                "initialization boundary transitions never apply to resume"
+            )
     if not math.isfinite(args.mach_scale_floor) or args.mach_scale_floor <= 0.0:
         raise ValueError("--mach-scale-floor must be positive and finite")
     if args.amp != "none" and device.type != "cuda":
@@ -259,6 +625,123 @@ def digest_array(value: np.ndarray) -> str:
     digest.update(array.dtype.str.encode("ascii"))
     digest.update(array.tobytes(order="C"))
     return digest.hexdigest()
+
+
+def runtime_environment(device: torch.device) -> dict[str, Any]:
+    """Record the runtime facts needed to interpret throughput and numerics."""
+
+    cuda_device = None
+    if device.type == "cuda":
+        properties = torch.cuda.get_device_properties(device)
+        cuda_device = {
+            "name": properties.name,
+            "total_memory_bytes": int(properties.total_memory),
+            "capability": list(torch.cuda.get_device_capability(device)),
+        }
+    return {
+        "python": sys.version,
+        "platform": platform.platform(),
+        "numpy": np.__version__,
+        "torch": torch.__version__,
+        "cuda_runtime": torch.version.cuda,
+        "cudnn": torch.backends.cudnn.version(),
+        "cuda_device": cuda_device,
+        "float32_matmul_precision": torch.get_float32_matmul_precision(),
+    }
+
+
+def write_source_snapshot(output_dir: Path) -> dict[str, Any]:
+    """Retain the exact small source surface used by this training run."""
+
+    snapshot_dir = output_dir / "source_snapshot"
+    snapshot_dir.mkdir(parents=True, exist_ok=False)
+    files = {}
+    for relative_name in SOURCE_SNAPSHOT_FILES:
+        source = ROOT / relative_name
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        destination = snapshot_dir / relative_name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        files[relative_name] = {
+            "sha256": sha256_file(destination),
+            "bytes": int(destination.stat().st_size),
+        }
+    payload = {
+        "schema": "pcno_euler2d_source_snapshot_v1",
+        "git": git_state(),
+        "files": files,
+        "source_set_digest": digest_mapping(files),
+    }
+    write_json(snapshot_dir / "manifest.json", payload)
+    return payload
+
+
+def verify_source_snapshot(snapshot: Mapping[str, Any]) -> None:
+    """Reject continuation under source bytes unlike the run-start snapshot."""
+
+    files = snapshot.get("files")
+    if not isinstance(files, Mapping) or set(files) != set(SOURCE_SNAPSHOT_FILES):
+        raise ValueError("source snapshot does not cover the registered source set")
+    mismatches = []
+    for relative_name in SOURCE_SNAPSHOT_FILES:
+        record = files[relative_name]
+        if not isinstance(record, Mapping):
+            mismatches.append(relative_name)
+            continue
+        source = ROOT / relative_name
+        if not source.is_file() or sha256_file(source) != record.get("sha256"):
+            mismatches.append(relative_name)
+    if mismatches:
+        raise ValueError(f"current source differs from run snapshot: {mismatches}")
+
+
+def assert_resume_training_args(
+    checkpoint: Mapping[str, Any], args: argparse.Namespace
+) -> None:
+    """Allow operational resume changes but freeze scientific/numerical choices."""
+
+    saved = checkpoint.get("training_args")
+    if not isinstance(saved, Mapping):
+        raise ValueError("resume checkpoint lacks its training arguments")
+    current = jsonable_args(args)
+    missing = sorted(set(current) - set(saved) - RESUME_MUTABLE_ARGS)
+    differences = {
+        name: {"saved": saved[name], "current": current[name]}
+        for name in sorted((set(current) & set(saved)) - RESUME_MUTABLE_ARGS)
+        if saved[name] != current[name]
+    }
+    if missing or differences:
+        raise ValueError(
+            "resume would change the frozen training contract: "
+            f"missing={missing}, differences={differences}"
+        )
+
+
+def warmup_cosine_factor(
+    step_index: int,
+    *,
+    total_steps: int,
+    warmup_steps: int,
+    start_factor: float,
+    minimum_factor: float,
+) -> float:
+    """Return an optimizer-step-indexed warmup plus cosine multiplier."""
+
+    if total_steps < 2 or not 1 <= warmup_steps < total_steps:
+        raise ValueError("warmup schedule requires 1 <= warmup_steps < total_steps")
+    step = min(max(int(step_index), 0), total_steps - 1)
+    if step < warmup_steps:
+        if warmup_steps == 1:
+            return 1.0
+        progress = step / (warmup_steps - 1)
+        return start_factor + progress * (1.0 - start_factor)
+    decay_steps = total_steps - warmup_steps
+    if decay_steps == 1:
+        return minimum_factor
+    progress = (step - warmup_steps) / (decay_steps - 1)
+    cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+    return minimum_factor + (1.0 - minimum_factor) * cosine
 
 
 def build_data_contract_summary(
@@ -431,16 +914,78 @@ def manifest_train_val_test_split(
     return splits["train"], splits["validation"], splits["test"]
 
 
+def resolve_initialization_transition(
+    checkpoint: Mapping[str, Any],
+    *,
+    args: argparse.Namespace,
+) -> dict[str, Any] | None:
+    """Resolve an explicitly allowed fresh-initialization boundary change."""
+
+    source_mode = str(checkpoint.get("boundary_mode", "model_all_nodes"))
+    target_mode = str(args.boundary_mode)
+    requested = str(args.init_boundary_mode_transition)
+    if source_mode == target_mode:
+        if requested != NO_INIT_BOUNDARY_TRANSITION:
+            raise ValueError(
+                "an initialization boundary transition was requested but the "
+                "checkpoint and target boundary modes already match"
+            )
+        return None
+    supported = {
+        ("model_all_nodes", CAUSAL_BOUNDARY_MODE): (
+            RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION
+        ),
+        ("model_all_nodes", MINIMUM_CHANGE_BOUNDARY_MODE): (
+            RAW_TO_MINIMUM_CHANGE_INIT_BOUNDARY_TRANSITION
+        ),
+    }
+    expected = supported.get((source_mode, target_mode))
+    if args.init_checkpoint is None or expected is None or requested != expected:
+        raise ValueError(
+            "checkpoint and requested boundary modes differ without the exact "
+            "supported initialization transition"
+        )
+    source_contract = checkpoint.get("boundary_contract")
+    return {
+        "schema": "pcno_euler2d_initialization_transition_v1",
+        "kind": expected,
+        "source_boundary_mode": source_mode,
+        "target_boundary_mode": target_mode,
+        "parent_checkpoint_sha256": sha256_file(args.init_checkpoint),
+        "source_boundary_contract_digest": (
+            digest_mapping(source_contract)
+            if isinstance(source_contract, Mapping)
+            else None
+        ),
+        "target_boundary_contract_digest": None,
+        "model_state_loaded_strictly": True,
+        "optimizer_state_loaded": False,
+        "scheduler_state_loaded": False,
+        "future_reference_boundary_values": False,
+    }
+
+
 def assert_checkpoint_contract(
     checkpoint: Mapping[str, Any],
     *,
     store: PCNOEuler2DShardStore,
     args: argparse.Namespace,
+    initialization_transition: Mapping[str, Any] | None = None,
 ) -> None:
     if checkpoint["data_manifest_digest"] != store.manifest_digest:
         raise ValueError("checkpoint and current shard manifest digests differ")
     if int(checkpoint["step_stride"]) != args.step_stride:
         raise ValueError("checkpoint and requested step stride differ")
+    saved_boundary_mode = str(checkpoint.get("boundary_mode", "model_all_nodes"))
+    if saved_boundary_mode != args.boundary_mode:
+        if initialization_transition is None:
+            raise ValueError("checkpoint and requested boundary modes differ")
+        if (
+            initialization_transition.get("source_boundary_mode") != saved_boundary_mode
+            or initialization_transition.get("target_boundary_mode")
+            != args.boundary_mode
+        ):
+            raise ValueError("initialization boundary transition metadata mismatch")
     saved_training_args = checkpoint.get("training_args", {})
     saved_split_mode = str(saved_training_args.get("split_mode", "stratified"))
     if saved_split_mode != args.split_mode:
@@ -512,6 +1057,469 @@ def target_contract() -> dict[str, Any]:
     }
 
 
+def checkpoint_selection_contract(args: argparse.Namespace) -> dict[str, Any]:
+    """Describe checkpoint ranking without conflating boundary trace and dynamics."""
+
+    if args.selection_mode == INTERIOR_SELECTION_MODE:
+        ranking = [
+            "all_validation_rollouts_complete",
+            "completion_rate",
+            "mean_survival_fraction",
+            "final_normal_node_relative_l2",
+            f"H{args.selection_short_horizon}_normal_node_relative_l2",
+            "fixed_pair_normal_node_relative_l2",
+            "final_all_node_relative_l2_tiebreak",
+            "fixed_pair_all_node_relative_l2_tiebreak",
+        ]
+    else:
+        ranking = [
+            "historical_parity_eligibility_if_configured",
+            "all_validation_rollouts_complete",
+            "completion_rate",
+            "mean_survival_fraction",
+            "final_all_node_relative_l2",
+            "H20_all_node_relative_l2",
+            "fixed_pair_primary_relative_l2",
+        ]
+    return {
+        "mode": args.selection_mode,
+        "ranking": ranking,
+        "rollout_population": "frozen_validation_rollout_keys",
+        "primary_horizon": args.rollout_steps,
+        "short_horizon": (
+            args.selection_short_horizon
+            if args.selection_mode == INTERIOR_SELECTION_MODE
+            else 20
+        ),
+        "boundary_reference_error_is_primary": (
+            False if args.selection_mode == INTERIOR_SELECTION_MODE else True
+        ),
+        "front_and_anti_smearing_metrics": "mandatory_post_selection_no_harm_audit",
+    }
+
+
+def boundary_training_objective_contract(args: argparse.Namespace) -> dict[str, Any]:
+    kind = str(args.boundary_auxiliary)
+    primary_kind = str(args.primary_objective)
+    if primary_kind == RAW_ALL_NODES_PRIMARY_OBJECTIVE:
+        primary = "raw_all_node_proxy_weighted_scaled_conservative_next_state_mse"
+        primary_prediction = "raw_model_proposal_before_causal_closure"
+        primary_node_population = "all_valid_nodes"
+    elif primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE:
+        primary = (
+            "projected_all_node_proxy_weighted_scaled_conservative_next_state_mse"
+        )
+        primary_prediction = "minimum_change_closed_deployed_proposal"
+        primary_node_population = (
+            "all_valid_nodes_with_fixed_and_constrained_dofs_zeroed_by_projection"
+        )
+    else:
+        primary = "normal_node_proxy_weighted_scaled_conservative_next_state_mse"
+        primary_prediction = "causally_closed_deployed_proposal"
+        primary_node_population = "normal_nodes_only"
+    return {
+        "primary_kind": primary_kind,
+        "primary": primary,
+        "primary_prediction": primary_prediction,
+        "primary_node_population": primary_node_population,
+        "reference_boundary_targets": (
+            "training_and_validation_only"
+            if primary_kind == RAW_ALL_NODES_PRIMARY_OBJECTIVE
+            or primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
+            or kind == RAW_BOUNDARY_REFERENCE_AUXILIARY
+            else None
+        ),
+        "auxiliary": kind,
+        "auxiliary_weight": float(args.boundary_auxiliary_weight),
+        "auxiliary_prediction": (
+            "raw_model_proposal_before_causal_closure"
+            if kind == RAW_BOUNDARY_REFERENCE_AUXILIARY
+            else (
+                "causally_closed_deployed_proposal"
+                if kind != NO_BOUNDARY_AUXILIARY
+                else None
+            )
+        ),
+        "auxiliary_node_population": (
+            "valid_non_normal_nodes"
+            if kind == RAW_BOUNDARY_REFERENCE_AUXILIARY
+            else (
+                "wall_and_outflow"
+                if kind == PROJECTED_BOUNDARY_AUXILIARY
+                else (
+                    "near_boundary_normal_band"
+                    if kind == NEAR_BOUNDARY_AUXILIARY
+                    else None
+                )
+            )
+        ),
+        "near_boundary_hops": (
+            int(args.near_boundary_hops) if kind == NEAR_BOUNDARY_AUXILIARY else None
+        ),
+        "projected_target_boundary_nodes": (
+            "wall_and_outflow" if kind == PROJECTED_BOUNDARY_AUXILIARY else None
+        ),
+        "fixed_inflow_auxiliary_gradient": (
+            "excluded" if kind == PROJECTED_BOUNDARY_AUXILIARY else None
+        ),
+        "uses_future_reference_at_inference": False,
+        "changes_recurrence_state": False,
+        "fixed_inflow_target_gradient": (
+            "zero_through_projection"
+            if primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
+            else None
+        ),
+        "slip_wall_normal_target_gradient": (
+            "zero_through_projection"
+            if primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
+            else None
+        ),
+        "wall_tangential_density_pressure_and_outflow_supervision": (
+            "enabled"
+            if primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
+            else None
+        ),
+        "clipping_smoothing_or_limiter": False,
+    }
+
+
+def compare_initialized_boundary_contracts(
+    saved: Mapping[str, Any],
+    current: Mapping[str, Any],
+    *,
+    allow_legacy_metadata: bool,
+) -> dict[str, Any]:
+    """Compare deployed boundary semantics without rewriting parent metadata."""
+
+    result = {
+        "schema": "pcno_euler2d_boundary_contract_compatibility_v1",
+        "compatible": False,
+        "comparison": "strict",
+        "saved_digest": digest_mapping(saved),
+        "current_digest": digest_mapping(current),
+        "accepted_differences": [],
+    }
+    if saved == current:
+        result["compatible"] = True
+        result["comparison"] = "exact"
+        return result
+    if not allow_legacy_metadata:
+        return result
+
+    saved_reduced = dict(saved)
+    current_reduced = dict(current)
+    accepted: list[dict[str, Any]] = []
+    additive_fields = {
+        "outflow_characteristic_treatment": "current-interior nodal extrapolation",
+        "physical_conservation_claim": False,
+        "projection_metric": None,
+    }
+    for field, expected in additive_fields.items():
+        if field not in saved_reduced:
+            if current_reduced.get(field) != expected:
+                return result
+            current_reduced.pop(field)
+            accepted.append(
+                {
+                    "field": field,
+                    "kind": "additive_descriptive_metadata",
+                    "current_value": expected,
+                }
+            )
+
+    if "training_objective" not in saved_reduced:
+        objective = current_reduced.get("training_objective")
+        legacy_normal_objective = (
+            isinstance(objective, Mapping)
+            and objective.get("primary_kind") == NORMAL_CLOSED_PRIMARY_OBJECTIVE
+            and objective.get("auxiliary") == NO_BOUNDARY_AUXILIARY
+            and saved_reduced.get("state_loss_mask") == "normal_nodes_only"
+            and saved_reduced.get("teacher_input_closure") is True
+            and saved_reduced.get("proposal_closure") is True
+            and saved_reduced.get("recurrence_closure") is True
+            and saved_reduced.get("future_reference_boundary_values") is False
+        )
+        if not legacy_normal_objective:
+            return result
+        current_reduced.pop("training_objective")
+        accepted.append(
+            {
+                "field": "training_objective",
+                "kind": (
+                    "legacy_normal_closed_objective_recovered_from_"
+                    "operational_fields"
+                ),
+            }
+        )
+
+    rms_field = "reference_endpoint_boundary_primitive_rms_by_component"
+    saved_rms = saved_reduced.get(rms_field)
+    current_rms = current_reduced.get(rms_field)
+    if (
+        isinstance(saved_rms, Sequence)
+        and not isinstance(saved_rms, (str, bytes))
+        and isinstance(current_rms, Sequence)
+        and not isinstance(current_rms, (str, bytes))
+        and len(saved_rms) == len(current_rms)
+    ):
+        absolute_differences = [
+            abs(float(saved_value) - float(current_value))
+            for saved_value, current_value in zip(saved_rms, current_rms)
+        ]
+        maximum_difference = max(absolute_differences, default=0.0)
+        if maximum_difference > 0.0:
+            if maximum_difference > 2.0e-9:
+                return result
+            current_reduced[rms_field] = saved_rms
+            accepted.append(
+                {
+                    "field": rms_field,
+                    "kind": "bounded_diagnostic_roundoff",
+                    "maximum_absolute_difference": maximum_difference,
+                    "absolute_tolerance": 2.0e-9,
+                }
+            )
+
+    if saved_reduced != current_reduced:
+        return result
+    result["compatible"] = True
+    result["comparison"] = "legacy_metadata_compatible"
+    result["accepted_differences"] = accepted
+    return result
+
+
+def build_boundary_contract(
+    store: PCNOEuler2DShardStore,
+    keys: Sequence[str],
+    *,
+    args: argparse.Namespace,
+    device: torch.device,
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Build and audit every graph policy before training starts."""
+
+    if args.boundary_mode == "model_all_nodes":
+        return {}, {
+            "schema": "pcno_euler2d_boundary_contract_v1",
+            "mode": "model_all_nodes",
+            "trajectory_count": len(set(keys)),
+            "policy_set_digest": None,
+            "training_objective": boundary_training_objective_contract(args),
+            "future_reference_boundary_values": False,
+        }
+    policies: dict[str, dict[str, Any]] = {}
+    metadata: dict[str, dict[str, Any]] = {}
+    reference_outflow_min = math.inf
+    reference_density_min = math.inf
+    reference_pressure_min = math.inf
+    boundary_primitive_squared_sum = np.zeros(4, dtype=np.float64)
+    boundary_primitive_max_abs = np.zeros(4, dtype=np.float64)
+    boundary_primitive_value_count = 0
+    for key in dict.fromkeys(str(value) for value in keys):
+        if args.boundary_mode == MINIMUM_CHANGE_BOUNDARY_MODE:
+            policy, record = build_graph_minimum_change_boundary_policy(
+                store,
+                key,
+                device=device,
+                rho_inf=args.boundary_rho_inf,
+                p_inf=args.boundary_p_inf,
+            )
+        else:
+            policy, record = build_graph_causal_boundary_policy(
+                store,
+                key,
+                device=device,
+                max_source_hops=args.boundary_max_source_hops,
+                rho_inf=args.boundary_rho_inf,
+                p_inf=args.boundary_p_inf,
+            )
+        policies[key] = policy
+        metadata[key] = record
+        states = store.states(key)
+        audit_indices = sorted({0, states.shape[0] - 1})
+        reference = torch.as_tensor(
+            np.array(states[audit_indices], copy=True),
+            dtype=torch.float32,
+            device=device,
+        )
+        closed = close_boundary(
+            reference, policy, gamma=float(store.manifest.get("gamma", 1.4))
+        )
+        node_type = torch.as_tensor(
+            np.array(store.array(key, "node_type"), copy=True),
+            dtype=torch.int64,
+            device=device,
+        ).reshape(-1)
+        normal = node_type == NORMAL_NODE
+        if not torch.equal(closed[:, normal], reference[:, normal]):
+            raise RuntimeError(
+                f"trajectory {key} boundary closure changed an interior node"
+            )
+        reference_primitive = conservative_to_primitive_torch(
+            reference, gamma=float(store.manifest.get("gamma", 1.4))
+        )
+        closed_primitive = conservative_to_primitive_torch(
+            closed, gamma=float(store.manifest.get("gamma", 1.4))
+        )
+        boundary_difference = (closed_primitive - reference_primitive)[:, ~normal]
+        boundary_primitive_squared_sum += (
+            boundary_difference.double().square().sum(dim=(0, 1)).cpu().numpy()
+        )
+        boundary_primitive_max_abs = np.maximum(
+            boundary_primitive_max_abs,
+            boundary_difference.double().abs().amax(dim=(0, 1)).cpu().numpy(),
+        )
+        boundary_primitive_value_count += int(
+            boundary_difference.shape[0] * boundary_difference.shape[1]
+        )
+        admissibility = conservative_admissibility(
+            closed.float(), gamma=float(store.manifest.get("gamma", 1.4))
+        )
+        if not bool(admissibility["admissible"].all()):
+            raise ValueError(
+                f"trajectory {key} boundary-closed reference endpoints are invalid"
+            )
+        outflow = boundary_outflow_normal_mach(closed.float(), policy)
+        if outflow is None or not bool(torch.isfinite(outflow).all()):
+            raise ValueError(f"trajectory {key} has invalid causal outflow Mach")
+        reference_outflow_min = min(reference_outflow_min, float(outflow.min().cpu()))
+        reference_density_min = min(
+            reference_density_min,
+            float(admissibility["density"].min().cpu()),
+        )
+        reference_pressure_min = min(
+            reference_pressure_min,
+            float(admissibility["pressure"].min().cpu()),
+        )
+    if reference_outflow_min <= 1.0:
+        raise ValueError("boundary-closed reference endpoints are not supersonic")
+    policy_digests = {key: record["policy_digest"] for key, record in metadata.items()}
+    summary = {
+        "schema": "pcno_euler2d_boundary_contract_v1",
+        "mode": args.boundary_mode,
+        "trajectory_count": len(metadata),
+        "max_source_hops": (
+            args.boundary_max_source_hops
+            if args.boundary_mode == CAUSAL_BOUNDARY_MODE
+            else None
+        ),
+        "rho_inf": args.boundary_rho_inf,
+        "p_inf": args.boundary_p_inf,
+        "fallback_target_count": 0,
+        "projection_metric": (
+            "euclidean_primitive_variables"
+            if args.boundary_mode == MINIMUM_CHANGE_BOUNDARY_MODE
+            else None
+        ),
+        "outflow_characteristic_treatment": (
+            "preserve all outgoing modes while outward normal Mach exceeds one"
+            if args.boundary_mode == MINIMUM_CHANGE_BOUNDARY_MODE
+            else "current-interior nodal extrapolation"
+        ),
+        "policy_digests": policy_digests,
+        "policy_set_digest": digest_mapping(policy_digests),
+        "reference_endpoint_density_min": reference_density_min,
+        "reference_endpoint_pressure_min": reference_pressure_min,
+        "reference_endpoint_outflow_normal_mach_min": reference_outflow_min,
+        "reference_endpoint_boundary_primitive_rms_by_component": (
+            np.sqrt(
+                boundary_primitive_squared_sum / boundary_primitive_value_count
+            ).tolist()
+        ),
+        "reference_endpoint_boundary_primitive_max_abs_by_component": (
+            boundary_primitive_max_abs.tolist()
+        ),
+        "teacher_input_closure": True,
+        "proposal_closure": True,
+        "recurrence_closure": True,
+        "state_loss_mask": (
+            "all_valid_nodes"
+            if args.primary_objective == RAW_ALL_NODES_PRIMARY_OBJECTIVE
+            else (
+                "all_valid_nodes_after_minimum_change_projection"
+                if args.primary_objective == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
+                else "normal_nodes_only"
+            )
+        ),
+        "training_objective": boundary_training_objective_contract(args),
+        "future_reference_boundary_values": False,
+        "exact_dg_boundary_replay": False,
+        "physical_conservation_claim": False,
+        "clipping": False,
+        "primitive_floors": False,
+        "limiter": False,
+        "smoothing": False,
+    }
+    return policies, summary
+
+
+def boundary_outflow_normal_mach(
+    conservative: torch.Tensor,
+    policy: Mapping[str, Any],
+) -> torch.Tensor | None:
+    """Return per-sample minimum outward Mach on causal outflow nodes."""
+
+    outflow_rows = policy["outflow_rows"]
+    if outflow_rows.numel() == 0:
+        return None
+    primitive = conservative_to_primitive_torch(
+        conservative, gamma=float(policy["gamma"])
+    )
+    nodes = policy["target_nodes"][outflow_rows]
+    normals = policy["target_normals"][outflow_rows].to(
+        dtype=primitive.dtype, device=primitive.device
+    )
+    values = primitive[:, nodes]
+    normal_speed = torch.sum(values[..., 1:3] * normals.unsqueeze(0), dim=-1)
+    sound_speed = torch.sqrt(float(policy["gamma"]) * values[..., 3] / values[..., 0])
+    return (normal_speed / sound_speed).min(dim=1).values
+
+
+def resolve_boundary_policy(
+    boundary_policies: Mapping[str, Mapping[str, Any]] | None,
+    key: str,
+) -> Mapping[str, Any] | None:
+    if not boundary_policies:
+        return None
+    if key not in boundary_policies:
+        raise KeyError(f"boundary contract lacks trajectory {key}")
+    return boundary_policies[key]
+
+
+def close_boundary(
+    state: torch.Tensor,
+    policy: Mapping[str, Any] | None,
+    *,
+    gamma: float,
+) -> torch.Tensor:
+    if policy is None:
+        return state
+    kind = str(policy.get("closure_kind", "causal_interior_reconstruction"))
+    if kind == "causal_interior_reconstruction":
+        return apply_causal_boundary_conservative_batch(state, policy, gamma=gamma)
+    if kind == "minimum_change_primitive_projection":
+        return apply_minimum_change_boundary_conservative_batch(
+            state, policy, gamma=gamma
+        )
+    raise ValueError(f"unsupported boundary closure kind: {kind}")
+
+
+def contract_forward_sample(
+    model: PCNOEuler2DResidual,
+    sample: Mapping[str, torch.Tensor],
+    current: torch.Tensor,
+    *,
+    boundary_policy: Mapping[str, Any] | None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    model_current = close_boundary(current, boundary_policy, gamma=model.gamma)
+    raw_prediction = forward_sample(model, sample, model_current)
+    prediction = close_boundary(
+        raw_prediction,
+        boundary_policy,
+        gamma=model.gamma,
+    )
+    return prediction, raw_prediction, model_current
+
+
 def forward_sample(
     model: PCNOEuler2DResidual,
     sample: Mapping[str, torch.Tensor],
@@ -542,12 +1550,17 @@ def pair_metrics(
     target: torch.Tensor,
     sample: Mapping[str, torch.Tensor],
     model: PCNOEuler2DResidual,
+    *,
+    loss_node_mask: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    resolved_loss_mask = (
+        sample["node_mask"] if loss_node_mask is None else loss_node_mask
+    )
     loss = weighted_scaled_mse(
         prediction,
         target,
         sample["node_weights"],
-        sample["node_mask"],
+        resolved_loss_mask,
         model.state_scale,
     )
     relative_l2 = weighted_scaled_relative_l2(
@@ -560,6 +1573,262 @@ def pair_metrics(
     return loss, relative_l2
 
 
+def primary_training_metrics(
+    prediction: torch.Tensor,
+    raw_prediction: torch.Tensor,
+    target: torch.Tensor,
+    sample: Mapping[str, torch.Tensor],
+    model: PCNOEuler2DResidual,
+    *,
+    boundary_policy: Mapping[str, Any] | None,
+    primary_objective: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Evaluate the selected clean one-step objective without changing recurrence."""
+
+    if primary_objective == RAW_ALL_NODES_PRIMARY_OBJECTIVE:
+        if boundary_policy is None:
+            raise ValueError(
+                "raw all-node supervision requires a causal boundary policy"
+            )
+        objective_prediction = raw_prediction
+        objective_target = target
+        loss_node_mask = sample["node_mask"]
+    elif primary_objective == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE:
+        if boundary_policy is None or str(
+            boundary_policy.get("closure_kind")
+        ) != "minimum_change_primitive_projection":
+            raise ValueError(
+                "learned-DOF supervision requires a minimum-change policy"
+            )
+        objective_prediction = prediction
+        objective_target = close_boundary(
+            target, boundary_policy, gamma=model.gamma
+        )
+        loss_node_mask = sample["node_mask"]
+    elif primary_objective == NORMAL_CLOSED_PRIMARY_OBJECTIVE:
+        objective_prediction = prediction
+        objective_target = target
+        loss_node_mask = (
+            normal_node_mask(sample["node_type"], sample["node_mask"])
+            if boundary_policy is not None
+            else sample["node_mask"]
+        )
+    else:
+        raise ValueError(f"unsupported primary objective: {primary_objective}")
+    return pair_metrics(
+        objective_prediction,
+        objective_target,
+        sample,
+        model,
+        loss_node_mask=loss_node_mask,
+    )
+
+
+def multistep_future_comparison_count(
+    store: PCNOEuler2DShardStore,
+    pairs: Sequence[tuple[str, int]],
+    *,
+    step_stride: int,
+    rollout_steps: int,
+) -> int:
+    """Count legal post-anchor targets without dropping one-step presentations."""
+
+    if step_stride < 1 or rollout_steps < 1:
+        raise ValueError("step stride and rollout steps must be positive")
+    comparisons = 0
+    for key, time_index in pairs:
+        num_frames = int(store.entry(str(key))["num_steps"])
+        available_calls = (num_frames - 1 - int(time_index)) // step_stride
+        if available_calls < 1:
+            raise ValueError(
+                f"presentation {key}:{time_index} has no stride-{step_stride} target"
+            )
+        comparisons += max(0, min(rollout_steps, available_calls) - 1)
+    return comparisons
+
+
+def differentiable_multistep_normal_terms(
+    model: PCNOEuler2DResidual,
+    store: PCNOEuler2DShardStore,
+    *,
+    key: str,
+    time_indices: Sequence[int],
+    first_prediction: torch.Tensor,
+    step_stride: int,
+    rollout_steps: int,
+    device: torch.device,
+    boundary_policy: Mapping[str, Any] | None,
+    recurrent_input: str,
+) -> dict[str, torch.Tensor | int]:
+    """Execute matched future calls and score their deployed normal-node states."""
+
+    if rollout_steps < 2:
+        raise ValueError("differentiable multistep terms require at least two calls")
+    if first_prediction.ndim != 3 or first_prediction.shape[0] != len(time_indices):
+        raise ValueError("first prediction and presentation batch do not align")
+    if recurrent_input not in (
+        ATTACHED_PREDICTION_MULTISTEP_INPUT,
+        PROJECTED_TEACHER_MULTISTEP_INPUT,
+    ):
+        raise ValueError(f"unsupported multistep recurrent input: {recurrent_input}")
+
+    start_indices = [int(value) for value in time_indices]
+    recurrent_prediction = first_prediction
+    loss_sum = first_prediction.new_zeros(())
+    relative_sum = first_prediction.new_zeros(())
+    comparison_count = 0
+    admissible_count = 0
+    num_frames = int(store.entry(str(key))["num_steps"])
+
+    for call_index in range(2, rollout_steps + 1):
+        keep = [
+            index
+            for index, start in enumerate(start_indices)
+            if start + call_index * step_stride < num_frames
+        ]
+        if not keep:
+            break
+        if len(keep) != len(start_indices):
+            recurrent_prediction = recurrent_prediction[keep]
+            start_indices = [start_indices[index] for index in keep]
+
+        teacher_indices = [
+            start + (call_index - 1) * step_stride for start in start_indices
+        ]
+        horizon_sample = store.tensor_batch(
+            key,
+            teacher_indices,
+            step_stride=step_stride,
+            device=device,
+        )
+        recurrent_current = (
+            recurrent_prediction
+            if recurrent_input == ATTACHED_PREDICTION_MULTISTEP_INPUT
+            else horizon_sample["current"]
+        )
+        recurrent_prediction, _, _ = contract_forward_sample(
+            model,
+            horizon_sample,
+            recurrent_current,
+            boundary_policy=boundary_policy,
+        )
+        if not bool(torch.isfinite(recurrent_prediction).all()):
+            raise FloatingPointError(
+                f"nonfinite differentiable rollout at call {call_index} "
+                f"for trajectory {key}"
+            )
+        normal_mask = normal_node_mask(
+            horizon_sample["node_type"], horizon_sample["node_mask"]
+        )
+        horizon_loss = weighted_scaled_mse(
+            recurrent_prediction,
+            horizon_sample["target"],
+            horizon_sample["node_weights"],
+            normal_mask,
+            model.state_scale,
+        )
+        horizon_relative_l2 = weighted_scaled_relative_l2(
+            recurrent_prediction,
+            horizon_sample["target"],
+            horizon_sample["node_weights"],
+            normal_mask,
+            model.state_scale,
+        )
+        horizon_count = len(start_indices)
+        loss_sum = loss_sum + horizon_count * horizon_loss
+        relative_sum = relative_sum + horizon_count * horizon_relative_l2
+        comparison_count += horizon_count
+        with torch.no_grad():
+            admissible = conservative_admissibility(
+                recurrent_prediction.float(), gamma=model.gamma
+            )["admissible"].all(dim=1)
+            admissible_count += int(admissible.sum().cpu())
+
+    return {
+        "loss_sum": loss_sum,
+        "relative_l2_sum": relative_sum,
+        "comparisons": comparison_count,
+        "admissible_comparisons": admissible_count,
+    }
+
+
+def boundary_auxiliary_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    sample: Mapping[str, torch.Tensor],
+    model: PCNOEuler2DResidual,
+    *,
+    boundary_policy: Mapping[str, Any] | None,
+    kind: str,
+    near_boundary_hops: int,
+    raw_prediction: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Return one legal boundary auxiliary without changing the recurrent state."""
+
+    if kind == NO_BOUNDARY_AUXILIARY:
+        return prediction.new_zeros(())
+    if boundary_policy is None:
+        raise ValueError("boundary auxiliaries require a causal boundary policy")
+    if kind == PROJECTED_BOUNDARY_AUXILIARY:
+        objective_prediction = prediction
+        projected_target = close_boundary(
+            target,
+            boundary_policy,
+            gamma=model.gamma,
+        )
+        loss_mask = torch.zeros_like(sample["node_mask"])
+        target_nodes = boundary_policy["target_nodes"]
+        loss_mask[:, target_nodes] = sample["node_mask"][:, target_nodes]
+    elif kind == NEAR_BOUNDARY_AUXILIARY:
+        objective_prediction = prediction
+        loss_mask = boundary_band_normal_node_mask(
+            sample["node_type"],
+            sample["node_mask"],
+            sample["directed_edges"],
+            max_hops=near_boundary_hops,
+        )
+        projected_target = target
+    elif kind == RAW_BOUNDARY_REFERENCE_AUXILIARY:
+        if raw_prediction is None:
+            raise ValueError("raw boundary reference auxiliary requires raw prediction")
+        objective_prediction = raw_prediction
+        loss_mask = sample["node_mask"] - normal_node_mask(
+            sample["node_type"], sample["node_mask"]
+        )
+        projected_target = target
+    else:
+        raise ValueError(f"unsupported boundary auxiliary: {kind}")
+    return weighted_scaled_mse(
+        objective_prediction,
+        projected_target,
+        sample["node_weights"],
+        loss_mask,
+        model.state_scale,
+    )
+
+
+def optional_region_relative_l2(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    sample: Mapping[str, torch.Tensor],
+    node_mask: torch.Tensor,
+    model: PCNOEuler2DResidual,
+) -> float | None:
+    """Return a regional metric, or ``None`` when that region is absent."""
+
+    support = (sample["node_weights"].sum(dim=-1, keepdim=True) * node_mask).sum()
+    if not bool(support > 0.0):
+        return None
+    value = weighted_scaled_relative_l2(
+        prediction,
+        target,
+        sample["node_weights"],
+        node_mask,
+        model.state_scale,
+    )
+    return float(value.detach().cpu())
+
+
 def evaluate_pairs(
     model: PCNOEuler2DResidual,
     store: PCNOEuler2DShardStore,
@@ -569,10 +1838,20 @@ def evaluate_pairs(
     batch_size: int,
     device: torch.device,
     amp: str,
-) -> dict[str, float]:
+    primary_objective: str = NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+    boundary_policies: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
     model.eval()
     losses = []
     relative_errors = []
+    all_relative_errors = []
+    normal_relative_errors = []
+    boundary_relative_errors = []
+    raw_all_relative_errors = []
+    raw_normal_relative_errors = []
+    raw_boundary_relative_errors = []
+    boundary_correction_rms = []
+    outflow_mach_min = math.inf
     admissible = 0
     batches = homogeneous_presentation_batches(pairs, batch_size=batch_size)
     for key, time_indices in batches:
@@ -582,21 +1861,111 @@ def evaluate_pairs(
             step_stride=step_stride,
             device=device,
         )
+        boundary_policy = resolve_boundary_policy(boundary_policies, key)
         with autocast_context(device, amp):
-            prediction = forward_sample(model, sample, sample["current"])
+            prediction, raw_prediction, _ = contract_forward_sample(
+                model,
+                sample,
+                sample["current"],
+                boundary_policy=boundary_policy,
+            )
+        batch_normal_mask = normal_node_mask(sample["node_type"], sample["node_mask"])
+        batch_boundary_mask = sample["node_mask"] - batch_normal_mask
+        if boundary_policy is not None:
+            scale = model.state_scale.to(
+                dtype=prediction.dtype, device=prediction.device
+            )
+            correction = ((prediction - raw_prediction) / scale).square()
+            denominator = batch_boundary_mask.sum(dim=1).squeeze(-1) * 4.0
+            per_sample_rms = torch.sqrt(
+                (correction * batch_boundary_mask).sum(dim=(1, 2))
+                / denominator.clamp_min(1.0)
+            )
+            boundary_correction_rms.extend(
+                float(value) for value in per_sample_rms.detach().cpu()
+            )
+            outflow = boundary_outflow_normal_mach(prediction.float(), boundary_policy)
+            if outflow is not None:
+                outflow_mach_min = min(
+                    outflow_mach_min, float(outflow.min().detach().cpu())
+                )
         for batch_index in range(prediction.shape[0]):
             sample_slice = {
                 name: value[batch_index : batch_index + 1]
                 for name, value in sample.items()
             }
-            loss, relative_l2 = pair_metrics(
+            loss, relative_l2 = primary_training_metrics(
                 prediction[batch_index : batch_index + 1],
+                raw_prediction[batch_index : batch_index + 1],
                 sample["target"][batch_index : batch_index + 1],
                 sample_slice,
                 model,
+                boundary_policy=boundary_policy,
+                primary_objective=primary_objective,
             )
             losses.append(float(loss.detach().cpu()))
             relative_errors.append(float(relative_l2.detach().cpu()))
+            all_relative_l2 = optional_region_relative_l2(
+                prediction[batch_index : batch_index + 1],
+                sample["target"][batch_index : batch_index + 1],
+                sample_slice,
+                sample_slice["node_mask"],
+                model,
+            )
+            if all_relative_l2 is None:
+                raise RuntimeError("a validation presentation has no valid nodes")
+            all_relative_errors.append(all_relative_l2)
+            normal_mask = batch_normal_mask[batch_index : batch_index + 1]
+            boundary_mask = batch_boundary_mask[batch_index : batch_index + 1]
+            normal_relative_l2 = optional_region_relative_l2(
+                prediction[batch_index : batch_index + 1],
+                sample["target"][batch_index : batch_index + 1],
+                sample_slice,
+                normal_mask,
+                model,
+            )
+            boundary_relative_l2 = optional_region_relative_l2(
+                prediction[batch_index : batch_index + 1],
+                sample["target"][batch_index : batch_index + 1],
+                sample_slice,
+                boundary_mask,
+                model,
+            )
+            if normal_relative_l2 is not None:
+                normal_relative_errors.append(normal_relative_l2)
+            if boundary_relative_l2 is not None:
+                boundary_relative_errors.append(boundary_relative_l2)
+            if boundary_policy is not None:
+                raw_all_relative_l2 = optional_region_relative_l2(
+                    raw_prediction[batch_index : batch_index + 1],
+                    sample["target"][batch_index : batch_index + 1],
+                    sample_slice,
+                    sample_slice["node_mask"],
+                    model,
+                )
+                raw_normal_relative_l2 = optional_region_relative_l2(
+                    raw_prediction[batch_index : batch_index + 1],
+                    sample["target"][batch_index : batch_index + 1],
+                    sample_slice,
+                    normal_mask,
+                    model,
+                )
+                raw_boundary_relative_l2 = optional_region_relative_l2(
+                    raw_prediction[batch_index : batch_index + 1],
+                    sample["target"][batch_index : batch_index + 1],
+                    sample_slice,
+                    boundary_mask,
+                    model,
+                )
+                if raw_all_relative_l2 is None:
+                    raise RuntimeError(
+                        "a validation presentation has no valid raw nodes"
+                    )
+                raw_all_relative_errors.append(raw_all_relative_l2)
+                if raw_normal_relative_l2 is not None:
+                    raw_normal_relative_errors.append(raw_normal_relative_l2)
+                if raw_boundary_relative_l2 is not None:
+                    raw_boundary_relative_errors.append(raw_boundary_relative_l2)
         diagnostics = conservative_admissibility(prediction.float(), gamma=model.gamma)
         per_sample_admissible = (
             diagnostics["admissible"].reshape(prediction.shape[0], -1).all(dim=1)
@@ -605,6 +1974,40 @@ def evaluate_pairs(
     return {
         "loss": float(np.mean(losses)),
         "relative_l2": float(np.mean(relative_errors)),
+        "all_relative_l2": float(np.mean(all_relative_errors)),
+        "normal_relative_l2": (
+            None
+            if not normal_relative_errors
+            else float(np.mean(normal_relative_errors))
+        ),
+        "boundary_relative_l2": (
+            None
+            if not boundary_relative_errors
+            else float(np.mean(boundary_relative_errors))
+        ),
+        "raw_all_relative_l2": (
+            None
+            if not raw_all_relative_errors
+            else float(np.mean(raw_all_relative_errors))
+        ),
+        "raw_normal_relative_l2": (
+            None
+            if not raw_normal_relative_errors
+            else float(np.mean(raw_normal_relative_errors))
+        ),
+        "raw_boundary_relative_l2": (
+            None
+            if not raw_boundary_relative_errors
+            else float(np.mean(raw_boundary_relative_errors))
+        ),
+        "boundary_correction_rms": (
+            None
+            if not boundary_correction_rms
+            else float(np.mean(boundary_correction_rms))
+        ),
+        "outflow_normal_mach_min": (
+            None if not math.isfinite(outflow_mach_min) else outflow_mach_min
+        ),
         "admissible_fraction": admissible / len(pairs),
         "presentations": len(pairs),
     }
@@ -658,35 +2061,75 @@ def rollout_trajectory(
     num_steps: int,
     device: torch.device,
     amp: str,
+    boundary_policy: Mapping[str, Any] | None = None,
+    rollout_checkpoints: Sequence[int] = (),
 ) -> dict[str, Any]:
     states = store.states(key)
     available = (states.shape[0] - 1 - start_frame) // step_stride
-    requested = min(int(num_steps), int(available))
-    if requested < 1:
+    requested = int(num_steps)
+    if available < requested:
         raise ValueError(
-            f"trajectory {key} has no rollout targets at the requested start/stride"
+            f"trajectory {key} exposes only {available} calls from frame "
+            f"{start_frame} at stride {step_stride}; {requested} were requested"
         )
     sample = store.tensor_sample(
         key, start_frame, step_stride=step_stride, device=device
     )
     current = sample["current"]
     errors = []
+    normal_errors = []
+    boundary_errors = []
+    normal_mask = normal_node_mask(sample["node_type"], sample["node_mask"])
+    boundary_mask = sample["node_mask"] - normal_mask
     minimums = {
         "min_density": math.inf,
         "min_internal_energy": math.inf,
         "min_pressure": math.inf,
     }
     failure = None
+    endpoint_errors: dict[str, float] = {}
+    endpoint_normal_errors: dict[str, float] = {}
+    endpoint_boundary_errors: dict[str, float] = {}
+    maximum_boundary_correction_rms = 0.0
+    minimum_outflow_normal_mach = math.inf
     model.eval()
     for call_index in range(requested):
         with autocast_context(device, amp):
-            proposal = forward_sample(model, sample, current)
+            proposal, raw_proposal, _ = contract_forward_sample(
+                model,
+                sample,
+                current,
+                boundary_policy=boundary_policy,
+            )
+        if boundary_policy is not None:
+            scale = model.state_scale.to(dtype=proposal.dtype, device=proposal.device)
+            correction = ((proposal - raw_proposal) / scale).square()
+            denominator = boundary_mask.sum() * 4.0
+            correction_rms = torch.sqrt(
+                (correction * boundary_mask).sum() / denominator.clamp_min(1.0)
+            )
+            maximum_boundary_correction_rms = max(
+                maximum_boundary_correction_rms,
+                float(correction_rms.detach().cpu()),
+            )
         failure, current_minimums = failure_cause(proposal, gamma=model.gamma)
         for name, value in current_minimums.items():
             if value is not None:
                 minimums[name] = min(minimums[name], value)
         if failure is not None:
             break
+        if boundary_policy is not None:
+            outflow = boundary_outflow_normal_mach(proposal.float(), boundary_policy)
+            if outflow is None or not bool(torch.isfinite(outflow).all()):
+                failure = "nonfinite_outflow_normal_mach"
+                break
+            current_outflow = float(outflow.min().cpu())
+            minimum_outflow_normal_mach = min(
+                minimum_outflow_normal_mach, current_outflow
+            )
+            if current_outflow <= 1.0:
+                failure = "non_supersonic_outflow"
+                break
         target_index = start_frame + (call_index + 1) * step_stride
         target = torch.as_tensor(
             np.array(states[target_index], copy=True),
@@ -701,6 +2144,23 @@ def rollout_trajectory(
             model.state_scale,
         )
         errors.append(float(relative_l2.cpu()))
+        normal_relative_l2 = optional_region_relative_l2(
+            proposal.float(), target, sample, normal_mask, model
+        )
+        boundary_relative_l2 = optional_region_relative_l2(
+            proposal.float(), target, sample, boundary_mask, model
+        )
+        if normal_relative_l2 is not None:
+            normal_errors.append(normal_relative_l2)
+        if boundary_relative_l2 is not None:
+            boundary_errors.append(boundary_relative_l2)
+        call_number = call_index + 1
+        if call_number in rollout_checkpoints:
+            endpoint_errors[str(call_number)] = errors[-1]
+            if normal_relative_l2 is not None:
+                endpoint_normal_errors[str(call_number)] = normal_relative_l2
+            if boundary_relative_l2 is not None:
+                endpoint_boundary_errors[str(call_number)] = boundary_relative_l2
         current = proposal
     valid_length = len(errors)
     minimum_summary = {
@@ -716,6 +2176,27 @@ def rollout_trajectory(
         "survival_fraction": valid_length / requested,
         "final_relative_l2": errors[-1] if errors else None,
         "mean_prefix_relative_l2": float(np.mean(errors)) if errors else None,
+        "endpoint_relative_l2": endpoint_errors,
+        "final_normal_relative_l2": normal_errors[-1] if normal_errors else None,
+        "mean_prefix_normal_relative_l2": (
+            float(np.mean(normal_errors)) if normal_errors else None
+        ),
+        "endpoint_normal_relative_l2": endpoint_normal_errors,
+        "final_boundary_relative_l2": (
+            boundary_errors[-1] if boundary_errors else None
+        ),
+        "mean_prefix_boundary_relative_l2": (
+            float(np.mean(boundary_errors)) if boundary_errors else None
+        ),
+        "endpoint_boundary_relative_l2": endpoint_boundary_errors,
+        "maximum_boundary_correction_rms": (
+            maximum_boundary_correction_rms if boundary_policy is not None else None
+        ),
+        "minimum_outflow_normal_mach": (
+            None
+            if not math.isfinite(minimum_outflow_normal_mach)
+            else minimum_outflow_normal_mach
+        ),
         **minimum_summary,
     }
 
@@ -731,6 +2212,10 @@ def evaluate_rollouts(
     num_steps: int,
     device: torch.device,
     amp: str,
+    boundary_policies: Mapping[str, Mapping[str, Any]] | None = None,
+    rollout_checkpoints: Sequence[int] = (),
+    parity_keys: Sequence[str] = (),
+    parity_horizon: int = 20,
 ) -> dict[str, Any]:
     rows = [
         rollout_trajectory(
@@ -742,18 +2227,72 @@ def evaluate_rollouts(
             num_steps=num_steps,
             device=device,
             amp=amp,
+            boundary_policy=resolve_boundary_policy(boundary_policies, key),
+            rollout_checkpoints=rollout_checkpoints,
         )
         for key in keys
     ]
     completed = [row for row in rows if row["completed"]]
-    scored = (
-        completed
-        if completed
-        else [row for row in rows if row["final_relative_l2"] is not None]
+    all_completed = len(completed) == len(rows)
+    if all_completed:
+        selection_values = [float(row["final_relative_l2"]) for row in rows]
+        selection_population = "all_trajectories_completed_final"
+    else:
+        selection_values = [
+            float(row["mean_prefix_relative_l2"])
+            for row in rows
+            if row["mean_prefix_relative_l2"] is not None
+        ]
+        selection_population = "mixed_valid_prefix"
+    mean_error = None if not selection_values else float(np.mean(selection_values))
+
+    def mean_available(field: str) -> float | None:
+        values = [float(row[field]) for row in rows if row[field] is not None]
+        return None if not values else float(np.mean(values))
+
+    def aggregate_endpoints(
+        field: str,
+    ) -> tuple[dict[str, float | None], dict[str, int]]:
+        means: dict[str, float | None] = {}
+        counts: dict[str, int] = {}
+        for checkpoint in rollout_checkpoints:
+            values = [
+                row[field][str(checkpoint)]
+                for row in rows
+                if str(checkpoint) in row[field]
+            ]
+            counts[str(checkpoint)] = len(values)
+            means[str(checkpoint)] = None if not values else float(np.mean(values))
+        return means, counts
+
+    endpoint_means, endpoint_counts = aggregate_endpoints("endpoint_relative_l2")
+    normal_endpoint_means, normal_endpoint_counts = aggregate_endpoints(
+        "endpoint_normal_relative_l2"
     )
-    mean_error = (
-        float(np.mean([row["final_relative_l2"] for row in scored])) if scored else None
+    boundary_endpoint_means, boundary_endpoint_counts = aggregate_endpoints(
+        "endpoint_boundary_relative_l2"
     )
+    parity = None
+    if parity_keys:
+        row_by_key = {str(row["trajectory"]): row for row in rows}
+        missing = sorted(set(str(key) for key in parity_keys) - set(row_by_key))
+        if missing:
+            raise ValueError(f"parity cohort is absent from rollout rows: {missing}")
+        parity_rows = [row_by_key[str(key)] for key in parity_keys]
+        parity_values = [
+            float(row["endpoint_relative_l2"][str(parity_horizon)])
+            for row in parity_rows
+            if str(parity_horizon) in row["endpoint_relative_l2"]
+        ]
+        parity = {
+            "keys": [str(key) for key in parity_keys],
+            "horizon": int(parity_horizon),
+            "completed": len(parity_values),
+            "completion_rate": len(parity_values) / len(parity_rows),
+            "mean_relative_l2": (
+                None if not parity_values else float(np.mean(parity_values))
+            ),
+        }
     return {
         "trajectories": rows,
         "num_trajectories": len(rows),
@@ -763,21 +2302,94 @@ def evaluate_rollouts(
             np.mean([row["survival_fraction"] for row in rows])
         ),
         "mean_selection_relative_l2": mean_error,
-        "selection_population": "completed" if completed else "valid_prefix",
+        "mean_final_normal_relative_l2": mean_available("final_normal_relative_l2"),
+        "mean_final_boundary_relative_l2": mean_available("final_boundary_relative_l2"),
+        "mean_endpoint_relative_l2": endpoint_means,
+        "endpoint_population_count": endpoint_counts,
+        "mean_endpoint_normal_relative_l2": normal_endpoint_means,
+        "normal_endpoint_population_count": normal_endpoint_counts,
+        "mean_endpoint_boundary_relative_l2": boundary_endpoint_means,
+        "boundary_endpoint_population_count": boundary_endpoint_counts,
+        "selection_population": selection_population,
+        "parity": parity,
     }
 
 
 def selection_tuple(
-    rollout: Mapping[str, Any], one_step: Mapping[str, float]
+    rollout: Mapping[str, Any],
+    one_step: Mapping[str, float],
+    *,
+    mode: str = HISTORICAL_SELECTION_MODE,
+    short_horizon: int = 20,
+    parity_max_rollout_relative_l2: float | None = None,
+    parity_max_one_step_relative_l2: float | None = None,
 ) -> tuple[float, ...]:
+    def finite_error(value: Any) -> float:
+        resolved = float(value) if value is not None else float("nan")
+        return resolved if math.isfinite(resolved) else float(np.finfo(np.float64).max)
+
     raw_error = rollout["mean_selection_relative_l2"]
-    error = float(raw_error) if raw_error is not None else float("nan")
-    if not math.isfinite(error):
-        error = float(np.finfo(np.float64).max)
-    return (
+    error = finite_error(raw_error)
+    endpoint = rollout.get("mean_endpoint_relative_l2", {})
+    h20 = endpoint.get("20")
+    h20_error = finite_error(h20) if h20 is not None else error
+    if mode == INTERIOR_SELECTION_MODE:
+        if rollout.get("parity") is not None:
+            raise ValueError(
+                "interior-rollout selection cannot use the historical parity gate"
+            )
+        normal_error = finite_error(rollout.get("mean_final_normal_relative_l2"))
+        normal_endpoints = rollout.get("mean_endpoint_normal_relative_l2", {})
+        short_error = finite_error(normal_endpoints.get(str(short_horizon)))
+        one_step_normal = finite_error(one_step.get("normal_relative_l2"))
+        one_step_all = finite_error(one_step.get("all_relative_l2"))
+        return (
+            float(rollout["completion_rate"] == 1.0),
+            float(rollout["completion_rate"]),
+            float(rollout["mean_survival_fraction"]),
+            -normal_error,
+            -short_error,
+            -one_step_normal,
+            -error,
+            -one_step_all,
+        )
+    if mode != HISTORICAL_SELECTION_MODE:
+        raise ValueError(f"unsupported checkpoint selection mode: {mode}")
+    base = (
+        float(rollout["completion_rate"] == 1.0),
         float(rollout["completion_rate"]),
+        float(rollout["mean_survival_fraction"]),
         -error,
+        -h20_error,
         -float(one_step["relative_l2"]),
+    )
+    parity = rollout.get("parity")
+    if parity is None:
+        return base
+    if (
+        parity_max_rollout_relative_l2 is None
+        or parity_max_one_step_relative_l2 is None
+    ):
+        raise ValueError("parity metrics require both registered thresholds")
+    parity_error = parity["mean_relative_l2"]
+    if "all_relative_l2" not in one_step:
+        raise ValueError("parity selection requires all-node one-step relative L2")
+    parity_one_step = float(one_step["all_relative_l2"])
+    parity_passed = (
+        float(parity["completion_rate"]) == 1.0
+        and parity_error is not None
+        and float(parity_error) <= parity_max_rollout_relative_l2
+        and parity_one_step <= parity_max_one_step_relative_l2
+    )
+    all_completed = rollout["completion_rate"] == 1.0
+    eligible = all_completed and parity_passed
+    return (
+        float(eligible),
+        float(all_completed),
+        float(parity_passed),
+        *base[1:-1],
+        -parity_one_step,
+        base[-1],
     )
 
 
@@ -795,11 +2407,18 @@ def tiny_fit_snapshot(
         if initial_loss > 0.0
         else (0.0 if current_loss == 0.0 else float(np.finfo(np.float64).max))
     )
-    relative_l2 = float(current["relative_l2"])
+    relative_metric = (
+        "normal_relative_l2"
+        if current.get("normal_relative_l2") is not None
+        else "relative_l2"
+    )
+    relative_l2 = float(current[relative_metric])
     admissible_fraction = float(current["admissible_fraction"])
     return {
         "metrics": dict(current),
         "loss_ratio": loss_ratio,
+        "relative_metric": relative_metric,
+        "selection_relative_l2": relative_l2,
         "relative_l2_threshold": float(relative_l2_threshold),
         "loss_ratio_threshold": float(loss_ratio_threshold),
         "passed": (
@@ -812,7 +2431,7 @@ def tiny_fit_snapshot(
 
 def tiny_fit_selection(snapshot: Mapping[str, Any]) -> tuple[float, ...]:
     metrics = snapshot["metrics"]
-    relative_ratio = float(metrics["relative_l2"]) / float(
+    relative_ratio = float(snapshot["selection_relative_l2"]) / float(
         snapshot["relative_l2_threshold"]
     )
     loss_ratio = float(snapshot["loss_ratio"]) / float(snapshot["loss_ratio_threshold"])
@@ -858,12 +2477,16 @@ def checkpoint_payload(
     val_keys: Sequence[str],
     test_keys: Sequence[str],
     data_contract: Mapping[str, Any],
+    boundary_contract: Mapping[str, Any],
+    exposure_contract: Mapping[str, Any],
+    source_snapshot: Mapping[str, Any],
     resolved_target_contract: Mapping[str, Any],
     store: PCNOEuler2DShardStore,
     args: argparse.Namespace,
     best_selection: Sequence[float] | None,
     best_epoch: int | None,
     parent_checkpoint: Mapping[str, Any] | None,
+    initialization_transition: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     return {
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -878,6 +2501,9 @@ def checkpoint_payload(
         "test_keys": list(test_keys),
         "split_mode": args.split_mode,
         "data_contract": dict(data_contract),
+        "boundary_contract": dict(boundary_contract),
+        "exposure_contract": dict(exposure_contract),
+        "source_snapshot": dict(source_snapshot),
         "target_contract": dict(resolved_target_contract),
         "target_kind": RESIDUAL_TARGET_KIND,
         "normalization_digest": data_contract["normalization_digest"],
@@ -887,16 +2513,25 @@ def checkpoint_payload(
         "config_digest": digest_mapping(jsonable_args(args)),
         "best_selection": None if best_selection is None else list(best_selection),
         "best_epoch": best_epoch,
+        "checkpoint_selection_contract": checkpoint_selection_contract(args),
         "parent_checkpoint": parent_checkpoint,
+        "initialization_transition": initialization_transition,
         "git": git_state(),
-        "boundary_mode": "model_all_nodes",
-        "raw_recurrence": True,
+        "boundary_mode": args.boundary_mode,
+        "raw_recurrence": args.boundary_mode == "model_all_nodes",
+        "autonomous_recurrence": True,
         "inference_interventions": {
             "future_reference_boundary_values": False,
             "clipping": False,
             "primitive_floors": False,
             "limiter": False,
-            "decode_reencode_projection": False,
+            "smoothing": False,
+            "boundary_decode_reencode_closure": (
+                args.boundary_mode != "model_all_nodes"
+            ),
+            "decode_reencode_projection": (
+                args.boundary_mode != "model_all_nodes"
+            ),
         },
         "weight_provenance": normalization.weight_provenance,
         "generated_state_exposure": {
@@ -908,6 +2543,7 @@ def checkpoint_payload(
             ),
             "raw_generated_state": True,
         },
+        "differentiable_multistep": dict(exposure_contract["differentiable_multistep"]),
         "checkpoint_role": "training",
         "resume_supported": True,
     }
@@ -923,136 +2559,305 @@ def train_epoch(
     scaler: torch.amp.GradScaler,
     step_stride: int,
     batch_size: int,
+    gradient_accumulation_steps: int,
     batch_rng: np.random.Generator,
     device: torch.device,
     amp: str,
     input_noise_std: float,
     generated_state_exposure_weight: float,
+    multistep_loss_steps: int,
+    multistep_loss_weight: float,
+    multistep_recurrent_input: str,
+    primary_objective: str,
+    boundary_auxiliary: str,
+    boundary_auxiliary_weight: float,
+    near_boundary_hops: int,
     gradient_clip: float,
     noise_generator: torch.Generator,
-) -> dict[str, float | None]:
+    boundary_policies: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
     model.train()
+    training_start = perf_counter()
     loss_sum = 0.0
     relative_error_sum = 0.0
     clean_loss_sum = 0.0
     clean_relative_error_sum = 0.0
+    boundary_auxiliary_loss_sum = 0.0
     generated_loss_sum = 0.0
     generated_relative_error_sum = 0.0
     generated_input_error_sum = 0.0
-    batches = homogeneous_presentation_batches(
+    multistep_loss_sum = 0.0
+    multistep_relative_error_sum = 0.0
+    multistep_comparisons = 0
+    multistep_admissible_comparisons = 0
+    gradient_norm_sum = torch.zeros((), dtype=torch.float32, device=device)
+    gradient_norm_max = torch.zeros((), dtype=torch.float32, device=device)
+    clipped_steps = torch.zeros((), dtype=torch.int64, device=device)
+    effective_batch_size = batch_size * gradient_accumulation_steps
+    requested_future_slots = len(pairs) * max(0, multistep_loss_steps - 1)
+    expected_future_comparisons = (
+        multistep_future_comparison_count(
+            store,
+            pairs,
+            step_stride=step_stride,
+            rollout_steps=multistep_loss_steps,
+        )
+        if multistep_loss_steps > 1
+        else 0
+    )
+    if multistep_loss_steps > 1 and expected_future_comparisons == 0:
+        raise ValueError("no future target is available for multistep training")
+    multistep_coverage_fraction = (
+        expected_future_comparisons / requested_future_slots
+        if requested_future_slots
+        else 0.0
+    )
+    multistep_objective_normalizer = (
+        1.0 + multistep_loss_weight * multistep_coverage_fraction
+    )
+    optimizer_batches = homogeneous_presentation_batches(
         pairs,
-        batch_size=batch_size,
+        batch_size=effective_batch_size,
         rng=batch_rng,
     )
-    for key, time_indices in batches:
-        sample = store.tensor_batch(
-            key,
-            time_indices,
-            step_stride=step_stride,
-            device=device,
-        )
-        if input_noise_std > 0.0:
-            current = apply_admissible_primitive_noise(
-                sample["current"],
-                input_noise_std,
-                gamma=model.gamma,
-                generator=noise_generator,
-            )
-        else:
-            current = sample["current"]
-        generated_current = None
-        generated_input_relative_l2 = None
-        if generated_state_exposure_weight > 0.0:
-            previous_sample = store.tensor_batch(
+    for key, effective_time_indices in optimizer_batches:
+        optimizer.zero_grad(set_to_none=True)
+        effective_sample_count = len(effective_time_indices)
+        for microbatch_start in range(0, effective_sample_count, batch_size):
+            time_indices = effective_time_indices[
+                microbatch_start : microbatch_start + batch_size
+            ]
+            sample = store.tensor_batch(
                 key,
-                [index - step_stride for index in time_indices],
+                time_indices,
                 step_stride=step_stride,
                 device=device,
             )
-            with torch.no_grad(), autocast_context(device, amp):
-                generated_current = forward_sample(
-                    model,
-                    previous_sample,
-                    previous_sample["current"],
-                ).detach()
-                _, generated_input_relative_l2 = pair_metrics(
-                    generated_current.float(),
+            boundary_policy = resolve_boundary_policy(boundary_policies, key)
+            batch_loss_mask = (
+                normal_node_mask(sample["node_type"], sample["node_mask"])
+                if boundary_policy is not None
+                and primary_objective == NORMAL_CLOSED_PRIMARY_OBJECTIVE
+                else sample["node_mask"]
+            )
+            if input_noise_std > 0.0:
+                current = apply_admissible_primitive_noise(
                     sample["current"],
-                    sample,
-                    model,
+                    input_noise_std,
+                    gamma=model.gamma,
+                    generator=noise_generator,
                 )
-            generated_admissibility = conservative_admissibility(
-                generated_current.float(),
-                gamma=model.gamma,
-            )
-            if not bool(generated_admissibility["admissible"].all()):
-                raise FloatingPointError(
-                    "raw generated-state exposure produced an inadmissible "
-                    f"input for trajectory {key} frames {time_indices}"
-                )
-        optimizer.zero_grad(set_to_none=True)
-        with autocast_context(device, amp):
-            prediction = forward_sample(model, sample, current)
-            clean_loss, clean_relative_l2 = pair_metrics(
-                prediction, sample["target"], sample, model
-            )
-            if generated_current is None:
-                generated_loss = None
-                generated_relative_l2 = None
-                loss = clean_loss
-                relative_l2 = clean_relative_l2
             else:
-                generated_prediction = forward_sample(
+                current = sample["current"]
+            generated_current = None
+            generated_input_relative_l2 = None
+            multistep_terms = None
+            if generated_state_exposure_weight > 0.0:
+                previous_sample = store.tensor_batch(
+                    key,
+                    [index - step_stride for index in time_indices],
+                    step_stride=step_stride,
+                    device=device,
+                )
+                with torch.no_grad(), autocast_context(device, amp):
+                    generated_current, _, _ = contract_forward_sample(
+                        model,
+                        previous_sample,
+                        previous_sample["current"],
+                        boundary_policy=boundary_policy,
+                    )
+                    generated_current = generated_current.detach()
+                    _, generated_input_relative_l2 = pair_metrics(
+                        generated_current.float(),
+                        sample["current"],
+                        sample,
+                        model,
+                        loss_node_mask=batch_loss_mask,
+                    )
+                generated_admissibility = conservative_admissibility(
+                    generated_current.float(),
+                    gamma=model.gamma,
+                )
+                if not bool(generated_admissibility["admissible"].all()):
+                    raise FloatingPointError(
+                        "raw generated-state exposure produced an inadmissible "
+                        f"input for trajectory {key} frames {time_indices}"
+                    )
+            with autocast_context(device, amp):
+                prediction, raw_prediction, _ = contract_forward_sample(
                     model,
                     sample,
-                    generated_current,
+                    current,
+                    boundary_policy=boundary_policy,
                 )
-                generated_loss, generated_relative_l2 = pair_metrics(
-                    generated_prediction,
+                clean_loss, clean_relative_l2 = primary_training_metrics(
+                    prediction,
+                    raw_prediction,
                     sample["target"],
                     sample,
                     model,
+                    boundary_policy=boundary_policy,
+                    primary_objective=primary_objective,
                 )
-                loss = (
-                    1.0 - generated_state_exposure_weight
-                ) * clean_loss + generated_state_exposure_weight * generated_loss
-                relative_l2 = (
-                    (1.0 - generated_state_exposure_weight) * clean_relative_l2
-                    + generated_state_exposure_weight * generated_relative_l2
+                auxiliary_loss = boundary_auxiliary_loss(
+                    prediction,
+                    sample["target"],
+                    sample,
+                    model,
+                    boundary_policy=boundary_policy,
+                    kind=boundary_auxiliary,
+                    near_boundary_hops=near_boundary_hops,
+                    raw_prediction=raw_prediction,
                 )
-        if not bool(torch.isfinite(loss)):
-            raise FloatingPointError(
-                f"nonfinite training loss for trajectory {key} frames {time_indices}"
+                clean_objective = (
+                    clean_loss + boundary_auxiliary_weight * auxiliary_loss
+                )
+                if generated_current is None:
+                    generated_loss = None
+                    generated_relative_l2 = None
+                    loss = clean_objective
+                    relative_l2 = clean_relative_l2
+                else:
+                    (
+                        generated_prediction,
+                        raw_generated_prediction,
+                        _,
+                    ) = contract_forward_sample(
+                        model,
+                        sample,
+                        generated_current,
+                        boundary_policy=boundary_policy,
+                    )
+                    generated_loss, generated_relative_l2 = primary_training_metrics(
+                        generated_prediction,
+                        raw_generated_prediction,
+                        sample["target"],
+                        sample,
+                        model,
+                        boundary_policy=boundary_policy,
+                        primary_objective=primary_objective,
+                    )
+                    loss = (
+                        1.0 - generated_state_exposure_weight
+                    ) * clean_loss + generated_state_exposure_weight * generated_loss
+                    relative_l2 = (
+                        (1.0 - generated_state_exposure_weight) * clean_relative_l2
+                        + generated_state_exposure_weight * generated_relative_l2
+                    )
+                if multistep_loss_steps > 1:
+                    if generated_current is not None:
+                        raise RuntimeError(
+                            "attached multistep loss cannot share detached exposure"
+                        )
+                    multistep_terms = differentiable_multistep_normal_terms(
+                        model,
+                        store,
+                        key=key,
+                        time_indices=time_indices,
+                        first_prediction=prediction,
+                        step_stride=step_stride,
+                        rollout_steps=multistep_loss_steps,
+                        device=device,
+                        boundary_policy=boundary_policy,
+                        recurrent_input=multistep_recurrent_input,
+                    )
+                    requested_batch_slots = len(time_indices) * (
+                        multistep_loss_steps - 1
+                    )
+                    padded_future_loss = (
+                        multistep_terms["loss_sum"] / requested_batch_slots
+                    )
+                    padded_future_relative_l2 = (
+                        multistep_terms["relative_l2_sum"] / requested_batch_slots
+                    )
+                    loss = (
+                        clean_objective + multistep_loss_weight * padded_future_loss
+                    ) / multistep_objective_normalizer
+                    relative_l2 = (
+                        clean_relative_l2
+                        + multistep_loss_weight * padded_future_relative_l2
+                    ) / multistep_objective_normalizer
+            if not bool(torch.isfinite(loss)):
+                raise FloatingPointError(
+                    f"nonfinite training loss for trajectory {key} frames "
+                    f"{time_indices}"
+                )
+            current_batch_size = len(time_indices)
+            microbatch_weight = current_batch_size / effective_sample_count
+            scaler.scale(loss * microbatch_weight).backward()
+            loss_sum += float(loss.detach().cpu()) * current_batch_size
+            relative_error_sum += float(relative_l2.detach().cpu()) * current_batch_size
+            clean_loss_sum += float(clean_loss.detach().cpu()) * current_batch_size
+            clean_relative_error_sum += (
+                float(clean_relative_l2.detach().cpu()) * current_batch_size
             )
-        scaler.scale(loss).backward()
+            boundary_auxiliary_loss_sum += (
+                float(auxiliary_loss.detach().cpu()) * current_batch_size
+            )
+            if generated_loss is not None:
+                generated_loss_sum += (
+                    float(generated_loss.detach().cpu()) * current_batch_size
+                )
+                generated_relative_error_sum += (
+                    float(generated_relative_l2.detach().cpu()) * current_batch_size
+                )
+                generated_input_error_sum += (
+                    float(generated_input_relative_l2.detach().cpu())
+                    * current_batch_size
+                )
+            if multistep_terms is not None:
+                multistep_loss_sum += float(multistep_terms["loss_sum"].detach().cpu())
+                multistep_relative_error_sum += float(
+                    multistep_terms["relative_l2_sum"].detach().cpu()
+                )
+                multistep_comparisons += int(multistep_terms["comparisons"])
+                multistep_admissible_comparisons += int(
+                    multistep_terms["admissible_comparisons"]
+                )
+        scaler.unscale_(optimizer)
+        maximum_norm = gradient_clip if gradient_clip > 0.0 else math.inf
+        gradient_norm = (
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(),
+                maximum_norm,
+                error_if_nonfinite=True,
+            )
+            .detach()
+            .float()
+        )
+        gradient_norm_sum += gradient_norm
+        gradient_norm_max = torch.maximum(gradient_norm_max, gradient_norm)
         if gradient_clip > 0.0:
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
+            clipped_steps += (gradient_norm > gradient_clip).to(torch.int64)
         scaler.step(optimizer)
         scaler.update()
         scheduler.step()
-        current_batch_size = len(time_indices)
-        loss_sum += float(loss.detach().cpu()) * current_batch_size
-        relative_error_sum += float(relative_l2.detach().cpu()) * current_batch_size
-        clean_loss_sum += float(clean_loss.detach().cpu()) * current_batch_size
-        clean_relative_error_sum += (
-            float(clean_relative_l2.detach().cpu()) * current_batch_size
+    optimizer_steps = len(optimizer_batches)
+    training_seconds = perf_counter() - training_start
+    if multistep_comparisons != expected_future_comparisons:
+        raise RuntimeError(
+            "multistep target accounting changed during the training epoch: "
+            f"expected {expected_future_comparisons}, got {multistep_comparisons}"
         )
-        if generated_loss is not None:
-            generated_loss_sum += (
-                float(generated_loss.detach().cpu()) * current_batch_size
-            )
-            generated_relative_error_sum += (
-                float(generated_relative_l2.detach().cpu()) * current_batch_size
-            )
-            generated_input_error_sum += (
-                float(generated_input_relative_l2.detach().cpu()) * current_batch_size
-            )
+    parameters_finite = all(
+        bool(torch.isfinite(parameter).all()) for parameter in model.parameters()
+    )
+    if not parameters_finite:
+        raise FloatingPointError("model parameters became nonfinite")
     return {
         "loss": loss_sum / len(pairs),
         "relative_l2": relative_error_sum / len(pairs),
         "clean_loss": clean_loss_sum / len(pairs),
         "clean_relative_l2": clean_relative_error_sum / len(pairs),
+        "boundary_auxiliary_loss": (
+            boundary_auxiliary_loss_sum / len(pairs)
+            if boundary_auxiliary != NO_BOUNDARY_AUXILIARY
+            else None
+        ),
+        "boundary_auxiliary": boundary_auxiliary,
+        "boundary_auxiliary_weight": boundary_auxiliary_weight,
+        "primary_objective": primary_objective,
+        "near_boundary_hops": near_boundary_hops,
         "generated_loss": (
             generated_loss_sum / len(pairs)
             if generated_state_exposure_weight > 0.0
@@ -1069,12 +2874,155 @@ def train_epoch(
             else None
         ),
         "generated_state_exposure_weight": generated_state_exposure_weight,
+        "multistep_loss": (
+            multistep_loss_sum / multistep_comparisons
+            if multistep_comparisons
+            else None
+        ),
+        "multistep_relative_l2": (
+            multistep_relative_error_sum / multistep_comparisons
+            if multistep_comparisons
+            else None
+        ),
+        "multistep_loss_steps": multistep_loss_steps,
+        "multistep_loss_weight": multistep_loss_weight,
+        "multistep_first_call_gradient": (
+            (
+                "attached"
+                if multistep_recurrent_input == ATTACHED_PREDICTION_MULTISTEP_INPUT
+                else "not_connected_projected_teacher_control"
+            )
+            if multistep_loss_steps > 1
+            else None
+        ),
+        "multistep_recurrent_input": (
+            multistep_recurrent_input if multistep_loss_steps > 1 else None
+        ),
+        "multistep_future_node_population": (
+            "normal_nodes_only" if multistep_loss_steps > 1 else None
+        ),
+        "multistep_future_comparisons": multistep_comparisons,
+        "multistep_requested_future_slots": requested_future_slots,
+        "multistep_future_coverage_fraction": multistep_coverage_fraction,
+        "multistep_objective_normalizer": multistep_objective_normalizer,
+        "multistep_recurrent_admissible_fraction": (
+            multistep_admissible_comparisons / multistep_comparisons
+            if multistep_comparisons
+            else None
+        ),
         "presentations": len(pairs),
-        "optimizer_steps": len(batches),
+        "model_calls": len(pairs) + multistep_comparisons,
+        "optimizer_steps": optimizer_steps,
+        "microbatch_size": batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "effective_batch_size": effective_batch_size,
+        "gradient_norm_mean": float((gradient_norm_sum / optimizer_steps).cpu()),
+        "gradient_norm_max": float(gradient_norm_max.cpu()),
+        "gradient_clip_fraction": float((clipped_steps / optimizer_steps).cpu()),
+        "parameters_finite": parameters_finite,
+        "training_seconds": training_seconds,
+        "presentations_per_second": len(pairs) / training_seconds,
+        "model_calls_per_second": (len(pairs) + multistep_comparisons)
+        / training_seconds,
+        "optimizer_steps_per_second": optimizer_steps / training_seconds,
     }
 
 
+def fixed_horizon_block_presentations(
+    store: PCNOEuler2DShardStore,
+    train_keys: Sequence[str],
+    *,
+    step_stride: int,
+    rollout_steps: int,
+    count: int,
+    block_size: int,
+    seed: int,
+) -> list[tuple[str, int]]:
+    """Build one deterministic bank with exactly one optimizer block per trajectory."""
+
+    if step_stride < 1 or rollout_steps < 2:
+        raise ValueError("fixed horizon blocks require a positive stride and K>1")
+    if count < 1 or block_size < 1 or count % block_size != 0:
+        raise ValueError("fixed horizon count must be a positive block multiple")
+    block_count = count // block_size
+    eligible: list[tuple[str, int]] = []
+    for raw_key in sorted(str(value) for value in train_keys):
+        num_frames = int(store.entry(raw_key)["num_steps"])
+        legal_start_count = num_frames - rollout_steps * step_stride
+        if legal_start_count >= block_size:
+            eligible.append((raw_key, legal_start_count))
+    if block_count > len(eligible):
+        raise ValueError(
+            "fixed horizon blocks require one eligible trajectory per effective batch: "
+            f"requested {block_count}, available {len(eligible)}"
+        )
+
+    rng = np.random.default_rng(seed)
+    selected = [
+        eligible[index] for index in rng.permutation(len(eligible))[:block_count]
+    ]
+    pairs: list[tuple[str, int]] = []
+    for key, legal_start_count in selected:
+        starts = rng.choice(legal_start_count, size=block_size, replace=False)
+        pairs.extend((key, int(start)) for start in starts)
+    return pairs
+
+
+def presentation_stream_sha256(pairs: Sequence[tuple[str, int]]) -> str:
+    """Hash the ordered trajectory/time presentation stream."""
+
+    payload = json.dumps(
+        [[str(key), int(time_index)] for key, time_index in pairs],
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def epoch_presentations(
+    store: PCNOEuler2DShardStore,
+    train_keys: Sequence[str],
+    *,
+    args: argparse.Namespace,
+    epoch: int,
+    tiny_bank: Sequence[tuple[str, int]] | None,
+) -> list[tuple[str, int]]:
+    """Resolve one epoch's immutable presentation semantics."""
+
+    if tiny_bank is not None:
+        repetitions = math.ceil(args.presentations_per_epoch / len(tiny_bank))
+        return list((list(tiny_bank) * repetitions)[: args.presentations_per_epoch])
+    if args.presentation_mode == FIXED_HORIZON_BLOCKS_PRESENTATION_MODE:
+        return fixed_horizon_block_presentations(
+            store,
+            train_keys,
+            step_stride=args.step_stride,
+            rollout_steps=args.multistep_loss_steps,
+            count=args.presentations_per_epoch,
+            block_size=args.batch_size * args.gradient_accumulation_steps,
+            seed=args.seed,
+        )
+    if args.presentation_mode == "full_coverage":
+        return full_coverage_presentations(
+            store,
+            train_keys,
+            step_stride=args.step_stride,
+            rng=np.random.default_rng(args.seed + epoch),
+        )
+    return balanced_presentations(
+        store,
+        train_keys,
+        step_stride=args.step_stride,
+        count=args.presentations_per_epoch,
+        rng=np.random.default_rng(args.seed + epoch),
+        minimum_time_index=(
+            args.step_stride if args.generated_state_exposure_weight > 0.0 else 0
+        ),
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> None:
+    process_start = perf_counter()
     args = parse_args(argv)
     device = select_device(args.device)
     validate_args(args, device)
@@ -1083,9 +3031,34 @@ def main(argv: Sequence[str] | None = None) -> None:
     store = PCNOEuler2DShardStore(args.data_dir)
     checkpoint_path = args.resume_checkpoint or args.init_checkpoint
     checkpoint = load_checkpoint(checkpoint_path) if checkpoint_path else None
+    if args.resume_checkpoint is not None:
+        assert_resume_training_args(checkpoint, args)
 
+    initialization_transition: dict[str, Any] | None = None
+    fresh_boundary_transition = False
     if checkpoint is not None:
-        assert_checkpoint_contract(checkpoint, store=store, args=args)
+        if args.resume_checkpoint is not None:
+            saved_transition = checkpoint.get("initialization_transition")
+            if saved_transition is not None:
+                if not isinstance(saved_transition, Mapping):
+                    raise ValueError(
+                        "checkpoint initialization transition is malformed"
+                    )
+                initialization_transition = dict(saved_transition)
+        else:
+            initialization_transition = resolve_initialization_transition(
+                checkpoint,
+                args=args,
+            )
+            fresh_boundary_transition = initialization_transition is not None
+        assert_checkpoint_contract(
+            checkpoint,
+            store=store,
+            args=args,
+            initialization_transition=(
+                initialization_transition if fresh_boundary_transition else None
+            ),
+        )
         train_keys = [str(key) for key in checkpoint["train_keys"]]
         val_keys = [str(key) for key in checkpoint["val_keys"]]
         test_keys = [str(key) for key in checkpoint.get("test_keys", [])]
@@ -1115,11 +3088,36 @@ def main(argv: Sequence[str] | None = None) -> None:
         test_keys=test_keys,
         normalization=normalization,
     )
+    boundary_policies, boundary_contract = build_boundary_contract(
+        store,
+        [*train_keys, *val_keys],
+        args=args,
+        device=device,
+    )
+    boundary_contract_compatibility: dict[str, Any] | None = None
+    if fresh_boundary_transition:
+        if initialization_transition is None:
+            raise RuntimeError("fresh boundary transition metadata was not resolved")
+        initialization_transition["target_boundary_contract_digest"] = digest_mapping(
+            boundary_contract
+        )
     if checkpoint is not None and checkpoint.get("data_contract") not in (
         None,
         data_contract,
     ):
         raise ValueError("checkpoint and current resolved data contracts differ")
+    if checkpoint is not None and not fresh_boundary_transition:
+        saved_boundary_contract = checkpoint.get("boundary_contract")
+        if saved_boundary_contract is not None:
+            if not isinstance(saved_boundary_contract, Mapping):
+                raise ValueError("checkpoint boundary contract is malformed")
+            boundary_contract_compatibility = compare_initialized_boundary_contracts(
+                saved_boundary_contract,
+                boundary_contract,
+                allow_legacy_metadata=args.init_checkpoint is not None,
+            )
+            if not boundary_contract_compatibility["compatible"]:
+                raise ValueError("checkpoint and current boundary contracts differ")
     if args.rollout_val_count > len(val_keys):
         raise ValueError("--rollout-val-count exceeds the validation split")
     rollout_selection_seed = args.seed + 1991
@@ -1132,6 +3130,15 @@ def main(argv: Sequence[str] | None = None) -> None:
             seed=rollout_selection_seed,
             keys=val_keys,
         )
+    if args.parity_rollout_keys:
+        outside_validation = sorted(set(args.parity_rollout_keys) - set(val_keys))
+        outside_rollout = sorted(set(args.parity_rollout_keys) - set(rollout_keys))
+        if outside_validation or outside_rollout:
+            raise ValueError(
+                "parity keys must be validation rollout keys: "
+                f"outside_validation={outside_validation}, "
+                f"outside_rollout={outside_rollout}"
+            )
     model = build_model(
         args,
         normalization,
@@ -1146,6 +3153,140 @@ def main(argv: Sequence[str] | None = None) -> None:
             count=args.tiny_pairs,
             seed=args.seed + 17,
         )
+    accounting_pairs = epoch_presentations(
+        store,
+        train_keys,
+        args=args,
+        epoch=0,
+        tiny_bank=tiny_bank,
+    )
+    accounting_presentation_stream_sha256 = presentation_stream_sha256(
+        accounting_pairs
+    )
+    resolved_presentations_per_epoch = len(accounting_pairs)
+    effective_batch_size = args.batch_size * args.gradient_accumulation_steps
+    optimizer_steps_per_epoch = homogeneous_optimizer_step_count(
+        accounting_pairs,
+        batch_size=effective_batch_size,
+    )
+    total_optimizer_steps = args.epochs * optimizer_steps_per_epoch
+    multistep_future_comparisons_per_epoch = (
+        multistep_future_comparison_count(
+            store,
+            accounting_pairs,
+            step_stride=args.step_stride,
+            rollout_steps=args.multistep_loss_steps,
+        )
+        if args.multistep_loss_steps > 1
+        else 0
+    )
+    multistep_requested_future_slots_per_epoch = len(accounting_pairs) * max(
+        0, args.multistep_loss_steps - 1
+    )
+    multistep_future_coverage_fraction = (
+        multistep_future_comparisons_per_epoch
+        / multistep_requested_future_slots_per_epoch
+        if multistep_requested_future_slots_per_epoch
+        else 0.0
+    )
+    multistep_objective_normalizer = (
+        1.0 + args.multistep_loss_weight * multistep_future_coverage_fraction
+    )
+    differentiable_multistep_contract = {
+        "enabled": args.multistep_loss_steps > 1,
+        "rollout_steps": args.multistep_loss_steps,
+        "future_loss_weight": args.multistep_loss_weight,
+        "recurrent_input": (
+            args.multistep_recurrent_input if args.multistep_loss_steps > 1 else None
+        ),
+        "future_node_population": (
+            "normal_nodes_only" if args.multistep_loss_steps > 1 else None
+        ),
+        "first_call_gradient": (
+            (
+                "attached"
+                if args.multistep_recurrent_input == ATTACHED_PREDICTION_MULTISTEP_INPUT
+                else "not_connected_projected_teacher_control"
+            )
+            if args.multistep_loss_steps > 1
+            else None
+        ),
+        "recurrent_state": (
+            (
+                "deployed_post_boundary_projection"
+                if args.multistep_recurrent_input == ATTACHED_PREDICTION_MULTISTEP_INPUT
+                else "projected_reference_current_state_training_control"
+            )
+            if args.multistep_loss_steps > 1
+            else None
+        ),
+        "future_reference_as_model_input": (
+            args.multistep_loss_steps > 1
+            and args.multistep_recurrent_input == PROJECTED_TEACHER_MULTISTEP_INPUT
+        ),
+        "future_reference_use": (
+            (
+                "loss_targets_only"
+                if args.multistep_recurrent_input == ATTACHED_PREDICTION_MULTISTEP_INPUT
+                else "projected_training_input_and_loss_target_only"
+            )
+            if args.multistep_loss_steps > 1
+            else None
+        ),
+        "one_step_presentations_retained": len(accounting_pairs),
+        "future_comparisons_per_epoch": multistep_future_comparisons_per_epoch,
+        "requested_future_slots_per_epoch": (
+            multistep_requested_future_slots_per_epoch
+        ),
+        "future_coverage_fraction": multistep_future_coverage_fraction,
+        "objective_normalizer": multistep_objective_normalizer,
+        "clean_one_step_coefficient": 1.0 / multistep_objective_normalizer,
+        "realized_future_coefficient": (
+            args.multistep_loss_weight
+            * multistep_future_coverage_fraction
+            / multistep_objective_normalizer
+        ),
+        "model_calls_per_epoch": (
+            len(accounting_pairs) + multistep_future_comparisons_per_epoch
+        ),
+        "clipping_smoothing_or_limiter": False,
+    }
+    exposure_contract = {
+        "schema": "pcno_euler2d_exposure_contract_v1",
+        "presentation_mode": args.presentation_mode,
+        "coverage_passes_requested": (
+            args.epochs if args.presentation_mode == "full_coverage" else None
+        ),
+        "unique_eligible_train_transitions": (
+            resolved_presentations_per_epoch
+            if args.presentation_mode == "full_coverage"
+            else None
+        ),
+        "presentations_per_epoch": resolved_presentations_per_epoch,
+        "optimizer_steps_per_epoch": optimizer_steps_per_epoch,
+        "requested_presentations": args.epochs * resolved_presentations_per_epoch,
+        "requested_optimizer_steps": total_optimizer_steps,
+        "presentation_stream_sha256": accounting_presentation_stream_sha256,
+        "batch_size": args.batch_size,
+        "microbatch_size": args.batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "effective_batch_size": effective_batch_size,
+        "trajectory_homogeneous_batches": True,
+        "fixed_horizon_block_size": (
+            effective_batch_size
+            if args.presentation_mode == FIXED_HORIZON_BLOCKS_PRESENTATION_MODE
+            else None
+        ),
+        "fixed_horizon_block_count": (
+            optimizer_steps_per_epoch
+            if args.presentation_mode == FIXED_HORIZON_BLOCKS_PRESENTATION_MODE
+            else None
+        ),
+        "target_comparisons_per_epoch": (
+            len(accounting_pairs) + multistep_future_comparisons_per_epoch
+        ),
+        "differentiable_multistep": differentiable_multistep_contract,
+    }
     resolved_target_contract = target_contract()
     if checkpoint is not None:
         saved_target_contract = checkpoint.get("target_contract")
@@ -1163,15 +3304,51 @@ def main(argv: Sequence[str] | None = None) -> None:
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer, lr_lambda=lambda _: 1.0
         )
-    else:
-        total_steps = args.epochs * args.presentations_per_epoch
+        scheduler_contract = {
+            "name": "constant",
+            "total_optimizer_steps": total_optimizer_steps,
+        }
+    elif args.scheduler == "onecycle":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
             max_lr=args.learning_rate,
-            total_steps=total_steps,
+            total_steps=total_optimizer_steps,
             div_factor=args.lr_div_factor,
             final_div_factor=args.lr_final_div_factor,
         )
+        scheduler_contract = {
+            "name": "onecycle",
+            "total_optimizer_steps": total_optimizer_steps,
+            "div_factor": args.lr_div_factor,
+            "final_div_factor": args.lr_final_div_factor,
+        }
+    else:
+        if total_optimizer_steps < 2:
+            raise ValueError("warmup-cosine requires at least two optimizer steps")
+        warmup_steps = min(
+            total_optimizer_steps - 1,
+            max(1, round(args.warmup_fraction * total_optimizer_steps)),
+        )
+        minimum_factor = args.min_learning_rate / args.learning_rate
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer,
+            lr_lambda=lambda step: warmup_cosine_factor(
+                step,
+                total_steps=total_optimizer_steps,
+                warmup_steps=warmup_steps,
+                start_factor=args.warmup_start_factor,
+                minimum_factor=minimum_factor,
+            ),
+        )
+        scheduler_contract = {
+            "name": "warmup_cosine",
+            "total_optimizer_steps": total_optimizer_steps,
+            "warmup_steps": warmup_steps,
+            "warmup_fraction_resolved": warmup_steps / total_optimizer_steps,
+            "warmup_start_factor": args.warmup_start_factor,
+            "peak_learning_rate": args.learning_rate,
+            "minimum_learning_rate": args.min_learning_rate,
+        }
     start_epoch = 0
     best_selection: tuple[float, ...] | None = None
     best_epoch: int | None = None
@@ -1195,7 +3372,25 @@ def main(argv: Sequence[str] | None = None) -> None:
     log_path = args.output_dir / "metrics.jsonl"
     if log_path.exists() and args.resume_checkpoint is None:
         raise FileExistsError(f"refusing to append to an existing run log: {log_path}")
+    if args.resume_checkpoint is None:
+        source_snapshot = write_source_snapshot(args.output_dir)
+    else:
+        snapshot_manifest = args.output_dir / "source_snapshot" / "manifest.json"
+        if not snapshot_manifest.is_file():
+            raise FileNotFoundError("resume output lacks its source snapshot")
+        source_snapshot = json.loads(snapshot_manifest.read_text(encoding="utf-8"))
+        verify_source_snapshot(source_snapshot)
     write_json(args.output_dir / "normalization.json", normalization.to_dict())
+    write_json(args.output_dir / "boundary_contract.json", boundary_contract)
+    write_json(args.output_dir / "exposure_contract.json", exposure_contract)
+    validation_pair_seed = args.seed + 991
+    validation_pairs = balanced_presentations(
+        store,
+        val_keys,
+        step_stride=args.step_stride,
+        count=args.val_presentations,
+        rng=np.random.default_rng(validation_pair_seed),
+    )
     split_payload = {
         "split_mode": args.split_mode,
         "split_seed": args.split_seed,
@@ -1204,6 +3399,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         "test_keys": test_keys,
         "rollout_selection_seed": rollout_selection_seed,
         "rollout_keys": rollout_keys,
+        "parity_rollout_keys": args.parity_rollout_keys,
+        "parity_rollout_horizon": args.parity_rollout_horizon,
+        "parity_max_rollout_relative_l2": args.parity_max_rollout_relative_l2,
+        "parity_max_one_step_relative_l2": args.parity_max_one_step_relative_l2,
+        "validation_pair_seed": validation_pair_seed,
+        "validation_pairs": [
+            {"trajectory": key, "time_index": int(time_index)}
+            for key, time_index in validation_pairs
+        ],
         "tiny_bank": (
             None
             if tiny_bank is None
@@ -1215,14 +3419,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         "data_manifest_digest": store.manifest_digest,
     }
     write_json(args.output_dir / "split.json", split_payload)
+    run_contract = {
+        "schema": "pcno_euler2d_serious_training_contract_v1",
+        "args": jsonable_args(args),
+        "config_digest": digest_mapping(jsonable_args(args)),
+        "data_contract": data_contract,
+        "boundary_contract": boundary_contract,
+        "exposure_contract": exposure_contract,
+        "scheduler_contract": scheduler_contract,
+        "target_contract": resolved_target_contract,
+        "source_snapshot": source_snapshot,
+        "initialization_transition": initialization_transition,
+        "boundary_contract_compatibility": boundary_contract_compatibility,
+        "environment": runtime_environment(device),
+        "git": git_state(),
+    }
+    write_json(args.output_dir / "run_contract.json", run_contract)
 
-    validation_pairs = balanced_presentations(
-        store,
-        val_keys,
-        step_stride=args.step_stride,
-        count=args.val_presentations,
-        rng=np.random.default_rng(args.seed + 991),
-    )
     if tiny_bank is not None:
         initial_train_metrics = evaluate_pairs(
             model,
@@ -1232,6 +3445,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             batch_size=args.batch_size,
             device=device,
             amp=args.amp,
+            primary_objective=args.primary_objective,
+            boundary_policies=boundary_policies,
         )
     else:
         initial_train_metrics = None
@@ -1242,7 +3457,17 @@ def main(argv: Sequence[str] | None = None) -> None:
             "path": str(args.init_checkpoint),
             "sha256": sha256_file(args.init_checkpoint),
             "epoch": int(checkpoint["epoch"]),
+            "source_boundary_mode": str(
+                checkpoint.get("boundary_mode", "model_all_nodes")
+            ),
+            "target_boundary_mode": args.boundary_mode,
         }
+    elif args.resume_checkpoint is not None:
+        saved_parent = checkpoint.get("parent_checkpoint")
+        if saved_parent is not None:
+            if not isinstance(saved_parent, Mapping):
+                raise ValueError("resume checkpoint parent metadata is malformed")
+            parent_checkpoint = dict(saved_parent)
     noise_generator = torch.Generator(device=device.type)
     noise_generator.manual_seed(args.seed + 101)
     scaler = torch.amp.GradScaler(device.type, enabled=(args.amp == "fp16"))
@@ -1254,25 +3479,49 @@ def main(argv: Sequence[str] | None = None) -> None:
     best_tiny_selection: tuple[float, ...] | None = None
     best_tiny_epoch: int | None = None
     best_tiny_state: dict[str, torch.Tensor] | None = None
+    wall_time_stop_reason: str | None = None
+    completed_epoch_durations: list[float] = []
+    gpu_peak_allocated_bytes = 0
+    gpu_peak_reserved_bytes = 0
 
     for epoch in range(start_epoch, args.epochs):
-        epoch_start = perf_counter()
-        if tiny_bank is None:
-            pairs = balanced_presentations(
-                store,
-                train_keys,
-                step_stride=args.step_stride,
-                count=args.presentations_per_epoch,
-                rng=np.random.default_rng(args.seed + epoch),
-                minimum_time_index=(
-                    args.step_stride
-                    if args.generated_state_exposure_weight > 0.0
-                    else 0
-                ),
+        if args.max_wall_hours > 0.0 and completed_epoch_durations:
+            wall_limit_seconds = args.max_wall_hours * 3600.0
+            elapsed_process = perf_counter() - process_start
+            conservative_next_epoch = 1.1 * float(
+                np.mean(completed_epoch_durations[-3:])
             )
-        else:
-            repetitions = math.ceil(args.presentations_per_epoch / len(tiny_bank))
-            pairs = (tiny_bank * repetitions)[: args.presentations_per_epoch]
+            if elapsed_process + conservative_next_epoch > wall_limit_seconds:
+                wall_time_stop_reason = (
+                    "stopped_before_epoch_to_preserve_max_wall_hours"
+                )
+                break
+        epoch_start = perf_counter()
+        if device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(device)
+        pairs = epoch_presentations(
+            store,
+            train_keys,
+            args=args,
+            epoch=epoch,
+            tiny_bank=tiny_bank,
+        )
+        if len(pairs) != resolved_presentations_per_epoch:
+            raise RuntimeError("resolved presentations changed across epochs")
+        if (
+            args.presentation_mode == FIXED_HORIZON_BLOCKS_PRESENTATION_MODE
+            and presentation_stream_sha256(pairs)
+            != accounting_presentation_stream_sha256
+        ):
+            raise RuntimeError("fixed horizon presentation stream changed")
+        if (
+            homogeneous_optimizer_step_count(
+                pairs,
+                batch_size=effective_batch_size,
+            )
+            != optimizer_steps_per_epoch
+        ):
+            raise RuntimeError("resolved optimizer steps changed across epochs")
         last_train_metrics = train_epoch(
             model,
             store,
@@ -1282,13 +3531,22 @@ def main(argv: Sequence[str] | None = None) -> None:
             scaler=scaler,
             step_stride=args.step_stride,
             batch_size=args.batch_size,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
             batch_rng=np.random.default_rng(args.seed + 100_000 + epoch),
             device=device,
             amp=args.amp,
             input_noise_std=args.input_noise_std,
             generated_state_exposure_weight=(args.generated_state_exposure_weight),
+            multistep_loss_steps=args.multistep_loss_steps,
+            multistep_loss_weight=args.multistep_loss_weight,
+            multistep_recurrent_input=args.multistep_recurrent_input,
+            primary_objective=args.primary_objective,
+            boundary_auxiliary=args.boundary_auxiliary,
+            boundary_auxiliary_weight=args.boundary_auxiliary_weight,
+            near_boundary_hops=args.near_boundary_hops,
             gradient_clip=args.gradient_clip,
             noise_generator=noise_generator,
+            boundary_policies=boundary_policies,
         )
         last_validation_metrics = evaluate_pairs(
             model,
@@ -1298,6 +3556,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             batch_size=args.batch_size,
             device=device,
             amp=args.amp,
+            primary_objective=args.primary_objective,
+            boundary_policies=boundary_policies,
         )
         current_tiny_snapshot = None
         if tiny_bank is not None:
@@ -1309,6 +3569,8 @@ def main(argv: Sequence[str] | None = None) -> None:
                 batch_size=args.batch_size,
                 device=device,
                 amp=args.amp,
+                primary_objective=args.primary_objective,
+                boundary_policies=boundary_policies,
             )
             current_tiny_snapshot = tiny_fit_snapshot(
                 initial_train_metrics,
@@ -1346,8 +3608,19 @@ def main(argv: Sequence[str] | None = None) -> None:
                 num_steps=args.rollout_steps,
                 device=device,
                 amp=args.amp,
+                boundary_policies=boundary_policies,
+                rollout_checkpoints=args.rollout_checkpoints,
+                parity_keys=args.parity_rollout_keys,
+                parity_horizon=args.parity_rollout_horizon,
             )
-            candidate = selection_tuple(last_rollout_metrics, last_validation_metrics)
+            candidate = selection_tuple(
+                last_rollout_metrics,
+                last_validation_metrics,
+                mode=args.selection_mode,
+                short_horizon=args.selection_short_horizon,
+                parity_max_rollout_relative_l2=(args.parity_max_rollout_relative_l2),
+                parity_max_one_step_relative_l2=(args.parity_max_one_step_relative_l2),
+            )
             if best_selection is None or candidate > best_selection:
                 best_selection = candidate
                 best_epoch = epoch
@@ -1361,14 +3634,32 @@ def main(argv: Sequence[str] | None = None) -> None:
                     val_keys=val_keys,
                     test_keys=test_keys,
                     data_contract=data_contract,
+                    boundary_contract=boundary_contract,
+                    exposure_contract=exposure_contract,
+                    source_snapshot=source_snapshot,
                     resolved_target_contract=resolved_target_contract,
                     store=store,
                     args=args,
                     best_selection=best_selection,
                     best_epoch=best_epoch,
                     parent_checkpoint=parent_checkpoint,
+                    initialization_transition=initialization_transition,
                 )
                 atomic_torch_save(payload, args.output_dir / "best.pt")
+        epoch_peak_allocated_bytes = (
+            int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else 0
+        )
+        epoch_peak_reserved_bytes = (
+            int(torch.cuda.max_memory_reserved(device)) if device.type == "cuda" else 0
+        )
+        gpu_peak_allocated_bytes = max(
+            gpu_peak_allocated_bytes,
+            epoch_peak_allocated_bytes,
+        )
+        gpu_peak_reserved_bytes = max(
+            gpu_peak_reserved_bytes,
+            epoch_peak_reserved_bytes,
+        )
         record = {
             "epoch": epoch,
             "elapsed_seconds": perf_counter() - epoch_start,
@@ -1379,12 +3670,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             "tiny_fit": current_tiny_snapshot,
             "best_epoch": best_epoch,
             "best_selection": best_selection,
-            "gpu_max_memory_bytes": (
-                int(torch.cuda.max_memory_allocated(device))
-                if device.type == "cuda"
-                else 0
-            ),
+            "gpu_max_memory_bytes": epoch_peak_allocated_bytes,
+            "gpu_max_reserved_memory_bytes": epoch_peak_reserved_bytes,
         }
+        completed_epoch_durations.append(float(record["elapsed_seconds"]))
         with log_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True, allow_nan=False) + "\n")
         if (
@@ -1402,12 +3691,16 @@ def main(argv: Sequence[str] | None = None) -> None:
                 val_keys=val_keys,
                 test_keys=test_keys,
                 data_contract=data_contract,
+                boundary_contract=boundary_contract,
+                exposure_contract=exposure_contract,
+                source_snapshot=source_snapshot,
                 resolved_target_contract=resolved_target_contract,
                 store=store,
                 args=args,
                 best_selection=best_selection,
                 best_epoch=best_epoch,
                 parent_checkpoint=parent_checkpoint,
+                initialization_transition=initialization_transition,
             )
             atomic_torch_save(payload, args.output_dir / "last.pt")
         print(
@@ -1416,6 +3709,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                     "epoch": epoch,
                     "train_rel_l2": last_train_metrics["relative_l2"],
                     "val_rel_l2": last_validation_metrics["relative_l2"],
+                    "val_all_rel_l2": last_validation_metrics["all_relative_l2"],
                     "rollout_completion": (
                         None
                         if not should_rollout
@@ -1445,6 +3739,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             batch_size=args.batch_size,
             device=device,
             amp=args.amp,
+            primary_objective=args.primary_objective,
+            boundary_policies=boundary_policies,
         )
         final_tiny_snapshot = tiny_fit_snapshot(
             initial_train_metrics,
@@ -1465,9 +3761,13 @@ def main(argv: Sequence[str] | None = None) -> None:
             "initial": initial_train_metrics,
             "final": final_tiny,
             "final_loss_ratio": final_tiny_snapshot["loss_ratio"],
+            "final_relative_metric": final_tiny_snapshot["relative_metric"],
+            "final_selection_relative_l2": final_tiny_snapshot["selection_relative_l2"],
             "final_passed": final_tiny_snapshot["passed"],
             "best": best_tiny_snapshot["metrics"],
             "best_loss_ratio": best_tiny_snapshot["loss_ratio"],
+            "best_relative_metric": best_tiny_snapshot["relative_metric"],
+            "best_selection_relative_l2": best_tiny_snapshot["selection_relative_l2"],
             "best_epoch": best_tiny_epoch,
             "relative_l2_threshold": args.tiny_fit_rel_l2,
             "loss_ratio_threshold": args.tiny_fit_loss_ratio,
@@ -1484,12 +3784,16 @@ def main(argv: Sequence[str] | None = None) -> None:
                 val_keys=val_keys,
                 test_keys=test_keys,
                 data_contract=data_contract,
+                boundary_contract=boundary_contract,
+                exposure_contract=exposure_contract,
+                source_snapshot=source_snapshot,
                 resolved_target_contract=resolved_target_contract,
                 store=store,
                 args=args,
                 best_selection=best_selection,
                 best_epoch=best_epoch,
                 parent_checkpoint=parent_checkpoint,
+                initialization_transition=initialization_transition,
             )
             tiny_payload["model_state"] = best_tiny_state
             tiny_payload.pop("optimizer_state")
@@ -1510,20 +3814,32 @@ def main(argv: Sequence[str] | None = None) -> None:
         "normalization": normalization.to_dict(),
         "normalization_digest": data_contract["normalization_digest"],
         "data_contract": data_contract,
+        "boundary_contract": boundary_contract,
+        "exposure_contract": exposure_contract,
         "split_mode": args.split_mode,
         "train_trajectories": len(train_keys),
         "validation_trajectories": len(val_keys),
         "test_trajectories": len(test_keys),
         "step_stride": args.step_stride,
         "batch_size": args.batch_size,
-        "boundary_mode": "model_all_nodes",
-        "raw_recurrence": True,
+        "microbatch_size": args.batch_size,
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "effective_batch_size": effective_batch_size,
+        "boundary_mode": args.boundary_mode,
+        "raw_recurrence": args.boundary_mode == "model_all_nodes",
+        "autonomous_recurrence": True,
         "inference_interventions": {
             "future_reference_boundary_values": False,
             "clipping": False,
             "primitive_floors": False,
             "limiter": False,
-            "decode_reencode_projection": False,
+            "smoothing": False,
+            "boundary_decode_reencode_closure": (
+                args.boundary_mode != "model_all_nodes"
+            ),
+            "decode_reencode_projection": (
+                args.boundary_mode != "model_all_nodes"
+            ),
         },
         "input_noise_std": args.input_noise_std,
         "generated_state_exposure": {
@@ -1533,20 +3849,44 @@ def main(argv: Sequence[str] | None = None) -> None:
             "clean_one_step_anchor": (1.0 - args.generated_state_exposure_weight),
             "raw_generated_state": True,
         },
+        "differentiable_multistep": differentiable_multistep_contract,
         "optimizer": {
             "name": "AdamW",
             "learning_rate": args.learning_rate,
             "weight_decay": args.weight_decay,
             "gradient_clip": args.gradient_clip,
             "scheduler": args.scheduler,
+            "scheduler_contract": scheduler_contract,
         },
         "best_epoch": best_epoch,
         "best_selection": best_selection,
+        "checkpoint_selection_contract": checkpoint_selection_contract(args),
+        "parity_selection_contract": {
+            "keys": args.parity_rollout_keys,
+            "horizon": args.parity_rollout_horizon,
+            "max_rollout_relative_l2": args.parity_max_rollout_relative_l2,
+            "max_one_step_relative_l2": args.parity_max_one_step_relative_l2,
+            "one_step_metric": "fixed_128_presentation_all_node_relative_l2",
+            "validation_pair_seed": args.seed + 991,
+            "eligibility_requires_all_rollout_trajectories_complete": True,
+        },
         "last_train": last_train_metrics,
         "last_validation": last_validation_metrics,
         "last_rollout": last_rollout_metrics,
         "tiny_fit": tiny_fit,
         "elapsed_seconds": perf_counter() - run_start,
+        "process_elapsed_seconds": perf_counter() - process_start,
+        "requested_epochs": args.epochs,
+        "completed_epochs": len(completed_epoch_durations),
+        "wall_time_stop_reason": wall_time_stop_reason,
+        "actual_presentations": (
+            len(completed_epoch_durations) * resolved_presentations_per_epoch
+        ),
+        "actual_optimizer_steps": (
+            len(completed_epoch_durations) * optimizer_steps_per_epoch
+        ),
+        "gpu_max_memory_bytes": gpu_peak_allocated_bytes,
+        "gpu_max_reserved_memory_bytes": gpu_peak_reserved_bytes,
         "data_manifest_digest": store.manifest_digest,
         "config_digest": digest_mapping(jsonable_args(args)),
         "code_sha256": {
@@ -1555,8 +3895,18 @@ def main(argv: Sequence[str] | None = None) -> None:
                 ROOT / "utility/time_dependent_no/pcno_euler2d.py"
             ),
             "pcno_core": sha256_file(ROOT / "pcno/pcno.py"),
+            "cpg_mesh_contract": sha256_file(
+                ROOT / "utility/time_dependent_no/cpg_mesh_contract.py"
+            ),
+            "evaluator": sha256_file(
+                ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py"
+            ),
         },
+        "source_snapshot": source_snapshot,
+        "environment": runtime_environment(device),
         "parent_checkpoint": parent_checkpoint,
+        "initialization_transition": initialization_transition,
+        "boundary_contract_compatibility": boundary_contract_compatibility,
         "git": git_state(),
         "artifacts": {
             "best_checkpoint": str(args.output_dir / "best.pt"),
@@ -1567,6 +3917,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 else None
             ),
             "metrics": str(log_path),
+            "run_contract": str(args.output_dir / "run_contract.json"),
+            "boundary_contract": str(args.output_dir / "boundary_contract.json"),
+            "exposure_contract": str(args.output_dir / "exposure_contract.json"),
+            "source_snapshot": str(args.output_dir / "source_snapshot"),
         },
         "artifact_sha256": {
             "best_checkpoint": sha256_file(args.output_dir / "best.pt"),

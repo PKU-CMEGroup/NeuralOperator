@@ -9,25 +9,61 @@ import numpy as np
 import pytest
 import torch
 
+from scripts.time_dependent_no.evaluate_pcno_euler2d_boundary_protocol import (
+    main as evaluate_boundary_protocol_main,
+)
 from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (
     main as evaluate_main,
 )
 from scripts.time_dependent_no.prepare_pcno_euler2d_shards import main as prepare_main
 from scripts.time_dependent_no.train_pcno_euler2d_residual import (
-    main as train_main,
+    LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+    MINIMUM_CHANGE_BOUNDARY_MODE,
+    NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+    RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+    RAW_BOUNDARY_REFERENCE_AUXILIARY,
+    RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION,
+    assert_resume_training_args,
+    boundary_auxiliary_loss,
+    close_boundary,
+    jsonable_args,
     manifest_train_val_test_split,
+    parse_args,
+    primary_training_metrics,
+    rollout_trajectory,
+    selection_tuple,
+    validate_args,
+    verify_source_snapshot,
+    warmup_cosine_factor,
+    write_source_snapshot,
+)
+from scripts.time_dependent_no.train_pcno_euler2d_residual import (
+    main as train_main,
+)
+from utility.time_dependent_no.cpg_mesh_contract import (
+    INFLOW_NODE,
+    NORMAL_NODE,
+    OUTFLOW_NODE,
 )
 from utility.time_dependent_no.pcno_euler2d import (
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     apply_admissible_primitive_noise,
+    apply_causal_boundary_conservative_batch,
+    apply_minimum_change_boundary_conservative_batch,
     balanced_presentations,
+    boundary_band_normal_node_mask,
+    build_graph_causal_boundary_policy,
+    build_graph_minimum_change_boundary_policy,
     conservative_admissibility,
     conservative_to_primitive_torch,
     directional_highpass_stability,
     fit_normalization,
+    full_coverage_presentations,
     graph_neighbor_highpass,
+    homogeneous_optimizer_step_count,
     homogeneous_presentation_batches,
+    normal_node_mask,
     primitive_to_conservative_torch,
     reference_smooth_region_mask,
     stratified_train_val_split,
@@ -70,6 +106,71 @@ def _prepare_synthetic_shards(tmp_path: Path) -> Path:
         _write_raw_trajectory(handle.create_group("0"), 0)
         _write_raw_trajectory(handle.create_group("1"), 1)
     output = tmp_path / "shards"
+    prepare_main(
+        [
+            "--source-h5",
+            str(source),
+            "--output-dir",
+            str(output),
+            "--static-check",
+            "all",
+        ]
+    )
+    return output
+
+
+def _write_boundary_trajectory(group: h5py.Group, trajectory_index: int) -> None:
+    num_steps = 4
+    nodes = np.asarray(
+        [
+            [0.0, 0.0],
+            [0.5, 0.0],
+            [1.0, 0.0],
+            [0.0, 0.5],
+            [0.5, 0.5],
+            [1.0, 0.5],
+            [0.0, 1.0],
+            [0.5, 1.0],
+            [1.0, 1.0],
+        ],
+        dtype=np.float32,
+    )
+    perimeter = np.asarray(
+        [[0, 1], [1, 2], [2, 5], [5, 8], [8, 7], [7, 6], [6, 3], [3, 0]],
+        dtype=np.int64,
+    )
+    spokes = np.asarray(
+        [[4, node] for node in (0, 1, 2, 3, 5, 6, 7, 8)], dtype=np.int64
+    )
+    edges = np.concatenate((perimeter, spokes), axis=0)
+    node_type = np.asarray([3, 1, 2, 3, 0, 2, 3, 1, 2], dtype=np.int64)[:, None]
+    mach_value = 1.6 + 0.05 * trajectory_index
+    mach = np.full((nodes.shape[0], 1), mach_value, dtype=np.float32)
+
+    group.create_dataset("pos", data=np.repeat(nodes[None, ...], num_steps, axis=0))
+    group.create_dataset("edges", data=np.repeat(edges[None, ...], num_steps, axis=0))
+    group.create_dataset(
+        "node_type", data=np.repeat(node_type[None, ...], num_steps, axis=0)
+    )
+    group.create_dataset("Mach", data=np.repeat(mach[None, ...], num_steps, axis=0))
+
+    time = np.arange(num_steps, dtype=np.float32)[:, None, None]
+    x = nodes[None, :, 0:1]
+    y = nodes[None, :, 1:2]
+    group.create_dataset(
+        "rho", data=1.4 + 0.01 * trajectory_index + 0.002 * time + 0.001 * x
+    )
+    group.create_dataset("v1", data=mach_value + 0.01 * time + 0.005 * x)
+    group.create_dataset("v2", data=0.02 * (y - 0.5) + 0.001 * time)
+    group.create_dataset("pres", data=1.0 + 0.004 * time + 0.002 * x)
+
+
+def _prepare_boundary_synthetic_shards(tmp_path: Path) -> Path:
+    source = tmp_path / "raw_boundary.h5"
+    with h5py.File(source, "w") as handle:
+        _write_boundary_trajectory(handle.create_group("0"), 0)
+        _write_boundary_trajectory(handle.create_group("1"), 1)
+    output = tmp_path / "boundary_shards"
     prepare_main(
         [
             "--source-h5",
@@ -251,6 +352,326 @@ def test_conservative_round_trip_and_admissible_noise() -> None:
     )
 
 
+def test_full_coverage_and_warmup_cosine_have_exact_step_semantics(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_synthetic_shards(tmp_path)
+    store = PCNOEuler2DShardStore(data_dir)
+    pairs = full_coverage_presentations(
+        store,
+        store.keys,
+        step_stride=1,
+        rng=np.random.default_rng(23),
+    )
+    expected = {
+        (key, time_index)
+        for key in store.keys
+        for time_index in range(int(store.entry(key)["num_steps"]) - 1)
+    }
+    assert set(pairs) == expected
+    assert len(pairs) == len(expected)
+    assert len(pairs) == len(set(pairs))
+    assert homogeneous_optimizer_step_count(pairs, batch_size=2) == 4
+    store.close()
+
+    factors = [
+        warmup_cosine_factor(
+            step,
+            total_steps=10,
+            warmup_steps=3,
+            start_factor=0.1,
+            minimum_factor=0.02,
+        )
+        for step in range(10)
+    ]
+    assert factors[0] == pytest.approx(0.1)
+    assert factors[2] == pytest.approx(1.0)
+    assert factors[3] == pytest.approx(1.0)
+    assert factors[-1] == pytest.approx(0.02)
+    assert all(left <= right for left, right in zip(factors[:2], factors[1:3]))
+    assert all(left >= right for left, right in zip(factors[3:-1], factors[4:]))
+
+
+def test_parity_selection_uses_historical_all_node_metric() -> None:
+    rollout = {
+        "completion_rate": 1.0,
+        "mean_survival_fraction": 1.0,
+        "mean_selection_relative_l2": 0.03,
+        "mean_endpoint_relative_l2": {"20": 0.02},
+    }
+    assert selection_tuple(rollout, {"relative_l2": 0.004}) == pytest.approx(
+        (1.0, 1.0, 1.0, -0.03, -0.02, -0.004)
+    )
+
+    parity_rollout = {
+        **rollout,
+        "parity": {
+            "completion_rate": 1.0,
+            "mean_relative_l2": 0.024,
+        },
+    }
+    thresholds = {
+        "parity_max_rollout_relative_l2": 0.0243,
+        "parity_max_one_step_relative_l2": 0.0054,
+    }
+    with pytest.raises(ValueError, match="all-node one-step"):
+        selection_tuple(parity_rollout, {"relative_l2": 0.004}, **thresholds)
+
+    one_step = {"relative_l2": 0.004, "all_relative_l2": 0.005}
+    passed = selection_tuple(parity_rollout, one_step, **thresholds)
+    assert passed[:3] == (1.0, 1.0, 1.0)
+
+    rollout_miss = {
+        **parity_rollout,
+        "parity": {
+            "completion_rate": 1.0,
+            "mean_relative_l2": 0.025,
+        },
+    }
+    assert selection_tuple(rollout_miss, one_step, **thresholds)[0] == 0.0
+    one_step_miss = {"relative_l2": 0.004, "all_relative_l2": 0.006}
+    assert selection_tuple(parity_rollout, one_step_miss, **thresholds)[0] == 0.0
+
+
+def test_resume_contract_and_source_snapshot_reject_scientific_drift(
+    tmp_path: Path,
+) -> None:
+    args = parse_args(
+        [
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--output-dir",
+            str(tmp_path / "run"),
+        ]
+    )
+    checkpoint = {"training_args": jsonable_args(args)}
+    args.resume_checkpoint = tmp_path / "run" / "last.pt"
+    args.max_wall_hours = 23.0
+    assert_resume_training_args(checkpoint, args)
+    args.learning_rate *= 2.0
+    with pytest.raises(ValueError, match="frozen training contract"):
+        assert_resume_training_args(checkpoint, args)
+
+    snapshot = write_source_snapshot(tmp_path / "snapshot")
+    verify_source_snapshot(snapshot)
+    corrupted = json.loads(json.dumps(snapshot))
+    first_source = next(iter(corrupted["files"]))
+    corrupted["files"][first_source]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="current source differs"):
+        verify_source_snapshot(corrupted)
+
+
+def test_rollout_refuses_to_censor_a_requested_horizon(tmp_path: Path) -> None:
+    data_dir = _prepare_synthetic_shards(tmp_path)
+    store = PCNOEuler2DShardStore(data_dir)
+    normalization = fit_normalization(store, store.keys)
+    model = PCNOEuler2DResidual(
+        normalization=normalization,
+        k_max=1,
+        domain_lengths=(1.0, 1.0),
+        layers=(8, 8),
+        fc_dim=8,
+    )
+    with pytest.raises(ValueError, match="4 were requested"):
+        rollout_trajectory(
+            model,
+            store,
+            store.keys[0],
+            step_stride=1,
+            start_frame=0,
+            num_steps=4,
+            device=torch.device("cpu"),
+            amp="none",
+        )
+    store.close()
+
+
+def test_causal_boundary_closure_is_current_state_only_and_differentiable(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    store = PCNOEuler2DShardStore(data_dir)
+    key = store.keys[0]
+    policy, metadata = build_graph_causal_boundary_policy(
+        store,
+        key,
+        device=torch.device("cpu"),
+    )
+    state = torch.tensor(
+        np.array(store.states(key)[0:2], copy=True),
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    closed = apply_causal_boundary_conservative_batch(state, policy, gamma=1.4)
+    primitive = conservative_to_primitive_torch(closed)
+    torch.testing.assert_close(closed[:, 4], state[:, 4], rtol=0.0, atol=0.0)
+
+    inflow_nodes = policy["inflow_nodes"]
+    expected_inflow = (
+        policy["freestream"]
+        .reshape(1, 1, 4)
+        .expand(state.shape[0], inflow_nodes.numel(), 4)
+    )
+    torch.testing.assert_close(
+        primitive[:, inflow_nodes], expected_inflow, rtol=1e-6, atol=1e-6
+    )
+    wall_rows = policy["wall_rows"]
+    wall_nodes = policy["target_nodes"][wall_rows]
+    wall_normals = policy["target_normals"][wall_rows]
+    wall_normal_velocity = (
+        primitive[:, wall_nodes, 1:3] * wall_normals.unsqueeze(0)
+    ).sum(dim=-1)
+    torch.testing.assert_close(
+        wall_normal_velocity,
+        torch.zeros_like(wall_normal_velocity),
+        rtol=0.0,
+        atol=1e-6,
+    )
+    node_type = torch.tensor(
+        np.array(store.array(key, "node_type"), copy=True), dtype=torch.int64
+    ).reshape(1, -1, 1)
+    mask = normal_node_mask(
+        node_type,
+        torch.ones((1, state.shape[1], 1), dtype=torch.float32),
+    )
+    assert int(mask.sum()) == 1
+    closed.square().mean().backward()
+    assert state.grad is not None
+    assert bool(torch.isfinite(state.grad).all())
+    assert float(state.grad[:, 4].abs().sum()) > 0.0
+    assert metadata["fallback_target_count"] == 0
+    assert metadata["future_reference_boundary_values"] is False
+    assert metadata["exact_dg_boundary_replay"] is False
+    store.close()
+
+
+def test_minimum_change_boundary_preserves_deployed_free_dofs(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    store = PCNOEuler2DShardStore(data_dir)
+    key = store.keys[0]
+    policy, metadata = build_graph_minimum_change_boundary_policy(
+        store,
+        key,
+        device=torch.device("cpu"),
+    )
+    state = torch.tensor(
+        np.array(store.states(key)[0:2], copy=True),
+        dtype=torch.float32,
+        requires_grad=True,
+    )
+    before = conservative_to_primitive_torch(state)
+    closed_state = apply_minimum_change_boundary_conservative_batch(
+        state, policy, gamma=1.4
+    )
+    closed = conservative_to_primitive_torch(closed_state)
+
+    # The sole interior node and the ordinary (non-junction) outflow node are
+    # untouched. Wall density, pressure, and tangential velocity remain learned.
+    torch.testing.assert_close(closed_state[:, 4], state[:, 4], rtol=0.0, atol=0.0)
+    torch.testing.assert_close(closed_state[:, 5], state[:, 5], rtol=0.0, atol=0.0)
+    wall_node = 1
+    torch.testing.assert_close(
+        closed[:, wall_node, (0, 1, 3)],
+        before[:, wall_node, (0, 1, 3)],
+        rtol=1.0e-6,
+        atol=1.0e-6,
+    )
+    torch.testing.assert_close(
+        closed[:, wall_node, 2],
+        torch.zeros_like(closed[:, wall_node, 2]),
+        rtol=0.0,
+        atol=1.0e-6,
+    )
+    expected_inflow = policy["freestream"].reshape(1, 1, 4).expand(2, 3, 4)
+    torch.testing.assert_close(
+        closed[:, policy["inflow_nodes"]],
+        expected_inflow,
+        rtol=1.0e-6,
+        atol=1.0e-6,
+    )
+    torch.testing.assert_close(
+        apply_minimum_change_boundary_conservative_batch(
+            closed_state, policy, gamma=1.4
+        ),
+        closed_state,
+        rtol=1.0e-6,
+        atol=1.0e-6,
+    )
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        autocast_closed = apply_minimum_change_boundary_conservative_batch(
+            state, policy, gamma=1.4
+        )
+    assert autocast_closed.dtype == state.dtype
+    torch.testing.assert_close(autocast_closed, closed_state, rtol=1.0e-6, atol=1.0e-6)
+
+    loss = (
+        closed[:, wall_node, 0].sum()
+        + closed[:, wall_node, 1].sum()
+        + closed[:, wall_node, 2].sum()
+        + closed[:, wall_node, 3].sum()
+        + closed[:, 5].sum()
+        + closed[:, policy["inflow_nodes"]].sum()
+    )
+    loss.backward()
+    assert state.grad is not None
+    assert float(state.grad[:, wall_node].abs().sum()) > 0.0
+    assert float(state.grad[:, 5].abs().sum()) > 0.0
+    assert float(state.grad[:, policy["inflow_nodes"]].abs().sum()) == 0.0
+    assert metadata["rank_two_wall_corner_count"] == 0
+    assert metadata["incident_wall_junction_count"] == 4
+    assert metadata["future_reference_boundary_values"] is False
+    assert metadata["physical_conservation_claim"] is False
+    store.close()
+
+
+def test_learned_dof_objective_is_dense_only_on_deployed_components(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    store = PCNOEuler2DShardStore(data_dir)
+    key = store.keys[0]
+    normalization = fit_normalization(store, store.keys)
+    model = PCNOEuler2DResidual(
+        normalization=normalization,
+        k_max=1,
+        domain_lengths=(1.0, 1.0),
+        layers=(8, 8),
+        fc_dim=8,
+    )
+    policy, _ = build_graph_minimum_change_boundary_policy(
+        store, key, device=torch.device("cpu")
+    )
+    sample = store.tensor_batch(key, [0], step_stride=1, device=torch.device("cpu"))
+    perturbation = torch.zeros_like(sample["target"])
+    perturbation[:, 0, :] = 0.5  # fixed inflow: must not train the proposal
+    perturbation[:, 1, 0] = 0.05  # wall density: deployed and supervised
+    perturbation[:, 4, 3] = 0.05  # interior energy: deployed and supervised
+    perturbation[:, 5, 0] = 0.05  # outgoing outflow: deployed and supervised
+    raw_prediction = (sample["target"] + perturbation).detach().requires_grad_(True)
+    prediction = close_boundary(raw_prediction, policy, gamma=model.gamma)
+
+    loss, relative_l2 = primary_training_metrics(
+        prediction,
+        raw_prediction,
+        sample["target"],
+        sample,
+        model,
+        boundary_policy=policy,
+        primary_objective=LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+    )
+    assert float(loss.detach()) > 0.0
+    assert float(relative_l2.detach()) > 0.0
+    loss.backward()
+    assert raw_prediction.grad is not None
+    assert float(raw_prediction.grad[:, 0].abs().sum()) == 0.0
+    assert float(raw_prediction.grad[:, 1].abs().sum()) > 0.0
+    assert float(raw_prediction.grad[:, 4].abs().sum()) > 0.0
+    assert float(raw_prediction.grad[:, 5].abs().sum()) > 0.0
+    store.close()
+
+
 def test_proxy_weighted_loss_ignores_masked_nodes() -> None:
     target = torch.zeros((1, 3, 4), dtype=torch.float32)
     prediction = target.clone()
@@ -262,6 +683,21 @@ def test_proxy_weighted_loss_ignores_masked_nodes() -> None:
         weighted_scaled_mse(prediction, target, node_weights, node_mask, scale).item()
         == 0.0
     )
+
+
+def test_boundary_band_normal_node_mask_respects_graph_hops() -> None:
+    node_type = torch.tensor(
+        [[INFLOW_NODE, NORMAL_NODE, NORMAL_NODE, NORMAL_NODE, OUTFLOW_NODE]]
+    )
+    node_mask = torch.ones((1, 5, 1))
+    undirected = torch.tensor([[0, 1], [1, 2], [2, 3], [3, 4]])
+    directed = torch.cat((undirected, undirected.flip(-1)), dim=0).unsqueeze(0)
+
+    one_hop = boundary_band_normal_node_mask(node_type, node_mask, directed, max_hops=1)
+    two_hop = boundary_band_normal_node_mask(node_type, node_mask, directed, max_hops=2)
+
+    assert one_hop[0, :, 0].tolist() == [0.0, 1.0, 0.0, 1.0, 0.0]
+    assert two_hop[0, :, 0].tolist() == [0.0, 1.0, 1.0, 1.0, 0.0]
 
 
 def test_graph_highpass_and_directional_stability_exclude_reference_shock() -> None:
@@ -557,6 +993,8 @@ def test_cpu_training_manifest_split_records_sealed_test_partition(
         "clipping": False,
         "primitive_floors": False,
         "limiter": False,
+        "smoothing": False,
+        "boundary_decode_reencode_closure": False,
         "decode_reencode_projection": False,
     }
     assert split["test_keys"] == ["2"]
@@ -632,6 +1070,8 @@ def test_cpu_training_smoke_uses_requested_stride_and_writes_strict_json(
         "trainer",
         "pcno_euler2d",
         "pcno_core",
+        "cpg_mesh_contract",
+        "evaluator",
     }
     assert all(len(value) == 64 for value in summary["code_sha256"].values())
     assert summary["parent_checkpoint"] is None
@@ -641,6 +1081,711 @@ def test_cpu_training_smoke_uses_requested_stride_and_writes_strict_json(
     assert (output_dir / "best.pt").is_file()
     assert (output_dir / "last.pt").is_file()
     assert (output_dir / "tiny_best.pt").is_file()
+
+
+def test_cpu_serious_contract_uses_full_coverage_and_matched_boundary(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    output_dir = tmp_path / "serious_contract"
+    train_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(output_dir),
+            "--val-count",
+            "1",
+            "--epochs",
+            "1",
+            "--presentation-mode",
+            "full_coverage",
+            "--batch-size",
+            "2",
+            "--val-presentations",
+            "2",
+            "--k-max",
+            "1",
+            "--domain-lengths",
+            "1",
+            "1",
+            "--layers",
+            "8",
+            "8",
+            "--fc-dim",
+            "8",
+            "--scheduler",
+            "warmup_cosine",
+            "--min-learning-rate",
+            "0.0001",
+            "--rollout-every",
+            "1",
+            "--rollout-val-count",
+            "1",
+            "--rollout-steps",
+            "3",
+            "--rollout-checkpoints",
+            "1",
+            "2",
+            "3",
+            "--boundary-mode",
+            "causal_nodal_physical",
+            "--device",
+            "cpu",
+            "--amp",
+            "none",
+        ]
+    )
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    split = json.loads((output_dir / "split.json").read_text(encoding="utf-8"))
+    checkpoint = torch.load(
+        output_dir / "best.pt", map_location="cpu", weights_only=False
+    )
+    exposure = summary["exposure_contract"]
+    assert exposure["presentation_mode"] == "full_coverage"
+    assert exposure["coverage_passes_requested"] == 1
+    assert exposure["unique_eligible_train_transitions"] == 3
+    assert exposure["presentations_per_epoch"] == 3
+    assert exposure["optimizer_steps_per_epoch"] == 2
+    assert exposure["requested_presentations"] == 3
+    assert exposure["requested_optimizer_steps"] == 2
+    assert exposure["microbatch_size"] == 2
+    assert exposure["gradient_accumulation_steps"] == 1
+    assert exposure["effective_batch_size"] == 2
+    assert summary["actual_presentations"] == 3
+    assert summary["actual_optimizer_steps"] == 2
+    assert summary["boundary_mode"] == "causal_nodal_physical"
+    assert summary["raw_recurrence"] is False
+    assert summary["autonomous_recurrence"] is True
+    assert summary["boundary_contract"]["teacher_input_closure"] is True
+    assert summary["boundary_contract"]["proposal_closure"] is True
+    assert summary["boundary_contract"]["recurrence_closure"] is True
+    assert summary["boundary_contract"]["state_loss_mask"] == "normal_nodes_only"
+    assert summary["boundary_contract"]["future_reference_boundary_values"] is False
+    assert summary["inference_interventions"]["decode_reencode_projection"] is True
+    assert summary["last_validation"]["normal_relative_l2"] is not None
+    assert summary["last_validation"]["all_relative_l2"] is not None
+    assert summary["last_validation"]["boundary_relative_l2"] is not None
+    assert split["validation_pair_seed"] == 20261709
+    assert len(split["validation_pairs"]) == 2
+    assert summary["last_rollout"]["endpoint_population_count"] == {
+        "1": 1,
+        "2": 1,
+        "3": 1,
+    }
+    assert checkpoint["boundary_contract"] == summary["boundary_contract"]
+    assert checkpoint["exposure_contract"] == exposure
+    assert checkpoint["source_snapshot"] == summary["source_snapshot"]
+    assert len(checkpoint["source_snapshot"]["source_set_digest"]) == 64
+    assert summary["gpu_max_memory_bytes"] == 0
+    assert summary["gpu_max_reserved_memory_bytes"] == 0
+    assert (output_dir / "run_contract.json").is_file()
+    assert (output_dir / "source_snapshot" / "manifest.json").is_file()
+
+
+def test_cpu_projected_boundary_auxiliary_is_recorded_and_optimized(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    output_dir = tmp_path / "projected_boundary_auxiliary"
+    train_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(output_dir),
+            "--val-count",
+            "1",
+            "--epochs",
+            "1",
+            "--presentations-per-epoch",
+            "2",
+            "--val-presentations",
+            "1",
+            "--batch-size",
+            "2",
+            "--k-max",
+            "1",
+            "--domain-lengths",
+            "1",
+            "1",
+            "--layers",
+            "8",
+            "8",
+            "--fc-dim",
+            "8",
+            "--rollout-every",
+            "1",
+            "--rollout-val-count",
+            "1",
+            "--rollout-steps",
+            "1",
+            "--boundary-mode",
+            "causal_nodal_physical",
+            "--boundary-auxiliary",
+            "projected_target",
+            "--boundary-auxiliary-weight",
+            "0.1",
+            "--device",
+            "cpu",
+            "--amp",
+            "none",
+        ]
+    )
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    objective = summary["boundary_contract"]["training_objective"]
+    assert objective["auxiliary"] == "projected_target"
+    assert objective["auxiliary_weight"] == pytest.approx(0.1)
+    assert objective["projected_target_boundary_nodes"] == "wall_and_outflow"
+    assert objective["fixed_inflow_auxiliary_gradient"] == "excluded"
+    assert summary["last_train"]["boundary_auxiliary_loss"] is not None
+    assert summary["last_train"]["loss"] >= summary["last_train"]["clean_loss"]
+
+
+def test_raw_boundary_reference_auxiliary_has_only_raw_boundary_gradient() -> None:
+    target = torch.ones((1, 3, 4), dtype=torch.float32)
+    prediction = target.clone()
+    raw_prediction = target.clone()
+    raw_prediction[:, 0, :] = 3.0
+    raw_prediction[:, 2, :] = 2.0
+    raw_prediction.requires_grad_()
+    sample = {
+        "node_mask": torch.ones((1, 3, 1), dtype=torch.float32),
+        "node_type": torch.tensor([[NORMAL_NODE, NORMAL_NODE, OUTFLOW_NODE]]),
+        "node_weights": torch.ones((1, 3, 1), dtype=torch.float32),
+    }
+
+    class ScaleOnlyModel:
+        state_scale = torch.ones(4, dtype=torch.float32)
+
+    loss = boundary_auxiliary_loss(
+        prediction,
+        target,
+        sample,
+        ScaleOnlyModel(),
+        boundary_policy={},
+        kind=RAW_BOUNDARY_REFERENCE_AUXILIARY,
+        near_boundary_hops=3,
+        raw_prediction=raw_prediction,
+    )
+    assert loss > 0.0
+    loss.backward()
+    assert raw_prediction.grad is not None
+    assert torch.count_nonzero(raw_prediction.grad[:, :2, :]) == 0
+    assert torch.count_nonzero(raw_prediction.grad[:, 2:, :]) == 4
+
+
+def test_cpu_raw_boundary_reference_auxiliary_is_recorded_and_keeps_causal_recurrence(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    output_dir = tmp_path / "raw_boundary_reference_auxiliary"
+    train_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(output_dir),
+            "--val-count",
+            "1",
+            "--epochs",
+            "1",
+            "--presentations-per-epoch",
+            "2",
+            "--val-presentations",
+            "1",
+            "--batch-size",
+            "2",
+            "--k-max",
+            "1",
+            "--domain-lengths",
+            "1",
+            "1",
+            "--layers",
+            "8",
+            "8",
+            "--fc-dim",
+            "8",
+            "--rollout-every",
+            "1",
+            "--rollout-val-count",
+            "1",
+            "--rollout-steps",
+            "1",
+            "--boundary-mode",
+            "causal_nodal_physical",
+            "--boundary-auxiliary",
+            RAW_BOUNDARY_REFERENCE_AUXILIARY,
+            "--boundary-auxiliary-weight",
+            "0.0018733749",
+            "--device",
+            "cpu",
+            "--amp",
+            "none",
+        ]
+    )
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    objective = summary["boundary_contract"]["training_objective"]
+    assert objective["primary_kind"] == NORMAL_CLOSED_PRIMARY_OBJECTIVE
+    assert objective["auxiliary"] == RAW_BOUNDARY_REFERENCE_AUXILIARY
+    assert objective["auxiliary_weight"] == pytest.approx(0.0018733749)
+    assert (
+        objective["auxiliary_prediction"] == "raw_model_proposal_before_causal_closure"
+    )
+    assert objective["auxiliary_node_population"] == "valid_non_normal_nodes"
+    assert objective["reference_boundary_targets"] == "training_and_validation_only"
+    assert summary["boundary_contract"]["state_loss_mask"] == "normal_nodes_only"
+    assert summary["last_train"]["boundary_auxiliary_loss"] is not None
+    assert summary["last_train"]["loss"] >= summary["last_train"]["clean_loss"]
+    assert summary["last_validation"]["raw_boundary_relative_l2"] is not None
+    assert summary["raw_recurrence"] is False
+    assert summary["boundary_contract"]["recurrence_closure"] is True
+    assert (
+        summary["inference_interventions"]["future_reference_boundary_values"] is False
+    )
+
+
+def test_raw_all_node_primary_objective_backpropagates_through_raw_boundary() -> None:
+    target = torch.ones((1, 3, 4), dtype=torch.float32)
+    prediction = target.clone()
+    raw_prediction = target.clone()
+    raw_prediction[:, 2, :] = 2.0
+    raw_prediction.requires_grad_()
+    sample = {
+        "node_mask": torch.ones((1, 3, 1), dtype=torch.float32),
+        "node_type": torch.tensor([[NORMAL_NODE, NORMAL_NODE, OUTFLOW_NODE]]),
+        "node_weights": torch.ones((1, 3, 1), dtype=torch.float32),
+    }
+
+    class ScaleOnlyModel:
+        state_scale = torch.ones(4, dtype=torch.float32)
+
+    normal_loss, _ = primary_training_metrics(
+        prediction,
+        raw_prediction,
+        target,
+        sample,
+        ScaleOnlyModel(),
+        boundary_policy={},
+        primary_objective=NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+    )
+    raw_loss, _ = primary_training_metrics(
+        prediction,
+        raw_prediction,
+        target,
+        sample,
+        ScaleOnlyModel(),
+        boundary_policy={},
+        primary_objective=RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+    )
+    assert normal_loss == pytest.approx(0.0)
+    assert raw_loss > 0.0
+
+    raw_loss.backward()
+    assert raw_prediction.grad is not None
+    assert torch.count_nonzero(raw_prediction.grad[:, :2, :]) == 0
+    assert torch.count_nonzero(raw_prediction.grad[:, 2:, :]) == 4
+
+
+@pytest.mark.parametrize(
+    "extra_args, message",
+    [
+        ([], "requires causal boundary mode"),
+        (
+            [
+                "--boundary-mode",
+                "causal_nodal_physical",
+                "--boundary-auxiliary",
+                "projected_target",
+                "--boundary-auxiliary-weight",
+                "0.1",
+            ],
+            "boundary auxiliaries are separate studies",
+        ),
+    ],
+)
+def test_raw_all_node_primary_objective_rejects_confounded_contracts(
+    tmp_path: Path,
+    extra_args: list[str],
+    message: str,
+) -> None:
+    args = parse_args(
+        [
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--primary-objective",
+            RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+            *extra_args,
+        ]
+    )
+    with pytest.raises(ValueError, match=message):
+        validate_args(args, torch.device("cpu"))
+
+
+def test_minimum_change_normal_closed_is_a_legal_diagnostic_control(
+    tmp_path: Path,
+) -> None:
+    args = parse_args(
+        [
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--boundary-mode",
+            MINIMUM_CHANGE_BOUNDARY_MODE,
+            "--primary-objective",
+            NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+            "--amp",
+            "none",
+        ]
+    )
+    validate_args(args, torch.device("cpu"))
+
+
+def test_cpu_raw_all_node_supervision_is_recorded_and_keeps_causal_recurrence(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    output_dir = tmp_path / "raw_all_node_primary"
+    train_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(output_dir),
+            "--val-count",
+            "1",
+            "--epochs",
+            "1",
+            "--presentations-per-epoch",
+            "2",
+            "--val-presentations",
+            "1",
+            "--batch-size",
+            "2",
+            "--k-max",
+            "1",
+            "--domain-lengths",
+            "1",
+            "1",
+            "--layers",
+            "8",
+            "8",
+            "--fc-dim",
+            "8",
+            "--rollout-every",
+            "1",
+            "--rollout-val-count",
+            "1",
+            "--rollout-steps",
+            "1",
+            "--boundary-mode",
+            "causal_nodal_physical",
+            "--primary-objective",
+            RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+            "--device",
+            "cpu",
+            "--amp",
+            "none",
+        ]
+    )
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    objective = summary["boundary_contract"]["training_objective"]
+    assert objective["primary_kind"] == RAW_ALL_NODES_PRIMARY_OBJECTIVE
+    assert objective["primary_prediction"] == "raw_model_proposal_before_causal_closure"
+    assert objective["primary_node_population"] == "all_valid_nodes"
+    assert objective["reference_boundary_targets"] == "training_and_validation_only"
+    assert summary["boundary_contract"]["state_loss_mask"] == "all_valid_nodes"
+    assert summary["last_train"]["primary_objective"] == RAW_ALL_NODES_PRIMARY_OBJECTIVE
+    assert summary["last_train"]["boundary_auxiliary_loss"] is None
+    assert summary["last_validation"]["raw_boundary_relative_l2"] is not None
+    assert summary["raw_recurrence"] is False
+    assert (
+        summary["inference_interventions"]["future_reference_boundary_values"] is False
+    )
+
+
+def test_cpu_minimum_change_training_and_validation_protocol(tmp_path: Path) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    output_dir = tmp_path / "minimum_change_training"
+    train_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--output-dir",
+            str(output_dir),
+            "--val-count",
+            "1",
+            "--epochs",
+            "1",
+            "--presentations-per-epoch",
+            "2",
+            "--val-presentations",
+            "1",
+            "--batch-size",
+            "2",
+            "--k-max",
+            "1",
+            "--domain-lengths",
+            "1",
+            "1",
+            "--layers",
+            "8",
+            "8",
+            "--fc-dim",
+            "8",
+            "--rollout-every",
+            "1",
+            "--rollout-val-count",
+            "1",
+            "--rollout-steps",
+            "1",
+            "--boundary-mode",
+            MINIMUM_CHANGE_BOUNDARY_MODE,
+            "--primary-objective",
+            LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+            "--device",
+            "cpu",
+            "--amp",
+            "none",
+        ]
+    )
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    objective = summary["boundary_contract"]["training_objective"]
+    assert summary["boundary_mode"] == MINIMUM_CHANGE_BOUNDARY_MODE
+    assert objective["primary_kind"] == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
+    assert objective["fixed_inflow_target_gradient"] == "zero_through_projection"
+    assert objective["wall_tangential_density_pressure_and_outflow_supervision"] == (
+        "enabled"
+    )
+    assert summary["boundary_contract"]["projection_metric"] == (
+        "euclidean_primitive_variables"
+    )
+    assert summary["last_validation"]["raw_boundary_relative_l2"] is not None
+    assert summary["raw_recurrence"] is False
+
+    evaluation_dir = tmp_path / "minimum_change_protocol_evaluation"
+    evaluate_boundary_protocol_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--checkpoint",
+            str(output_dir / "last.pt"),
+            "--output-dir",
+            str(evaluation_dir),
+            "--one-step-presentations",
+            "1",
+            "--rollout-count",
+            "1",
+            "--rollout-steps",
+            "1",
+            "--rollout-checkpoints",
+            "1",
+            "--device",
+            "cpu",
+            "--amp",
+            "none",
+        ]
+    )
+    evaluation = json.loads(
+        (evaluation_dir / "summary.json").read_text(encoding="utf-8")
+    )
+    assert evaluation["selection_population"] == "checkpoint_validation_split_only"
+    assert evaluation["test_split_opened"] is False
+    assert evaluation["native"]["rollout"]["completion_rate"] == 1.0
+    assert evaluation["minimum_change"]["rollout"]["completion_rate"] == 1.0
+    assert evaluation["native"]["structure"]["completion_rate"] == 1.0
+    assert evaluation["minimum_change"]["structure"]["completion_rate"] == 1.0
+    assert evaluation["native"]["structure"]["endpoints"]["1"]["population_count"] == 1
+    assert evaluation["paired_structure_ratios"]["ratio"] == (
+        "minimum_change_over_native"
+    )
+    assert (
+        evaluation["minimum_change"]["projection_decomposition"][
+            "wall_constraint_max_abs"
+        ]
+        <= 1.0e-6
+    )
+
+
+def test_raw_checkpoint_requires_explicit_causal_initialization_transition(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    checkpoint_path = _write_synthetic_checkpoint(tmp_path, data_dir)
+    output_dir = tmp_path / "causal_continuation"
+    common_args = [
+        "--data-dir",
+        str(data_dir),
+        "--output-dir",
+        str(output_dir),
+        "--init-checkpoint",
+        str(checkpoint_path),
+        "--val-count",
+        "1",
+        "--epochs",
+        "1",
+        "--presentations-per-epoch",
+        "2",
+        "--val-presentations",
+        "1",
+        "--batch-size",
+        "2",
+        "--k-max",
+        "1",
+        "--domain-lengths",
+        "1",
+        "1",
+        "--layers",
+        "8",
+        "8",
+        "8",
+        "--fc-dim",
+        "8",
+        "--rollout-every",
+        "1",
+        "--rollout-val-count",
+        "1",
+        "--rollout-steps",
+        "1",
+        "--boundary-mode",
+        "causal_nodal_physical",
+        "--device",
+        "cpu",
+        "--amp",
+        "none",
+    ]
+
+    with pytest.raises(ValueError, match="boundary modes differ without the exact"):
+        train_main(common_args)
+
+    train_main(
+        [
+            *common_args,
+            "--init-boundary-mode-transition",
+            RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION,
+        ]
+    )
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    run_contract = json.loads(
+        (output_dir / "run_contract.json").read_text(encoding="utf-8")
+    )
+    checkpoint = torch.load(
+        output_dir / "last.pt", map_location="cpu", weights_only=False
+    )
+    transition = summary["initialization_transition"]
+    assert transition["kind"] == RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION
+    assert transition["source_boundary_mode"] == "model_all_nodes"
+    assert transition["target_boundary_mode"] == "causal_nodal_physical"
+    assert transition["model_state_loaded_strictly"] is True
+    assert transition["optimizer_state_loaded"] is False
+    assert transition["scheduler_state_loaded"] is False
+    assert transition["future_reference_boundary_values"] is False
+    assert len(transition["parent_checkpoint_sha256"]) == 64
+    assert len(transition["target_boundary_contract_digest"]) == 64
+    assert (
+        transition["parent_checkpoint_sha256"] == summary["parent_checkpoint"]["sha256"]
+    )
+    assert run_contract["initialization_transition"] == transition
+    assert checkpoint["initialization_transition"] == transition
+    assert checkpoint["boundary_mode"] == "causal_nodal_physical"
+
+
+def test_gradient_accumulation_matches_the_effective_batch_update(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_synthetic_shards(tmp_path)
+    full_batch_dir = tmp_path / "full_batch"
+    accumulated_dir = tmp_path / "accumulated"
+    common_args = [
+        "--data-dir",
+        str(data_dir),
+        "--val-count",
+        "1",
+        "--epochs",
+        "1",
+        "--presentations-per-epoch",
+        "4",
+        "--val-presentations",
+        "2",
+        "--k-max",
+        "1",
+        "--domain-lengths",
+        "1",
+        "1",
+        "--layers",
+        "8",
+        "8",
+        "--fc-dim",
+        "8",
+        "--rollout-every",
+        "1",
+        "--rollout-val-count",
+        "1",
+        "--rollout-steps",
+        "1",
+        "--device",
+        "cpu",
+        "--amp",
+        "none",
+    ]
+    train_main(
+        [
+            *common_args,
+            "--output-dir",
+            str(full_batch_dir),
+            "--batch-size",
+            "4",
+        ]
+    )
+    train_main(
+        [
+            *common_args,
+            "--output-dir",
+            str(accumulated_dir),
+            "--batch-size",
+            "2",
+            "--gradient-accumulation-steps",
+            "2",
+        ]
+    )
+
+    full_checkpoint = torch.load(
+        full_batch_dir / "last.pt", map_location="cpu", weights_only=False
+    )
+    accumulated_checkpoint = torch.load(
+        accumulated_dir / "last.pt", map_location="cpu", weights_only=False
+    )
+    for name, full_parameter in full_checkpoint["model_state"].items():
+        torch.testing.assert_close(
+            accumulated_checkpoint["model_state"][name],
+            full_parameter,
+            rtol=1e-5,
+            atol=1e-7,
+        )
+
+    full_summary = json.loads(
+        (full_batch_dir / "summary.json").read_text(encoding="utf-8")
+    )
+    accumulated_summary = json.loads(
+        (accumulated_dir / "summary.json").read_text(encoding="utf-8")
+    )
+    assert full_summary["actual_optimizer_steps"] == 1
+    assert accumulated_summary["actual_optimizer_steps"] == 1
+    assert full_summary["effective_batch_size"] == 4
+    assert accumulated_summary["microbatch_size"] == 2
+    assert accumulated_summary["gradient_accumulation_steps"] == 2
+    assert accumulated_summary["effective_batch_size"] == 4
+    assert accumulated_summary["last_train"]["loss"] == pytest.approx(
+        full_summary["last_train"]["loss"], rel=1e-6, abs=1e-8
+    )
 
 
 def test_cpu_generated_state_exposure_keeps_clean_anchor_and_raw_contract(
@@ -793,6 +1938,91 @@ def test_official_residual_evaluator_uses_heldout_targets_and_raw_gain_replay(
     test_store.close()
 
 
+def test_official_residual_evaluator_runs_native_causal_checkpoint(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_boundary_synthetic_shards(tmp_path)
+    checkpoint_path = _write_synthetic_checkpoint(tmp_path, data_dir)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint["boundary_mode"] = "causal_nodal_physical"
+    checkpoint["raw_recurrence"] = False
+    checkpoint["boundary_contract"] = {
+        "mode": "causal_nodal_physical",
+        "max_source_hops": 3,
+        "rho_inf": 1.4,
+        "p_inf": 1.0,
+        "policy_digests": {},
+    }
+    torch.save(checkpoint, checkpoint_path)
+
+    output_dir = tmp_path / "native_causal_evaluation"
+    evaluate_main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "--training-data-dir",
+            str(data_dir),
+            "--checkpoint",
+            str(checkpoint_path),
+            "--output-dir",
+            str(output_dir),
+            "--trajectory-keys",
+            "0",
+            "--expected-trajectory-count",
+            "1",
+            "--num-steps",
+            "3",
+            "--endpoint-calls",
+            "1",
+            "2",
+            "3",
+            "--counterfactual",
+            "none",
+            "--device",
+            "cpu",
+        ]
+    )
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["checkpoint"]["boundary_mode"] == "causal_nodal_physical"
+    assert summary["evaluation"]["baseline_boundary_mode"] == ("causal_nodal_physical")
+    assert summary["evaluation"]["candidate_boundary_mode"] is None
+    assert summary["evaluation"]["raw_recurrence"] is False
+    assert summary["evaluation"]["boundary_decode_reencode_closure"] is True
+    assert set(summary["variants"]) == {"persistence", "pcno_baseline"}
+    assert all(summary["diagnostic_gate"]["checks"].values())
+
+    trajectory_rows = list(
+        csv.DictReader(
+            (output_dir / "trajectory_metrics.csv").open(encoding="utf-8", newline="")
+        )
+    )
+    assert len(trajectory_rows) == 2
+    assert {row["variant"] for row in trajectory_rows} == {
+        "persistence",
+        "pcno_baseline",
+    }
+
+    with np.load(output_dir / "trajectories" / "trajectory_0.npz") as artifact:
+        assert artifact["baseline_boundary_mode"].item() == ("causal_nodal_physical")
+        assert "candidate_variant" not in artifact.files
+        metadata = json.loads(artifact["native_boundary_metadata"].item())
+        assert metadata["applied_scope"] == "native_causal_nodal_physical"
+        assert metadata["fallback_target_count"] == 0
+        primitive = conservative_to_primitive_torch(
+            torch.from_numpy(artifact["pcno_baseline_predictions_conservative"])
+        ).numpy()
+        inflow = artifact["node_type"].reshape(-1) == 3
+        mach = float(artifact["mach"].item())
+        expected = np.asarray([1.4, mach, 0.0, 1.0])
+        np.testing.assert_allclose(
+            primitive[:, inflow],
+            np.broadcast_to(expected, primitive[:, inflow].shape),
+            rtol=1e-6,
+            atol=1e-6,
+        )
+
+
 @pytest.mark.parametrize(
     (
         "counterfactual",
@@ -809,7 +2039,8 @@ def test_official_residual_evaluator_uses_heldout_targets_and_raw_gain_replay(
             "causal_nodal_physical",
             "causal_boundary_predictions_conservative",
             "causal_boundary_metadata",
-            "fixed freestream inflow, current-interior slip wall, and current-interior supersonic outflow",
+            "fixed freestream inflow, current-interior slip wall, and "
+            "current-interior supersonic outflow",
         ),
         (
             "fixed_freestream_inflow",

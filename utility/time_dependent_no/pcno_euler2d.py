@@ -16,10 +16,11 @@ They are not asserted to be physical finite-volume cell measures.
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from dataclasses import dataclass
 import hashlib
 import json
+import math
+from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -29,6 +30,18 @@ from torch import nn
 from torch.nn import functional as F
 
 from pcno.pcno import PCNO, compute_Fourier_modes
+from utility.time_dependent_no.cpg_mesh_contract import (
+    INFLOW_NODE,
+    NORMAL_NODE,
+    OUTFLOW_NODE,
+    WALL_NODE,
+    apply_torch_boundary_policy,
+    boundary_stencil_sha256,
+    build_boundary_stencil,
+    build_torch_boundary_policy,
+    freestream_primitive,
+    recover_graph_boundary_geometry,
+)
 
 SCHEMA_VERSION = 1
 NUM_EULER_COMPONENTS = 4
@@ -172,6 +185,469 @@ def conservative_admissibility(
             & (pressure > 0.0)
         ),
     }
+
+
+def build_graph_causal_boundary_policy(
+    store: "PCNOEuler2DShardStore",
+    key: str,
+    *,
+    device: torch.device,
+    max_source_hops: int = 3,
+    rho_inf: float = 1.4,
+    p_inf: float = 1.0,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build the legal graph-native nodal closure used by serious bump training.
+
+    The closure is causal and deterministic but is not an exact replay of the
+    source DG boundary flux. A fallback stencil is rejected because it lacks an
+    inward current-interior source under the registered graph geometry.
+    """
+
+    if max_source_hops < 1:
+        raise ValueError("max_source_hops must be positive")
+    if not math.isfinite(rho_inf) or not math.isfinite(p_inf):
+        raise ValueError("freestream density and pressure must be finite")
+    if rho_inf <= 0.0 or p_inf <= 0.0:
+        raise ValueError("freestream density and pressure must be positive")
+    positions = np.array(store.array(key, "nodes"), copy=True)
+    edges = np.array(store.array(key, "edges"), copy=True)
+    node_type = np.array(store.array(key, "node_type"), copy=True).reshape(-1)
+    geometry = recover_graph_boundary_geometry(
+        pos=positions,
+        edges=edges,
+        node_type=node_type,
+    )
+    stencil = build_boundary_stencil(
+        pos=positions,
+        edges=edges,
+        node_type=node_type,
+        node_normal=geometry["node_normal"],
+        max_source_hops=max_source_hops,
+    )
+    if stencil.fallback_target_count:
+        raise ValueError(f"trajectory {key} boundary stencil used a fallback")
+    gamma = float(store.manifest.get("gamma", 1.4))
+    mach = float(store.entry(key)["mach"])
+    config = {"gamma": gamma, "rho_inf": float(rho_inf), "p_inf": float(p_inf)}
+    policy = build_torch_boundary_policy(
+        torch=torch,
+        device=device,
+        node_type=node_type,
+        node_normal=geometry["node_normal"],
+        wall_normal_coherence=geometry["node_boundary_normal_coherence"],
+        stencil=stencil,
+        mach=mach,
+        config=config,
+    )
+    policy["closure_kind"] = "causal_interior_reconstruction"
+    counts = {
+        "normal": int(np.count_nonzero(node_type == NORMAL_NODE)),
+        "wall": int(np.count_nonzero(node_type == WALL_NODE)),
+        "outflow": int(np.count_nonzero(node_type == OUTFLOW_NODE)),
+        "inflow": int(np.count_nonzero(node_type == INFLOW_NODE)),
+    }
+    if any(counts[name] < 1 for name in ("normal", "wall", "outflow", "inflow")):
+        raise ValueError(
+            f"trajectory {key} lacks a required interior or boundary node type"
+        )
+    if int(stencil.target_nodes.size) != counts["wall"] + counts["outflow"]:
+        raise RuntimeError(f"trajectory {key} has an incomplete boundary stencil")
+    metadata = {
+        "schema": "pcno_graph_causal_nodal_boundary_v1",
+        "trajectory_key": str(key),
+        "geometry_digest": store.entry(key).get("geometry_digest"),
+        "num_nodes": int(node_type.size),
+        "node_type_counts": counts,
+        "max_source_hops": int(max_source_hops),
+        "target_count": int(stencil.target_nodes.size),
+        "entry_count": int(stencil.source_nodes.size),
+        "fallback_target_count": int(stencil.fallback_target_count),
+        "sharp_wall_corner_count": int(policy["sharp_wall_rows"].numel()),
+        "boundary_stencil_sha256": boundary_stencil_sha256(stencil),
+        "config": config,
+        "mach": mach,
+        "policy": (
+            "fixed freestream inflow, current-interior slip wall, and "
+            "current-interior supersonic outflow"
+        ),
+        "exact_dg_boundary_replay": False,
+        "future_reference_boundary_values": False,
+    }
+    metadata["policy_digest"] = digest_mapping(metadata)
+    return policy, metadata
+
+
+def apply_causal_boundary_conservative_batch(
+    state: torch.Tensor,
+    policy: Mapping[str, Any],
+    *,
+    gamma: float,
+) -> torch.Tensor:
+    """Apply one graph policy independently to a homogeneous state batch."""
+
+    if state.ndim != 3 or state.shape[1:] != (int(policy["num_nodes"]), 4):
+        raise ValueError("state must have shape [B,num_nodes,4]")
+    primitive = conservative_to_primitive_torch(state, gamma=gamma)
+    closed = torch.stack(
+        [apply_torch_boundary_policy(torch, sample, policy) for sample in primitive],
+        dim=0,
+    )
+    encoded = primitive_to_conservative_torch(closed, gamma=gamma)
+    boundary_nodes = torch.cat((policy["target_nodes"], policy["inflow_nodes"]), dim=0)
+    output = state.clone()
+    output[:, boundary_nodes] = encoded[:, boundary_nodes]
+    return output
+
+
+def _minimum_change_wall_projectors(
+    geometry: Mapping[str, np.ndarray],
+    *,
+    sharp_corner_coherence: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return nodal velocity projectors for incident slip-wall constraints."""
+
+    if not 0.0 < sharp_corner_coherence < 1.0:
+        raise ValueError("sharp_corner_coherence must lie in (0,1)")
+    node_type = np.asarray(geometry["node_type"]).reshape(-1)
+    boundary_edges = np.asarray(geometry["boundary_edges"], dtype=np.int64)
+    edge_normals = np.asarray(geometry["boundary_edge_normal"], dtype=np.float64)
+    edge_lengths = np.asarray(geometry["boundary_edge_length"], dtype=np.float64)
+    edge_types = np.asarray(
+        geometry["boundary_edge_node_type"], dtype=np.int64
+    ).reshape(-1)
+    if (
+        boundary_edges.shape != (edge_types.size, 2)
+        or edge_normals.shape != (edge_types.size, 2)
+        or edge_lengths.shape != (edge_types.size,)
+    ):
+        raise ValueError("recovered boundary edge geometry is inconsistent")
+
+    incident: list[list[tuple[np.ndarray, float]]] = [
+        [] for _ in range(node_type.size)
+    ]
+    for edge, normal, length, edge_type in zip(
+        boundary_edges, edge_normals, edge_lengths, edge_types, strict=True
+    ):
+        if int(edge_type) != WALL_NODE:
+            continue
+        for node in edge:
+            incident[int(node)].append((normal, float(length)))
+
+    projectors = np.broadcast_to(
+        np.eye(2, dtype=np.float64), (node_type.size, 2, 2)
+    ).copy()
+    constraint_rank = np.zeros(node_type.size, dtype=np.int64)
+    coherence = np.ones(node_type.size, dtype=np.float64)
+    for node, faces in enumerate(incident):
+        if not faces:
+            continue
+        normals = np.stack([normal for normal, _ in faces], axis=0)
+        lengths = np.asarray([length for _, length in faces], dtype=np.float64)
+        normal_sum = np.sum(normals * lengths[:, None], axis=0)
+        normal_sum_norm = float(np.linalg.norm(normal_sum))
+        total_length = float(np.sum(lengths))
+        if (
+            not np.isfinite(normal_sum_norm)
+            or not np.isfinite(total_length)
+            or normal_sum_norm <= 0.0
+            or total_length <= 0.0
+        ):
+            raise ValueError(f"wall constraints at node {node} have no mean normal")
+        coherence[node] = normal_sum_norm / total_length
+        mean_normal = normal_sum / normal_sum_norm
+
+        constraints = mean_normal.reshape(1, 2)
+        if (
+            len(faces) > 1
+            and coherence[node] < sharp_corner_coherence
+            and np.linalg.matrix_rank(normals, tol=1.0e-8) > 1
+        ):
+            constraints = normals
+        gram = constraints @ constraints.T
+        projector = np.eye(2) - constraints.T @ np.linalg.pinv(
+            gram, rcond=1.0e-10
+        ) @ constraints
+        projector = 0.5 * (projector + projector.T)
+        projector[np.abs(projector) < 1.0e-14] = 0.0
+        projectors[node] = projector
+        constraint_rank[node] = int(
+            np.linalg.matrix_rank(constraints, tol=1.0e-8)
+        )
+    return projectors, constraint_rank, coherence
+
+
+def build_graph_minimum_change_boundary_policy(
+    store: PCNOEuler2DShardStore,
+    key: str,
+    *,
+    device: torch.device,
+    rho_inf: float = 1.4,
+    p_inf: float = 1.0,
+    sharp_corner_coherence: float = 0.95,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build a graph-native minimum-change primitive boundary projection.
+
+    Inflow is fixed to the freestream. Slip-wall nodes retain density, pressure,
+    and legal tangential velocity. Outflow is left unchanged when it remains
+    outward-supersonic; callers must treat loss of that condition as a rollout
+    failure because the released nodal data contain no exterior characteristic
+    state. Smooth curved walls use their length-weighted mean normal, while
+    genuinely sharp wall corners enforce every independent incident normal.
+
+    The projection uses the Euclidean primitive-variable metric. It is a legal
+    nodal counterfactual, not a DG face/flux replay or a conservation claim.
+    """
+
+    if not math.isfinite(rho_inf) or not math.isfinite(p_inf):
+        raise ValueError("freestream density and pressure must be finite")
+    if rho_inf <= 0.0 or p_inf <= 0.0:
+        raise ValueError("freestream density and pressure must be positive")
+    positions = np.array(store.array(key, "nodes"), copy=True)
+    edges = np.array(store.array(key, "edges"), copy=True)
+    node_type = np.array(store.array(key, "node_type"), copy=True).reshape(-1)
+    geometry = recover_graph_boundary_geometry(
+        pos=positions,
+        edges=edges,
+        node_type=node_type,
+    )
+    projectors, wall_rank, wall_coherence = _minimum_change_wall_projectors(
+        geometry,
+        sharp_corner_coherence=sharp_corner_coherence,
+    )
+    gamma = float(store.manifest.get("gamma", 1.4))
+    mach = float(store.entry(key)["mach"])
+    stream = freestream_primitive(
+        mach,
+        gamma=gamma,
+        rho_inf=float(rho_inf),
+        p_inf=float(p_inf),
+    )
+    inflow_nodes = np.flatnonzero(node_type == INFLOW_NODE)
+    wall_constrained_nodes = np.flatnonzero(wall_rank > 0)
+    incompatible_inflow = [
+        int(node)
+        for node in inflow_nodes
+        if wall_rank[node] > 0
+        and np.linalg.norm(
+            (np.eye(2) - projectors[node]) @ np.asarray(stream[1:3])
+        )
+        > 1.0e-8
+    ]
+    if incompatible_inflow:
+        raise ValueError(
+            "full freestream inflow conflicts with incident slip-wall constraints "
+            f"at nodes {incompatible_inflow[:8]}"
+        )
+
+    boundary_nodes = np.flatnonzero(node_type != NORMAL_NODE)
+    target_nodes = np.flatnonzero(
+        (node_type == WALL_NODE) | (node_type == OUTFLOW_NODE)
+    )
+    target_type = node_type[target_nodes]
+    wall_rows = np.flatnonzero(target_type == WALL_NODE)
+    outflow_rows = np.flatnonzero(target_type == OUTFLOW_NODE)
+    sharp_wall_rows = np.flatnonzero(wall_rank[target_nodes] > 1)
+    counts = {
+        "normal": int(np.count_nonzero(node_type == NORMAL_NODE)),
+        "wall": int(np.count_nonzero(node_type == WALL_NODE)),
+        "outflow": int(np.count_nonzero(node_type == OUTFLOW_NODE)),
+        "inflow": int(np.count_nonzero(node_type == INFLOW_NODE)),
+    }
+    if any(counts[name] < 1 for name in ("normal", "wall", "outflow", "inflow")):
+        raise ValueError(
+            f"trajectory {key} lacks a required interior or boundary node type"
+        )
+
+    policy = {
+        "closure_kind": "minimum_change_primitive_projection",
+        "num_nodes": int(node_type.size),
+        "node_type": torch.as_tensor(node_type, dtype=torch.long, device=device),
+        "boundary_nodes": torch.as_tensor(
+            boundary_nodes, dtype=torch.long, device=device
+        ),
+        "target_nodes": torch.as_tensor(
+            target_nodes, dtype=torch.long, device=device
+        ),
+        "target_normals": torch.as_tensor(
+            geometry["node_normal"][target_nodes],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "wall_rows": torch.as_tensor(wall_rows, dtype=torch.long, device=device),
+        "outflow_rows": torch.as_tensor(
+            outflow_rows, dtype=torch.long, device=device
+        ),
+        "sharp_wall_rows": torch.as_tensor(
+            sharp_wall_rows, dtype=torch.long, device=device
+        ),
+        "wall_constrained_nodes": torch.as_tensor(
+            wall_constrained_nodes, dtype=torch.long, device=device
+        ),
+        "wall_velocity_projectors": torch.as_tensor(
+            projectors[wall_constrained_nodes],
+            dtype=torch.float32,
+            device=device,
+        ),
+        "wall_constraint_rank": torch.as_tensor(
+            wall_rank[wall_constrained_nodes],
+            dtype=torch.long,
+            device=device,
+        ),
+        "inflow_nodes": torch.as_tensor(
+            inflow_nodes, dtype=torch.long, device=device
+        ),
+        "freestream": torch.as_tensor(stream, dtype=torch.float32, device=device),
+        "gamma": gamma,
+    }
+    metadata = {
+        "schema": "pcno_graph_minimum_change_boundary_v1",
+        "trajectory_key": str(key),
+        "geometry_digest": store.entry(key).get("geometry_digest"),
+        "num_nodes": int(node_type.size),
+        "node_type_counts": counts,
+        "wall_constrained_node_count": int(wall_constrained_nodes.size),
+        "fallback_target_count": 0,
+        "uses_interior_stencil": False,
+        "rank_two_wall_corner_count": int(np.count_nonzero(wall_rank > 1)),
+        "incident_wall_junction_count": int(
+            np.count_nonzero(
+                (wall_rank > 0)
+                & ((node_type == INFLOW_NODE) | (node_type == OUTFLOW_NODE))
+            )
+        ),
+        "minimum_wall_normal_coherence": float(
+            wall_coherence[wall_constrained_nodes].min()
+        ),
+        "sharp_corner_coherence": float(sharp_corner_coherence),
+        "config": {
+            "gamma": gamma,
+            "rho_inf": float(rho_inf),
+            "p_inf": float(p_inf),
+        },
+        "mach": mach,
+        "projection_metric": "euclidean_primitive_variables",
+        "policy": (
+            "fixed freestream inflow; minimum-change slip-wall velocity; "
+            "unchanged outward-supersonic outflow"
+        ),
+        "outflow_characteristic_treatment": (
+            "preserve all outgoing modes while outward normal Mach exceeds one; "
+            "otherwise stop because no exterior incoming characteristic is retained"
+        ),
+        "exact_dg_boundary_replay": False,
+        "physical_conservation_claim": False,
+        "future_reference_boundary_values": False,
+    }
+    metadata["policy_digest"] = digest_mapping(metadata)
+    return policy, metadata
+
+
+def apply_minimum_change_boundary_conservative_batch(
+    state: torch.Tensor,
+    policy: Mapping[str, Any],
+    *,
+    gamma: float,
+) -> torch.Tensor:
+    """Apply the minimum-change boundary projection to a homogeneous batch."""
+
+    if state.ndim != 3 or state.shape[1:] != (int(policy["num_nodes"]), 4):
+        raise ValueError("state must have shape [B,num_nodes,4]")
+    primitive = conservative_to_primitive_torch(state, gamma=gamma)
+    closed = primitive.clone()
+    wall_nodes = policy["wall_constrained_nodes"]
+    if wall_nodes.numel():
+        projectors = policy["wall_velocity_projectors"].to(
+            dtype=closed.dtype, device=closed.device
+        )
+        with torch.autocast(device_type=closed.device.type, enabled=False):
+            projected_velocity = torch.einsum(
+                "nij,bnj->bni",
+                projectors,
+                closed[:, wall_nodes, 1:3],
+            )
+        closed[:, wall_nodes, 1:3] = projected_velocity
+    inflow_nodes = policy["inflow_nodes"]
+    stream = policy["freestream"].to(dtype=closed.dtype, device=closed.device)
+    closed[:, inflow_nodes] = stream
+    encoded = primitive_to_conservative_torch(closed, gamma=gamma)
+    boundary_nodes = policy["boundary_nodes"]
+    output = state.clone()
+    output[:, boundary_nodes] = encoded[:, boundary_nodes]
+    return output
+
+
+def normal_node_mask(
+    node_type: torch.Tensor,
+    node_mask: torch.Tensor,
+) -> torch.Tensor:
+    """Return the padding-aware mask for CPG normal/interior graph nodes."""
+
+    if node_type.ndim == 3 and node_type.shape[-1] == 1:
+        node_type = node_type[..., 0]
+    if node_type.shape != node_mask.shape[:2]:
+        raise ValueError("node_type and node_mask must share batch/node axes")
+    return node_mask * (node_type == NORMAL_NODE).to(dtype=node_mask.dtype).unsqueeze(
+        -1
+    )
+
+
+def boundary_band_normal_node_mask(
+    node_type: torch.Tensor,
+    node_mask: torch.Tensor,
+    directed_edges: torch.Tensor,
+    *,
+    max_hops: int,
+) -> torch.Tensor:
+    """Select normal nodes within ``max_hops`` graph edges of a boundary."""
+
+    if max_hops < 1:
+        raise ValueError("max_hops must be positive")
+    if node_mask.ndim != 3 or node_mask.shape[-1] != 1:
+        raise ValueError("node_mask must have shape [B,N,1]")
+    batch_size, num_nodes, _ = node_mask.shape
+    if node_type.ndim == 3 and node_type.shape[-1] == 1:
+        node_type = node_type[..., 0]
+    if node_type.shape != (batch_size, num_nodes):
+        raise ValueError("node_type and node_mask must share batch/node axes")
+    if (
+        directed_edges.ndim != 3
+        or directed_edges.shape[0] != batch_size
+        or directed_edges.shape[-1] != 2
+    ):
+        raise ValueError("directed_edges must have shape [B,E,2]")
+
+    valid = node_mask[..., 0].to(dtype=torch.bool)
+    normal = valid & (node_type == NORMAL_NODE)
+    boundary = valid & ~normal
+    if not bool(boundary.any(dim=1).all()):
+        raise ValueError("every sample must contain at least one boundary node")
+
+    edges = directed_edges.to(dtype=torch.long)
+    if edges.numel() and (bool((edges < 0).any()) or bool((edges >= num_nodes).any())):
+        raise ValueError("directed edge index lies outside the node axis")
+    target = edges[..., 0]
+    source = edges[..., 1]
+    batch = torch.arange(batch_size, device=node_mask.device).unsqueeze(1)
+    valid_edges = valid[batch, target] & valid[batch, source]
+
+    reached = boundary.clone()
+    frontier = boundary
+    for _ in range(max_hops):
+        neighbor_count = torch.zeros(
+            (batch_size, num_nodes), dtype=torch.int64, device=node_mask.device
+        )
+        neighbor_count.scatter_add_(
+            1,
+            target,
+            (frontier[batch, source] & valid_edges).to(dtype=torch.int64),
+        )
+        frontier = (neighbor_count > 0) & ~reached
+        reached |= frontier
+
+    band = normal & reached
+    if not bool(band.any(dim=1).all()):
+        raise ValueError("boundary band does not contain a normal node in every sample")
+    return band.to(dtype=node_mask.dtype).unsqueeze(-1)
 
 
 def apply_admissible_primitive_noise(
@@ -980,6 +1456,35 @@ def balanced_presentations(
     return presentations
 
 
+def full_coverage_presentations(
+    store: PCNOEuler2DShardStore,
+    keys: Sequence[str],
+    *,
+    step_stride: int,
+    rng: np.random.Generator,
+    minimum_time_index: int = 0,
+) -> list[tuple[str, int]]:
+    """Visit every eligible transition exactly once in shuffled order."""
+
+    trajectory_keys = [str(key) for key in keys]
+    if not trajectory_keys:
+        raise ValueError("full coverage requires at least one trajectory")
+    if step_stride < 1 or minimum_time_index < 0:
+        raise ValueError("step_stride must be positive and minimum time nonnegative")
+    presentations: list[tuple[str, int]] = []
+    for key in rng.permutation(trajectory_keys).tolist():
+        upper = int(store.entry(str(key))["num_steps"]) - int(step_stride)
+        if upper <= minimum_time_index:
+            raise ValueError(
+                f"trajectory {key} is too short for stride {step_stride} "
+                f"and minimum time {minimum_time_index}"
+            )
+        indices = np.arange(minimum_time_index, upper, dtype=np.int64)
+        rng.shuffle(indices)
+        presentations.extend((str(key), int(index)) for index in indices.tolist())
+    return presentations
+
+
 def fixed_tiny_presentations(
     store: PCNOEuler2DShardStore,
     keys: Sequence[str],
@@ -1021,6 +1526,23 @@ def homogeneous_presentation_batches(
         order = rng.permutation(len(batches))
         batches = [batches[int(index)] for index in order]
     return batches
+
+
+def homogeneous_optimizer_step_count(
+    pairs: Sequence[tuple[str, int]],
+    *,
+    batch_size: int,
+) -> int:
+    """Count optimizer steps without materializing homogeneous batches."""
+
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    counts: dict[str, int] = {}
+    for key, _ in pairs:
+        counts[str(key)] = counts.get(str(key), 0) + 1
+    if not counts:
+        raise ValueError("optimizer-step accounting requires at least one pair")
+    return int(sum(math.ceil(count / batch_size) for count in counts.values()))
 
 
 def parameter_count(model: nn.Module) -> int:

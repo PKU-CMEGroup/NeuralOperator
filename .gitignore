@@ -23,3 +23,7 @@ wandb/
 __pycache__/
 .pytest_cache/
 .pytest_tmp/
+pytest-cache-files-*/
+
+# Codex-local transfer bundles and scratch work
+.codex_tmp/

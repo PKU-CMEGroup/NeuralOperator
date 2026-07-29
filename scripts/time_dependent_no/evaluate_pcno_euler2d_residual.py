@@ -2,11 +2,11 @@
 """Evaluate the serious conservative-residual PCNO on held-out Euler shards.
 
 The evaluator is deliberately narrower than D013.  It runs the frozen model on
-every selected trajectory under raw ``model_all_nodes`` recurrence, compares it
-with persistence, and evaluates exactly one predeclared frozen diagnostic
-counterfactual.  The default attenuates the pointwise branch after layer zero.
-The alternative reuses Line 2's validated causal nodal boundary geometry.  It
-is a checkpoint-mismatch sensitivity, not a fairly trained autonomous model.
+every selected trajectory under the checkpoint's native autonomous recurrence
+and compares it with persistence.  Historical ``model_all_nodes`` checkpoints
+may additionally run exactly one predeclared diagnostic counterfactual.  A
+checkpoint trained with the causal nodal boundary contract is evaluated only
+under that same native contract; it is not relabeled as a raw recurrence.
 The evaluator never trains or edits the checkpoint.
 
 Reconstructed vertex weights are reported only as quadrature proxies.  The CPG
@@ -53,6 +53,8 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     Euler2DNormalization,
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
+    apply_causal_boundary_conservative_batch,
+    build_graph_causal_boundary_policy,
     conservative_to_primitive_torch,
     parameter_count,
     primitive_to_conservative_torch,
@@ -69,10 +71,14 @@ from utility.time_dependent_no.pcno_ripple_diagnostics import (  # noqa: E402
 
 EVALUATION_SCHEMA = "pcno_euler2d_official_rollout_v1"
 CHECKPOINT_SCHEMA_VERSION = 4
+NO_COUNTERFACTUAL = "none"
 POINTWISE_TAIL_GAIN = 0.75
 POINTWISE_COUNTERFACTUAL = "pointwise_tail_gain_0p75"
 CAUSAL_BOUNDARY_COUNTERFACTUAL = "causal_nodal_boundary"
 FIXED_INFLOW_COUNTERFACTUAL = "fixed_freestream_inflow"
+NATIVE_CAUSAL_BOUNDARY_SCOPE = "native_causal_nodal_physical"
+CAUSAL_BOUNDARY_MODE = "causal_nodal_physical"
+MINIMUM_CHANGE_BOUNDARY_MODE = "minimum_change_nodal_physical"
 POINTWISE_VARIANT = "pcno_pointwise_tail_gain_0p75"
 CAUSAL_BOUNDARY_VARIANT = "pcno_causal_nodal_boundary_sensitivity"
 FIXED_INFLOW_VARIANT = "pcno_fixed_freestream_inflow_sensitivity"
@@ -107,12 +113,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--counterfactual",
         choices=(
+            NO_COUNTERFACTUAL,
             POINTWISE_COUNTERFACTUAL,
             CAUSAL_BOUNDARY_COUNTERFACTUAL,
             FIXED_INFLOW_COUNTERFACTUAL,
         ),
         default=POINTWISE_COUNTERFACTUAL,
-        help="Run exactly one frozen diagnostic counterfactual.",
+        help="Run no counterfactual or exactly one frozen diagnostic counterfactual.",
     )
     parser.add_argument(
         "--boundary-mesh-audit",
@@ -248,10 +255,22 @@ def load_checkpoint(path: Path) -> dict[str, Any]:
         raise ValueError(f"checkpoint is missing required fields: {missing}")
     if int(checkpoint["checkpoint_schema_version"]) != CHECKPOINT_SCHEMA_VERSION:
         raise ValueError("unsupported PCNO checkpoint schema")
-    if checkpoint["boundary_mode"] != "model_all_nodes":
-        raise ValueError("official autonomous evaluation requires model_all_nodes")
-    if checkpoint["raw_recurrence"] is not True:
-        raise ValueError("checkpoint does not declare raw recurrence")
+    boundary_mode = str(checkpoint["boundary_mode"])
+    if boundary_mode not in {
+        "model_all_nodes",
+        CAUSAL_BOUNDARY_MODE,
+        MINIMUM_CHANGE_BOUNDARY_MODE,
+    }:
+        raise ValueError(f"unsupported checkpoint boundary mode: {boundary_mode}")
+    expected_raw = boundary_mode == "model_all_nodes"
+    if checkpoint["raw_recurrence"] is not expected_raw:
+        raise ValueError("checkpoint recurrence declaration contradicts boundary mode")
+    if boundary_mode in {CAUSAL_BOUNDARY_MODE, MINIMUM_CHANGE_BOUNDARY_MODE}:
+        boundary_contract = checkpoint.get("boundary_contract")
+        if not isinstance(boundary_contract, Mapping):
+            raise ValueError("hard-boundary checkpoint lacks its boundary contract")
+        if str(boundary_contract.get("mode")) != boundary_mode:
+            raise ValueError("checkpoint boundary contract mode is inconsistent")
     return dict(checkpoint)
 
 
@@ -548,10 +567,12 @@ def apply_causal_boundary_conservative(
     gamma: float,
     scope: str,
 ) -> torch.Tensor:
-    """Apply Line 2's primitive nodal policy to one conservative PCNO state."""
+    """Apply a registered primitive nodal policy to one conservative state."""
 
     if state.ndim != 3 or state.shape[0] != 1 or state.shape[-1] != 4:
         raise ValueError("causal boundary policy expects state shape [1,N,4]")
+    if scope == NATIVE_CAUSAL_BOUNDARY_SCOPE:
+        return apply_causal_boundary_conservative_batch(state, policy, gamma=gamma)
     primitive = conservative_to_primitive_torch(state[0], gamma=gamma)
     if scope == CAUSAL_BOUNDARY_COUNTERFACTUAL:
         bounded = apply_torch_boundary_policy(torch, primitive, policy)
@@ -1447,17 +1468,28 @@ def main(argv: Sequence[str] | None = None) -> None:
     keys = select_trajectory_keys(args, test_store)
     model = build_model(checkpoint, device)
     identity_gains, candidate_gains = branch_gain_profiles(model)
+    native_boundary_mode = str(checkpoint["boundary_mode"])
+    if native_boundary_mode == CAUSAL_BOUNDARY_MODE and (
+        args.counterfactual != NO_COUNTERFACTUAL
+    ):
+        raise ValueError(
+            "causal-boundary checkpoints require --counterfactual none for native "
+            "evaluation"
+        )
+    candidate_variant = None
+    candidate_boundary_mode = None
+    candidate_prediction_field = None
+    boundary_audit = None
     if args.counterfactual == POINTWISE_COUNTERFACTUAL:
         candidate_variant = POINTWISE_VARIANT
         candidate_boundary_mode = "model_all_nodes"
         candidate_prediction_field = "pointwise_gain_predictions_conservative"
-        boundary_audit = None
     elif args.counterfactual == CAUSAL_BOUNDARY_COUNTERFACTUAL:
         candidate_variant = CAUSAL_BOUNDARY_VARIANT
-        candidate_boundary_mode = "causal_nodal_physical"
+        candidate_boundary_mode = CAUSAL_BOUNDARY_MODE
         candidate_prediction_field = "causal_boundary_predictions_conservative"
         boundary_audit = load_boundary_mesh_audit(args.boundary_mesh_audit, keys)
-    else:
+    elif args.counterfactual == FIXED_INFLOW_COUNTERFACTUAL:
         candidate_variant = FIXED_INFLOW_VARIANT
         candidate_boundary_mode = "fixed_freestream_inflow_model_other_nodes"
         candidate_prediction_field = "fixed_inflow_predictions_conservative"
@@ -1498,34 +1530,62 @@ def main(argv: Sequence[str] | None = None) -> None:
         sample = test_store.tensor_sample(
             key, args.start_frame, step_stride=step_stride, device=device
         )
-        standard = model_call(model, sample, sample["current"])
-        replay = model_call(
-            model, sample, sample["current"], branch_gains=identity_gains
-        )
-        replay_delta = (
-            replay[0].float().cpu().numpy() - standard[0].float().cpu().numpy()
-        )
-        gain_one_rows.append(
-            {
-                "trajectory": key,
-                "max_abs": float(np.max(np.abs(replay_delta))),
-                "relative_l2": weighted_relative_l2_numpy(
-                    replay[0].float().cpu().numpy(),
-                    standard[0].float().cpu().numpy(),
-                    proxy_weights,
-                    np.asarray(checkpoint["normalization"]["state_scale"]),
-                ),
-            }
-        )
-
-        boundary_policy = None
-        boundary_metadata = None
-        if boundary_audit is not None:
-            boundary_policy, boundary_metadata = build_validated_boundary_policy(
-                boundary_audit, test_store, key, device=device
+        if native_boundary_mode == "model_all_nodes":
+            standard = model_call(model, sample, sample["current"])
+            replay = model_call(
+                model, sample, sample["current"], branch_gains=identity_gains
             )
-            boundary_metadata["applied_scope"] = args.counterfactual
-            boundary_metadata["policy"] = (
+            replay_delta = (
+                replay[0].float().cpu().numpy() - standard[0].float().cpu().numpy()
+            )
+            gain_one_rows.append(
+                {
+                    "trajectory": key,
+                    "max_abs": float(np.max(np.abs(replay_delta))),
+                    "relative_l2": weighted_relative_l2_numpy(
+                        replay[0].float().cpu().numpy(),
+                        standard[0].float().cpu().numpy(),
+                        proxy_weights,
+                        np.asarray(checkpoint["normalization"]["state_scale"]),
+                    ),
+                }
+            )
+
+        native_boundary_policy = None
+        native_boundary_metadata = None
+        if native_boundary_mode == CAUSAL_BOUNDARY_MODE:
+            native_contract = checkpoint["boundary_contract"]
+            native_boundary_policy, native_boundary_metadata = (
+                build_graph_causal_boundary_policy(
+                    test_store,
+                    key,
+                    device=device,
+                    max_source_hops=int(native_contract["max_source_hops"]),
+                    rho_inf=float(native_contract["rho_inf"]),
+                    p_inf=float(native_contract["p_inf"]),
+                )
+            )
+            expected_policy_digests = native_contract.get("policy_digests", {})
+            if key in expected_policy_digests and (
+                native_boundary_metadata["policy_digest"]
+                != expected_policy_digests[key]
+            ):
+                raise ValueError(
+                    f"trajectory {key} native boundary policy digest changed"
+                )
+            native_boundary_metadata["applied_scope"] = NATIVE_CAUSAL_BOUNDARY_SCOPE
+            native_boundary_metadata["source"] = "checkpoint_native_contract"
+
+        candidate_boundary_policy = None
+        candidate_boundary_metadata = None
+        if boundary_audit is not None:
+            candidate_boundary_policy, candidate_boundary_metadata = (
+                build_validated_boundary_policy(
+                    boundary_audit, test_store, key, device=device
+                )
+            )
+            candidate_boundary_metadata["applied_scope"] = args.counterfactual
+            candidate_boundary_metadata["policy"] = (
                 "fixed freestream inflow, current-interior slip wall, and "
                 "current-interior supersonic outflow"
                 if args.counterfactual == CAUSAL_BOUNDARY_COUNTERFACTUAL
@@ -1547,8 +1607,12 @@ def main(argv: Sequence[str] | None = None) -> None:
                 step_stride=step_stride,
                 device=device,
                 branch_gains=None,
+                boundary_policy=native_boundary_policy,
+                boundary_scope=NATIVE_CAUSAL_BOUNDARY_SCOPE,
             ),
-            candidate_variant: rollout_variant(
+        }
+        if candidate_variant is not None:
+            results[candidate_variant] = rollout_variant(
                 model,
                 test_store,
                 key,
@@ -1561,10 +1625,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                     if args.counterfactual == POINTWISE_COUNTERFACTUAL
                     else None
                 ),
-                boundary_policy=boundary_policy,
+                boundary_policy=candidate_boundary_policy,
                 boundary_scope=args.counterfactual,
-            ),
-        }
+            )
         for variant, result in results.items():
             summary, variant_calls, variant_endpoints = trajectory_metrics(
                 variant,
@@ -1616,10 +1679,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             "physical_target_times": target_indices.astype(np.float64) * dt,
             "physical_delta_t": np.asarray(delta_t, dtype=np.float64),
             "mach": np.asarray(test_store.entry(key)["mach"], dtype=np.float64),
-            "boundary_mode": np.asarray("model_all_nodes"),
-            "baseline_boundary_mode": np.asarray("model_all_nodes"),
-            "candidate_boundary_mode": np.asarray(candidate_boundary_mode),
-            "candidate_variant": np.asarray(candidate_variant),
+            "boundary_mode": np.asarray(native_boundary_mode),
+            "baseline_boundary_mode": np.asarray(native_boundary_mode),
             "coordinate_convention": np.asarray(
                 test_store.manifest["coordinate_convention"]
             ),
@@ -1642,50 +1703,58 @@ def main(argv: Sequence[str] | None = None) -> None:
                 ),
                 dtype=np.int64,
             ),
-            "candidate_valid_length": np.asarray(
-                results[candidate_variant]["valid_length"],
-                dtype=np.int64,
+
+            "weight_provenance": np.asarray(
+                "reconstructed_vertex_lumped_proxy_and_equal_node_proxy"
             ),
-            "candidate_failure_cause": np.asarray(
+        }
+        if native_boundary_metadata is not None:
+            artifact_arrays["native_boundary_metadata"] = np.asarray(
+                json.dumps(native_boundary_metadata, sort_keys=True)
+            )
+        if candidate_variant is not None:
+            artifact_arrays["candidate_boundary_mode"] = np.asarray(
+                candidate_boundary_mode
+            )
+            artifact_arrays["candidate_variant"] = np.asarray(candidate_variant)
+            artifact_arrays["candidate_valid_length"] = np.asarray(
+                results[candidate_variant]["valid_length"], dtype=np.int64
+            )
+            artifact_arrays["candidate_failure_cause"] = np.asarray(
                 results[candidate_variant]["failure_cause"]
-            ),
-            "candidate_failure_call": np.asarray(
+            )
+            artifact_arrays["candidate_failure_call"] = np.asarray(
                 (
                     -1
                     if results[candidate_variant]["failure_call"] is None
                     else results[candidate_variant]["failure_call"]
                 ),
                 dtype=np.int64,
-            ),
-            "weight_provenance": np.asarray(
-                "reconstructed_vertex_lumped_proxy_and_equal_node_proxy"
-            ),
-        }
-        if args.counterfactual == POINTWISE_COUNTERFACTUAL:
+            )
             artifact_arrays[candidate_prediction_field] = results[candidate_variant][
                 "predictions"
             ]
-            artifact_arrays["pointwise_layer_gains"] = np.asarray(
-                [1.0] + [POINTWISE_TAIL_GAIN] * (len(model.backbone.ws) - 1),
-                dtype=np.float32,
-            )
-        else:
-            artifact_arrays[candidate_prediction_field] = results[candidate_variant][
-                "predictions"
-            ]
-            metadata_field = (
-                "causal_boundary_metadata"
-                if args.counterfactual == CAUSAL_BOUNDARY_COUNTERFACTUAL
-                else "fixed_inflow_metadata"
-            )
-            artifact_arrays[metadata_field] = np.asarray(
-                json.dumps(boundary_metadata, sort_keys=True)
-            )
+            if args.counterfactual == POINTWISE_COUNTERFACTUAL:
+                artifact_arrays["pointwise_layer_gains"] = np.asarray(
+                    [1.0] + [POINTWISE_TAIL_GAIN] * (len(model.backbone.ws) - 1),
+                    dtype=np.float32,
+                )
+            else:
+                metadata_field = (
+                    "causal_boundary_metadata"
+                    if args.counterfactual == CAUSAL_BOUNDARY_COUNTERFACTUAL
+                    else "fixed_inflow_metadata"
+                )
+                artifact_arrays[metadata_field] = np.asarray(
+                    json.dumps(candidate_boundary_metadata, sort_keys=True)
+                )
         if results["pcno_baseline"]["failed_proposal"] is not None:
             artifact_arrays["baseline_failed_proposal"] = results["pcno_baseline"][
                 "failed_proposal"
             ].astype(np.float32)
-        if results[candidate_variant]["failed_proposal"] is not None:
+        if candidate_variant is not None and (
+            results[candidate_variant]["failed_proposal"] is not None
+        ):
             artifact_arrays["candidate_failed_proposal"] = results[candidate_variant][
                 "failed_proposal"
             ].astype(np.float32)
@@ -1702,41 +1771,61 @@ def main(argv: Sequence[str] | None = None) -> None:
                     gamma=model.gamma,
                     delta_t=delta_t,
                 ),
-                "causal_boundary": boundary_metadata,
+                "native_boundary": native_boundary_metadata,
+                "counterfactual_boundary": candidate_boundary_metadata,
             }
         )
-        print(
-            json.dumps(
-                {
-                    "trajectory": key,
-                    "baseline_valid_length": results["pcno_baseline"]["valid_length"],
-                    "candidate_variant": candidate_variant,
-                    "candidate_valid_length": results[candidate_variant][
-                        "valid_length"
-                    ],
-                },
-                sort_keys=True,
-            ),
-            flush=True,
-        )
+        progress = {
+            "trajectory": key,
+            "baseline_valid_length": results["pcno_baseline"]["valid_length"],
+            "candidate_variant": candidate_variant,
+        }
+        if candidate_variant is not None:
+            progress["candidate_valid_length"] = results[candidate_variant][
+                "valid_length"
+            ]
+        print(json.dumps(progress, sort_keys=True), flush=True)
         if device.type == "cuda":
             torch.cuda.empty_cache()
 
+    variant_names = ["persistence", "pcno_baseline"]
+    if candidate_variant is not None:
+        variant_names.append(candidate_variant)
     aggregates = {
         variant: aggregate_variant(
             [row for row in trajectory_rows if row["variant"] == variant]
         )
-        for variant in (
-            "persistence",
-            "pcno_baseline",
-            candidate_variant,
-        )
+        for variant in variant_names
     }
     grouped = grouped_evaluation(trajectory_rows, test_store, training_store)
-    gate = (
-        diagnostic_gate(aggregates, endpoint_rows, gain_one_rows)
-        if args.counterfactual == POINTWISE_COUNTERFACTUAL
-        else boundary_sensitivity_gate(
+    if args.counterfactual == NO_COUNTERFACTUAL:
+        native_metadata = [
+            row["native_boundary"]
+            for row in trajectory_contracts
+            if row["native_boundary"] is not None
+        ]
+        gate = {
+            "status": "descriptive_native_evaluation",
+            "checks": {
+                "all_requested_trajectories_evaluated": (
+                    aggregates["pcno_baseline"]["trajectories"] == len(keys)
+                ),
+                "native_boundary_policy_count_matches": (
+                    native_boundary_mode != CAUSAL_BOUNDARY_MODE
+                    or len(native_metadata) == len(keys)
+                ),
+                "native_boundary_policies_use_no_fallback": all(
+                    int(item["fallback_target_count"]) == 0
+                    for item in native_metadata
+                ),
+            },
+            "learned_method_authorized": False,
+            "interpretation": "checkpoint-native autonomous evaluation only",
+        }
+    elif args.counterfactual == POINTWISE_COUNTERFACTUAL:
+        gate = diagnostic_gate(aggregates, endpoint_rows, gain_one_rows)
+    else:
+        gate = boundary_sensitivity_gate(
             aggregates,
             endpoint_rows,
             trajectory_rows,
@@ -1745,8 +1834,14 @@ def main(argv: Sequence[str] | None = None) -> None:
                 1.10 if args.counterfactual == CAUSAL_BOUNDARY_COUNTERFACTUAL else 1.05
             ),
         )
-    )
-    if args.counterfactual == POINTWISE_COUNTERFACTUAL:
+    candidate_description = None
+    if args.counterfactual == NO_COUNTERFACTUAL:
+        verified_claim = (
+            "frozen-checkpoint behavior on dataset ground truth under its declared "
+            "native autonomous boundary and recurrence contract"
+        )
+        plausible_claim = "none; this is a descriptive native evaluation"
+    elif args.counterfactual == POINTWISE_COUNTERFACTUAL:
         candidate_description = {
             "kind": "single frozen diagnostic counterfactual, not trained method",
             "pointwise_layer_gains": [1.0]
@@ -1789,6 +1884,17 @@ def main(argv: Sequence[str] | None = None) -> None:
             "whether model-all-nodes boundary drift materially contributes to the "
             "observed PCNO admissibility failures"
         )
+    variants: dict[str, Any] = {
+        "persistence": "repeat the initial state without model calls",
+        "pcno_baseline": {
+            "kind": "unmodified frozen checkpoint under its native recurrence",
+            "boundary_mode": native_boundary_mode,
+            "raw_recurrence": bool(checkpoint["raw_recurrence"]),
+            "future_reference_boundary_values": False,
+        },
+    }
+    if candidate_variant is not None:
+        variants[candidate_variant] = candidate_description
     summary = {
         "schema": EVALUATION_SCHEMA,
         "status": "complete",
@@ -1803,6 +1909,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             "normalization": checkpoint["normalization"],
             "parameter_count": parameter_count(model),
             "selection_rule": checkpoint.get("best_selection"),
+            "boundary_mode": native_boundary_mode,
+            "raw_recurrence": bool(checkpoint["raw_recurrence"]),
+            "boundary_contract": checkpoint.get("boundary_contract"),
         },
         "preprocessing_contract": contract,
         "evaluation": {
@@ -1814,10 +1923,13 @@ def main(argv: Sequence[str] | None = None) -> None:
             "physical_horizon": args.num_steps * delta_t,
             "endpoint_calls": args.endpoint_calls,
             "device": str(device),
-            "baseline_boundary_mode": "model_all_nodes",
-            "candidate_boundary_mode": candidate_description["boundary_mode"],
+            "baseline_boundary_mode": native_boundary_mode,
+            "candidate_boundary_mode": candidate_boundary_mode,
             "counterfactual": args.counterfactual,
-            "raw_recurrence": True,
+            "raw_recurrence": bool(checkpoint["raw_recurrence"]),
+            "boundary_decode_reencode_closure": (
+                native_boundary_mode == CAUSAL_BOUNDARY_MODE
+            ),
             "future_reference_boundary_values": False,
             "clipping_floors_smoothing_limiter": False,
             "ground_truth": "held-out test shard states",
@@ -1826,11 +1938,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "excludes CPU copy, metrics, and artifact compression"
             ),
         },
-        "variants": {
-            "persistence": "repeat the initial state without model calls",
-            "pcno_baseline": "unmodified frozen checkpoint",
-            candidate_variant: candidate_description,
-        },
+        "variants": variants,
         "aggregates": aggregates,
         "grouped_geometry_parameter_evaluation": grouped,
         "gain_one_replay": gain_one_rows,
@@ -1870,7 +1978,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     write_csv(args.output_dir / "call_metrics.csv", call_rows)
     write_csv(args.output_dir / "endpoint_metrics.csv", endpoint_rows)
     write_csv(args.output_dir / "grouped_metrics.csv", grouped)
-    write_csv(args.output_dir / "gain_one_replay.csv", gain_one_rows)
+    if gain_one_rows:
+        write_csv(args.output_dir / "gain_one_replay.csv", gain_one_rows)
     training_store.close()
     test_store.close()
     print(json.dumps(json_safe(gate), indent=2, sort_keys=True), flush=True)

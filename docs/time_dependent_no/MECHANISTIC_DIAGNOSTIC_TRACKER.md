@@ -2,15 +2,2097 @@
 
 Date: 2026-07-04
 Evidence frozen through: 2026-07-23
-Consolidated: 2026-07-26
-Status: Frozen evidence ledger; not an experiment queue
+Consolidated: 2026-07-29
+Line 3 restart registered: 2026-07-26
+L3R-U0/U1 diagnostics authorized: 2026-07-27
+Boundary protocol evidence logged: 2026-07-29
+Status: Frozen evidence ledger plus Line 3 register; minimum-change validation audit and bounded pilots are closed without a serious new checkpoint
 
 This file preserves the historical experiment contracts, results, and stopping
 decisions. Status words and forward-looking language inside dated entries record
 what was true at that point in the campaign; they do not authorize current
-work. The current queue is report-only. Current method-design and authorization
-precedence is `RESEARCH_DIRECTION_DECISION.md`, then `HANDOFF.md`. Retired
-one-off implementations are recoverable from pre-cleanup commit `729091b`.
+work. Current method-design and authorization precedence is
+`RESEARCH_DIRECTION_DECISION.md`, then `HANDOFF.md`. Retired one-off
+implementations are recoverable from pre-cleanup commit `729091b`.
+
+## Prospective Line 3 Restart Register
+
+Explicit human direction following mentor review reopened Line 3 at the
+scientific-planning level on 2026-07-26. The rows below reserve stable IDs and
+dependencies and now include the closed U0/U1 diagnostic outcomes. On
+2026-07-27 the owner explicitly authorized L3R-B1P and conditional L3R-B1 under
+the exact replacement contract in the decision file. B1P passed and B1 later
+completed 34/40 passes under its wall guard without an eligible checkpoint. The owner later authorized independent zw-gpu L3R-BC0P and
+conditional paired BC0 without modifying B1. BC0P passed its exact source,
+data, replay, policy, stream, and finite-backward checks, then failed the frozen
+14 GiB peak-reserved-memory gate. It is closed and no BC0 process exists.
+BG0P later passed its gradient and memory gates; all three matched BG0 rows
+completed, but both auxiliaries failed the registered H20/H79 utility gate and
+neither is selected. On 2026-07-28 the owner then authorized RB0P and one
+conditional RB0 arm to test direct raw all-node reference supervision under the
+same causal recurrence, reusing the retained BG0 control. RB0P passed and RB0
+completed: it learned raw boundary labels and improved H20, but failed H79
+state/normal and structural gates, so both rows are closed. Exact claims, gates,
+anti-claims, and cost discipline are normative in
+`RESEARCH_DIRECTION_DECISION.md`.
+
+The owner then authorized L3R-RA0P and one conditional L3R-RA0 arm. RA0P bound
+the registered identities and implementation but missed its frozen BF16
+gradient-ratio repeatability tolerance; it is failed/closed, and neither smoke
+nor RA0 training was launched. AutoDL B1 independently completed 34/40 passes
+under its wall guard without a parity-eligible checkpoint. No holdout or sealed
+population was opened by either row.
+
+On 2026-07-29 the owner separately authorized implementation and validation of
+one minimum-change hard boundary protocol on zw-gpu, including bounded use of
+the exact D041 and retained B1 checkpoints and permission for serious training
+only after a convincing protocol passed. The validation audit and two short
+matched continuation diagnostics completed; neither continuation passed, so no
+serious new checkpoint was launched. These artifacts receive no post-hoc L3R
+run ID and do not reopen or relabel the registered rows below.
+
+| Run ID | Milestone | Purpose | Population | Priority | Status |
+| --- | --- | --- | --- | --- | --- |
+| L3R-M0 | Restart preflight | Report semantics; checkpoint/source/configuration/data/environment/evaluator provenance; retrieve compact missing sidecars and hashes | Existing local artifacts plus authorized read-only AutoDL provenance; no checkpoint execution, training, or new/sealed split read | MUST | DONE / CLOSED AFTER AUTHORIZED READ-ONLY RETRIEVAL; RESIDUAL COLLABORATOR/SOURCE GAPS DECLARED |
+| L3R-U0 | Frozen unchecked replay | Recompute D041 trajectory `05` from call 1 through 79 without an admissibility stop, gated on calls 1--33 matching the retained artifact | Already-open D041 bump holdout trajectory `05` only; no new/sealed data and no training | MUST | FAILED / CLOSED AT CALL 7 REPLAY GATE; NO CONTINUATION OUTPUT |
+| L3R-U1 | Exact-state-spliced unchecked continuation | Preserve retained D041 calls 1--33 byte-for-byte and execute raw calls 34--79 from the exact failed call-33 state | Same already-open trajectory `05`, exact checkpoint, and current bound source; no new/sealed data and no training | MUST | DONE / CLOSED; ALL 80 STATES RETAINED; NO REGISTERED BLOW-UP THROUGH CALL 79 |
+| L3R-R0 | Clean reproduction | Reproduce the strong bump residual-PCNO H20/H79 behavior from a clean bound source | Historical bump train/validation contract; already-open D041 holdout only after selection | HISTORICAL PLAN | SUPERSEDED AS A PREREQUISITE; NOT EXECUTED AND NOT FAILED |
+| L3R-A0 | Attribution | Bounded matched blocks for data coverage, learned-map/objective, conditioning, and checkpoint selection/continuation | Bump train/validation only; no holdout-driven selection | HISTORICAL PLAN | SUPERSEDED AS A PREREQUISITE; NO HISTORICAL-GAIN ATTRIBUTION CLAIM |
+| L3R-B0P | Serious-baseline preflight | CPU tests, all-train/validation graph-boundary audit, fixed tiny fit, and matched AutoDL throughput/memory smoke | Bump train/validation only; no holdout or sealed data | MUST | FAILED / CLOSED; TINY ERROR GATE MISSED, SO THROUGHPUT SMOKE WAS NOT RUN |
+| L3R-B0 | Serious bump baseline | Existing 19.16M residual PCNO, exact all-transition coverage, legal causal nodal closure, one annealed optimizer history | Bump 270/30 train/validation; already-open 20-case D041 holdout only after selection | MUST | NOT LAUNCHED; STOPPED BY B0P |
+| L3R-B1P | Replacement readiness and parity preflight | Revised evaluator/selection tests, exact R/D041 validation replay, all-300 boundary audit, one full-coverage AutoDL health/throughput pass | Existing bump train/validation only; no D041 holdout or new/sealed population | MUST | PASSED / CLOSED; EXACT REPLAY, BOUNDARY, HEALTH, STORAGE, AND THROUGHPUT GATES PASSED |
+| L3R-B1 | Serious replacement baseline | Same 19.16M architecture, exhaustive causal-boundary training, strict historical validation parity, one seed | Bump 270/30 train/validation; already-open D041 only after eligible checkpoint freeze | MUST | DONE / CLOSED; WALL GUARD STOPPED AFTER 34/40 PASSES; NO ELIGIBLE CHECKPOINT AND NO HOLDOUT/SEALED ACCESS |
+| L3R-BC0P | Exact-parent continuation preflight | Bind exact D041, complete data, reviewed source, environment, replay, all-300 boundary policy, effective-batch memory, and paired runtime on zw-gpu | Existing bump 270/30 train/validation only; no holdout or sealed population | MUST | FAILED / CLOSED; PRIOR GATES PASSED, BUT RAW PREFLIGHT PEAK RESERVED 14.493 GIB AGAINST THE FROZEN 14 GIB CEILING |
+| L3R-BC0 | Paired D041 boundary continuation | Raw native continuation control versus causal-boundary continuation from identical D041 bytes and exposure | Existing bump 270/30 train/validation only; holdout remains closed | MUST IF BC0P PASSES | NOT LAUNCHED; STOPPED BY BC0P MEMORY GATE |
+| L3R-BG0P | Boundary-objective gradient and memory preflight | Audit projected-target and near-boundary interior gradients from exact D041; verify microbatch-1/accumulation-4 causal feasibility | Existing bump training stream only; no holdout or sealed population | MUST | PASSED / CLOSED; BOTH CANDIDATES PASSED AND THEIR WEIGHTS WERE FROZEN |
+| L3R-BG0 | Matched causal boundary-objective screen | Normal-node-only continuation versus only BG0P-passing auxiliaries, at most three total rows | Existing bump 270/30 train/validation only; holdout remains closed | MUST IF BG0P PASSES | DONE / CLOSED; BOTH AUXILIARIES FAILED THE FROZEN UTILITY GATE AND NEITHER IS SELECTED |
+| L3R-RB0P | Raw-boundary objective preflight | Verify direct raw-boundary gradient, dormant default-path parity, exact D041/data/stream/source identity, causal policy, and one real-graph microbatch | Existing bump train/validation only; no holdout or sealed population | MUST | PASSED / CLOSED; 71-TEST CPU AND REAL-GRAPH BF16 MEMORY/FINITE-GRADIENT GATES PASSED |
+| L3R-RB0 | Raw all-node continuation | Train one exact-D041 continuation on raw all-node reference targets while preserving causal hard closure for inference and recurrence; compare with retained BG0 control | Existing bump 270/30 train/validation only; holdout remains closed | MUST IF RB0P PASSES | DONE / CLOSED; RAW BOUNDARY AND H20 IMPROVED, BUT H79 STATE/NORMAL AND FRONT/HIGH-PASS GATES FAILED; NOT SELECTED |
+| L3R-RA0P | Gradient-normalized raw-boundary auxiliary preflight | Add one raw-boundary-only reference auxiliary to the unchanged deployed normal-node primary; reproduce the exact coefficient and pass default-path, identity, legality, gradient, and BF16 memory gates | Existing bump train/validation only; no holdout or sealed population | MUST | FAILED / CLOSED; REPEATED BF16 RATIO MISSED THE FROZEN RELATIVE TOLERANCE; SMOKE NOT RUN |
+| L3R-RA0 | Weak raw-boundary auxiliary continuation | Train one exact-D041 continuation with `normal_closed + 0.0018733749 * raw_boundary_reference`, causal recurrence, and retained BG0 control comparison | Existing bump 270/30 train/validation only; holdout remains closed | MUST IF RA0P PASSES | NOT LAUNCHED; STOPPED BY RA0P |
+| L3R-MR0 | Primary dynamic method | One shared stride-conditioned PCNO trained on stride-1 and stride-2 transitions | Dynamic 84/24 train/position-OOD-validation split; strength OOD and test sealed | DEFERRED | NOT AUTHORIZED; A LATER HUMAN REVIEW FOLLOWS B1 |
+| L3R-MR1 | Confirmation | Three independent seeds of the frozen L3R-MR0 contract | Same dynamic train/position-OOD-validation split | MUST IF MR0 PASSES | BLOCKED ON L3R-MR0 |
+| L3R-L0 | Conditional method | Jointly trained D055-sensor-gated local residual branch versus a matched ungated branch | Dynamic train/position-OOD validation only | CONDITIONAL | NOT AUTHORIZED; REQUIRES SPECIFIC MR0 FAILURE AND NEW REVIEW |
+| L3R-F0 | Sealed evaluation | One-time evaluation of a frozen seed-confirmed method | Dynamic strength-OOD and test | CONDITIONAL | SEALED; NOT AUTHORIZED |
+
+## 2026-07-28 L3R-B1 Serious Baseline Result
+
+Status: **DONE / CLOSED; NO PARITY-ELIGIBLE CHECKPOINT**. The 23-hour wall guard
+stopped cleanly after 34/40 full passes, 725,220 presentations, and 183,600
+optimizer steps. Source-set, config, data-manifest, best-checkpoint, and frozen-
+evaluator digests are respectively
+`61ea3d2c650a0d5d67b2020c4a97a08dc5ffdfb55498da0a3b26129437c5b730`,
+`191748e7c1d08e7f59ef4c6882ca2565ca47efff27192b8cc7a75c1d412d2936`,
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`,
+`221d12c3cd5f3df65546bb02537354fce334b481ab36478e7ff9f35f8e4323dc`,
+and
+`cf4da6cdbe508a34ebef5d2fa486350108ade098807e738ea6f0d7b0b72f8259`.
+
+No epoch passes the fixed-128 all-node one-step gate. Epochs 25--33 pass the
+five-key H20 gate but none has 30/30 H79 completion. The retained pre-
+eligibility epoch-22 checkpoint has 30/30 completion, five-key H20
+`0.02434854879975319`, fixed-pair all/normal/boundary one-step
+`0.010221920889307512/0.004201662173727527/0.07026912062428892`, and all-30 H79
+state/normal `0.03320156975338857/0.03159415858487288`. Relative to exact D041,
+normal one-step improves 21.79%, but the causally closed boundary metric is
+10.48 times the raw-D041 value. Relative to retained BG0 causal control, B1
+improves all-30 H20 and normal one-step 21.71%/20.91% but worsens H79 state/
+normal 0.78%/0.96%.
+
+An exact-source FP32 validation-only audit completes all 30 registered cases.
+Against BG0, H20/H40/H60 state and H79 smooth high-pass/front position improve;
+H79 state is 0.41% worse and shock-thickness/strength log errors are
+38.21%/4.49% worse. Across 34 checkpoint evaluations, all 80 terminations are
+local nonpositive internal energy, with no NaN or other cause; epoch 22 has
+none. The D041 holdout and sealed population remain unopened. Detailed hashes,
+epistemic separation, and compact artifacts are in ignored
+`artifacts/time_dependent_no/l3r_b1_serious_20260728a/`.
+
+Historical planning note, superseded as a dependency on 2026-07-27: after L3R-R0 and L3R-A0,
+the preferred order is one bounded algorithm-before-scale review. It may
+preregister at most three individually tested bump candidates: differentiable
+two-call recurrence, a shock-excluded smooth-region high-frequency error
+objective, and a primitive/admissibility auxiliary objective with conservative
+recurrence. D015's detached generated-state-exposure pilot, generic smoothing
+or noise, and the stopped D041/D052 post-hoc branch interventions remain closed
+in their exact tested forms. Any screen must use validation-only selection,
+reserve D041 for post-selection reproduction, and, except for B1's explicit
+owner-required validation-parity gate, reserve the five legacy trajectories for
+post-selection reproduction; promote at most one candidate to clean from-scratch
+confirmation. A pure
+scale ladder and a paper-level CPGNet comparison remain later gated decisions.
+These remain reserve one-change implementations, not additional execution rows.
+No smoothing/filtering or trained method is bundled into L3R-B1; a later review
+must use the frozen baseline result to select any follow-up mechanism.
+
+## 2026-07-27 L3R-B0 Serious Bump Baseline Contract
+
+Status: **L3R-B0P failed and is closed; L3R-B0 was not launched**.
+This contract records the owner's explicit decision not to spend the next
+serious run on historical reproduction or attribution. L3R-R0 and L3R-A0 are
+superseded as prerequisites, not failed rows. Consequently L3R-B0 cannot explain
+why P/D019 and R/D041 differ.
+
+**Verified evidence selecting the contract.** R/D041 and P/D019 have the same
+backbone width, depth, Fourier modes, and periods; the residual model adds only
+640 conditioning parameters. R/D041's selected ancestry saw 92,160 sampled
+presentations, or 4.32 complete passes over its 21,330 available transitions.
+Its train/validation one-step errors are close, and a fresh low-rate
+continuation improved H20 rollout behavior, so optimization and state/time
+coverage remain more plausible immediate bottlenecks than capacity. D041/U1
+localizes the first physical-contract failures to predicted boundary nodes.
+The frozen full causal nodal sensitivity improves H79 survival but worsens H20
+state/front fields when attached after training; this motivates training and
+evaluating under one identical closure rather than calling the frozen
+counterfactual a fair baseline.
+
+**Intervention.** Keep `PCNOEuler2DResidual`, 19,155,720 parameters, `kmax=8`,
+periods `(6,2)`, widths `[128]*5`, four operator blocks, `fc_dim=128`, normalized
+conservative state/residual coordinates, node-type/Mach conditioning, seed and
+split seed `20260718`, and stride 1. Apply
+`P_B(G_theta(P_B(U)))` in teacher forcing and recurrence. The graph-derived
+causal nodal `P_B` fixes known freestream inflow, extrapolates wall/outflow
+primitive values from current interior nodes using an at-most-three-hop stencil,
+removes wall-normal velocity, and returns to conservative coordinates. Reject
+any stencil fallback. It uses no future truth, floor, clip, limiter, smoothing,
+or exact-DG claim. Optimize proxy-weighted fixed-scale conservative next-state
+loss on normal nodes only; retain all-node and boundary diagnostics. Add no soft
+boundary, high-pass, PDE, conservation, noise, or multistep term.
+
+**Exposure and optimizer.** One epoch is one shuffled exhaustive pass over all
+`270*79=21,330` unique train transitions. Batch size 4 gives exactly 5,400
+trajectory-homogeneous optimizer steps per pass. AdamW uses peak LR `1e-3`,
+weight decay `1e-5`, BF16, clip `1.0`, 2% linear warmup from `0.1x`, then cosine
+decay to `2e-5`, with no optimizer reset or result-dependent early stop. B0P
+chooses the largest `P` in `{20,22,24,26,28,30,32,34,36,38,40}` whose
+throughput-only projection, including all-validation H79 rollout, is at most 22
+hours. The higher ceiling records the owner's explicit epoch-scale permission
+and does not create an epoch sweep. The exact
+`P`, presentations, steps, command, code/data/boundary/config digests, and
+environment must be appended here before B0 launch. Hard cap: one RTX 5090,
+23 wall-clock hours, and 1 GiB retained training artifacts.
+
+**Selection and evaluation.** Every pass evaluates all 30 validation
+trajectories at H20/H40/H60/H79 with the same closure. Eligible checkpoints
+must complete 30/30 H79; rank them by mean H79 all-trajectory scaled proxy L2,
+then H20, then one-step validation error. Before eligibility, completion and
+survival lead admissible-prefix error. Preserve raw thermodynamic and outflow
+Mach margins, boundary corrections, gradient/LR/memory/throughput, and the
+front/high-pass/anti-smearing hierarchy. Only after selection may the already-
+open D041 20-case population be evaluated; it cannot choose or tune the run.
+Dynamic strength-OOD/test and every new or sealed population remain closed.
+
+**Stop and claim boundary.** B0P stops for a digest mismatch, policy fallback,
+future-reference dependency, tiny-fit failure, nonfinite loss/gradient/state,
+OOM, or runtime projection above the frozen rule. B0 stops for the same source
+or numerical failures and obeys the hard wall cap. A completed run is a clean
+one-seed bump baseline whether its scientific gate passes or fails; no retry,
+larger backbone, smoothing, alternate loss, seed, or threshold is selected from
+its holdout result. A later review routes any follow-up from fresh-versus-
+propagated, boundary-correction, front, and ripple evidence.
+
+**L3R-B0P result.** The code and boundary portions passed. Focused residual and
+related CPG tests report 18 and 38 passes. The isolated AutoDL source-set digest
+is `30fd6fa3a0c9bddefd4a98cf33ad1b8d8063544c02f050c9dacf40ada46b808f`;
+the bump data-manifest digest is
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`.
+All 300 train/validation graph policies audit with zero fallback targets and
+policy-set digest
+`c7d9f92dadeaef46bcb0c62c0f26458f08b7bfc6d6ec4e124aa840e9a246c13c`.
+The minimum reference endpoint outflow-normal Mach is `1.56672287`. The
+reference-boundary primitive RMS/max-absolute corrections for
+`[rho,u,v,p]` are
+`[0.134581,0.090080,0.022456,0.148901]` and
+`[2.711418,1.118094,0.691179,7.753138]`; the policy remains an approximate
+causal nodal closure rather than an exact DG boundary replay.
+
+Artifact `b0p_20260727a_tiny`, the eight-epoch schedule-limited attempt, reached
+normal-node relative L2
+`0.00448034` and loss ratio `0.0110737`. Its one predeclared fresh 20-epoch
+remedy completed 2,560 updates and 10,240 repeated presentations with best
+normal-node relative L2 `0.00380627` and loss ratio `0.00798375`, against frozen
+gates `0.0015` and `0.05`. Thus the loss contraction passes but the absolute
+error fails. Every epoch retained finite parameters and gradients, maximum
+gradient norm `0.719972`, zero clipping, mean `2.37569` optimizer steps/s, and
+peak allocated memory `7,653,307,904` bytes. Same-checkpoint four-pair replay is
+`0.00380651` in BF16 and `0.00382364` in FP32, so the miss is not attributable
+to BF16 precision. Plausible but unseparated alternatives are an
+optimization/representation floor for these discontinuous pairs, mismatch
+between the optimized proxy loss and the normal-node relative metric, and fixed-
+bank difficulty.
+
+Artifact `b0p_20260727b_tiny` has final configuration, summary, and last-
+checkpoint digests
+`9b527796cf4c774501086df6918ed986f49b6658492141f7e3f9bdf067d84d73`,
+`8bb1280d915ef82d5e3ca13f535f751c9f09b5296108341b76e657423a06b2ab`,
+and `66cc57878aa3c35557448b7012d024ecb5070f984163c003004ac7e45b3848f0`.
+The throughput smoke, pass-count freeze, L3R-B0 training, and holdout evaluation
+were not executed. This supports only a preflight-gate failure, not a capacity
+claim or evidence against the serious baseline idea. A new prospective
+human-reviewed contract is required before any threshold change, longer retry,
+or serious launch. Both retained preflight artifacts are 440 MiB, total 880
+MiB, and no PCNO training process remains.
+
+## 2026-07-27 L3R-B1P/B1 Replacement Contract And Preflight Closeout
+
+The owner explicitly authorized one prospective replacement after reviewing the
+failed B0P result, with the requirement that the selected checkpoint be at least
+as good as exact R/D041 checkpoint SHA-256
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`.
+The normative intervention, exact validation populations, thresholds, native-
+recurrence distinction, throughput-only pass-count rule, D041 post-selection
+gate, cost, and non-claims are recorded in `RESEARCH_DIRECTION_DECISION.md`.
+B0P remains failed and B0 remains unlaunched; B1P/B1 are new IDs and do not
+relax the old fixed-bank threshold.
+
+The revised code adds native causal-checkpoint evaluation, explicit no-
+counterfactual replay for raw checkpoints, a literal deterministic 128-pair
+validation ledger, and parity-aware checkpoint eligibility. One-step parity is
+all-node scaled proxy relative L2, matching the historical metric; normal-node
+relative L2 remains the causal-boundary optimization objective. Local syntax and
+strict-JSON checks pass. The focused PCNO residual suite reports `20 passed` in
+`11.02 s`; the mesh-contract and legal-boundary suites report `43 passed` in
+`4.96 s`. The isolated AutoDL copy repeated these suites at `20 passed` and
+`43 passed`. No holdout or sealed population was used.
+
+Exact R/D041 replay passed at H20 `0.024169041690760524` for 5/5 trajectories
+(absolute identity difference `0.00011590001232060845`) and all-node one-step
+`0.005402316681283992` on the literal 128 pairs (difference
+`1.290918589802459e-7`). The all-300 causal-boundary audit reproduced policy-set
+digest `c7d9f92dadeaef46bcb0c62c0f26458f08b7bfc6d6ec4e124aa840e9a246c13c`
+with zero fallback, no future reference, and outward-supersonic reference
+outflow. Compact preflight-summary SHA-256 is
+`54e366dd4329c08c2d6cf99d4b80cc36afc7ebb8a03be8f0d20bb4c05d2dbcad`.
+
+The representative BF16 RTX 5090 pass completed all 21,330 presentations and
+5,400 optimizer steps. Total epoch time including fixed one-step validation and
+all-30 H79 attempts was `625.5151684433222 s`; training time was
+`598.8660355564207 s`. Parameters, gradients, and accepted states stayed finite;
+gradient mean/max were `0.0183937/0.285222`, no step clipped, peak allocated
+memory was `14,611,556,864` bytes, and retained artifacts were `460,953,239`
+bytes. The untrained/one-pass-quality rollout completed 16/30 and the other 14
+stopped on local nonpositive internal energy, with no nonfinite recorded value;
+this is not scientific checkpoint evidence. Smoke summary SHA-256 is
+`b66612249ffcd0a960291e9ba857ed846bbce492e64621c2474d07d3ac0976ab`.
+It binds source-set digest
+`e84fab761a5d4135ed00a2c9ad585692401c6237312edae8d50fbb9cc68eab18`,
+data digest `5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`,
+smoke-config digest
+`a29e662e999b13741919b1d98afe4b58909136360cb93c72af738b3ded8a2659`,
+and summary/checkpoint hashes in the retained private artifact.
+
+The registered throughput-only rule therefore selects `P=40`, or `853,200`
+presentations and `216,000` optimizer steps. Direct and 1.10x projected runtimes
+are `6.95017 h` and `7.64519 h`; both clear the gate. B1P is passed and closed.
+The exact serious command and fresh launch-time source/data/boundary/config
+digests were retained in a private prelaunch artifact before process start.
+Prelaunch SHA-256 is
+`495163a89bd484d99d57d1ce6ef026130db944836604220556ca041f37c98269`;
+source-set and configuration digests are
+`61ea3d2c650a0d5d67b2020c4a97a08dc5ffdfb55498da0a3b26129437c5b730`
+and `191748e7c1d08e7f59ef4c6882ca2565ca47efff27192b8cc7a75c1d412d2936`.
+The live source snapshot, config, scheduler, 270/30 split, literal 128 pairs,
+five parity keys, empty test keys, data digest, and boundary digest all matched.
+
+B1 is running. Epoch 0 completed all 21,330 presentations and 5,400 steps in
+`2419.311 s`, including `2290.435 s` training at `2.35763` steps/s. Parameters
+and gradients were finite, gradient mean/max were `0.0184022/0.250271`, no step
+clipped, validation admissibility was 1.0, peak allocated memory was
+`14,611,556,864` bytes, and artifacts remained under 1 GiB. H79 completion was
+25/30, survival `0.975527`, five-key H20 `0.0977281`, and fixed all-node one-step
+`0.0133078`; epoch 0 is not parity-eligible and D041 remains unopened.
+
+The epoch wall time is `3.86771x` the representative smoke and optimization
+throughput is `0.261464x`. At this constant rate, the 40-pass request projects to
+`26.8976 h`; the unmodified 23-hour guard projects a stop between complete
+epochs after about 34 passes. The discrepancy is logged as operational
+throughput evidence. It does not retroactively fail B1P, alter `P`, relax a
+threshold, authorize a restart, or justify changing affinity, workers, batch,
+schedule, or selection during the run. No selected B1 result or D041 post-
+selection access exists yet.
+
+## 2026-07-27 L3R-BC0P Exact-D041 Continuation Preflight
+
+Status: **FAILED / CLOSED AT THE FROZEN PEAK-RESERVED-MEMORY GATE; BC0 NOT
+LAUNCHED**. The owner authorized this zw-gpu study after asking whether the idle
+16 GiB device could fine-tune exact D041 in parallel with AutoDL B1. B1 was not
+interrupted or changed. The normative paired contract, interpretation, metrics,
+cost rule, and non-claims are in `RESEARCH_DIRECTION_DECISION.md`.
+
+**Verified implementation and source evidence.** The trainer accepts exactly
+one fresh initialization-time boundary transition,
+`model_all_nodes_to_causal_nodal_physical`. It rejects an implicit boundary-mode
+mismatch, strictly loads model weights, deliberately initializes fresh optimizer
+and scheduler state, and records parent SHA-256, source/target boundary modes,
+source/target contract digests, and absence of future-reference values.
+Trajectory-homogeneous gradient accumulation records microbatch, accumulation,
+effective batch, optimizer-step accounting, and both allocated and reserved
+CUDA peaks. A synthetic numerical test confirms that batch 4 and microbatch 2
+times accumulation 2 agree after one identical optimizer step within the
+registered tolerances. The residual-PCNO, mesh-contract, and legal-boundary
+suites report `65 passed`; the changed Python files compile and
+`git diff --check` passes. The approved 19-file source archive has SHA-256
+`14c80f64b7132f72526da6fb74d6b617d218e3e65cd7700e7cbbe4df62b52a67`.
+
+**Verified storage, environment, and data evidence.** The device is an NVIDIA
+GeForce RTX 5060 Ti with 16,311 MiB total GPU memory. Storage was sufficient:
+`835,938,828,288` bytes were free before staging, versus `9,989,205,055`
+file bytes in the 300-trajectory prepared tree. The lossless transfer archive
+has SHA-256
+`35525215e680c6ecf68c5e06ba72e7bda501d53f395ff60eb72ff5a82b3450b1`.
+The exact checkpoint re-hashes to
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+and the manifest to
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`.
+All 300 required shard sets, manifest entries, shapes, state digests, and
+geometry digests pass. The geometry audit follows the actual preprocessing
+identity: saved nodes are cast from float32 back to pre-save float64, saved
+edges from int64 back to pre-save int32, node type remains int64, and Mach
+remains float64. This resolves the earlier five-shard blocker without
+reconstructing identity from memory.
+
+The selected common interpreter is the closer historical `playground`
+environment: Python `3.12.3`, PyTorch `2.7.0+cu128`, CUDA `12.8`, cuDNN
+`90701`, NumPy `2.1.2`, and SciPy `1.15.3`. Its exact package listing and hash
+are retained with the private preflight record. No competing GPU process was
+present during the preflight.
+
+**Verified replay, policy, and stream gates.** The current-source five-key raw
+H20 replay completes 5/5 at `0.024173890981444107`, differing by
+`0.00011105072163702587` from the registered
+`0.024284941703081132` comparator and passing the `1.25e-4` gate. The literal
+128-pair BF16 microbatch-2 one-step metric is `0.005401879385317443`, differing
+by `5.663878255290911e-7` from `0.005402445773142972` and passing the `5e-5`
+gate; all proposals are admissible. All 300 causal policies pass with zero
+fallback, no future truth, minimum reference-outflow Mach above one, and exact
+policy digest
+`c7d9f92dadeaef46bcb0c62c0f26458f08b7bfc6d6ec4e124aa840e9a246c13c`.
+The literal ten-epoch paired stream has exactly 2,048 presentations and 540
+effective-batch-4 optimizer groups per epoch. Its declared logical digest is
+`bf5f0e1915b53bd296192c80ceafaca05d46c858cda1414e883472f7a5236456`;
+the retained JSON file SHA-256 is
+`97140442b237af7381bf90da7771554825c8256aa304358dec7e1a7404590ffe`.
+
+**Failed engineering gate and stop.** A preliminary all-at-once batch-4
+one-step diagnostic OOMed while trying to allocate another 1.33 GiB; it was not
+the registered microbatch-2 training configuration and is retained only as
+engineering evidence. The registered raw BF16 microbatch-2, accumulation-2
+preflight epoch then completed finite, without OOM, in
+`241.6534160003066 s` for 2,048 presentations and 540 optimizer steps. It
+recorded training relative L2 `0.005194369841888147`, all-node validation
+relative L2 `0.005375912152885576`, H79 completion 29/30, peak allocated memory
+`7,656,668,160` bytes, and peak reserved memory `15,562,964,992` bytes
+(`14.493 GiB`). The reserved value exceeds the frozen 14 GiB
+(`15,032,385,536` byte) ceiling by `530,579,456` bytes. Gate 5 therefore
+failed. The preflight summary has SHA-256
+`a62ffa59dcd20aef5677acf4dd1d73e3602d2dbb54028fc329a393b651d1beed`
+and status `failed_closed_memory_reserved_gate`. In accordance with the frozen
+order, causal timing, the paired runtime projection, and both BC0 training arms
+were not run. The retained raw preflight checkpoint files are engineering
+artifacts, not serious or selected checkpoints.
+
+**Epistemic ledger.** Verified evidence is limited to exact source/data/model
+compatibility, replay/policy/stream closure, and a finite raw microbatch-2 epoch
+whose registered reserved-memory metric misses the ceiling. A plausible
+mechanism for the gap between 7.13 GiB live allocation and 14.493 GiB reserved
+is allocator caching/fragmentation, but the frozen metric was reservation, so
+this does not change the failed result. Alternative explanations include this
+PyTorch/CUDA environment's allocator behavior and the representative graph
+mixture. Missing evidence is the causal epoch timing, paired runtime, every
+continuation result, and therefore any boundary-adaptation comparison. The
+claim implication is that BC0P supplies engineering feasibility evidence only:
+it neither supports nor refutes causal-boundary adaptation, extra-optimization
+benefit, D041 replacement, smoothing, or multistep loss. The minimum decisive
+next action is human review of whether to register a new preflight contract.
+Changing allocator settings, the ceiling, batch shape, environment, host, or
+arm count is a new contract and is not authorized by this closeout.
+
+## 2026-07-28 L3R-BG0P/BG0 Boundary-Objective Register
+
+Status: **DONE / CLOSED; NEITHER AUXILIARY SELECTED**. After reviewing why hard
+closure does not directly supervise the interior source nodes used to construct
+wall and outflow states, the owner explicitly authorized a new zw-gpu
+experiment. This was not a BC0 retry: it used new IDs, a
+microbatch-1/accumulation-4 memory contract, a gradient gate before training, a
+causal normal-node-only control, and two individually compared auxiliaries. The
+exact intervention, population, gates, ten-epoch matched exposure, selection
+hierarchy, cost cap, success criteria, and non-claims are normative in
+`RESEARCH_DIRECTION_DECISION.md`.
+
+The implementation adds one reusable graph-hop normal-node mask, two explicit
+trainer auxiliary kinds (`projected_target` and `near_boundary_band`), and one
+diagnostic entry point,
+`scripts/time_dependent_no/diagnose_pcno_euler2d_boundary_objectives.py`.
+Projected-target supervision excludes fixed inflow and acts through the same
+wall/outflow closure used at deployment; the band auxiliary reweights only
+ordinary normal-node next-state error. Neither changes recurrence. The focused
+new tests pass, and the complete residual-PCNO plus mesh/legal-boundary CPU gate
+reports `67 passed`.
+
+### BG0P Binding And Gradient Result
+
+The exact R/D041 parent SHA-256, data-manifest digest, and logical ten-epoch
+pair-stream digest are
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`,
+and
+`bf5f0e1915b53bd296192c80ceafaca05d46c858cda1414e883472f7a5236456`.
+The retained stream JSON SHA-256 is
+`97140442b237af7381bf90da7771554825c8256aa304358dec7e1a7404590ffe`.
+The source-snapshot digest is
+`9fec7e423d521c2ff24984266602c4c5d6cab66fd4924eb351100f0662e3e942`;
+the source archive and launcher hashes are `8ddb3c34...e576` and
+`1b6bbd6a...ab9`. Python `3.12.3`, PyTorch `2.7.0+cu128`, CUDA `12.8`,
+NumPy `2.1.2`, SciPy `1.15.3`, and one 16,311-MiB RTX 5060 Ti are bound by the
+prelaunch record.
+
+Projected target passed with full/minimum-stratum gradient cosines
+`0.320644/0.048298`, unweighted auxiliary/base norm ratio `10.075983`, and
+frozen weight `0.0099245903`. The three-hop band passed at
+`0.056853/0.159458`, ratio `6.942083`, and weight `0.014404898`. Fixed inflow
+had exactly zero gradient; raw-boundary and the other graph-hop measurements
+remained diagnostic only. The real-graph audit peaked at 2,059,098,624
+allocated and 6,144,655,360 reserved bytes. Gradient-audit summary SHA-256 is
+`41e1af9aaf3dee970789b3bfac3f6e6e73acb2501b50c460b1034e0a7874ea54`.
+
+### BG0 Matched Result
+
+Every row ran 10 epochs with 2,048 presentations and 540 optimizer steps per
+epoch under the exact same stream, fresh AdamW state, constant `2e-4` learning
+rate, BF16, and effective batch 4. Deep contract comparison found only the
+registered auxiliary, weight, output-directory, and auxiliary-identity
+differences. All three frozen selection rules chose epoch 5.
+
+| Selected row | H20 state | H79 state | H79 normal | H79 boundary | H79 complete |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| control | 0.0280508 | 0.0329458 | 0.0312939 | 0.0922880 | 30/30 |
+| projected target | 0.0294648 | 0.0341638 | 0.0326338 | 0.0911913 | 30/30 |
+| three-hop band | 0.0288267 | 0.0343065 | 0.0327718 | 0.0915600 | 30/30 |
+
+Relative to control, projected target and three-hop band regress H20 by
+`5.04%/2.77%` and H79 by `3.70%/4.13%`. They reduce closed boundary-node H79
+error by `1.19%/0.79%`, but worsen normal-node H79 error by `4.28%/4.72%`.
+They improve casewise H79 state error on only 6/30 and 7/30 trajectories. The
+fixed-population paired bootstrap intervals for the absolute H79 degradation
+are `[0.000550,0.001871]` and `[0.000615,0.002098]`; these are descriptive
+case intervals, not seed uncertainty. All selected rows miss both historical
+D041 parity thresholds.
+
+The independent FP32 validation replay also completes 30/30 H79 for every row.
+Projected/three-hop H79 state error rises by `3.95%/3.07%`, smooth graph-high-
+pass energy rises by `1.24%/0.73%`, and the directly targeted one-to-three-hop
+interior errors rise by `2.35%--3.12%`. Every Mach and node-count stratum is
+worse. Several front-strength, thickness, centroid, or Chamfer fields improve,
+so the failure is not explained by broad shock smearing. All worst pressures
+remain positive. The selected checkpoint hashes are control `0f6ee8ea...1e5`,
+projected `fd5f84a8...973`, and three-hop `f149a207...4dc9`.
+
+**Verified evidence.** Both auxiliaries passed the parent-state gradient and
+memory preflight, optimized their auxiliary losses, preserved completion, and
+slightly improved boundary-node error. Both failed the frozen primary utility
+gate and worsened the deployed interior and near-boundary recurrence.
+
+**Plausible mechanism.** Hard closure already makes deployed boundary states
+legal. The soft objectives appear to trade a small improvement in overwritten
+boundary values for a worse interior map. Normal one-step error changes by only
+about `-0.1%` and auxiliary-versus-control update cosines are
+`0.9946/0.9974`; recurrence plausibly amplifies this small map perturbation.
+
+**Missing evidence and alternative explanation.** This is one continuation
+seed, one frozen weight per objective, one approximate closure, and a gradient
+audit only at the parent. The projected target may reward closure consistency
+rather than exact PDE boundary dynamics. The matched control itself changes
+D041 from raw to causal recurrence, so the result does not show that boundary-
+aware training is harmful in general. Bump reconstructed weights remain
+diagnostic proxies rather than finite-volume measures.
+
+**Claim implication and minimum next experiment.** Reject these exact two
+auxiliaries and weights for this exact causal-continuation contract. Do not run
+a coefficient sweep. A future serious bump baseline should retain legal hard
+closure and normal-node primary loss without these auxiliaries. Reopen soft
+boundary training only after a same-process diagnostic identifies a persistent
+deployed near-boundary defect and a solver-consistent legal target is available.
+No holdout or sealed access follows.
+
+Training and FP32 post-evaluation compact archives have SHA-256 values
+`175f9f4e6c321eadaf414ee148b90e1d1418a469f936f1961f79dd0c4ee48bfd`
+and
+`197ae9a5c05609b3fdbf4f29b558c8d1400d75ae9758ede57e2662b35668c61a`.
+The NPZ hash manifest is `5bd876a4...e9e`; approximately 4 GiB of temporary
+remote rollout arrays were removed only after that manifest and the compact
+metrics were retained. The complete local analysis is ignored under
+`artifacts/time_dependent_no/l3r_bg0_boundary_objective_20260728a/`; its
+`ANALYSIS.md` SHA-256 is
+`a3ece56bd8a954d43b52393a0d9ab0a05923611692d4d7e0d75bdd5aa5de9068`.
+
+## 2026-07-28 L3R-RB0P/RB0 Raw-Boundary Supervision Register
+
+Status: **DONE / CLOSED; EXACT FULL-WEIGHT OBJECTIVE REJECTED**. The owner
+approved this after distinguishing BG0's projected closure loss from direct
+supervision of model-emitted boundary values. RB0 was not a coefficient sweep
+or a retry of either rejected BG0 auxiliary.
+
+**Verified antecedent evidence.** The exact parent raw-boundary gradient is
+finite: full cosine with the normal-node objective is `0.263688930173999`, with
+early/middle/late values `0.1089441916880373`, `0.2541688763442046`, and
+`0.5089259562400377`. Its boundary-normalized gradient-norm ratio is
+`53.379597682281236`, with stratum values `13.0453/37.7516/132.5087`. BG0's
+projected fixed-inflow gradient is zero. Reference-versus-closure primitive RMS
+is approximately zero at inflow, reaches `0.02208` at outflow, and is
+`[0.1970,0.1071,0.03653,0.29638]` at wall; maximum wall pressure discrepancy
+reaches `6.68398`. These are diagnostic proxy-node comparisons, not a physical
+finite-volume boundary integral.
+
+**Frozen identity and intervention.** Parent checkpoint SHA-256, data-manifest
+digest, and logical ten-epoch pair-stream digest are respectively
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`, and
+`bf5f0e1915b53bd296192c80ceafaca05d46c858cda1414e883472f7a5236456`.
+The retained stream JSON SHA-256 is
+`97140442b237af7381bf90da7771554825c8256aa304358dec7e1a7404590ffe`.
+The only trained scientific change is the primary loss: raw pre-closure
+proposal versus reference next conservative state over all valid nodes. Teacher
+input and recurrent/deployed proposals retain current-state-only causal closure.
+The retained comparator is BG0 causal control selected epoch 5, SHA-256
+`0f6ee8ea02924ad4fd55de356a9b30290452551282ff61994025d49e1397c1e5`.
+No new control row, holdout, or sealed access is permitted.
+
+**Frozen budget and gate.** Ten epochs each contain 2,048 presentations and 540
+optimizer steps; seed, architecture, normalization, optimizer, constant
+`2e-4` learning rate, BF16, effective batch 4, validation cohort, H20/H40/H60/H79
+rollouts, parity rule, and checkpoint selection match BG0. The preflight must
+pass focused CPU/default-path tests, direct raw-gradient and unchanged recurrence
+checks, exact source/data/stream/policy/environment identity, and one finite
+real-graph BF16 microbatch. The run cap is 2.5 hours and retained output cap is
+2 GiB. The joint utility gate is 30/30 H79 completion, H79 below control
+`0.03294580398748318`, H20 no more than 2% above control
+`0.02805080624918143`, lower fixed-128 raw-boundary one-step error, normal
+one-step and H79-normal no more than 2% worse, and FP32 front/high-pass
+anti-smearing fields within the decision-file tolerances. D041 replacement
+language additionally requires both historical parity thresholds.
+
+**Plausible mechanism, alternative, and claim boundary.** Direct raw reference
+targets may teach a boundary-conditioned representation that improves adjacent
+interior dynamics even though hard closure overwrites those outputs. The main
+alternative is wasted or conflicting capacity: raw boundary error improves but
+the deployed recurrent map does not. A pass supports only this exact one-seed
+continuation comparison; a miss rejects only this objective under this contract.
+Neither outcome explains D041's original recipe or transfers to dynamic,
+physical-conservation, holdout, sealed, scale, smoothing, or seed claims.
+
+### RB0 Result And Evidence Classification
+
+**Verified evidence.** RB0P passed 71 CPU tests, exact identity/policy checks,
+and a real-graph BF16 smoke at 3.50 GiB peak reserved memory. RB0 completed ten
+epochs, 20,480 presentations, and 5,400 steps in 2,554.7 training seconds. The
+selected epoch-8 checkpoint SHA-256 is
+`7a7d65586ca7175a5ac07c646a6498fcfa990ccf2d41adc85afe3fdb8066b6af`.
+The fixed-128 raw-boundary error fell `84.00%`; deployed normal one-step error
+fell only `0.92%`. BF16 H20 improved `10.97%`, while selected H79 state and
+normal-node errors worsened `9.30%` and `10.50%`. Completion remained 30/30.
+Independent FP32 H20/H40/H60/H79 changes were
+`-7.85%/+1.08%/+6.56%/+11.71%`; H79 smooth high-pass rose `8.29%`, front IoU
+fell `4.96%`, and symmetric Chamfer worsened `47.66%`, although shock strength
+and thickness improved `25.06%` and `1.88%`. This is not a broad-smearing or
+selected-checkpoint blow-up result.
+
+**Plausible mechanism or inference.** The model learned stored boundary labels,
+but hard closure discarded most of that gain. Closure-correction RMS rose
+`171.03%`; the candidate update had `1.733x` the control update norm and cosine
+`0.5598`. The exact all-node weight therefore reoriented shared dynamics enough
+to provide a short-horizon interior benefit followed by worse recurrent
+normal-node/high-pass/front-shape accumulation.
+
+**Missing evidence.** There is one continuation seed, one implicit raw weight,
+and no exact fresh-versus-propagated RB0 decomposition, sealed/holdout access,
+dynamic transfer, physical boundary-flux measure, or from-scratch confirmation.
+
+**Alternative explanation.** Constant-LR epoch variation is substantial. At
+matched epoch 8 RB0 beats control epoch 8 at H79 by `3.18%`, but RB0's best
+registered H79 remains worse than the control's selected best. Optimizer-path
+variance can affect magnitude, not overturn the registered selection result.
+
+**Admissibility and protocol.** Epoch 0 transiently terminated trajectories 47
+and 227 and epoch 1 terminated trajectory 227 through nonpositive internal
+energy; epochs 2--9 and the selected row complete 30/30 with no NaN or global
+blow-up. Continuing after those early terminations deviates from the strictest
+reading of the registered stop phrase and precludes a positive preregistered
+pass claim. The final row independently fails H79 and structural gates.
+
+**Claim implication.** Reject only this exact `raw_all_nodes` objective. The
+result positively shows that raw labels provide learnable short-horizon
+information; it does not show that boundary supervision is generally harmful.
+
+**Minimum decisive next experiment.** No follow-on is authorized. If later
+approved, retain the deployed normal-node primary loss and add one raw
+boundary-only auxiliary with a parent-gradient-frozen coefficient, not a sweep.
+A 0.1 auxiliary/primary gradient-norm target and measured ratio `53.3796` imply
+approximately `0.00187`, subject to a fresh audit. Require the same parent,
+stream, recurrence, selection, H20/H79/front/high-pass gates, and prediction
+that H20/raw gains persist while closure-correction growth and long-horizon
+drift shrink.
+
+Main summary, fixed-pair audit, FP32 post-evaluation, compact archive, and NPZ
+manifest SHA-256 values are
+`15ec289f6fff38bffe4e39ae64cf76f3f4dc899e971d2edf31ec4e6ba48a79a4`,
+`097247421cc8520d6146ace3e0e20f0d7b140525098ee4d98223ea8a3644e9c2`,
+`9f40af0c4f57c1bc9591e6e9f2861d408917825338de320dcd86054f0d14074f`,
+`18404b4f78bb50390d083b46e33176bd0b18236a05a22a05e0fd76e804a26f46`,
+and
+`b05ae8638fc0a00105f680288d9835a4ab08df917b4854caec7017fb48260467`.
+The ignored local evidence bundle is
+`artifacts/time_dependent_no/l3r_rb0_raw_boundary_20260728a/`.
+
+## 2026-07-28 L3R-RA0P/RA0 Weak Raw-Boundary Auxiliary Register
+
+Status: **RA0P FAILED / CLOSED; RA0 NOT LAUNCHED**. This was the human-
+authorized minimum experiment selected by RB0's mechanism result. Its frozen
+preflight stop rule has now been applied without outcome-based retuning.
+
+**Verified antecedent evidence.** RB0 reduced fixed-pair raw-boundary error
+`84.00%` and H20 state error `10.97%`, proving a learnable short-horizon signal,
+but its full all-node primary increased H79 state/normal errors
+`9.30%/10.50%`. Its parameter update had cosine `0.5598` with the causal
+control, norm ratio `1.733`, and closure-correction growth `171.03%`. The exact
+parent raw-boundary/interior gradient-norm ratio is `53.379597682281236`.
+
+**Frozen intervention.** Train
+`L_normal(P_B(Z),U_next) + 0.0018733749 * L_boundary(Z,U_next)`, where the first
+term uses normal nodes and the second valid non-normal nodes. Teacher input,
+deployed proposal, validation, and recurrence retain current-state-only causal
+closure. Reference boundary values are training/validation targets only. There
+is no future-reference inference, exposure, noise, multistep term, smoothing,
+filtering, clipping, floor, limiter, architecture change, or new control.
+
+**Identity and budget.** Parent checkpoint SHA-256, data-manifest digest,
+logical ten-epoch pair-stream digest, and retained-control checkpoint SHA-256
+are respectively
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`,
+`bf5f0e1915b53bd296192c80ceafaca05d46c858cda1414e883472f7a5236456`,
+and
+`0f6ee8ea02924ad4fd55de356a9b30290452551282ff61994025d49e1397c1e5`.
+The retained stream JSON SHA-256 is
+`97140442b237af7381bf90da7771554825c8256aa304358dec7e1a7404590ffe`.
+Use ten epochs, 2,048 presentations and 540 steps per epoch, BF16, microbatch 1,
+accumulation 4, fresh AdamW, constant `2e-4` learning rate, the same seed and
+270/30 split, all-30 H20/H40/H60/H79 validation, and unchanged selection/parity
+rules. Total zw-gpu wall cap is 2.5 hours and retained output cap is 2 GiB.
+
+**Preflight gate.** Tests must prove raw-boundary-only support, nonzero gradient,
+unchanged deployed recurrence, and parity for all existing objective paths. The
+exact-parent BF16 gradient ratio must reproduce within `1e-4` relative and yield
+the frozen CLI coefficient; no retuning is allowed. Exact source/data/stream/
+policy/environment identities and zero fallback targets must bind. One real-
+graph BF16 microbatch-1/accumulation-4 smoke must remain finite and reserve at
+most 12 GiB. Any gate miss closes RA0 without training.
+
+**Utility, mechanism, and claim gate.** Relative to the retained causal control,
+require 30/30 H79 completion; lower BF16 H20, H79 state, and H79 normal errors;
+lower fixed-128 raw-boundary error; and deployed normal one-step within 2%.
+Require selected parent-update cosine at least `0.90`, update-norm ratio at most
+`1.25`, and closure-correction RMS at most `0.075826625`. FP32 shock
+strength/thickness may not regress over 5%; H79 smooth high-pass, front IoU, and
+Chamfer tolerances are `+2%`, `-2%`, and `+5%`. Individual validation
+inadmissibility makes a checkpoint ineligible but does not stop later epochs;
+nonfinite training values, identity drift, OOM, and resource caps stop the run.
+A pass supports only this exact one-seed continuation mechanism. A miss rejects
+only this coefficient/formulation and authorizes no sweep or follow-on.
+
+**Preflight outcome.** All 73 focused CPU tests passed. The corrected complete
+source archive bound checkpoint, data manifest, logical/file sample stream,
+twelve pairs, policies, support/closure values, and Python/Torch/CUDA/NumPy
+versions. Recomputed BF16 ratio `53.34499581396788` differs from registered
+`53.379597682281236` by `0.000648222725830791` relative, above the frozen
+`0.0001` tolerance. It recommends `0.0018745901`, not registered CLI
+`0.0018733749`. The registered weight realizes gradient fraction
+`0.09993517619849249`; this closeness does not override the gate. Peak reserved
+memory was 6,144,655,360 bytes. The smoke and RA0 training were not launched.
+The first incomplete source-package import failure is retained separately and
+executed no model step. Evidence is under ignored
+`artifacts/time_dependent_no/l3r_ra0_raw_boundary_aux_20260728a/`.
+
+**Implication and missing evidence.** This does not test the utility of weak raw-
+boundary supervision. It shows only that a single BF16 CUDA gradient statistic
+did not meet the prospectively frozen repeatability tolerance. No repeat
+distribution, deterministic-algorithm audit, or FP32 reference was registered.
+A new numerical-reproducibility contract requires human review and is not
+authorized by this closeout.
+
+## 2026-07-29 Minimum-Change Boundary Protocol Audit And Pilot Closeout
+
+Status: **VALIDATION AUDIT COMPLETE; BOUNDED PILOTS FAILED; SERIOUS TRAINING NOT
+LAUNCHED**. This owner-authorized work used only the existing 30-case bump
+validation split and training pairs. It read no test, holdout, or sealed
+population, and records `test_split_opened=false`.
+
+**Immutable identities.** Repository parent, data-manifest, exact D041, and
+retained B1 SHA-256 values are respectively
+`549a724542eba5f961423c77b2ee8ab844f05ced`,
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`,
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+and
+`221d12c3cd5f3df65546bb02537354fce334b481ab36478e7ff9f35f8e4323dc`.
+The all-30 audit binds minimum-change utility, boundary evaluator, official
+evaluator, and immutable remote trainer-snapshot SHA-256 values
+`ba17a75daaaa38d8172f9c619f5a7bae48cd385e434175a56b3fa002d7b319d4`,
+`4a40ee0d7e37a9a23b7ccf1c7093cf1d56c42dbaeb6305593f3543ce1054c3d0`,
+`0f0ab0dd49297cee88297c114cb3ed07ed2dd22725467bf41987ed89b1f65af`,
+and
+`f37edfaa6a04cbf5b19b8b4ca92d2d224cacae09a6ae1876fc21bded482df039`.
+Later shared-tree trainer changes are not part of that evaluator result.
+
+**Projection and gradient contract.** In primitive coordinates, `P_B^*` fixes
+the complete known supersonic-inflow freestream, projects only wall-normal
+velocity at smooth slip walls, stacks all incident wall normals at corners and
+junctions, and leaves outward-supersonic outflow proposals unchanged. Density,
+pressure, and tangential wall velocity remain learned. A rank-two incident-wall
+corner has zero velocity because two face constraints span the velocity plane,
+not because of the old normal-coherence heuristic. Evaluation stops rather than
+inventing an incoming characteristic state if outward-normal Mach becomes at
+most one.
+
+The deployed-degree loss compares `P_B^*(Z)` with `P_B^*(Y)` on all nodes.
+Its fixed inflow and constrained wall-normal coordinates have zero direct
+gradient; interior, legal wall-null-space, and supersonic-outflow coordinates
+remain directly supervised. Teacher input, model proposal, and every recurrent
+state use the same projection. The final focused suite passes 39 tests covering
+free-mode preservation, corner rank, idempotence, gradient routing, BF16,
+trainer, and evaluator behavior.
+
+**D041 inference result.** All-30 validation summary SHA-256 is
+`2fd94666e6ce3578ee45b0c6907c18411ea397a74e32a1fb2d58697975a18688`.
+Native versus `P_B^*` one-step all/normal/boundary-reference errors are
+`0.005303016/0.005274852/0.006485145` versus
+`0.005357904/0.005284192/0.008448299`. Thus all and normal increase only
+`1.04%/0.18%`, while corrected boundary/reference error increases `30.27%`.
+All-30 H20 state error improves from `0.022919620` to `0.022321912`.
+H79 completion improves from `28/30` to `30/30`; on the 28 common survivors the
+candidate wins 26, with median/mean state ratios `0.925889/0.920730`.
+
+H79 candidate/native structural median ratios are `1.0213` front centroid,
+`0.99045` strength-log error, `0.95886` smooth high-pass, and `1.10278`
+thickness-log error. The thickness ratio fails the `1.05` no-harm envelope.
+Maximum enforced-boundary residual is approximately `2.38e-7`; minimum
+recurrent outward-normal outflow Mach is `1.443`; density, internal energy, and
+pressure remain positive. The raw-proposal, corrected-reference,
+raw-to-corrected intervention, near-boundary, physical-residual, and future-
+interior quantities are serialized separately rather than collapsed into one
+"boundary loss."
+
+**B1 closure-mismatch result.** Retained B1 plus `P_B^*` fails all five sampled
+H20 rollouts through nonpositive internal energy, usually at call 1 or 6--7.
+Summary SHA-256 is
+`2a572223eb348876a8348d20fca60eddb9bbef71095987e8b5869de97c7ff0c3`.
+B1's training closure fully replaced wall/outflow values, so its now-exposed
+free proposals were never deployment-critical. This is evidence for matching
+training and recurrent closure, not a unique causal proof or a rejection of
+minimum-change training.
+
+**Matched bounded continuation diagnostics.** Both exact-D041 continuations use
+`P_B^*`, 256 balanced presentations, 256 realized optimizer steps, identical
+seed/model calls/parameters/recurrence, BF16, fresh optimizer state, and
+constant learning rate `2e-4`. Dense `learned_dofs_closed` gives one-step all
+`0.0055366` and five-case H20 `0.0360436`; its training/evaluation summary
+SHA-256 values are
+`4dc8c2756bf6e7edd280380403887e379356504c1708922da9b773545cda8369`
+and
+`8b9c0cb7fcb4f21bf72021303691e7ebfef165ecea008f338732db7ecf79cc45`.
+The matched `normal_closed` control gives `0.0055043/0.0367315`; training and
+evaluation summary SHA-256 values are
+`9d236b4805f119f024460e89937902681a18d04996b430a699b13a500b62a058`
+and
+`00b2c63fc5b1aa9cfa6ffce81b64b870f30e23dae721e1f502de32dc765d5202`.
+The frozen parent five-case H20 value is `0.0225576`. Both continuations fail;
+dense supervision is slightly less harmful and is not isolated as the cause.
+
+**Epistemic disposition.** Verified evidence supports D041 plus `P_B^*` as the
+preferred current validation state/completion deployment protocol, subject to
+the H79 thickness failure, and supports closure consistency as a necessary
+engineering discipline. A plausible mechanism is reduced recurrent overwrite,
+reflection, and boundary intervention. Missing evidence includes DG face/flux
+provenance, subsonic incoming data, physical bump conservation geometry,
+optimizer-state restoration, seed repetition, and test/holdout behavior.
+Alternative explanations are local admissibility-basin movement for the D041
+gain, weak DG trace mismatch for the boundary-reference increase, and fresh-
+optimizer/update-count damage for both pilots. No exact-DG, conservation,
+universal characteristic, test-generalization, or serious-training claim
+follows.
+
+**Recorded next gate.** The smallest later experiment is a call-matched `K=2`
+screen from exact D041 under `P_B^*`: 256 fixed two-step windows, four same-
+geometry windows per batch, 64 optimizer steps, 512 learned sample-level calls,
+19,155,720 parameters, and identical seed/optimizer/targets/selection. The
+candidate feeds its attached-gradient projected first prediction to call 2;
+the control makes the same two calls but feeds projected teacher state. Stop for
+more than `2%` one-step/H20 regression, lost completion, inadmissibility,
+outflow Mach at most one, or any H79 front/strength/thickness/high-pass ratio
+above `1.05`. The six boundary quantities and boundary-distance interior errors
+are mandatory. This gate was not launched. A frozen-base legal-null-space
+boundary adapter is second in order; conflict-controlled boundary gradients are
+third and require an FP32 repeatability preflight.
+
+## 2026-07-27 L3R-U0 Prospective Unchecked-Continuation Contract
+
+Status: **FAILED / CLOSED AT THE CALL-7 REPLAY GATE**. This was a frozen-checkpoint
+diagnostic requested by the human owner, not a method row and not L3R-R0. It is
+restricted to R/D041 checkpoint SHA-256
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+and already-open bump holdout trajectory `05`: source frame 0, stride 1, 79
+recurrent calls, raw conservative `model_all_nodes` recurrence. Nonpositive
+density, internal energy, or pressure never stops or modifies the state. There
+is no floor, clipping, smoothing, boundary replacement, future-reference
+injection, training, checkpoint write, or access to another population.
+
+Calls 1--32 and call 33 must replay retained D041 trajectory artifact SHA-256
+`4d32a1ea9869a4eb565e3eb1769f5864f3247704857140410c5e43ea67fbb5ed`
+with maximum absolute difference at most `1e-5` and relative L2 at most `1e-6`.
+A replay mismatch or execution exception stops the diagnostic. Otherwise all 79
+proposals are attempted even if conservative or decoded primitive fields become
+nonfinite. Record raw density/internal-energy/pressure minima and nonpositive
+counts, conservative/primitive finite fractions, reconstructed-weight scaled
+relative L2, maximum finite amplitude relative to the reference, exact timing,
+and the upper-left node trace.
+
+The predeclared labels are: numerical blow-up at the first nonfinite
+conservative component; severe finite-amplitude explosion at `100x` the maximum
+absolute reference component; and severe global-error explosion at proxy L2
+`10`. They are diagnostic thresholds, not physical criteria. Required outputs
+are raw NPZ and CSV tables, a digest-bound JSON summary, one GIF containing all
+80 states (initial plus 79 proposals, no visualization subsampling), and PNG/PDF
+diagnostic figures. AutoDL is capped at one GPU, 20 wall-clock minutes, and 250
+MiB retained output. Prospective local source digests are
+`a33591a64b5b678907edb536bdd49ee4354f613eb47e25544631ef7ceaac981f`
+for the entry point and
+`8372b274e12bd9ecfef499b4f73768d9d6f4f4186c9be0c5342947506da46905`
+for its four passing CPU tests. Runtime digests and environment must be captured
+again by the output summary. The result cannot advance attribution, method, or
+sealed-evaluation gates; L3R-R0 remains the next training decision.
+
+## 2026-07-27 L3R-U0 Failure And L3R-U1 Splice Contract
+
+L3R-U0 is **FAILED / CLOSED**. On AutoDL it stopped at its prospective replay
+gate on call 7: maximum absolute difference `1.431e-5` exceeded `1e-5`, while
+relative L2 `5.373e-8` remained below `1e-6`. It created no result directory,
+post-admissibility sequence, or animation. This gate is not relaxed.
+
+L3R-U1 is **DONE / CLOSED** under the owner's explicit
+request to continue this trajectory despite nonpositive density or pressure.
+It uses retained D041 artifact SHA-256
+`4d32a1ea9869a4eb565e3eb1769f5864f3247704857140410c5e43ea67fbb5ed`
+for the initial state, accepted calls 1--32, reference targets, and exact first
+inadmissible proposal at call 33. That exact float32 call-33 state must survive
+a CPU--GPU--CPU round trip with zero elementwise difference before it becomes
+the input to checkpoint SHA-256
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`.
+The current bound model then executes exactly 46 raw `model_all_nodes` calls,
+numbered 34--79. The frozen 33-call prefix and new suffix are concatenated into
+79 proposals and 80 encoded states.
+
+No positivity stop, floor, clipping, smoothing, boundary replacement,
+future-reference injection, training, checkpoint write, or other population is
+allowed. The U0 blow-up labels and one-GPU, 20-minute, 250-MiB caps remain
+unchanged. U1 must report the splice explicitly: it is continuation by the
+current bound checkpoint/source from an exact historical failed state, not a
+literal replay of the unrecovered dirty D041 runtime. Before launch, its
+entry-point SHA-256 is frozen as
+`ba6f27c1b6e5186303579a84e5c98123b08c9df056aa5ed87ad4fe7269d20d9b`
+and its four-test source SHA-256 as
+`17aedf73cb2b115cab6e4e571027af7d10ab0458b491af7be49661d478e9abe9`;
+all eight focused U0/U1 CPU tests pass.
+
+### L3R-U1 Result: Bounded Local Failure Without H79 Blow-Up
+
+Execution status is `0`. Summary SHA-256 is
+`5fccb9bf775cc77b9e67f601fe955020cd65fa891b25a2be71eab522b2e5e79e`;
+the raw 79-proposal NPZ is 73,917,674 bytes with SHA-256
+`95b806e66be134cc59cf744ea4327360e2a3461c5286a93d37f6a3e792970939`;
+and `call_metrics.csv` SHA-256 is
+`2360968bfb314a91e8b4a6df3937e32abb57232f1775ae97c94dbd286b4ff8f0`.
+The U1 execution log/status hashes are `2595977b...b90b` and
+`9a271f2a...86aa`. U0's failed log/status hashes are `8276d19b...f48e` and
+`4355a46b...865a`. The run binds Python `3.12.2`, PyTorch `2.8.0+cu128`,
+CUDA runtime `12.8`, NumPy `2.5.0`, and one RTX 5090. Its runtime U1/U0 entry
+point hashes are `ba6f27c1...0d9b` and `a33591a6...981f`; evaluator,
+PCNO-Euler utility, ripple utility, and core-PCNO hashes are retained in the
+summary. The historical dirty D041 source is still missing.
+
+The 33 artifact calls are byte-exact and the call-33 float32 state has zero
+CPU--GPU--CPU difference. Exactly 46 new calls produce the requested 79
+proposals and 80 encoded states. Every conservative and decoded primitive
+component stays finite. Density stays positive. No frame reaches the registered
+`100x` finite-amplitude threshold; the maximum amplitude/reference ratio is
+`0.991646`. No frame reaches proxy L2 `10`; the maximum and final proxy L2 are
+both `0.0317686` at call `79`. All three registered blow-up events are absent.
+
+The exact raw inadmissibility sequence is:
+
+| Calls | Failed raw node set | Interpretation boundary |
+| --- | --- | --- |
+| `0--32` | none | D041 valid prefix |
+| `33--47` | upper-left inflow node `6` only | constant-reference boundary state drifts through negative internal energy/pressure |
+| `48` | none | raw map re-enters the admissible set |
+| `49--51` | wall node `294` only | transient failure beside the outflow while the reference pressure front arrives |
+| `52--69` | none | raw map is again admissible |
+| `70--79` | upper-left inflow node `6` only | second boundary-local negative internal-energy/pressure episode |
+
+Node `6` is at `(0,1)`, encoded only as inflow because left-boundary precedence
+overrides the wall label. Its reference state is constant through all 80 frames
+with pressure approximately `1`. Its pressure is `0.0456188` at call `32`,
+`-0.0312358` at call `33`, reaches `-0.427637` at call `43`, recovers to
+`0.327898` at call `56`, and ends at `-0.277391`. Density remains positive.
+The proximal crossing is falling total energy plus rising kinetic energy, hence
+negative internal energy, not a density or nonfinite proposal.
+
+The corner has degree `3`; its least-squares stencil condition lies at the
+`99.987%` all-node percentile and is maximal among inflow nodes; aggregate
+gradient norm `106.232` lies at the `99.961%` all-node and `98.925%` inflow
+percentiles. Its normalized reconstructed-weight share is `1.11273e-5`, at the
+bottom `0.0385%` of nodes. Because the same proxy weights enter the decoded
+next-state training loss, its direct error penalty is tiny: node `6` contributes
+only `0.01165%` of proxy error energy at failed call `33`, rising to `0.1901%`
+at call `79`. This verifies why a local thermodynamic crossing can coexist with
+a visually bounded global curve.
+
+Those factors are vulnerabilities, not a sufficient cause. Lower-left inflow
+corner node `0` has comparably low weight and an equally extreme stencil yet
+remains near pressure `1`. The smallest supported account is a position-specific
+recurrent boundary residual imbalance facilitated by all-node recurrence, the
+single inflow label, mixed boundary/interior stencil, and low loss weight.
+Branch identity and fresh-versus-propagated shares remain missing.
+
+Node `294` is a separate mechanism candidate at `(2.98909,0.150193)`: a wall
+node adjacent to outflow and interior nodes. Prediction pressure falls from
+`0.0192371` at call `48` to `-0.116622` at call `51`, then jumps to `0.269922`
+at call `52` and `2.38957` at call `53`. Reference pressure is `0.854242`,
+`0.822352`, `0.828446`, and `1.80708` at those calls, then reaches `2.83336`
+at call `54`. This is consistent with front-position/thickness and boundary
+error, but the input history is already nonphysical, so a causal front claim is
+not accepted.
+
+The first animation renderer correctly encoded the numerical fields but always
+circled node `6` whenever any node was invalid; that marker is wrong on calls
+`49--51`. It is superseded for interpretation by the visualization-only bundle
+whose manifest SHA-256 is `c8dfa2f7...5cf6`. The corrected GIF contains all 80
+frames without subsampling, is 10,839,971 bytes, and has SHA-256
+`7cf36ac8e923585d66927dbc3d5a56168bceba4ab1e464fb018d8ddff0038fff`.
+No checkpoint was rerun to produce it. The corrected helper/test hashes are
+`c4efb823...9303` and `4b17b731...81b5`; all eight focused tests pass.
+
+**Evidence classification.** Verified: exact splice, local failure intervals,
+finite bounded H79 continuation, corner/front geometry, weighting, and
+component-level crossings. Plausible inference: low-penalty recurrent boundary
+bias at node `6`, and front/boundary undershoot at node `294`. Missing:
+same-process `G(u_t)` versus `G(uhat_t)`, branch traces, causal boundary leakage,
+the dirty D041 runtime, and a matched legal-boundary counterfactual. Alternative:
+position-specific learned bias, global spectral coupling, propagated input
+error, or front interaction. Claim implication: D041 completion failure is a
+real local physical-contract failure but not global numerical blow-up, and it
+does not motivate generic smoothing or uniform high-frequency attenuation.
+Minimum decisive next experiment: add same-process teacher/rollout-map and
+nodewise-margin retention to the already proposed L3R-R0 clean reproduction;
+do not create a separate sweep. U1 does not authorize R0.
+
+## 2026-07-27 L3R Ripple, High-Frequency, And Smoothing Audit
+
+Status: **report-only audit complete; no new scientific run**. This audit uses
+only frozen or already-open D013, D041, D044, D052--D056, D060, and L3R-U1
+artifacts. No checkpoint was loaded or executed, no model was trained, no
+remote resource was accessed, and no new or sealed population was opened. It
+adds a descriptive predictor audit and a prospective evidence contract; it does
+not authorize smoothing, filtering, a method row, or any change to the
+registered run order.
+
+### Operational Definitions
+
+- A **ripple** is a reference-relative, nonphysical oscillatory error pattern,
+  preferably demonstrated by alternating signed error or negative neighbor
+  correlation inside a reference-smooth region. A large graph-high-pass scalar
+  alone is insufficient, and a sharp physical front is not a ripple.
+- **High-frequency energy** is energy in a declared graph or spectral band under
+  fixed scaling, weights, and masks. It may contain a true front, mesh or
+  boundary-stencil effects, approximation error, and nonphysical oscillation.
+  It is a diagnostic quantity, not physical dissipation or conservation.
+- **Rollout instability** is an umbrella outcome that must be decomposed into
+  global state-error growth, loss of raw admissibility, nonfinite or severe
+  amplitude growth, and termination. None of those outcomes is inferred from a
+  high-pass metric alone.
+
+### Frozen Inputs And Descriptive Predictor Rule
+
+The all-20 bump comparison uses D041 checkpoint SHA-256
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+endpoint table SHA-256
+`9701011b1acf9cb7db82ce22eb6013ab53806b5cfb99b35e1627f4a2c89fe27d`,
+and trajectory table SHA-256
+`7045d00a7883ccdf10e68844af7eea8d83298a60149def24de8c64718456b302`.
+Failure diagnostic and localization hashes are
+`9e894862de9a4f74691593b20e74b9124937c024ceb830b39c9ede051942b0cc`
+and
+`7c16d13b97031f7d899afe40adedf338e9d315d3ae84e962b55405f2594fea3e`.
+The exact U1 state/reference array is SHA-256
+`95b806e66be134cc59cf744ea4327360e2a3461c5286a93d37f6a3e792970939`;
+the fixed state-scale source and current graph-high-pass implementation have
+SHA-256 values
+`5ca7b2846833909acec754589147b3f435f96d2f2006413b1d09e42408691b03`
+and
+`c7520000e63294e7fc54db632ae551f712c1966c1fbc81d6dfce7766078674df`.
+
+For each common accepted call `1/5/10/20`, define a post-hoc descriptive AUC as
+the fraction of the `3 x 17 = 51` failed-versus-completed trajectory pairs in
+which a scalar ranks the future H79 failure higher. This is not a preregistered
+failure predictor, threshold, confidence interval, or validation result. It has
+only three events and is reported to compare the retained scalars, not to fit a
+model.
+
+| D041 scalar; failure direction | call 1 | call 5 | call 10 | call 20 |
+| --- | ---: | ---: | ---: | ---: |
+| global scaled proxy state error; higher | 0.431 | 0.549 | 0.863 | 0.922 |
+| smooth-region graph-high-pass energy; higher | 0.686 | 0.667 | 0.431 | 0.392 |
+| front-centroid distance; higher | 0.529 | 0.549 | 0.941 | 0.647 |
+| front symmetric chamfer; higher | 0.686 | 0.647 | 0.902 | 0.667 |
+| front IoU; lower | 0.647 | 0.647 | 0.980 | 0.490 |
+| shock-strength absolute log error; higher | 0.667 | 0.549 | 0.706 | 0.784 |
+| shock-thickness absolute log error; higher | 0.725 | 0.588 | 0.804 | 0.922 |
+
+At call 20, the three future failures `05/12/19` rank `17/1/19` of 20 by
+global smooth high-pass energy, `2/5/3` by state error, and `4/1/5` by
+shock-thickness error in the respective failure directions. Thus the retained
+global high-pass scalar is not a useful common-call temporal predictor in this
+small population; state, early front, and thickness errors rank the outcomes
+more consistently. This does not establish those quantities as causes.
+
+The all-20 per-call nodewise pressure margins needed for a fair predictor
+comparison were not retained. In the seven-case failure-diagnostic subset,
+which is selected because either the baseline or gain-0.75 row failed, lower
+call-20 minimum pressure has descriptive AUC `0.167` and cannot be promoted as
+a population result. Along the three actual baseline failure paths, pressure
+first falls below `0.2` at calls `31/29/25`, followed by excluded proposals at
+calls `33/32/26`: the raw margin is an exact proximal indicator with only
+`2/3/1` calls of lead in those cases, not a demonstrated long-lead predictor.
+
+Spatially, all three baseline failure nodes have graph distance zero to the
+boundary. Their scaled-error graph-high-pass amplitudes lie at all-node
+percentiles `98.501/95.645/98.954`, while their distances to the target front
+are `1.212/0.0313/1.248`. Local high-pass amplitude is therefore associated
+with the failed nodes, but boundary membership is shared by all three and front
+proximity is not. A better-predictor claim is unavailable because the artifact
+does not retain matched at-risk node-time controls, full nodewise margins, or
+top-support false-positive counts.
+
+The exact U1 array gives a further non-causal check. Using the registered state
+scales and node value minus its self-plus-neighbor average, upper-left node `6`
+is already at the `96.31%` all-node high-pass percentile at call 1 while its
+pressure is `1.006`; it falls to `84.98%` at call 10, rises to `95.82%` at call
+24, and reaches `98.47/98.50%` at accepted call 32 and failed call 33. More
+importantly, it remains at `99.37%` when it re-enters admissibility at call 48.
+Node `294` is at `99.32%` with pressure `-0.1166` at call 51, then rises to
+`99.67/99.85%` while pressure recovers to `0.2699/2.3896` at calls 52/53.
+These post-failure states are not physical accuracy evidence, but they show
+that large local high-pass amplitude is neither sufficient for inadmissibility
+nor monotone with the pressure margin.
+
+### Family-Separated Mechanism Assessment
+
+**Bump family.** D013 and D041 support a composite account. Teacher-forced
+high-band error exists, while late rollout/teacher smooth high-band energy is
+`13.26x`, first-to-late rollout growth is `45.28x`, and the registered
+error-direction response gain is `1.094`. D041 smooth graph-high-pass energy
+grows by up to `18206x`, but its three stops are finite, one-node negative
+internal-energy/pressure proposals. The exact same-process fresh-versus-
+propagated split is missing. Therefore bump ripple-like error may be born in
+one-step approximation and enlarged or redistributed by recurrence, but its
+causal share in admissibility failure is unmeasured. It is best described as a
+correlated morphology and possible contributor, not the registered stop cause
+or a proven isolated mechanism.
+
+**Dynamic Mach-1.1 shock--vortex family.** The source mechanism is much sharper.
+On the six D052 cases, median teacher-forced smooth high-pass RMS grows from
+`0.000351` at call 1 to `0.004888` at call 60 while the smallest call-60 teacher
+pressure remains `0.620`. Rollout RMS is only `0.005352`, or `1.095x` teacher
+forcing, even though state error is `8.95x` teacher forcing. Corrected D053b
+assigns `94.75/84.72%` of smooth-high-pass error energy to the fresh one-step
+defect at calls 30/60; propagated high-pass gains are only `0.189/0.406`.
+D054's negative smooth-neighbor cosine `-0.276/-0.213` verifies a genuine
+alternating smooth-region defect on this cohort. Thus this ripple is primarily
+freshly regenerated by the one-step map, not selectively amplified by
+recurrence.
+
+That result is not an admissibility predictor: D044, D060, and every D053b
+proposal complete raw H60 and remain admissible. D055's legal proposal-update
+high-pass score does predict the *location of fresh high-pass defect*, capturing
+`91.22/80.21%` of its energy on `17.30/16.87%` support with Spearman
+`0.875/0.733` at calls 30/60. It does not predict a failure event, and D056
+shows why localization is not correction: the bounded balanced intervention
+reduces state error by only `7.19/7.01%`, and late high-pass reduction is
+`-3.59%`. D060 likewise lowers H60 state error to `0.874x` D044 while worsening
+all-24 high-pass energy to `1.363x` and front-centroid distance to `1.435x`.
+
+### Answers, Claim Boundary, And Minimum Evidence
+
+1. **Causal role.** For the bump checkpoint, causal contribution remains
+   unresolved and composite; high-pass growth is a correlated symptom and
+   possible contributor, not a proven cause. For the dynamic checkpoint, the
+   verified smooth ripple is mostly a freshly regenerated one-step
+   representation/map defect. No dynamic H60 failure is available to make it a
+   failure cause.
+2. **Failure prediction.** Global bump high-pass energy does not outperform the
+   retained state/front/thickness scalars at common early calls. Local high-pass
+   is large at failure nodes, but pressure margin and boundary location are
+   inseparable competitors in the retained data. Dynamic high-pass cannot be
+   scored as an admissibility predictor because no event occurs; it only
+   localizes fresh defect.
+3. **Birth versus recurrence.** Bump evidence supports both and lacks the exact
+   split. Dynamic evidence is decisive for fresh one-step regeneration with a
+   contractive incoming high-pass channel, alongside mostly propagated
+   full-state error.
+4. **Family difference.** Yes. The bump result is boundary-sensitive, locally
+   inadmissible, proxy-weighted, and source-unresolved. The dynamic result is
+   physically volume-weighted, fully admissible through H60, and exactly
+   source-decomposed. Neither mechanism transfers automatically.
+
+**Verified evidence:** the tables and local traces above, D052's no-safe-branch
+result, D053b's exact source split, D054's sign-alternation statistic, D055's
+locator, D056's correction failure, and the D044/D060 tradeoff.
+
+**Plausible mechanism or inference:** the bump local high-pass signal may track
+the same boundary residual imbalance that consumes pressure margin, while its
+global aggregation washes out the low-weight failed node.
+
+**Missing evidence:** a clean bump replay with same-process `G(u_t)` and
+`G(uhat_t)`, all-node all-call raw margins, signed smooth-neighbor errors,
+matched at-risk node-time controls, a causal boundary-origin trace, and an
+out-of-sample predictor rule.
+
+**Alternative explanation:** high-pass amplitude can reflect the true shock,
+the extreme boundary stencil, or benign sharp error; early front/state metrics
+may rank failure because they proxy trajectory difficulty rather than cause
+margin collapse; late available-population curves are survivor-conditioned.
+
+**Claim implication:** the mentor's hypothesis is valuable as a diagnostic
+prompt but is too broad as a method claim. Current evidence rejects blanket
+Fourier/Gibbs attribution, uniform branch attenuation, and smoothing as an
+assumed cure. It does not reject every learned, legal, shock-aware high-frequency
+control.
+
+**Minimum decisive next evidence:** do not add a smoothing sweep. If L3R-R0 is
+approved, retain same-process source terms and their linear high-pass images,
+raw nodewise density/internal-energy/pressure margins, signed neighbor
+correlation, fixed reference front/smooth masks for analysis only, legal
+proposal-only scores, boundary distance, and separate front
+position/strength/thickness. Predeclare event-level lead time and fixed-support
+spatial capture against matched at-risk node-times. This instrumentation adds
+no training row and is the smallest way to decide whether bump high-pass is
+causal, predictive, or merely correlated.
+
+### Contract For Any Later Smoothing Proposal
+
+No smoothing proposal is currently selected or executable. A later reviewed
+proposal must state all of the following before results:
+
+- the exact conservative, primitive, residual, branch, or latent field changed,
+  and whether filtering occurs before decoding, after proposal, or immediately
+  before recurrence;
+- the filter operator, bandwidth/support and strength, and whether it is fixed,
+  learned, shock-aware, or state-dependent;
+- the legal information set, restricted to current state, fixed geometry,
+  declared boundary data, and optionally the current model proposal; reference
+  targets and future boundaries may appear only in diagnostics;
+- separate effects on raw completion/admissibility, global state error, shock
+  position, strength, thickness, smooth-region high-pass, physical vortex
+  metrics where available, and boundary behavior/leakage;
+- the intervention norm, activation/support, and primitive-margin dependence;
+  a pressure/density projection, sign-conditioned floor, or admissibility reset
+  must be labeled a limiter or clipping rather than smoothing;
+- an anti-blur test showing that a lower high-pass score is not obtained by
+  weakening or broadening the true front, with fixed reference masks used only
+  for evaluation; and
+- unfiltered, teacher-forced, and raw recurrent controls under the same
+  checkpoint, population, and horizon.
+
+On the bump bundle these remain proxy diagnostics because physical finite-
+volume geometry is absent. On the dynamic family, D055 identifies the closest
+legal high-frequency locator, but D056 already rejects its exact bounded
+post-hoc correction. Any learned successor would need to address propagated
+shock-supported state error and freshly generated smooth ripple jointly rather
+than simply blur the state.
+
+## 2026-07-27 L3R Visual-Phenomenon And Wave-Kinematics Audit
+
+Status: **report-only audit complete; no learned-map execution or new
+scientific run**. The exact already-open D044/D060 validation arrays were
+retrieved read-only from the registered artifact store by SHA-256. No
+checkpoint was deserialized, no trajectory was regenerated, no sealed split
+was opened, and no training, smoothing, clipping, limiter, or boundary
+intervention was performed. This section records measurements and prospective
+minimum controls; it does not alter the run registry.
+
+### Source And Evaluator Bindings
+
+| Family / role | Frozen checkpoint | Exact array | Population / recurrence |
+| --- | --- | --- | --- |
+| Dynamic D044 | `c5e468c7045bf5ff8ccdd5f222c19bd63dab15af54b0461a58e26af5e17f678f` | `f659e03529a1698a3811cba9c86db6e1cbf4f5f133342b5091c6bf47186829bf` | position-OOD validation `sv_e06_y00`, raw stride-1 recurrence, 61 states through `t=0.6` |
+| Dynamic D060 | `95e6c180a3298c4b38662d8c6cb77301c0e7fd0286e9a53571bddc487b8379c9` | `8412d74f7773bc234252208564614234cbe5241f5e0b1e027f0c360ad66e9ede` | same physical case and reference, raw stride-2 recurrence, 31 states through `t=0.6` |
+| Bump D041/U1 | `2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964` | `95b806e66be134cc59cf744ea4327360e2a3461c5286a93d37f6a3e792970939` | already-open trajectory `05`; calls `1--32` below use the byte-preserved frozen prefix |
+
+The ignored reproducibility bundle is
+`artifacts/time_dependent_no/l3r_wave_kinematics_audit_20260727/`.
+Its report generator binds every source hash, writes the raw CSV tables and
+three diagnostic figures, and records claim boundaries in `summary.json`
+(SHA-256 `82853fb9897a30eaf7dc8ebeff8a74c9e8d58079da9fcdeddded5b3203b8263a`).
+The retrieved 250 MB source copies are not report deliverables.
+
+### Dynamic Pair Born At The Planar Shock
+
+For the frozen downstream state
+`(rho_2,u_2,p_2)=(1.1691,1.1133,1.245)` and `gamma=1.4`,
+`c_2=1.2210202408`. The downstream x-characteristic speeds are
+`u_2-c_2=-0.10772024`, `u_2=1.1133` twice, and
+`u_2+c_2=2.33432024`.
+
+Primitive error is projected onto
+`a_e=delta rho-delta p/c_2^2` and
+`a_+=(delta p/c_2^2+rho_2 delta u/c_2)/2`. The measurement averages the
+vortex-remote band `y>=0.62`, subtracts a five-cell Gaussian x background, and
+maximizes line-integrated absolute amplitude over `x=b+v t`,
+`b in [0.48,0.52]`. The 95%-score intervals below are ridge-width
+sensitivity bands, not confidence intervals.
+
+| Checkpoint | Projected family | Measured speed | 95%-score band | Euler speed | Relative error |
+| --- | --- | ---: | ---: | ---: | ---: |
+| D044 | entropy/contact | `1.115` | `[1.105,1.123]` | `1.1133` | `+0.153%` |
+| D044 | right acoustic | `2.330` | `[2.320,2.345]` | `2.334320` | `-0.185%` |
+| D060 | entropy/contact | `1.112` | `[1.104,1.122]` | `1.1133` | `-0.117%` |
+| D060 | right acoustic | `2.335` | `[2.323,2.346]` | `2.334320` | `+0.029%` |
+
+The measured fast/slow ratios are `2.090` and `2.100`, bracketing the
+theoretical `2.09676`. The left-going acoustic component has negative
+downstream speed and remains near or returns toward the stationary front, so it
+does not form a third right-moving trace.
+
+The pair exists after the first proposal, whose input is the exact initial
+state. The kinematic leading-radius and vortex-center shock-arrival times are
+`0.15366` and `0.19208`, much later than D044's first `t=0.01` trace. The same
+families appear in the stride-2 checkpoint and in a y band remote from the
+vortex. This verifies a discontinuity-triggered learned-map defect followed by
+characteristic propagation. It does not yet prove complete vortex independence
+or tell whether later parallel content is continually re-emitted by the
+stationary shock.
+
+### Reference-Side Left-Boundary Acoustic Transient
+
+The broad upward wave is visible in reference pressure as well as the D044
+rollout. Along the reference positive ridge at `t=0.39--0.60`,
+`delta p/(c_1^2 delta rho)` ranges `1.009--1.021`, and
+`delta p/(rho_1 c_1 delta v)` ranges `0.968--1.083`. It is therefore an
+upward acoustic mode rather than a pressure-only visualization artifact.
+
+The frozen reference boundary code linearly extrapolates primitive variables at
+both x boundaries and applies y symmetry. Upstream
+`u_1=1.30153755`, `c_1=1.18321596`, so all x-directed speeds
+`0.118322,1.301538,1.301538,2.484754` point into the domain at `x=0`.
+The left boundary is physically a pure supersonic inflow, yet it is not held to
+the upstream state. Consistently:
+
+- the first lower-left cell pressure is `1.00025/1.02575/1.19955` at
+  `t=0.08/0.18/0.30`;
+- pressure near `x=x_min,y=0.35` moves from `0.999992` at `t=0` to
+  `0.997469` at `t=0.10` even though the vortex advects right;
+- the positive upward ridge is strongest near `x=0` and back-extrapolates to
+  `y=0` at `t=0.29961`.
+
+These facts verify boundary involvement and show that the visual coincidence
+with vortex-shock impact is not sufficient causal evidence. They do not prove
+that the extrapolation formula alone creates the full transient; numerical
+stencil leakage, the x/y corner coupling, and the initial discontinuous splice
+remain alternatives.
+
+For `x in [0.05,0.40]`, the reference/D044 positive-ridge fits over
+`t=0.39--0.60` have apparent slopes `1.3820/1.3395`. Those are peak-pattern
+slopes for a curved boundary-swept wave, not local Euler characteristic speeds.
+Normalized profile matching gives median D044 lag `0.0125`, IQR
+`0.0120--0.0140`, and median correlation `0.99884`; lag rises from about
+`0.0115` at `t=0.40` to `0.0170` at `t=0.60`. Reference/D044 pressure-deficit
+vortex-core fits reach `x=0.5` at `0.19450/0.19043`. The model vortex is
+slightly early, so a delayed vortex-shock collision cannot explain the later
+acoustic wave. The supported model statement is phase delay with a modest
+apparent propagation deficit, plausibly from boundary-contract approximation
+and acoustic dispersion.
+
+### Bump Front, Downstream Ripple, And Re-Entry
+
+The bump analysis uses only exact frozen-prefix calls `20/32`. A descriptive
+primary front is extracted for `0.16<=y<=0.805`; nodes within `0.04` in x are
+the front band. Reconstructed vertex-lumped weights and the front curve are
+diagnostic proxies because the bump bundle has no accepted finite-volume
+geometry.
+
+| Call | Upstream / front / downstream pressure-energy fraction | Downstream share after front exclusion | Downstream/upstream pressure RMS | Median front `delta x` / MAE |
+| ---: | ---: | ---: | ---: | ---: |
+| 20 | `0.00642 / 0.89110 / 0.10247` | `0.94102` | `2.449x` | `-0.00404 / 0.00793` |
+| 32 | `0.01487 / 0.73927 / 0.24586` | `0.94297` | `2.363x` | `-0.00329 / 0.00586` |
+
+The downstream smooth-side share remains `0.9394--0.9435` when the exclusion
+half-width varies from `0.03` to `0.06`. Therefore “the visible off-front
+error is mainly to the right” is verified. “Most total error is to the right”
+is false at these calls because the thin front carries the largest amplitude
+and energy.
+
+The thin signed line is consistent with a small front-position component, but
+D013's front-local translation removes zero median pressure error, so phase is
+not the whole front defect. In the smooth regions, call-20/32 downstream
+pressure-error high-pass neighbor cosine is `-0.251/-0.114` and opposite-sign
+edge fraction is `0.474/0.492`, versus upstream cosine
+`+0.374/+0.302` and opposite-sign fraction `0.205/0.193`. This one trajectory
+therefore contains a genuine alternating downstream ripple morphology rather
+than only the high-frequency content of the true shock.
+
+The post-call-33 U1 states show that finite one-node negative internal energy
+can later return positive while the full array remains finite and globally
+bounded. This is a current-source continuation from the exact frozen failed
+state, not the historical evaluator, which terminated. No positivity
+projection, limiter, or physical correction acts. “The residual map re-enters
+the admissible set on this splice” is verified; “PCNO is self-correcting” or
+“inadmissibility is harmless” is unsupported.
+
+### Epistemic Disposition And Minimum Decisive Evidence
+
+| Phenomenon | Verified evidence | Plausible mechanism / inference | Missing evidence and alternatives | Claim implication | Minimum decisive next experiment |
+| --- | --- | --- | --- | --- | --- |
+| Two right-moving dynamic traces | D044/D060 speeds match `u_2` and `u_2+c_2`; characteristic projections separate entropy/contact and acoustic content; first exact-input proposal predates vortex arrival. | The stationary discontinuity seeds a characteristic error pair which then propagates lawfully. | A vortex tail or continuing shock emission could still affect amplitude; only one physical case was measured. | Do not call both traces generic ripple or blame recurrence alone. | One frozen-checkpoint, exact planar-shock/no-vortex one-step plus rollout probe on the same grid and boundary contract. |
+| Upward left-region wave | Present in truth; acoustic ratios close; lower-left growth predates core impact; reference uses extrapolated pure-inflow boundary; D044 lags by `0.0125`. | Boundary leakage/corner coupling creates a reference transient; PCNO has acoustic phase dispersion. | Fixed-inflow counterfactual is absent; solver stencil and initial-splice adjustment are alternatives. | Score it as a separate boundary-acoustic channel, not vortex-core or shock-position error. | One reference replay with prescribed upstream supersonic inflow and otherwise identical case/evaluator; no training. |
+| Bump right-side error | `94.1--94.3%` of front-excluded pressure-error energy is downstream; downstream high-pass has negative neighbor cosine. | Shock/map defect is transported into the post-front region and recurrent/local branches sustain ripple. | One trajectory; exact fresh/propagated split and physical-volume weights are absent. | Keep upstream/front/downstream, phase, and signed-ripple metrics separate. | Retain these metrics in the already proposed clean R0 replay; no separate sweep. |
+| Bump inadmissibility followed by re-entry | U1 is finite and bounded; individual nodes cross pressure zero in both directions. | Coupled residual updates and global/neighborhood information can restore internal-energy margin. | Source identity differs after the frozen prefix; no same-state branch/Jacobian trace; another case may blow up. | Re-entry disproves “first negative pressure implies immediate blow-up,” not the importance of admissibility. | Exact-source R0 retention of proposals beyond the first invalid state only if separately approved, with no clipping and a hard amplitude stop. |
+
+No row above authorizes the minimum experiments. The registered order remains
+L3R-R0 review before L3R-A0 or training.
+
+## 2026-07-27 L3R Horizon-Extension Audit
+
+Status: **conditionally worthwhile after, and only after, clean H20/H79
+reproduction and reference-generator prefix parity; no reference generation or
+longer rollout is authorized now**.
+
+This audit binds the historical strong bump row to R/D041 checkpoint SHA-256
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+continuation epoch `4`, the all-20-holdout raw `model_all_nodes` evaluator, and
+summary/call-table SHA-256 values `3ca42f08...28450c` and
+`77675e39...e223a`. It executes no checkpoint, opens no new trajectory or
+time range, and runs no reference solver.
+
+### H79 Exhaustion And Censoring
+
+The evaluator-bound bump shard has exactly 80 states per trajectory. The
+retained U1 trajectory-`05` array SHA-256 `95b806e6...970939` binds their times
+to `0,0.025,...,1.975`. H79 therefore consumes source frames `0--79` with 79
+stride-1 learned calls and exhausts the matching HDF5/shard reference used by
+D041.
+
+The raw-bundle audit separately records `sol_0.vtu` through `sol_80.vtu`. The
+extra raw `sol_80.vtu` is not bound to the HDF5 frame mapping, D041 shard, or
+evaluator and would add only one interval. It must not be silently relabeled as
+a validated longer-horizon reference.
+
+For strict D041, accepted lengths are `79` for 17 trajectories and
+`32/31/25` for trajectories `05/12/19`. The three failures are observed events;
+the other 17 event times are administratively right-censored at H79. Their H79
+errors are observed endpoint values, but their error curves and later survival
+are unobserved beyond that endpoint.
+
+| Call | Physical time | Available trajectories | Mean reconstructed-weight proxy relative L2 |
+| ---: | ---: | ---: | ---: |
+| 1 | `0.025` | 20 | `0.00666299` |
+| 20 | `0.500` | 20 | `0.02225736` |
+| 25 | `0.625` | 20 | `0.02320528` |
+| 30 | `0.750` | 19 | `0.02435756` |
+| 40 | `1.000` | 17 | `0.02929468` |
+| 60 | `1.500` | 17 | `0.03775178` |
+| 70 | `1.750` | 17 | `0.04091159` |
+| 79 | `1.975` | 17 | `0.04366830` |
+
+The fixed 17-H79-completer mean over calls `40--79` has descriptive linear
+slope `3.42657e-4` per call (`0.0137063` per unit physical time) and
+`R^2=0.98392`. This is evidence that the observed curve has not plateaued, not
+a justified extrapolation. Available-population means before call 33 change
+cohort and must not be spliced into a single fixed-cohort trend.
+
+Trajectory `05` supplies one reference-side alternative explanation. Define
+its scaled reconstructed-weight proxy transition norm as
+`||((u_t-u_(t-1))/state_scale)||_w / ||(u_t/state_scale)||_w`. Its value at
+call 79 is `0.01279`;
+the mean over calls `60--79` is `0.01640`, or `0.190x` the calls-`1--20` mean
+`0.08632`. The reference is slowing but is not stationary on this one case.
+A later extension could therefore test learned fixed-point bias as well as
+error accumulation. This one-trajectory proxy is not evidence that every bump
+case is approaching the same steady regime.
+
+### Training-State Coverage
+
+R/D041's selected ancestry had `270*79=21,330` eligible training transitions
+and 92,160 sampled presentations through the selected base-plus-continuation
+epochs. The eligible current frames are `0--78` and their targets are
+`1--79`. Frame 79 appears only as a target, never as a current input; no
+post-H79 state or transition exists in training.
+
+The model has no physical-time input, so this is not explicit coordinate-time
+extrapolation. It is nevertheless unverified state-distribution extrapolation:
+no audit establishes that post-H79 reference states, front locations,
+boundary states, or normalized conservative features lie inside the training
+current-state support. The minimum later coverage check is a frozen comparison
+of extended reference current states against training current states using
+normalized channel ranges/distances plus front and boundary descriptors. A
+teacher-forced error increase after H79 must not be mislabeled recurrent
+instability.
+
+### Can The Reference Contract Be Extended?
+
+Only the high-level solver lineage is currently verified: per-case `Bump.jl`
+and mesh files existed in the copied raw bundle; the representative case used
+Trixi `CompressibleEulerEquations2D`, `gamma=1.4`, polynomial degree `3`,
+`tspan=(0,2)`, save interval `0.025`, Ranocha shock-capturing volume flux,
+Lax-Friedrichs surface flux, a Zhang-Shu positivity limiter, left inflow,
+right outflow, and slip walls. The public `cpggnspdes` clone contains no bump
+reference generator, and the maintained repository contains no `Bump.jl`,
+Julia `Project.toml`/`Manifest.toml`, VTU-to-HDF5 converter, or generator
+command.
+
+Therefore an identical-contract extension is technically plausible from the
+raw case bundle but **not currently reproducible or provenance-bound**. The
+exact retrieval request before any reference pilot is:
+
+1. the literal per-trajectory `Bump.jl`, `Bump.msh`, `Bump.inp`, `Mach.txt`,
+   and geometry parameters for the population to be extended;
+2. Julia version, `Project.toml`, `Manifest.toml`, Trixi/dependency commit
+   identities, launch command, and thread/process settings;
+3. ODE integrator, adaptive-step/CFL and tolerance settings, shock-capturing
+   indicator/blending parameters, limiter parameters, and complete initial and
+   boundary functions;
+4. the literal VTU-to-HDF5 conversion source and command, including node order,
+   primitive extraction, `sol_k`-to-frame mapping, and why 81 raw VTUs become
+   80 HDF5 states; and
+5. original generation logs and either a restart artifact with all numerical
+   state needed for identical continuation or permission and resources to
+   regenerate from `t=0`.
+
+Do not infer any missing identity from the representative script. A one-case
+run must first reproduce the complete existing `0--79` prefix under
+predeclared, dtype-aware state tolerances, exact time/node/schema identity, and
+the frozen converter. Prefix failure defines a new reference family and stops
+the extension; its tolerance may not be relaxed after inspection.
+
+### Conditional H159 Contract
+
+If L3R-R0 first passes clean H20/H79 reproduction and the reference prefix pilot
+then passes, the smallest useful extension is H159: 160 encoded states at
+`t=0:0.025:3.975` and 159 stride-1 learned calls. The generator may need to run
+to `t=4.0` to reproduce the historical terminal-output/converter convention,
+but `t=4.0` is not scored unless an H160 contract is separately bound.
+
+| Contract item | Conditional specification |
+| --- | --- |
+| Population and selection | Freeze the clean R0-selected checkpoint first. Extend the same 20 already-open D041 holdout identities only as post-selection evaluation; never tune on their new times. Report unconditional survival and survival conditional on the 17 H79 survivors. |
+| Reference | Regenerate from `t=0` under the recovered identical contract, retain frames `0--159`, and require prefix parity on `0--79` before any post-H79 model metric is read. A state-only restart is insufficient unless its numerical-continuation identity is demonstrated. |
+| Evaluation checkpoints | H20/H40/H60/H79/H99/H119/H139/H159, corresponding to physical times `0.5/1.0/1.5/1.975/2.475/2.975/3.475/3.975`. Preserve per-call rows for event/change-point analysis. |
+| Survival and admissibility | Empirical survival with explicit administrative censoring, H159 completion, restricted mean accepted lifetime, first excluded call/time/cause/node/node type/boundary distance, invalid-node count, and raw minima of density/internal energy/pressure. |
+| State and source decomposition | Fixed-H79-survivor and available-population reconstructed-weight proxy relative L2, per-variable primitive RMSE, teacher-forced defect, propagated term, cross term, and normalized distance of extended reference inputs to training support. Bump weights remain diagnostic proxies. |
+| Front, ripple, and boundary | Front position, jump strength, thickness and translation-aligned error; reference-smooth graph-high-pass plus signed-neighbor oscillation; boundary/node-type and distance-stratified errors and margins. Keep physical-front high frequency separate from smooth-region ripple. |
+| Primary stopping | Stop each strict rollout at its first nonfinite component or nonpositive density/internal energy/pressure and retain the rejected proposal. Stop the entire study for any checkpoint/evaluator/reference-prefix/schema mismatch, reference inadmissibility, or execution exception. Do not replace boundaries, floor, clip, smooth, or inject future truth. |
+| Optional unchecked companion | Only if separately approved, continue the raw map after a strict failure for qualitative behavior, stopping at nonfinite state, `100x` reference-amplitude ratio, proxy L2 `10`, or H159. Post-failure values remain invalid-state diagnostics, not admissible accuracy. |
+
+The experiment distinguishes mechanisms by reading teacher-forced and
+recurrent channels together. Stable teacher-forced defect/support distance
+with continued approximately smooth recurrent growth supports slow error
+accumulation. Stable teacher-forced defect followed by an abrupt propagated
+error, high-pass, boundary, or admissibility-margin change point supports a
+delayed recurrent basin. A simultaneous jump in teacher-forced defect and
+training-support distance instead supports post-H79 state-distribution shift.
+If the reference approaches steady state while the model drifts, the supported
+claim is learned fixed-point bias. These outcomes are not interchangeable.
+
+### Cost And Decision
+
+The bound 20-case HDF5 is 2,467,047,721 bytes (`2.298 GiB`) for 80 frames.
+Linear schema scaling suggests roughly another `2.30 GiB` for 80 added HDF5
+frames. The historical extracted test VTUs occupy about `5.6 GB` for 81 frames,
+so a from-zero 161-output rerun is roughly `11.1 GB` of temporary VTUs. Four
+float32 state channels for all 20 cases require `0.519 GiB` per additional 80
+frames and `1.039 GiB` for a complete 160-state prediction array. A bounded
+evaluation-only workflow therefore needs approximately `17 GiB` peak temporary
+space if raw VTUs, extended HDF5, and predictions coexist, and about `6 GiB`
+retained after verified conversion if raw VTUs are stored elsewhere or removed
+under a separately reviewed retention policy. Extending all 300 training
+trajectories would add about `35 GB` of HDF5 alone and is not part of this
+diagnostic.
+
+Historical D041 batch-1 timing, `0.05518` seconds per call, projects to about
+`175` seconds of pure GPU forward time for 20 complete H159 rollouts; metrics
+and I/O are additional. No retained timing binds the Trixi reference generator,
+so reference compute cost is unknown. The prefix pilot must measure one-case
+wall time and storage before a full-run cap is proposed; do not fabricate a
+solver cost from neural inference timing.
+
+**Recommendation:** do not generate longer trajectories now. H159 becomes
+scientifically worthwhile only after clean R0 and identical-reference prefix
+parity, because the current H79 survivor error is still rising and survival is
+administratively censored. It is not the minimum evidence for present
+checkpoint attribution or ripple causality. A truth-free continuation would
+test only qualitative finiteness/admissibility and must not be called
+longer-horizon accuracy, capability, or stability.
+
+## 2026-07-27 L3R Architecture And Algorithm Direction Audit
+
+Status: **report-only planning audit complete; registered sequence unchanged;
+no model run authorized**. This entry closes the requested pre-training method
+review using the frozen and already-open L3R-M0, D041, U1, D044, D052--D062,
+ripple, wave-kinematics, and horizon evidence. No checkpoint was loaded, no
+training or reference generation was launched, and no new or sealed population
+was opened. The normative contract is in `RESEARCH_DIRECTION_DECISION.md`.
+
+### Evidence Constraints On Method Choice
+
+1. P/D019 and R/D041 have the same backbone width, depth, `kmax=8`, and
+   `(6,2)` Fourier domain. R/D041 adds only 640 input-projection parameters for
+   node-type and Mach channels. Data/time coverage, learned coordinates and
+   objective, conditioning, optimizer/selection, continuation, and source
+   provenance all differ. Architecture is therefore not an identified cause of
+   the bump gain.
+2. U1 remains finite through H79 and re-enters admissibility after local
+   negative internal-energy/pressure episodes. It rejects the premise that the
+   observed bump stop automatically enters a global blow-up basin and does not
+   select a limiter or smoother.
+3. D052 identifies no safe uniform spectral, pointwise, or differential
+   attenuation. On the dynamic family, D053b assigns about `91%` of full-state
+   error energy to propagated error but `85--95%` of smooth-high-pass error
+   energy to fresh one-step defect at calls 30/60. A single generic stability
+   control is not mechanism matched.
+4. D060 improves H60 state error to `0.874x` D044 after halving recurrent calls
+   while worsening all-case high-pass energy to `1.363x` and front-centroid
+   distance to `1.435x`. D061 shows that truth-selected or fixed state averaging
+   cannot safely combine the phase-displaced paths.
+5. D055 legally localizes `80--91%` of dynamic fresh high-pass energy on about
+   `17%` support, but D056's bounded post-hoc correction yields only about `7%`
+   state improvement and worsens late high-pass. Localization can become a
+   training hypothesis only after the global multirate path has adequate state
+   behavior; it is not a current correction result.
+6. The wave audit identifies outgoing entropy/contact and acoustic error emitted
+   by the first exact-input shock update at nearly correct characteristic
+   speeds. This sharpens front/mode diagnostics but does not identify a spectral
+   or local architecture branch. The independent-row front warp already failed
+   D062's physical hierarchy.
+
+### Three Ordered Directions
+
+#### Direction 1: Bump Training-Contract Reproduction And Attribution
+
+- **Target and prediction:** target the four confounded training-contract
+  blocks, not architecture. A causal block should move raw validation rollout
+  behavior under a one-change A0 comparison after clean R0 reproduction.
+- **Smallest experiment and matched control:** R0 is first. If it passes, A0
+  uses one serious seed per registered block, the same R0 architecture, maximum
+  optimizer steps, and sample presentations. Restricted data are resampled to
+  equal presentations; removed conditioning inputs become dummy channels so
+  parameter count stays fixed; checkpoint selection is rescored offline before
+  continuation is treated as a training intervention.
+- **Primary/anti-smearing fields:** H20/H79 completion, survival, proxy state
+  error, exact teacher/propagated/cross terms, and raw nodewise margins are
+  primary. Front position/strength/thickness, downstream signed-neighbor
+  oscillation, smooth graph-high-pass, and boundary strata guard against blur
+  and low-weight boundary neglect.
+- **Stop and claim boundary:** any R0 provenance or reproduction miss blocks A0;
+  any parameter, presentation, population, normalization, evaluator, or
+  selection mismatch invalidates a row. Success can support clean bump
+  reproducibility and at most two influential training blocks. It cannot
+  support internal attribution of the learned-map bundle, architecture
+  superiority, dynamic transfer, physical conservation, or sealed performance.
+
+#### Direction 2: Dynamic Shared Stride-Conditioned Multirate PCNO
+
+- **Target and prediction:** target D044's propagated-state versus fresh-defect
+  split and the D044/D060 call-count tradeoff. Joint stride-1 supervision should
+  reduce fresh front/smooth defect while a raw stride-2 path retains D060's
+  lower recurrent state error.
+- **Smallest experiment and matched control:** MR0 is one shared model and one
+  seed on the frozen `84/24` dynamic split. Use `51,200` total presentations,
+  the retained D044/D060 count of `13,400` batch-four optimizer steps, and an
+  equal stride-1/stride-2 mixture. Mixed-stride examples share
+  trajectory-homogeneous batches rather than adding steps by stride. Reuse the
+  fixed family's constant standardized Mach input as normalized physical
+  `Delta t`, keeping exactly `19,155,720` parameters. Freeze D044/D060 optimizer,
+  BF16, primitive-noise, seed, split, selection, and raw recurrence. The primary
+  H60 path is 30 stride-2 calls; also report the same checkpoint's 60 stride-1
+  calls and direct/composed consistency.
+- **Primary/anti-smearing fields:** require the registered 24/24 completion,
+  state error `<=1.03x` D060, and smooth-high-pass/front-centroid
+  `<=1.03x` D044 conjunction. Preserve shock strength/thickness, Chamfer,
+  vortex core, physical totals/reference boundary, signed smooth correlation,
+  and outgoing characteristic modes; report teacher/propagated sources and
+  latency.
+- **Stop and claim boundary:** any contract mismatch, nonfinite training state,
+  raw inadmissibility, or one-seed conjunctive miss closes MR0 without tuning.
+  A pass supports only a one-seed, fixed-family, matched shared-map result. MR1
+  is required for seed robustness; no universal stride, conservation, bump,
+  mesh/time generalization, strength-OOD, test, or general shock-stability claim
+  follows.
+
+#### Direction 3: Conditional Dynamic Proposal-Sensor-Gated Local Branch
+
+- **Target and prediction:** select this only if MR0 retains adequate state/front
+  behavior but fails through localized freshly generated smooth high-pass
+  defect. A jointly trained D055-gated branch should reduce fresh defect and
+  signed alternation without broadening the front; an equal-capacity ungated
+  branch should not match the conjunction if localization is causal.
+- **Smallest experiment and matched control:** L0 is a one-seed gated-versus-
+  ungated A/B. Both rows share parameters, initialization, stride mix, `51,200`
+  presentations, `13,400` optimizer steps, optimizer, precision, seed, split,
+  and selection. The gate uses only current state and raw proposal, with no
+  target, future state, reference mask, floor, clip, or boundary replacement.
+- **Primary/anti-smearing fields:** fresh teacher-forced smooth-high-pass energy,
+  signed-neighbor cosine, support capture, H60 state error, and completion are
+  primary. Every MR0 front, characteristic, vortex, balance, boundary, and raw
+  admissibility field is a no-harm guard.
+- **Stop and claim boundary:** do not draft L0 for a nonlocalized, propagated,
+  front-dominated, or state-error MR0 failure. Truth leakage, support/parameter/
+  presentation mismatch, inadmissibility, or any guard regression closes the
+  row without a sensor or coefficient sweep. A pass would support only a legal
+  learned local control for the selected dynamic fresh defect, not post-hoc
+  correction, bump benefit, failure prevention, conservation, generic
+  smoothing, broad OOD, or seed robustness.
+
+### Epistemic Disposition And Sequence
+
+**Verified evidence:** the six constraints above and the frozen run gates.
+
+**Plausible mechanism or inference:** shared multirate training may regularize
+the direct stride-2 map toward stride-1 front behavior; end-to-end learning may
+use D055 localization more effectively than D056's post-hoc state correction.
+
+**Missing evidence:** clean bump R0 source replay; A0 causal effects; a trained
+shared multirate checkpoint; seed variability; a planar-shock/no-vortex
+characteristic control; and any dynamic failure event that would connect ripple
+reduction to admissibility.
+
+**Alternative explanation:** multirate benefit could be ordinary multitask
+regularization rather than improved semigroup structure; any A0 effect could be
+normalization or optimizer-history interaction; a local branch could win from
+extra capacity unless the ungated parameter control closes.
+
+**Claim implication:** the registered sequence remains
+`M0 -> R0 -> A0 -> MR0 -> MR1`, with L0 conditional and F0 sealed. The new
+audits refine metrics and reject premature smoothing, limiter, front-warp,
+larger-backbone, and longer-horizon routes; they do not change a dependency
+premise.
+
+**Minimum decisive next experiment:** no method training precedes R0. The next
+human decision is whether to authorize the exact clean L3R-R0 contract. A pass
+permits a separate A0 review; only A0 closure permits an MR0 execution review.
+
+## 2026-07-26 L3R-M0 Provenance And Checkpoint Attribution Audit
+
+Status: **closed after authorized read-only provenance retrieval, with the
+residual collaborator/source requests below still unresolved**. No checkpoint
+was deserialized or executed, no model was trained, and no new or sealed split
+was opened. The raw HDF5 hash request was not pursued after the sealed-split
+boundary rejected it. Closing M0 does not itself authorize L3R-R0, L3R-A0, or
+any later row.
+
+The labels in this section are deliberately exact:
+
+- **P/D019** means the positive-primitive PCNO evaluated by D019 on mapped bump
+  test trajectories `00/06/11/13/17` for H79. The recovered successful command
+  used remote file `PCNO_forward_euler_exp_model.pth`; that surviving file and
+  the retained local copy are both 76,634,327 bytes with SHA-256
+  `31364c48b45b052ff45e2ca349d1ea711c29cb429d2b5cd68f223851472796b5`.
+  This closes the D019 checkpoint-byte identity, but not its collaborator-side
+  training epoch, parent, continuation history, or selection rule.
+- **R/D041** means the conservative-residual PCNO selected at continuation epoch
+  `4`, with recorded checkpoint SHA-256
+  `2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`,
+  and evaluated by D041 on all 20 bump holdouts for H79. The selected bytes and
+  its base/last siblings survive remotely and close to the hashes below; they
+  were hashed but not copied or loaded. Multiple independent sidecars bind the
+  same epoch, model configuration, data-manifest digest, and normalization.
+
+### Side-By-Side Provenance Matrix
+
+| Field | P/D019 positive-primitive run | R/D041 conservative-residual run |
+| --- | --- | --- |
+| Checkpoint, epoch, parent, continuation | D019 byte identity is exact: 76,634,327 bytes, SHA-256 `31364c48...796b5`. The checkpoint was supplied by a collaborator before the D019 session; its epoch, parent, continuation history, and selection rule were not supplied. The historical trainer candidate overwrites at epochs 99/199/299/399/499, but no evidence binds this binary to that trainer or any one epoch. | Selected continuation best: epoch `4`, `2bb5ee3c...2964`; parent base best: epoch `39`, `4fd5f568...6dbfc`. Remote hashes also close base last `394d0742...44b2` and continuation last `89415850...b5fed`. The base ran epochs `0--49`; the continuation initialized only model weights from base best, created a fresh optimizer/scheduler, ran epochs `0--9`, and selected epoch `4`. |
+| Clean commit or source snapshot | No exact training snapshot. `3f500cd` remains a historical training-source candidate but declares `kmax=12`, whereas D019 strict-loaded `kmax=8`. Exact D019 preprocessing, rollout, and visualization commands and surviving runtime source files are now recovered; they do not identify the collaborator's training source. | Summaries bind branch `time-dependent-no`, commit `c5dae75c075a289072c5a876cde6f126d25cf44e`, and `dirty=true`. The exact training dirty snapshot is not retained. `bd60498c82c09d68a124245f86a37210068b2b47` remains the first clean coherent reproduction candidate, committed after the runs, not the runtime snapshot. |
+| Uncommitted or unrecoverable source difference | The training change reconciling tracked `kmax=12` with the strict-loaded `kmax=8` binary remains unrecovered, as do the collaborator's command, logs, and worktree state. D019 preprocessing/evaluation dirtiness is now bounded by literal surviving files, timestamps, and recovered commands. | The dirty diff relative to `c5dae75...` remains unrecovered. Exact base and continuation commands and logs are recovered. The session ledger records a summary-only `config_digest`/`parent_checkpoint` edit between base and continuation; this does not prove the absence of out-of-band edits. Later clean source remains a reproduction candidate only. |
+| Architecture and parameter count | D019 metadata and strict state-dict loading bind `kmax=8`, Fourier domain lengths `(6,2)`, one measure, input width `7`, output width `4`, widths `[128,128,128,128,128]`, four operator blocks, and `fc_dim=128`. The matching static evaluator construction has 19,155,080 parameters. The head exponentiates density and pressure channels. | `PCNOEuler2DResidual`, `kmax=8`, Fourier domain lengths `(6,2)`, one measure, input width `12`, output width `4`, widths `[128,128,128,128,128]`, four operator blocks, `fc_dim=128`, and exactly 19,155,720 parameters. The output is an unconstrained normalized conservative-state residual. |
+| State representation and prediction target | Primitive state `[rho,v1,v2,p]`; the recoverable trainer candidate learns the direct next primitive state. D019 recurs directly in primitive coordinates. Exact checkpoint-to-training-source binding remains missing. | Conservative state `[rho,rho*v1,rho*v2,E]`; the target is the normalized one-step conservative residual, decoded by fixed residual scales and added to the current conservative state. Raw recurrence remains in conservative coordinates. |
+| Normalization and residual scaling | The recoverable trainer candidate sets input and target normalization false and has no residual scaling. Positivity is imposed only by `exp` on predicted density and pressure. | Fixed training normalization: state mean `[1.8079725061,4.4043022227,0.1690163692,11.2126847593]`, state scale `[1.0176334246,1.3967560335,1.0395857398,5.6675420064]`, residual scale `[0.1320504789,0.2677189323,0.1788679397,0.9024359389]`, Mach mean/scale `2.9909370370/0.2311551341`, gamma `1.4`. |
+| Node type, geometry, and Mach conditioning | Input is coordinates `2` + reconstructed node-density/quadrature channel `1` + primitive state `4`. Graph edges and gradient weights enter the operator auxiliary data. There is no node-type one-hot or explicit Mach channel. | Input is coordinates `2` + reconstructed quadrature-density channel `1` + normalized conservative state `4` + node-type one-hot `4` + normalized Mach `1`. Graph edges and gradient weights remain auxiliary inputs. The bump weights are reconstructed vertex-lumped diagnostic proxies, not validated physical volumes. |
+| Boundary encoding and rollout policy | Boundary type is not encoded explicitly. D019 predicts every unmasked node recurrently, applies only the padding mask, uses no future reference, and has no admissibility stop or boundary replacement. | Node type is encoded, but D041's baseline policy is still `model_all_nodes`: every physical node, including boundaries, is predicted recurrently. It uses no future-reference boundary values, clipping, primitive floors, smoothing, limiter, or boundary replacement. |
+| Training trajectories and temporal coverage | Recoverable source candidate: load 100 preprocessed trajectories, train on the first 40, validate on the last 5, and use the first 60 transition starts. Exact preprocessing/mapping and checkpoint binding are missing. | Deterministic `270/30` split of the 300 bump training trajectories, all 80 saved states, and all 79 stride-1 transition locations available to the sampler. Split and normalization sidecars are retained. |
+| Transition pairs and sample presentations | Source-implied, not checkpoint-verified: `40*60=2,400` unique train pairs and `2,400*500=1,200,000` presentations under the fixed 500-epoch full-loader schedule. Batch size is `8`. | `270*79=21,330` available train pairs; 2,048 sampled presentations per epoch. Full base job: 102,400 presentations. Selected parent through base epoch 39: 81,920. Full continuation job: 20,480. Selected child through continuation epoch 4 adds 10,240, so selected ancestry totals 92,160. Homogeneous per-trajectory batching yields 540 optimizer steps per epoch at batch size `4`. |
+| Optimizer, schedule, precision, seed, stopping | Recoverable source candidate: Adam, base/max learning rate `5e-4`, weight decay `1e-4`, OneCycle stepped once per epoch, FP32, PyTorch/NumPy seed `0`, and fixed 500 epochs. It saves periodically and finally, not by validation selection. Exact checkpoint optimizer history remains missing. | AdamW, base learning rate `1e-3`; continuation learning rate `2e-4`; constant schedule, weight decay `1e-5`, gradient clip `1.0`, BF16 autocast, seed and split seed `20260718`. Fixed 50-epoch base and 10-epoch continuation jobs; there is no early stop. The lexicographic validation/rollout metric updates `best.pt` during each job. |
+| Validation population and checkpoint selection | Recoverable source candidate: the last 5 of the 100 preprocessed trajectories, 60 transitions each (`300` transition pairs), with relative-L2 reporting. No validation-based checkpoint rule is implemented; the final epoch would supply the retained model if this were the exact source. Actual D019 selection rule is unknown. | Fixed 128 balanced transition presentations from the 30-trajectory validation split plus H20 raw rollouts on validation keys `16/60/128/141/235`. Lexicographic selection tuple is completion rate, negative completed-case final relative L2, then negative one-step validation relative L2. The selected continuation tuple is `[1,-0.0242849417,-0.0054024458]`. |
+| Evaluation population, recurrence, admissibility | D019 uses mapped held-out trajectories `00/06/11/13/17`, start frame 0, 79 stride-1 calls. It directly recurs the primitive output and always attempts the fixed horizon. It has no NaN, positivity, or global-error stopping rule; density/pressure can underflow to zero and velocity/global-norm calculations can overflow. | D041 uses all held-out bump trajectories `00--19`, start frame 0, 79 stride-1 calls, `dt=0.025`, and physical horizon `1.975`. A proposal is accepted only if every node has finite conservative components, finite internal energy/pressure, and strictly positive density, internal energy, and pressure. The first rejected proposal is not appended to the error curve. |
+| Environment and dependencies | The successful command binds a Python 3.12 interpreter and CUDA device 0. The surviving host environment is Python `3.12.2`, PyTorch `2.8.0+cu128`, CUDA runtime `12.8`, cuDNN `91002`, NumPy `2.5.0`, SciPy `1.18.0`, h5py `3.16.0`, RTX 5090, current driver `580.105.08`. Conda history predates D019 and no installed distribution metadata postdates R/D041, so this is a strong environment candidate, not an original export or exact historical driver capture. | The exact commands bind the same interpreter, CUDA device, and BF16. The same surviving environment facts apply; the package freeze digest is `ec8086c...ddf`. No distribution metadata postdates the continuation, but an original environment export and historical driver capture remain absent. |
+| Evaluator and visualization identity | Exact D019 runtime chain is recovered: `pcno.py` SHA-256 `c5bb98fe...298b`; `rollout_visualization.py` `9b4aee0e...465f`; `rollout_pcno_preprocessed.py` `acd42fe0...a0f1`; and `visualize_official_cpg_rollout.py` `cb4d7b49...af79`. Their timestamps precede the retained results and have not changed. The successful rollout and `--frame-stride 2` visualization commands are recovered from the original session ledger. | The exact D041 launch command and own log are recovered, including the one-case/two-call sanity gate followed by 20 cases and 79 raw calls. Surviving evaluator/preparer/utility files were modified after D041, so they are not claimed as literal runtime source. D041 behavior and output contract are bound by its summary/log; exact dirty evaluator source remains missing. D041 has no retained animation contract. |
+
+The 640-parameter difference is exactly the five additional input channels
+(four node-type indicators and one Mach scalar) projected to width 128. There
+is no evidence for a separate backbone-capacity explanation.
+
+### Local Evidence Anchors
+
+| Retained artifact | SHA-256 |
+| --- | --- |
+| `pcno_ckpt/PCNO_forward_euler_exp_model.pth` | `31364c48b45b052ff45e2ca349d1ea711c29cb429d2b5cd68f223851472796b5` |
+| `pcno_corrected_rollout_20260705_selected/rollout_summary.json` | `9c37b07addcbc26a170c34b280ddae3d1869ada65eea5796aa8ed51a83280899` |
+| `pcno_corrected_animation_gallery_20260706_selected/gallery_summary.json` | `6a547abb78ad0efd81a4c828c409249121f066e88f649a80624342929f4b252a` |
+| `pcno_euler2d_residual_clean_serious_20260718/summary.json` | `2296929b189eb2086a871cdaabd835662ee8b0a39df9cc61dbfdc85282a4eb40` |
+| `pcno_euler2d_residual_clean_serious_20260718/metrics.jsonl` | `4f967bf1d1bd68b2caced227055e867fe56ec8c2e70a4c8a754fbca6b52a36db` |
+| `pcno_euler2d_finetune_clean_lr2e4_20260718/summary.json` | `fceca25f3186d955af968d0e4032965ed1ebb423b69cc5e0bdb2f35f7faa4242` |
+| `pcno_euler2d_finetune_clean_lr2e4_20260718/metrics.jsonl` | `affed95af7ce1bba38866f6ffb0a12a20eb5d9332cd5bbdd17a2df299db144bb` |
+| `pcno_euler2d_official_test_h79_gain075_20260720a/summary.json` | `3ca42f08db20b1808e9b02426e242bd9574f4996efeab38235c923ee9f28450c` |
+| `pcno_euler2d_official_test_h79_gain075_20260720a/trajectory_metrics.csv` | `b9f9c5a018035faf2241c4ebab42c973997aa0ebf75ede14e3f04870f4aa3eae` |
+| `pcno_euler2d_official_test_h79_gain075_20260720a/failure_diagnostics.json` | `9e894862de9a4f74691593b20e74b9124937c024ceb830b39c9ede051942b0cc` |
+| `pcno_euler2d_official_test_h79_gain075_20260720a/failure_localization.json` | `7c16d13b97031f7d899afe40adedf338e9d315d3ae84e962b55405f2594fea3e` |
+| `pcno_euler2d_official_test_h79_gain075_20260720a/test_shard_manifest.json` | `8f58a3bf28d8ef3567a54920440e73a1e5f0290a3b5a63771e8932c4624331e5` |
+
+### Authorized Retrieval Addendum
+
+The compact retrieval is retained only under the ignored local artifact tree;
+large checkpoints and trajectory arrays were not copied or loaded. Remote
+content hashing closed these checkpoint identities:
+
+| Checkpoint | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Base best, epoch 39 | 229,918,947 | `4fd5f5688e8ac1c8746e29e82c72000b8a2bf1c7eb49416f476ba692f0c6dbfc` |
+| Base last, epoch 49 | 229,918,947 | `394d0742d6e5cd59fa6dc3b16030428e3faaed0d4d31953ea89b74f5501e44b2` |
+| Continuation best, epoch 4 | 229,919,139 | `2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964` |
+| Continuation last, epoch 9 | 229,919,139 | `89415850fe4f2ce20da1a5a23d6bd3d2ec8589b4c914491f19451a15883b5fed` |
+
+The 300-trajectory training manifest is 172,936 bytes, SHA-256
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`.
+It records 80 states per trajectory and per-trajectory state/geometry digests.
+The D019 preprocessed NPZ is SHA-256
+`664ffaaaeaff82519b15617458ca6c05da72c44ec53e1342cfff648305c210b5`;
+its mapping is `57cbc497efe8f9716b801b3eaadee573e95674119e03085f089e18a315f26dbe`.
+
+All already-open D041 trajectory payloads were hashed without deserialization:
+
+| Trajectory | SHA-256 | Trajectory | SHA-256 |
+| --- | --- | --- | --- |
+| `00` | `2a76c6f2cb32155d0f3f7f33644ecd701a0e9bbdcf53416cd2212f4210f0c630` | `10` | `bf72d0257bb820674e31423c24647fd6d6ab64c12e787e75c9342b7db301009b` |
+| `01` | `d59bb24e455c5f5c4c051c2034f2434d6958bf855183655cae21fb8c8f68dea3` | `11` | `63354521784165de6bbe141e82e65a9ea904d0f6b3416abce6cf41fba915fb90` |
+| `02` | `ffd5e706022c4c6ad70af9bc136a5c3ff6cedabf83462aa08aef2056dcf97b7b` | `12` | `602ab06dce908358e2e5dec304e705088346aad82a463c2de1c5856f66cf78a8` |
+| `03` | `7b50ede20b92e7d5587821cd6481e2a39a73b07e6285ebfeefb66f3372a87454` | `13` | `cce3bc1428e4169bfb35a3de8c2391685e40689350903d72f577cabaad6c634a` |
+| `04` | `9a635de43f91aef518bf4dc045359c7a39df7067d91eb2afb5c350e48f4ae30b` | `14` | `bc9d56b7c9f1f066221147c0078e45b6813dc9b910aac5aa9734d258b3c7f294` |
+| `05` | `58e3044a2678ce859c0f3b6ad6706c2547110c5d57dd28c7aa2558734a5189a6` | `15` | `4d68761738bfbcfc7996952cfba23e792ffaa9eb1d2ea3a097ead69b8a201efb` |
+| `06` | `467490a473b0fcde6412d7137830c54ba2d9c291b05681bb64b3159419f8a649` | `16` | `823811be1479e18b4b096fb5533539f67d23d780ac70e6a3d7e525c97635a2b4` |
+| `07` | `a2723fe9d716d00e0e2b57159a35d84bafe2c26d2d2b830e83b84a1dcedde99e` | `17` | `8a0cdd13544a2675c1b1ac3bfea01788927c657a2987cc056efe243c995adbf2` |
+| `08` | `54ef19e8b64e1e7fa5c71f405d575b274c8560f1f151701ad7e43a7187ed652e` | `18` | `c83a0ce5f1fbcd6908b56f210c00d9dce2755a88a19fec277c789ba91e9a66a8` |
+| `09` | `a79b94bafafde718841b226fd7776d3ea70ef332323417b669f3ea6c20891e64` | `19` | `302a41fbf113656b3749f03942b00b97cf79a33ccf22e6f9685cd916762943a3` |
+
+The five D013 H20 trajectory and basis pairs also survive and were hashed. They
+contain diagnostic arrays, not an animation. No retained bump GIF has 20
+frames; the ten D019 GIFs close to the hashes of the remote copies and each has
+40 frames.
+
+### H79 Completion, Survival, And Failure Semantics
+
+For requested horizon `H=79`, let `L_i` be the number of accepted admissible
+model proposals for trajectory `i`, with `0 <= L_i <= 79`. For `N`
+trajectories,
+
+`completion_H79 = (1/N) * sum_i 1[L_i = 79]`
+
+and
+
+`mean_survival_H79 = (1/N) * sum_i (L_i / 79)`.
+
+D041 has 17 complete trajectories and failure-prefix lengths `32`, `31`, and
+`25`. Therefore completion is `17/20 = 0.85`, while mean survival is
+`(17*79 + 32 + 31 + 25)/(20*79) = 1431/1580 = 0.9056962025`. They measure
+different properties and need not match. The registered R0 threshold
+`0.875696` is a tolerance, not the frozen D041 mean.
+
+All three D041 baseline failures are finite local thermodynamic-admissibility
+violations:
+
+| Trajectory | Accepted length | First excluded call | Failed minimum density | Failed minimum internal energy | Failed minimum pressure | Last included / failed-proposal global proxy error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `05` | 32 | 33 | 0.578997 | -0.0780875 | -0.0312350 | 0.0296711 / 0.0301255 |
+| `12` | 31 | 32 | 0.248777 | -0.116713 | -0.0466850 | 0.0287190 / 0.0285643 |
+| `19` | 25 | 26 | 0.509808 | -0.0257726 | -0.0103091 | 0.0245881 / 0.0247239 |
+
+They are not NaNs, density failures, or global-error-threshold stops. The
+admissibility gate is an all-node conjunction over roughly 20k nodes, whereas
+the plotted state loss is a graph-wide norm. One node can cross negative
+internal energy while contributing little to the global average. The evaluator
+then breaks before appending that proposal, so the visible curve contains only
+the bounded admissible prefix and the failure appears as a separate marker.
+Failure localization records the first offending node; it does not establish
+that only one node was invalid.
+
+P/D019 has different semantics: it does not stop on inadmissibility. All 79
+calls are attempted even when primitive density or pressure underflow to zero,
+velocities grow to very large finite values, or a derived squared-norm
+calculation overflows to infinity. Historical wording such as “crash” must not
+be translated into D041's strict admissibility termination.
+
+### Animation Frame Accounting
+
+The retained D019 source has 80 saved frames. Starting at source frame 0 and
+requesting H79 with model stride 1 requires 79 recurrent calls and reaches
+source frame 79, for physical horizon `79*0.025 = 1.975`. The result writer
+drops the duplicated initial state and stores 79 predicted frames. The retained
+gallery manifest selects model-call indices `1,3,5,...,79`, a
+visualization-only stride of 2, and direct GIF inspection confirms 40 frames in
+each of the ten D019 GIFs.
+
+Thus model stride did not produce a 20-frame D019 animation. No retained D019
+GIF has 20 frames. D013 is an H20 diagnostic: with source stride 1 it makes 20
+model calls over physical horizon `0.5`, but no D013 GIF or animation manifest
+is retained. A key such as trajectory `60` is an identifier, not H60. Any
+specific claim about a 20-frame animation remains unverified until the exact
+file and adjacent manifest are retrieved.
+
+### Attribution-Block Decision
+
+**Verified evidence.** The registered differences are real at bundle level:
+training/time coverage, learned state map and objective, explicit node-type/Mach
+conditioning, and checkpoint-selection/continuation history all differ.
+Backbone width, Fourier modes, domain lengths, and operator depth do not differ;
+the parameter-count delta is only 640.
+
+**Plausible mechanism or inference.** Larger trajectory/time coverage may
+improve state-distribution support; conservative normalized residual learning
+may improve optimization and scale balance; node/Mach conditioning may reduce
+boundary/regime ambiguity; validation-rollout selection and low-rate
+continuation may prefer more recurrently stable weights. None is individually
+causal from the retained runs.
+
+**Missing evidence.** P/D019's collaborator-side epoch, training source,
+command/log, optimizer history, data manifest, and selection rule remain
+unknown. R/D041's exact dirty training/evaluator snapshot remains missing.
+Neither run has an original full environment export or historical driver
+capture. Raw source-HDF5 content digests were not collected because the
+sealed-split boundary takes precedence; processed manifests and already-open
+output hashes are retained instead.
+
+**Alternative explanations.** Preprocessing and graph reconstruction,
+normalization-statistics population, evaluator/source drift, training
+presentation count, optimizer history, validation population, and undocumented
+dirty-tree edits can reproduce an apparent gain without a new algorithm.
+Different failure policies also make raw “completion” incomparable unless the
+same evaluator is used.
+
+**Claim implication.** The four headline blocks remain the smallest useful
+planning partition only under three qualifications:
+
+1. data coverage must freeze preprocessing, graph construction, normalization
+   policy, optimizer, presentation count, evaluator, and validation population;
+2. conservative coordinates, residual target, normalization/scaling, and the
+   positive-primitive head form one indivisible learned-map/objective bundle,
+   so one matched row cannot attribute its internal components; and
+3. node type plus Mach is one conditioning bundle, while the fourth headline
+   item must be analyzed in two stages: first rescore the per-epoch checkpoint
+   stream retained prospectively by L3R-R0 to isolate selection, then treat
+   continuation as a genuine training intervention. No historical per-epoch
+   stream is claimed to survive.
+
+No fifth capacity block is justified. Evaluator, environment, source, and
+preprocessing identity are freeze conditions for causal interpretation, not
+additional learned-method factors.
+
+**Minimum decisive next experiment.** L3R-R0 remains the first experiment: one
+clean-source reproduction of the exact R/D041 training, validation-selection,
+and raw recurrence contract. It must bind source, command, environment, data
+manifest, split, normalization, every checkpoint digest, and selection trace;
+select only on validation; and evaluate D041 plus the five legacy trajectories
+only after selection. Passing R0 permits a separate human review of the
+qualified A0 blocks. Failure routes to source/environment/preprocessing
+comparison and blocks attribution and method work. This is not a factorial
+sweep. Retrieval closes enough inputs to place R0 before human review; it does
+not close enough evidence to skip R0 or claim a cause for the historical gain.
+
+### Remaining Exact Retrieval Requests
+
+Authorized retrieval closed the checkpoint bytes, compact residual-run
+sidecars/logs, exact launch commands, processed-data manifests, D013/D041 output
+hashes, and D019 preprocessing/evaluation/visualization source chain. The
+remaining requests require either the collaborator or a separately authorized
+source archive; they must not be reconstructed from filename or memory:
+
+1. From the P/D019 checkpoint producer: the training epoch, parent and any
+   continuation history; checkpoint-selection rule; exact training command and
+   stdout/stderr; clean source archive or commit plus dirty patch; optimizer and
+   scheduler state/history; seed; training/validation population manifest; and
+   original environment export.
+2. For R/D041: the literal dirty trainer/model/evaluator snapshot or a
+   binary-clean patch relative to `c5dae75...`. Do not substitute `bd60498`
+   without labeling it as a clean reproduction candidate. The recovered session
+   transcript and logs bind commands and behavior, not every runtime source
+   byte.
+3. For both runs: an original environment export and historical GPU-driver
+   capture, if one exists. The surviving package state is only a strong
+   candidate.
+4. Raw bump HDF5 content digests remain uncollected. Do not hash or inspect a
+   sealed split without a new explicit authorization; processed manifests and
+   already-open output hashes are the active evidence boundary.
+5. If a “20-frame animation” refers to a specific file outside the retained
+   gallery, provide that exact file and adjacent manifest. The retained D019
+   contract is 40 visualization frames, and D013 H20 has no retained GIF.
+
+## 2026-07-26 L3R Failure-Mode Decomposition And Visualization Audit
+
+Status: **report-only audit complete; no new scientific run**. This section
+uses only frozen D013, D041, D044, D052, corrected D053b, D054--D056, and D060
+evidence plus three digest-bound, already-open rollout arrays retrieved solely
+for visualization. No checkpoint was loaded or executed, no rollout was
+regenerated, no model was trained, and no new or sealed split was opened. The
+authoritative research decision and run authorizations are unchanged.
+
+The bump statements below bind the D041 conservative-residual checkpoint
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+to all 20 already-open bump holdouts under the D041 H79 raw `model_all_nodes`
+evaluator, supplemented only by D013's five registered bump validation cases.
+The dynamic statements bind D044 checkpoint
+`c5e468c7045bf5ff8ccdd5f222c19bd63dab15af54b0461a58e26af5e17f678f`
+and D060 checkpoint
+`95e6c180a3298c4b38662d8c6cb77301c0e7fd0286e9a53571bddc487b8379c9`
+to position-OOD validation: all 24 cases for D044/D060 population curves and
+the six registered D052/D053b cases for exact source and branch analysis.
+
+### Exact Decomposition And Measurement Rules
+
+At recurrent call `t`, let `u_t` be the reference input state, `uhat_t` the
+raw recurrent input, and `G` the same deterministic one-step map evaluated in
+the same process. Define
+
+`p_t = G(uhat_t) - G(u_t)` and `d_t = G(u_t) - u_(t+1)`.
+
+Then the total next-state error is exactly
+
+`e_(t+1) = G(uhat_t) - u_(t+1) = p_t + d_t`.
+
+`d_t` is the fresh teacher-forced approximation defect. `p_t` is the effect of
+the incoming state error through the learned map. A propagation gain such as
+`||p_t||_W / ||uhat_t-u_t||_W` is not the same quantity as D053b's propagated
+magnitude share `||p_t||_W/(||p_t||_W+||d_t||_W)`. Neither can be inferred from
+the total error alone. In a weighted inner product,
+
+`||e||_W^2 = ||p||_W^2 + ||d||_W^2 + 2 <p,d>_W`.
+
+The cross term can be positive or negative, so propagated and fresh energy
+fractions need not behave like additive probabilities. The same linear
+identity holds after a graph-high-pass operator and a fixed reference-defined
+mask. It does not hold as an exact source decomposition if a prediction-
+dependent mask is recomputed separately for each term.
+
+### Failure Taxonomy
+
+The taxonomy deliberately crosses source, spatial support, admissibility,
+morphology, aggregation, and provenance. These are not interchangeable labels.
+
+| Category | Operational question | What does not establish it |
+| --- | --- | --- |
+| One-step approximation defect | How large and structured is `d_t` under the exact reference input? | A late rollout error or teacher/rollout ratio alone. |
+| Propagation or amplification | How does the incoming error create `p_t`, and is `||p_t||/||uhat_t-u_t||` contractive, neutral, or expansive? | A large propagated share; a neutral map can carry an already-large error. |
+| Shock position, strength, and thickness | Which distinct front-geometry or jump functional is wrong? | One undifferentiated shock-region error or front IoU. Position can improve while strength/thickness regress, or conversely. |
+| Vortex or smooth-region error | Where is error away from the reference shock, and what smooth structure is lost? | A shock-excluded high-pass scalar alone. The bump family has no registered vortex analogue. |
+| Boundary-contract error and leakage | Does the trained/evaluated boundary policy match the causal contract, and does boundary-originating error propagate into the interior? | A boundary-node failure by itself, or a physical-total mismatch from a state-residual model. |
+| Local admissibility-margin collapse | Does any node first cross finite, density, internal-energy, or pressure constraints? | A global loss threshold or visually large field error. |
+| Checkpoint-selection/evaluator artifact | Would a different selection metric, replay binding, source snapshot, or stopping convention change the reported conclusion? | A physical mechanism inferred before provenance and evaluator controls pass. |
+| Genuine nonphysical spatial oscillation | Is there reference-relative alternating error in a reference-smooth region, preferably with sign/neighbor evidence? | High-frequency content at a physical shock or raw-state total variation alone. |
+| General graph/spectral high-frequency energy | How much energy lies in a declared graph or spectral high-pass channel under a fixed mask and weighting? | Proof of oscillation, Gibbs causation, instability, or failure cause. |
+| Global state-error growth | How does a declared whole-state norm evolve across physical time and the surviving population? | A local invalid proposal, one front metric, or one high-pass channel. |
+
+### Bump Family: Verified Evidence And Open Source Split
+
+| Category | Verified evidence | Inference, missing evidence, and alternative | Claim implication / minimum decisive next evidence |
+| --- | --- | --- | --- |
+| One-step defect | D041's all-20 one-step proxy is `0.006663`; D013's selected clean validation row is `0.005402`. | These show a small entry defect relative to late errors, but D041 did not retain same-process `G(uhat_t)` and `G(u_t)` for an exact per-call split. Later teacher inputs may also be intrinsically harder. | Do not quantify a bump fresh-defect share. The minimum decisive replay is same-process paired outputs at every retained call under the clean L3R-R0 binding. |
+| Propagation/amplification | D013 records `13.26x` late rollout/teacher smooth high-band energy, `45.28x` first-to-late rollout high-band growth, and error-direction perturbation gain `1.094`. | Recurrent amplification is plausible, but these are not the exact additive decomposition and do not show whether fresh defects regenerate the high-pass channel. Dynamic D053b is not transferable evidence. | Keep “composite recurrence” as the strongest bump statement. Retain `p`, `d`, cross energy, and incoming-error gain prospectively in an approved R0 replay; do not launch a separate factorial diagnostic. |
+| Shock geometry | D013 places `92.65%` of scaled error energy in the front union, while local translation removes zero median pressure error. | The defect is not pure shock phase; strength, thickness, and roughness remain plausible contributors. A single union mask does not separate them causally. | Report position, strength, and thickness independently in R0; no phase-only correction is supported. |
+| Smooth region / high-pass | D041 smooth-region graph-high-pass growth relative to call 1 is `14.1x/460x/3064x/6923x/18206x` at calls `5/10/20/40/79`. | This is enormous reference-smooth graph-high-pass growth. It does not identify the source term or prove that high-pass growth is the stopping event. Surviving-population composition changes after failures. | Keep both available-population state curves and per-trajectory high-pass curves; do not call the metric physical dissipation or conservation. |
+| Boundary contract / leakage | D041 predicts every boundary node. The two inflow and one wall failures occur at boundary types. Exact fixed inflow delays both inflow failures by 16 calls but leaves completion at `17/20`; full nodal remapping reaches `19/20` but fails accuracy/anti-smearing gates. | Boundary handling modulates timing and can move the failure site. It is not the sole mechanism, and neither result traces causal boundary-to-interior leakage. | Bind the legal autonomous boundary policy in R0. A leakage claim would additionally require a causal boundary-origin trace or matched local perturbation, not merely boundary failure counts. |
+| Local admissibility | D041 completes `17/20`. Failure prefixes are 32, 31, and 25 calls; first excluded calls are 33, 32, and 26 on trajectories `05`, `12`, and `19`. All are finite negative-internal-energy/pressure proposals at inflow, wall, and inflow nodes. No NaN, density, or global-error threshold stops them. | A small local margin may cross zero even when the weighted global error is bounded. The failed proposal is excluded from the valid prefix by contract. | Preserve nodewise density/internal-energy/pressure margins and the first excluded proposal. Do not relabel completion as a global-divergence metric. |
+| Selection/evaluator | L3R-M0 binds the exact D041 checkpoint and stopping rule but not the dirty runtime source snapshot. The clean continuation was selected by raw H20 completion/final error before D041 H79 evaluation. | Historical gain may still include provenance, data, objective, conditioning, or continuation effects; checkpoint identity does not prove causality. | L3R-R0 clean reproduction remains the minimum gate before causal attribution. Evaluator source and selection trace must be digest-bound. |
+| Genuine oscillation | D013 visual and graph-native evidence is consistent with recurrent ripple in selected bump cases. | The registered population metric measures high-pass energy, not sign alternation. A sharp front is physical high frequency, and a population-wide smooth-neighbor sign test was not retained. | “Ripple-like” is a qualified morphology, not the D041 stop cause. A decisive morphology claim needs shock-excluded signed error maps and neighbor/correlation statistics under fixed masks. |
+| Global state error | D041 mean survival is `0.905696`, baseline complete-case H79 final proxy error is `0.043668`, and the local failures occur with valid-prefix errors `0.02967/0.02872/0.02459`. In visualized trajectory `05`, the rejected proposal's proxy error is `0.03013`, close to accepted call 32's `0.02967`. | The aggregate curve can remain visually bounded because one node has negligible weight in the global sum while its thermodynamic transform crosses zero. | Plot global error and local margins together, as in the retained visualization. They answer different questions. |
+
+The bump evidence therefore verifies high-pass growth, shock-local composite
+error, boundary-sensitive timing, and local admissibility termination. It does
+not verify the D053b dynamic source split, a unique Gibbs mechanism, causal
+boundary leakage, or a safe smoothing target.
+
+### Dynamic Family: Exact Source Split And Metric Conflict
+
+| Category | Verified evidence | Inference, missing evidence, and alternative | Claim implication / minimum decisive next evidence |
+| --- | --- | --- | --- |
+| One-step defect | Corrected D053b closes the exact identity on all 360 six-case rows. At calls 30/60, fresh-defect energy fractions are `0.0140/0.0136` for full state but `0.9475/0.8472` for smooth high-pass. | The teacher-forced map repeatedly regenerates the smooth high-pass defect even though it contributes little full-state energy. | The source question is already decisive on this one checkpoint/family. A new diagnostic replay is unnecessary unless a new model changes the map. |
+| Propagation/amplification | D053b full propagated magnitude shares are `0.88995/0.89043` at calls 30/60; full propagation gains are about `0.9878/1.0026`. Smooth-high-pass propagated shares are `0.15619/0.30733`, all at most `0.34958`, with gains `0.1889/0.4056`. | Large full-state share here means nearly neutral carriage of an already-large mostly shock-supported error, not explosive local gain. The high-pass channel is contractive yet freshly regenerated. | A generated-state-only remedy is not selected for ripple, and a target-only remedy is insufficient for dominant full-state error. Any future method needs a joint, metric-aware falsifier. |
+| Shock position/strength/thickness | D060 lowers H60 state error to `0.87434x` D044 while its mean front-centroid distance worsens to `1.43511x`; shock-strength and thickness ratios improve to `0.78994/0.86185`. The position effect reverses by geometry stratum: `2.74982x` on `y00`, `0.74853x` on `y08`. | Front position, strength, and thickness are demonstrably distinct. One aggregate front or state score hides the geometry-conditioned sign reversal. | Preserve separate curves and grouped strata; no single “shock error” scalar is adequate. |
+| Vortex/smooth region | D060's vortex-core ratio improves to `0.34240`, yet six-case smooth-high-pass RMS worsens to `1.02548x` and all-24 endpoint high-pass energy to `1.36252x`. | Smooth/vortex accuracy and graph-high-pass morphology can move in opposite directions. | A state/vortex win cannot certify ripple control. Keep both in any future promotion gate. |
+| Boundary contract / leakage | D044/D060 use raw `model_all_nodes` recurrence without future-reference boundary injection. D044 records H60 normalized physical-total mismatch `0.0513185` relative to reference boundary exchange. | The state-residual model predicts no face exchange, so this mismatch is not causal proof of boundary leakage or a learned conservation law. No boundary-origin propagation trace is registered. | Keep the statement at physical-total mismatch on the audited finite-volume family. A leakage claim needs an explicit causal boundary diagnostic. |
+| Local admissibility | D044 and D060 complete `24/24` raw position-OOD H60 rollouts. Every corrected D053b teacher and rollout proposal is finite and admissible. | Local admissibility collapse is not the active observed H60 failure on this family. Longer horizons could reveal one, but that would answer a different question. | Do not use bump termination semantics for dynamic H60. Longer horizon alone is not the minimum experiment for the current source attribution. |
+| Selection/evaluator | D053 attempt A failed the call-1 zero control because outputs came from different replay processes; corrected same-process attempt B passes. D060 epoch 44 has lower one-step validation error but worse H60 error than selected epoch 34. | Replay binding and rollout-based selection materially affect mechanism and checkpoint reports without changing model architecture. | Bind evaluator process, zero controls, and recurrent selection. Do not select checkpoints on one-step loss for the rollout claim. |
+| Genuine oscillation | D054 finds negative smooth-neighbor cosine `-0.27573/-0.21278` at calls 30/60, with x-momentum carrying `0.62481/0.58079` of scaled high-pass energy. The fresh defect is sparse and oscillatory but not confined to the current shock halo. | This supports nonphysical alternating smooth-region defect on the registered six cases. It does not imply a spectral-branch cause or population-wide state instability. | D055 localizes the defect from the proposal, but D056 shows bounded correction is insufficient at call 60; localization is not correction efficacy. |
+| General high-frequency energy | D052 rollout/teacher state error ratio is `8.95x` at call 60, but smooth-high-pass ratio is only `1.095x`. No spectral, pointwise, or differential attenuation passes one complete row. | No safe uniform branch attenuation exists under the frozen local sensitivity. A high-pass channel can be regenerated without being recurrently amplified. | Do not launch gain, generic smoothing, or branch sweeps. Any proposed high-frequency control must also pass state/front/strength/thickness nonregression. |
+| Global state-error growth | D044 grows from mean state error `0.00028009` at call 1 to `0.00834190` at call 60. D060 reduces the H60 mean to `0.00729369` with half as many recurrent calls and wins all 24 paired cases. | D044/D060 show that reducing recurrent composition can improve global state error while worsening the high-pass/front conjunction. This is not contradictory. | Global state error, front geometry, and high-pass must remain co-primary evidence channels. |
+
+### Epistemic Disposition And Next-Stage Contract
+
+- **Verified evidence:** bump D041 termination is finite local negative
+  internal-energy/pressure proposal, not NaN or global-threshold explosion;
+  bump smooth graph-high-pass grows enormously; dynamic D053b has a split
+  source mechanism; D052 has no safe uniform branch attenuation; and D044/D060
+  exhibit a state-versus-high-pass/front tradeoff.
+- **Plausible mechanism:** the bump result is a composite of recurrent input
+  error, new one-step defect, shock-local geometry/amplitude error, and boundary-
+  modulated admissibility margin. The exact relative source contributions are
+  unknown.
+- **Missing evidence:** no bump same-process `G(uhat_t)`/`G(u_t)` replay, no
+  population-wide signed smooth-neighbor oscillation statistic, no causal
+  boundary-to-interior leakage trace, and no clean runtime-source reproduction.
+- **Alternative explanations:** time-dependent teacher inputs may get harder;
+  selection and continuation may move the checkpoint into a different rollout
+  basin; a sharp physical front contributes valid high-frequency content; and
+  surviving-population composition can change late aggregate curves.
+- **Claim implication:** “instability,” “ripple,” “high frequency,” “front
+  error,” “inadmissibility,” and “global error growth” must remain separate.
+  The dynamic mechanism cannot be transferred to the bump checkpoint.
+- **Minimum decisive next experiment:** do not add a standalone sweep. If the
+  human approves L3R-R0, amend only its retained diagnostic contract so the
+  clean, source-bound evaluator stores same-process `G(uhat_t)` and `G(u_t)`,
+  additive/cross terms, incoming-error gain, fixed reference shock/smooth/
+  boundary masks, separate front position/strength/thickness, and nodewise raw
+  admissibility margins. Selection remains validation-only and D041 remains
+  post-selection reproduction. Failure of clean R0 still blocks attribution
+  and method work.
+
+Uniform ripple suppression is not supported as the next method: D052 rejects
+the safe branch-attenuation premise, D053b shows source depends on the metric,
+and D044/D060 show state gains can coexist with high-pass/front regressions.
+Longer horizon may be descriptive for survival, but by itself cannot identify
+fresh versus propagated error and is not the minimum decisive evidence before
+R0. The next executable decision remains human review of L3R-R0; this audit
+does not authorize it.
+
+### Visualization Provenance And Frame Accounting
+
+The ignored report bundle is
+[`artifacts/time_dependent_no/line3_failure_mode_decomposition_20260726`](../../artifacts/time_dependent_no/line3_failure_mode_decomposition_20260726/README.md).
+Its manifests bind every input and output by SHA-256.
+
+- Bump trajectory `05` has 80 source states, requests H79, and uses stride 1.
+  Calls 1--32 are accepted; call 33 is the first excluded proposal. The GIF
+  encodes 18 selected calls for viewing, including the rejected proposal. The
+  18 frames do not change the 79-call horizon or recurrence.
+- Dynamic trajectory `sv_e06_y00` has 61 source states over physical horizon
+  `0.6`. D044 uses 60 stride-1 calls and D060 uses 30 stride-2 calls. The GIF
+  encodes 16 matched source frames `0,4,...,60`, corresponding to D044 calls
+  `0,4,...,60` and D060 calls `0,2,...,30`. The 16 frames are visualization
+  subsampling only.
+- The bump animation input SHA-256 is `4d32a1ea...fbb5ed`; matched dynamic
+  D044/D060 inputs are `f659e035...6829bf` and `8412d74f...8379c9`.
+  Retrieved source arrays are not part of the retained report bundle.
 
 | Run ID | Milestone | Purpose | System / Variant | Split | Metrics | Priority | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -74,6 +2156,41 @@ one-off implementations are recoverable from pre-cleanup commit `729091b`.
 | L4A-002 | Line 4A | Frozen-2D representation and closure gate | identity, matched rank-5000 physical-volume POD, one generic 25x10 spatial-token autoencoder, and one matched conservative-moment spatial-token candidate; no front variables or remap | D044's frozen 84/24 train/position-OOD-validation trajectories and 61 saved states on 250x100; engineering smoke used four spread train plus two endpoint-position validation cases at frames 0/15/30/45/60; 27 strength-OOD trajectories sealed | handoff completeness, reconstruction hierarchy, raw admissibility, physical totals, conditional-future ambiguity, one-step history control, decoder perturbation gain and doubled-query-resolution scaling, cost and intervention ledger | MUST | DONE; ENGINEERING SMOKE FAILED; CANDIDATE STOPPED | Strengthened preflight hashed all 78 staged arrays, loaded endpoints, and read no test arrays. The first actual 800-update matched smoke completed all 10 paired validation rows (summary SHA-256 `e742ccf4...`). The conservative-moment row beat generic L2 on 10/10 rows (`0.005430` versus `0.007605`) and enforced near-exact token/global budgets, but retained only `0.539` mean shock strength and broadened thickness to `2.672x`; generic retained `0.463` and broadened to `3.540x`. Both miss the `0.0021` reconstruction and 5% strength/thickness gates by large margins. The structured row's lower smooth high-pass energy is not ripple reduction because fronts remain blurred. Its conditional-future ambiguity is only `5.74%` below generic, one-code history ratios are approximately one, and doubled-resolution gain is stable at `1.002`; no POD comparison can rescue the failed physical gate. The earlier real-shard shape integration attempt stopped before model construction and zero optimizer steps. Do not continue the same loss/decoder, run rank-5000 POD or a serious representation job, train a transition, access test, or filter. The second smoke was never spent, and the campaign closed that allowance; it conveys no current authorization. |
 | L4A-003 | Line 4A | Frozen-decoder code-reachability oracle | exact L4A-002 conservative checkpoint and fixed decoder/four moment channels; per-state L-BFGS fit of only 16 free channels | same two position-OOD validation trajectories and frames 0/15/30/45/60; 10 states; strength-OOD test sealed | inherited reconstruction/front/admissibility gates, overshoot, training-scale code displacement, cost and intervention ledger | MUST | DONE; DECODER MANIFOLD REJECTED; FAMILY STOPPED | Per-state fitting lowers mean L2 from `0.005430` to `0.003226` and thickness from `2.672x` to `2.109x`, but nine of 10 rows still miss `0.0021`, mean strength worsens from `0.539` to `0.490`, maximum overshoot increases, and every fitted code lies outside the one-scale training neighborhood (RMS `1.528--4.419`). All raw states are admissible, but lower smooth high-pass energy is not ripple reduction because fronts remain broad and weak. Summary SHA-256 begins `e9577b43`; cost is `0.00308` GPU-hour. Encoder remediation is ineligible. Stop serious training, POD rescue, transition, test access, and filtering for this family. This per-state oracle is capacity evidence only, not forecast evidence or a universal rejection of latent representations. |
 | L4A-004 | Line 4A | Conservative local-Haar capacity preflight | same 25x10x20 state and four exact token means; 16 deterministic training-selected discontinuous mode/direction atoms per token; no front variables | same four training and two position-OOD validation trajectories at frames 0/15/30/45/60; 10 validation states; strength-OOD test sealed | exact L4A-003 target/control binding, latent rank and digest, reconstruction/front/admissibility hierarchy, token/global moments, overshoot, cost and intervention ledger | MUST | DONE; CAPACITY REJECTED; CHART STOPPED | Preflight rehashed all 78 arrays, matched L4A-003 targets bitwise, used only 20 declared training states, and read no test array. Haar improves amortized-encoder L2 on 10/10 rows (`0.005430` to `0.004461`), strength from `0.539` to `0.830`, thickness from `2.672x` to `1.554x`, and IoU from `0.390` to `0.500`; admissibility, overshoot, rank, token moments, and global budgets pass. But only one row reaches `0.0021`, mean strength remains 17.0% weak, thickness 55.4% broad, and Haar loses L2 to the privileged fitted-code control on 10/10 rows. Summary SHA-256 begins `f91b78d5`; cost is `0.00276` CPU-hour. This supports only that discontinuous decoder regularity helps front fidelity; it rejects sufficiency of this fixed 16-detail chart. Stop without a level, atom, lattice, or dictionary sweep; no closure, serious training, transition, test access, filtering, geometry-transfer, or neural-operator claim is authorized. |
+
+## 2026-07-26 Artifact Retention And Compaction Record
+
+This cleanup is limited to the ignored local
+`artifacts/time_dependent_no/` tree. Before cleanup it contains 2,296 files in
+513 directories and occupies 1,908,678,115 bytes (`1.778 GiB`). Artifact age
+alone is not a deletion criterion. Unique checkpoints, selected raw parent
+evidence needed by the Line 3 restart, claim-bearing structured tables,
+canonical reference arrays, final visualizations, and compact provenance remain
+protected.
+
+The protected high-value set includes the selected CPG mechanistic subset; the
+legacy bump PCNO checkpoint needed for L3R attribution; the strong clean bump
+paired-response bundle; the D041 H79 completion, boundary-sensitivity, and
+fixed-inflow evidence; the selected-clean-checkpoint D043d audit; the D044
+through D062 evidence needed by the active Line 3 questions; the final `c`
+shock-vortex reference arrays and convergence audit; and the claim-bearing
+Line 1 tables, checkpoints, and galleries. Structured JSONL is evidence, not a
+disposable log category.
+
+The compaction plan removes 23 test-scratch, fixture/cache, superseded CPG,
+D043b/c, and D042-v1 directories; 25 selected raw payloads; and 14 console
+log/status files. The raw-payload set consists of one SHA-identical D033 JSONL
+duplicate, the failed-binding D053a raw rows, five D042-v2 basis arrays, six
+D062 trajectory arrays, and 12 superseded shock-vortex reference arrays. Their
+retained counterparts are, respectively, the canonical D033 table; the D053a
+failure summary plus corrected D053b evidence; the D042-v2 summary; the D062
+summary/row table/variant table; and each reference run's compact provenance
+with the final `c` arrays. Guarded execution removed exactly those 23 named
+directories, 25 payload files, and 14 raw log/status files, plus the D062
+trajectory leaf after it became empty. It reclaimed 575,141,872 bytes
+(`548.50 MiB`). The post-cleanup tree contains 1,353 files in 330 directories
+and occupies 1,333,536,243 bytes (`1.242 GiB`); every protected target remains,
+no selected deletion target or raw log/status file remains, and the tree has no
+remaining top-level pytest/cache/fixture residue.
 
 ## 2026-07-20 D043 Paired Branch-Cancellation Audit
 

@@ -140,7 +140,7 @@ interior/short-horizon gain remains valid descriptive evidence.
 | --- | --- | --- | --- |
 | 1: large-step flow maps | Closed | Under the frozen 1D contracts, the useful stride depends on horizon and metric: a harder one-call map can win after fewer recurrent compositions. | No universal optimal stride, learned CFL limit, timestep-conditioned solver, ripple cure, or native-grid transfer follows. |
 | 2: CPGNet validity and mechanism | Closed | Corrected 1D controls support message reach rather than width alone; interface coordinates act as functional controls rather than verified physical traces. Legal-boundary training helps without closing the oracle-boundary gap. | No paper-faithful reproduction, implicit scheme, physical-interface, conservation, or PCNO-transfer claim follows. |
-| 3: geometry-aware 2D rollout | B1 and prior boundary rows closed; no training row active | B1 improves the clean interior one-step map and short-horizon/front-position metrics, but no checkpoint passes the D041 parity conjunction. BG0/RB0 fail their joint long-horizon/structure gates. RA0P fails its frozen BF16 ratio-repeatability gate before training. | These rows do not explain D041's historical recipe or support capacity, dynamic-transfer, conservation, seed-robustness, holdout, or sealed-population claims. A new numerical or training contract requires human review. |
+| 3: geometry-aware 2D rollout | Boundary-information subline closed with conditional re-entry; no training row active | Minimum-change projection improves D041 state/completion with a thickness caveat. The projected-teacher control improves state, but its gain localizes primarily to interior output and no boundary objective or adapter passes the joint state/structure gate. | No selected new checkpoint or boundary method exists. Exact DG replay, characteristic/corner fluxes, conservation, seed robustness, cross-family transfer, holdout, and sealed performance remain unsupported. |
 | 4: latent forecasting and assimilation | Stopped before forecast training | Smooth-decoder and fixed-Haar capacity tests isolate a representation-capacity limitation; discontinuous regularity helps but still misses the reconstruction/front hierarchy. | No latent transition, autonomous recurrence, geometry transfer, neural-operator, or data-assimilation claim was tested. |
 
 ## Line 3 Serious Bump Baseline Amendment (2026-07-27)
@@ -1324,7 +1324,8 @@ shells, front centroid/IoU/Chamfer, shock strength/thickness, and smooth-region
 high-pass. Success would support learning the future interior consequence of a
 recurrent boundary interaction. It would not establish solver-boundary
 identity, conservation, or family/test transfer. This contract is recorded for
-human review and was not launched during this closeout.
+human review and was not launched during that closeout; the later authorized
+result is recorded immediately below.
 
 A frozen-base boundary null-space adapter is second in order if the `K=2`
 screen identifies a boundary-local residual: predict only wall density,
@@ -1335,6 +1336,290 @@ training because RA0P supplies no method evidence. Explicit normals/tangents,
 incident-type masks, current outward Mach/characteristic regime, and freestream
 state belong first in this boundary-local path; broad backbone conditioning or
 boundary-distance features remain later hypotheses.
+
+### Projected-Teacher K=2 Screen Result (2026-07-29)
+
+**Verified evidence.** The authorized screen used exact D041 checkpoint
+SHA-256 `2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+and the same validation manifest, split, normalization, 19,155,720 parameters,
+BF16 execution, seed, fresh AdamW recipe, 256 fixed two-step windows, four
+same-geometry windows per effective batch, 64 optimizer steps, and 512 learned
+sample-level calls. Both arms used dense `learned_dofs_closed` supervision on
+call 1 and normal-node supervision on call 2. Their presentation-stream digest
+is `45bf46588770fa903ff4e6f81f334641c6cf549a2ab3c786cf03f5f5bdf31820`;
+the only causal arm difference is whether call 2 consumes attached
+`P_B^*(G_theta(P_B^*(U_t)))` or teacher `P_B^*(U_(t+1))`.
+
+The source is commit `17361889aa2746161f1257eab3776cb3efe8b54c`, archive
+SHA-256 `fdf5daa9d22c40094c1064eb65aa59a4b4a9d12b3b7492242b07217b133ff870`,
+trainer SHA-256 `90361dd444cbebd6ac72fcf782f3709c6db7da2e773e91d8b97c76a3e2fa09fd`,
+minimum-change utility SHA-256
+`ba17a75daaaa38d8172f9c619f5a7bae48cd385e434175a56b3fa002d7b319d4`,
+and boundary evaluator SHA-256
+`cbd8c1c316b0bb60feec0a144dcebc72ee4aea9caddc2b00c7e03d99f3aa4b31`.
+The attached and teacher training summaries have SHA-256 values
+`0a9b6e5df6fcb2054dffe9e68fbc3ebd8b446db5a99723e0ec853e26e7d310d9`
+and `ef7724fd07adfba1b77acb619ccd48fc59082c2b9eb43376773846fe49369d6c`.
+
+| Validation field | Frozen D041 plus `P_B^*` | Attached recurrence | Projected-teacher control |
+| --- | ---: | ---: | ---: |
+| one-step all-node | `0.005357904` | `0.005474580` (`1.0218x`) | `0.005348566` (`0.9983x`) |
+| one-step normal-node | `0.005284192` | `0.005399953` (`1.0219x`) | `0.005275214` (`0.9983x`) |
+| all-30 H20 all-node | `0.022321912` | `0.030456286` (`1.3644x`) | `0.021134931` (`0.9468x`) |
+| all-30 H20 normal-node | `0.022236208` | `0.030411876` (`1.3677x`) | `0.021025871` (`0.9456x`) |
+| H20 completion | `30/30` | `30/30` | `30/30` |
+
+The attached arm therefore failed the prospective `1.02x` one-step and H20
+gates and did not spend H79 evaluation. Its state remained admissible, its
+parameters remained finite, and no gradient clipping occurred, so this is an
+accuracy failure rather than a numerical failure. The teacher control passed
+the H20 gate and advanced to the exact all-30 H79 population. Its selected
+checkpoint SHA-256 is
+`769d5f8c3c995d0297e62f4132d00513b7e11139d7a54bc953d05f67bc69efdf`;
+the H79 summary SHA-256 is
+`c48c7b63dad42cbc051483a830fd323999505415d609fc93734d3e0ef8894341`.
+Against frozen-parent summary SHA-256
+`2fd94666e6ce3578ee45b0c6907c18411ea397a74e32a1fb2d58697975a18688`,
+the teacher control improves H79 all/normal error from
+`0.041737124/0.041552611` to `0.039093455/0.038858550`, ratios
+`0.93666/0.93517`, with `30/30` completion. It improves 22/30 H20 and 21/30
+H79 trajectory-wise state comparisons; the corresponding median case ratios
+are `0.91687/0.94791`.
+
+The six boundary channels remain distinct. Teacher one-step corrected and raw
+boundary/reference errors are `0.008422063/0.008501329`; the raw-to-corrected
+intervention RMS is `0.003998305`, `1.0334x` the parent. Cumulative one-, two-,
+and three-hop normal-node boundary-band errors are
+`0.006328983/0.006109460/0.006115665`, parent ratios
+`0.98462/0.98715/0.99327`. H79 boundary error is `1.0041x` parent while H79
+normal error is `0.9352x`. Wall and inflow constraint RMS values are
+`5.77e-9/8.02e-8`; maximum absolute residuals are at most `3.58e-7`. Minimum
+recurrent outward-normal outflow Mach is `1.433`, and density, internal energy,
+and pressure stay positive.
+
+The paired H79 structural median ratios relative to frozen D041 plus `P_B^*`
+are `0.97084` smooth-region high-pass, `1.15102` front-centroid distance,
+`1.04306` symmetric Chamfer, `1.02095` shock-thickness log error, and `0.63923`
+shock-strength log error. Front IoU improves in aggregate, but front-centroid
+distance improves on only 8/30 trajectories. The `1.15102` front-centroid
+ratio fails the prospective `1.05` anti-smearing/phase envelope. The teacher
+checkpoint is therefore a promising state-error recipe, not a selected final
+protocol.
+
+**Plausible mechanism or inference.** Two adjacent projected teacher states
+supply dense, predictable supervision without asking the model to memorize
+prescribed boundary coordinates, and the fully autonomous validation gains
+show that this training signal can improve the deployed map. By contrast,
+backpropagating call-2 error through the model's own call-1 state produces a
+larger gradient path and a large rollout regression at this update scale. The
+teacher control's near-boundary and high-pass gains, coupled with its front-
+centroid loss and slightly larger intervention norm, are consistent with a
+useful local correction accompanied by a global phase-speed change from
+updating the full backbone.
+
+**Missing evidence.** There is no repeat seed, FP32 gradient-repeatability
+audit, optimizer-state restoration, test or sealed-population evaluation,
+face/ghost/flux provenance, or physical bump conservation geometry. The screen
+does not isolate teacher-input distribution from its smaller realized gradient
+norm, and cumulative hop bands are not Euclidean distance shells.
+
+**Alternative explanation.** The teacher advantage may be a lower effective
+gradient-magnitude continuation rather than a benefit unique to projected
+teacher states. The front-centroid failure may reflect a BF16/one-seed phase
+shift, a global interior-weight update, or sensitivity of a small-denominator
+front metric rather than a boundary-local defect. Aggregate IoU improvement
+does not override the preregistered paired centroid failure.
+
+**Claim implication.** Reject attached differentiable `K=2` recurrence in this
+form. Retain projected-teacher two-time dense supervision as a useful recipe
+and mechanistic lead, but do not select its checkpoint, open sealed data, claim
+conservation, or call it a boundary method: the full backbone changed and the
+H79 front gate failed. The evidence supports closure-consistent dense training
+more strongly than self-generated-state backpropagation.
+
+**Minimum decisive next experiment.** Before training a boundary adapter, run
+one validation-only, no-training two-checkpoint splice diagnostic. At every
+call evaluate frozen D041 and the projected-teacher checkpoint on the same
+legal recurrent state. One hybrid keeps D041 raw normal-node output and takes
+the teacher checkpoint's raw whole-state boundary proposal; the shared
+`P_B^*` is then applied, so prescribed inflow and wall-normal coordinates are
+identical and only legal free boundary degrees can differ. The reverse hybrid
+keeps the teacher raw normal-node output and D041 raw boundary proposal before
+the same projection. Both hybrids use exactly two learned calls per sample and
+the same validation identities, BF16 evaluator, and H20 state/front/high-pass
+metrics. The boundary-only hybrid must retain at least half of the
+teacher-parent H20 gain without a `1.05` structural regression before spending
+H79. If the reverse interior hybrid retains the gain or the front failure,
+route the result back to general interior PCNO work and do not train a boundary
+adapter. If boundary-only output retains the gain and removes the phase failure,
+the next trainable row is a frozen-D041 legal-null-space adapter, not another
+full-backbone continuation. This diagnostic cannot establish parameter
+efficiency, conservation, exact DG replay, or transfer. The authorized result
+is recorded immediately below.
+
+### Boundary/Interior Output-Splice Result (2026-07-29)
+
+**Verified evidence.** The diagnostic used frozen D041 and projected-teacher
+checkpoint SHA-256 values
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+and `769d5f8c3c995d0297e62f4132d00513b7e11139d7a54bc953d05f67bc69efdf`,
+the exact 30-trajectory validation population, BF16, the same normalization
+digest `d2d07a4000acc3cfd45ff105a19e7437177d553cee4c18d50858f5572de7efec`,
+and minimum-change recurrence. Each hybrid evaluated both frozen models on the
+same recurrent input, spliced raw whole-state node proposals, and applied one
+shared `P_B^*`. No optimizer step, trainable parameter, test population, or
+sealed population was used. Each H20 variant consumed 2,912 learned calls.
+
+The bound source is base commit
+`17361889aa2746161f1257eab3776cb3efe8b54c`, sealed source-archive SHA-256
+`eedf3793dcdc7c854a71e279fbcd1a41748c5f28608e5838921763e415aa6a99`,
+splice-evaluator SHA-256
+`c7de7f3fa7ade94fb895d188bf9436fe81ca8a743022beccd908c438508df17c`,
+and focused-test SHA-256
+`158f9a4c5a2dacce74a45e039b9f388fb18d3e7175790eee1c59582467e77031`.
+The one-trajectory smoke summary SHA-256 is
+`d5470284c3712f6c2a4e6933b561d4dcf0b996a54380494f507390bae2ae3294`;
+the matched H20 summary SHA-256 is
+`3e3b33ce25f4b9f0fd8f5ee288a5b43ce379628206a5597741f82fe51b3ab17a`.
+The first smoke preflight stopped before evaluation because legacy D041 has no
+declared normalization-digest field. Its complete normalization payload is
+exactly equal to the teacher payload; the corrected evaluator recomputes both
+digests and still rejects any declared digest inconsistent with its payload.
+Six focused and 47 broader local tests pass.
+
+| H20 validation field | Frozen D041 | Teacher checkpoint | D041 normal + teacher boundary | Teacher normal + D041 boundary |
+| --- | ---: | ---: | ---: | ---: |
+| one-step all-node | `0.005357904` | `0.005348566` | `0.005356823` (`0.99980x`) | `0.005349466` (`0.99843x`) |
+| one-step normal-node | `0.005284192` | `0.005275214` | `0.005283704` (`0.99991x`) | `0.005275368` (`0.99833x`) |
+| one-step boundary-node | `0.008448299` | `0.008422063` | `0.008421638` (`0.99684x`) | `0.008448661` (`1.00004x`) |
+| all-30 H20 all-node | `0.022321912` | `0.021134931` | `0.022098656` (`0.99000x`) | `0.020697869` (`0.92724x`) |
+| all-30 H20 normal-node | `0.022236208` | `0.021025871` | `0.022028075` (`0.99064x`) | `0.020572650` (`0.92519x`) |
+| all-30 H20 boundary-node | `0.025569010` | `0.025250686` | `0.024480292` (`0.95742x`) | `0.025949623` (`1.01489x`) |
+| teacher-parent all/normal gain retained | - | `1.0/1.0` | `0.1881/0.1720` | `1.3682/1.3745` |
+
+The boundary-from-teacher hybrid improves paired H20 all-state error on 20/30
+trajectories, but its paired median ratio is only `0.99354` and it retains much
+less than the required half of the aggregate teacher gain. The reverse hybrid
+improves 25/30 cases with paired median all-state ratio `0.90343`; it is also
+`0.98019` median relative to the full teacher checkpoint at H20. Thus the
+teacher normal-node proposal carries all of the state gain in this splice and
+combines more favorably with the D041 boundary proposal than with its own.
+
+The H20 paired structural median ratios relative to D041 are, respectively,
+`0.99470/0.98396/1.19086/1.07505` for high-pass/front centroid/shock-thickness
+log/shock-strength log in the boundary-from-teacher hybrid and
+`0.99101/0.94451/1.46613/1.31560` in the reverse hybrid. The registered
+boundary-only gate therefore fails both state-gain checks and both shock-
+thickness/strength checks. Both variants complete 30/30, remain admissible,
+keep minimum recurrent outflow Mach above `2.44`, and retain wall/inflow
+constraint residuals no larger than `3.58e-7`. H79 was not spent.
+
+**Plausible mechanism or inference.** The projected-teacher checkpoint's state
+improvement is primarily an interior-map effect, not a consequence of better
+raw boundary proposals. Teacher boundary output does improve the H20 boundary
+trace when attached to D041, but that smaller local change propagates to only
+about one fifth of the teacher's aggregate interior gain. D041 boundary output
+slightly improves the teacher interior map's H20 state result, suggesting that
+the teacher checkpoint's boundary proposal is mildly antagonistic to its own
+interior prediction under this nodal recurrence. The shock-thickness and
+strength regressions in both directions also show that structural behavior is
+not cleanly localized to one output population.
+
+**Missing evidence.** The failed H20 gate intentionally leaves no hybrid H79,
+repeat seed, FP32 repeatability measurement, one-call adapter, gradient
+attribution, test evaluation, DG face/flux provenance, or conservation result.
+The experiment cannot localize the teacher checkpoint's H79 front-centroid
+failure. It tests two frozen output populations under recurrence, not a model
+whose boundary and interior channels were trained to be independently
+composable.
+
+**Alternative explanation.** The reverse hybrid's extra state gain may be
+nonlinear complementarity between separately trained proposals rather than a
+general statement that D041 boundary output is superior. Conversely, the
+boundary-only structural regressions may arise from splice incompatibility or
+small phase changes, not intrinsically bad teacher boundary values. Corrected
+nodal boundary-reference error is also not a direct measure of the missing DG
+face flux that drives future interior evolution.
+
+**Claim implication.** Reject a frozen-D041 boundary null-space adapter derived
+from this checkpoint pair and reject the two-call splice as an inference
+protocol. The evidence strengthens the conclusion that projected-teacher dense
+training improved the interior operator while boundary accuracy was not the
+dominant H20 state bottleneck. Keep causal `P_B^*` as the rollout invariant;
+do not add another boundary loss to the full backbone, spend H79, launch a new
+boundary training run, or open sealed data from this result.
+
+**Minimum decisive next experiment.** There is no justified next boundary
+experiment for this checkpoint pair. Return the projected-teacher interior
+signal and its structural failures to the general PCNO owner. Boundary work
+should re-enter only after a one-call interior checkpoint passes the registered
+state and structure gates and a fresh decomposition still shows a boundary-
+local residual. The smallest re-entry experiment is then the same frozen
+output-localization diagnostic; only a passing boundary-local result licenses
+a legal-null-space adapter. This result still cannot support conservation,
+exact DG replay, parameter efficiency, or family/test transfer.
+
+### Boundary-Information Line Closeout Decision (2026-07-29)
+
+Status: **CLOSED WITH CONDITIONAL RE-ENTRY** for the current bump-PCNO lineage.
+This is a terminal negative/partial research result, not a claim that neural-
+operator boundary conditions are solved. The local result-to-claim verdict is
+`partial` with high confidence. An optional independent Codex judgment is
+`[pending Codex review]` because no private-result transmission scope was
+approved; operational closure does not depend on that second opinion.
+
+| Question | Terminal evidence | Disposition |
+| --- | --- | --- |
+| Must rollout obey a causal hard boundary contract? | Native recurrence is fragile; D041 plus `P_B^*` improves H20 state, H79 completion, and common-survivor state error while keeping physical residuals near numerical noise. | **YES as the deployment invariant**, with the registered H79 thickness and reference-trace caveats. |
+| Does a stronger boundary-reference loss improve learned interior dynamics? | BG0's projected-boundary/near-band auxiliaries fail; RB0 greatly improves raw boundary fit and H20 but worsens selected H79 state/structure; RA0P supplies no method evidence. | **NO for the tested objectives.** Do not retry or retune them. |
+| Should gradients traverse the model's own two-step recurrence? | The attached `K=2` arm fails one-step and H20 while the projected-teacher control improves state. | **NO for the tested continuation scale.** |
+| Is the projected-teacher gain boundary-local? | Boundary-only splicing retains only `18.81%/17.20%` of its H20 all/normal gain; the reverse retains `136.82%/137.45%`. | **NO.** The useful state change is primarily in normal-node/interior output. |
+| Is a frozen-D041 boundary null-space adapter licensed? | The boundary-only splice fails the half-gain and thickness/strength gates. | **NO.** No H79 or adapter training follows. |
+| Is current `P_B^*` exact DG replay, optimal, or conservative? | Face, ghost-state, numerical-flux, and accepted-substep boundary provenance are absent. | **UNRESOLVED AND OUT OF CLAIM.** Do not infer it from nodal geometry. |
+
+**Verified evidence.** B1P/B1, BC0P/BC0, BG0P/BG0, RB0P/RB0, RA0P/RA0,
+the minimum-change audit, both bounded D041 continuation pilots, the matched
+`K=2` screen, and the output-splice diagnostic all have terminal dispositions.
+No registered boundary run remains active. No boundary result opened the sealed
+population. The retained implementation consists of the causal/minimum-change
+policy, evaluator, diagnostic training switches, splice evaluator, and focused
+tests; it has an invocation path and a recorded result rather than speculative
+scaffolding.
+
+**Plausible mechanism or inference.** Boundary information matters chiefly as
+a causal inference/rollout constraint and as known conditioning, not as an
+extra reference-trace target on the current full backbone. Once prescribed
+degrees are projected, errors in the learned interior map dominate the tested
+H20 state gain. Boundary trace quality and future interior accuracy are not
+interchangeable because recurrent source stencils, outgoing modes, and shock
+phase couple them nonlinearly.
+
+**Missing evidence.** There is no exact DG face replay, characteristic outflow
+operator, corner flux provenance, physical conservation claim, repeat-seed
+confirmation, sealed evaluation, or cross-family boundary result. RA0 remains
+preflight-only evidence, and the projected-teacher checkpoint remains one-seed
+BF16 evidence that fails a structural gate.
+
+**Alternative explanation.** A different geometry family, checkpoint, or
+face-aware representation may expose a truly boundary-local bottleneck. The
+current negative result may also depend on nodal-splice incompatibility or on
+the bump mesh's reconstructed boundary stencil. Those alternatives motivate a
+future re-entry condition, not another experiment on this closed pair.
+
+**Claim implication.** Safely close the boundary-information line for the
+current D041/B1/projected-teacher lineage. Keep D041 plus `P_B^*` as the
+preferred validation state/completion protocol with an explicit anti-smearing
+caveat. Do not promote B1, the teacher checkpoint, either splice, any soft/raw
+boundary objective, or an adapter. Transfer the projected-teacher interior
+signal and structural failure to the general PCNO owner.
+
+**Minimum decisive next experiment.** None inside this line. Re-entry requires
+all three prospective conditions: (1) a one-call interior checkpoint passes
+the registered state and structure gates, (2) the six-channel decomposition
+still isolates a material boundary-local residual, and (3) the proposed method
+changes only legal free boundary degrees under causal `P_B^*`. Otherwise the
+line stays closed. Exact DG/characteristic work additionally requires new face,
+ghost-state, and flux provenance before implementation or conservation claims.
 
 ## Line 3 Restart Decision (2026-07-26)
 

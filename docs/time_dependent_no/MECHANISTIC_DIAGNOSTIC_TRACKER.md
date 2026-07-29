@@ -828,9 +828,155 @@ the control makes the same two calls but feeds projected teacher state. Stop for
 more than `2%` one-step/H20 regression, lost completion, inadmissibility,
 outflow Mach at most one, or any H79 front/strength/thickness/high-pass ratio
 above `1.05`. The six boundary quantities and boundary-distance interior errors
-are mandatory. This gate was not launched. A frozen-base legal-null-space
-boundary adapter is second in order; conflict-controlled boundary gradients are
-third and require an FP32 repeatability preflight.
+are mandatory. This gate was not launched at that recorded closeout; its later
+authorized result follows. A frozen-base legal-null-space boundary adapter is
+second in order; conflict-controlled boundary gradients are third and require
+an FP32 repeatability preflight.
+
+### K=2 Boundary-Compatible Training Result (2026-07-29)
+
+**Verified evidence.** Source commit
+`17361889aa2746161f1257eab3776cb3efe8b54c`, source-archive SHA-256
+`fdf5daa9d22c40094c1064eb65aa59a4b4a9d12b3b7492242b07217b133ff870`,
+trainer SHA-256
+`90361dd444cbebd6ac72fcf782f3709c6db7da2e773e91d8b97c76a3e2fa09fd`,
+and exact D041 SHA-256
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+bind both arms. Split, normalization, presentation stream
+`45bf46588770fa903ff4e6f81f334641c6cf549a2ab3c786cf03f5f5bdf31820`,
+256 two-step windows, 512 learned calls, 64 optimizer steps, 19,155,720
+parameters, targets, seed, optimizer recipe, and checkpoint selection match.
+The attached and projected-teacher summaries have SHA-256 values
+`0a9b6e5df6fcb2054dffe9e68fbc3ebd8b446db5a99723e0ec853e26e7d310d9`
+and `ef7724fd07adfba1b77acb619ccd48fc59082c2b9eb43376773846fe49369d6c`.
+
+Attached recurrence fails immediately: one-step all/normal ratios are
+`1.0218/1.0219`, and H20 all/normal ratios are `1.3644/1.3677` versus frozen
+D041 plus `P_B^*`. It remains finite, admissible, unclipped, and 30/30 complete,
+so no H79 evaluation was spent. The teacher control passes H20 at
+`0.9468/0.9456` parent all/normal ratios. Its selected checkpoint SHA-256 is
+`769d5f8c3c995d0297e62f4132d00513b7e11139d7a54bc953d05f67bc69efdf`;
+all-30 H79 summary SHA-256 is
+`c48c7b63dad42cbc051483a830fd323999505415d609fc93734d3e0ef8894341`.
+It completes 30/30 and improves H79 all/normal error by `6.33%/6.48%`, but its
+paired H79 front-centroid ratio is `1.15102` and fails the `1.05` structural
+gate. High-pass, Chamfer, thickness-log, and strength-log paired median ratios
+are `0.97084/1.04306/1.02095/0.63923`.
+
+Corrected/raw boundary-reference errors are
+`0.008422063/0.008501329`; intervention RMS is `0.003998305`. One-, two-, and
+three-hop cumulative normal-band errors improve by `1.54%/1.29%/0.67%`.
+H79 boundary error is `0.41%` worse while normal error is `6.48%` better.
+Constraint residuals stay below `3.58e-7`, minimum recurrent outflow Mach is
+`1.433`, and all primitive admissibility margins stay positive.
+
+**Plausible mechanism or inference.** Projected-teacher two-time supervision
+improves the autonomous interior map, while attached self-state gradients are
+harmful at this continuation scale. The simultaneous near-boundary/high-pass
+gain and front-centroid loss are consistent with a useful local signal plus a
+full-backbone phase-speed shift.
+
+**Missing evidence.** No repeat seed, FP32 gradient audit, restored optimizer,
+sealed evaluation, DG flux provenance, or physical conservation geometry is
+available. Teacher-input distribution and smaller realized gradient norm are
+not isolated.
+
+**Alternative explanation.** Effective gradient magnitude or one-seed BF16
+phase sensitivity may explain the arm separation; the front failure may be
+global interior drift rather than a boundary-local residual.
+
+**Claim implication.** Reject the attached arm. Keep the teacher-forced recipe
+as a promising state-error result, but do not select it because the registered
+front gate fails. This supports closure-consistent dense training, not exact DG
+replay, conservation, or test transfer.
+
+**Minimum decisive next experiment.** Run the prospective no-training
+boundary/interior output splice recorded in the research decision: D041
+raw normal-node proposal plus teacher raw boundary proposal versus the reverse
+hybrid, followed by shared `P_B^*`; two learned calls per sample, H20 before
+H79. Only a boundary-only splice that retains at least half the teacher-parent
+H20 gain and stays within the `1.05` structural envelope justifies a frozen-
+base legal-null-space adapter. The authorized result follows.
+
+### Boundary/Interior Output-Splice Result (2026-07-29)
+
+**Verified evidence.** Frozen D041 and teacher checkpoint SHA-256 values are
+`2bb5ee3ca831a6ffc498f01e309ae7ea957b2df0f411023fb3812919a6732964`
+and `769d5f8c3c995d0297e62f4132d00513b7e11139d7a54bc953d05f67bc69efdf`.
+The sealed source archive is
+`eedf3793dcdc7c854a71e279fbcd1a41748c5f28608e5838921763e415aa6a99`;
+the H20 summary is
+`3e3b33ce25f4b9f0fd8f5ee288a5b43ce379628206a5597741f82fe51b3ab17a`.
+Both variants use the same 30 validation trajectories, BF16, normalization,
+inputs, and `P_B^*`, with two frozen learned calls per hybrid step and no
+training. The boundary-from-teacher hybrid reaches H20 all/normal
+`0.022098656/0.022028075`, retaining only `18.81%/17.20%` of the teacher gain.
+The reverse reaches `0.020697869/0.020572650`, retaining
+`136.82%/137.45%`. Boundary-only paired H20 structural median ratios are
+`0.99470/0.98396/1.19086/1.07505` for high-pass/front/thickness/strength;
+the reverse ratios are `0.99101/0.94451/1.46613/1.31560`. Both finish 30/30,
+remain admissible, and keep outflow Mach above `2.44`, but the boundary-only
+state, thickness, and strength gates fail. H79 and training were not run.
+
+**Plausible mechanism or inference.** The teacher checkpoint's state gain is
+carried mainly by normal-node output. Teacher boundary output supplies a small
+boundary-trace gain but does not teach the dominant interior dynamics, and
+structural errors are not cleanly confined to either splice population.
+
+**Missing evidence.** No hybrid H79, repeat seed, FP32 repeatability, trainable
+adapter, DG face/flux trace, conservation result, or sealed evaluation exists;
+the H79 front failure is not localized.
+
+**Alternative explanation.** Separately trained raw proposals may be
+incompatible under splicing, and the reverse gain may be checkpoint-specific
+complementarity rather than a reusable boundary protocol.
+
+**Claim implication.** Close this checkpoint pair for boundary-adapter work.
+Do not promote the two-call hybrid, spend H79, or add another boundary loss to
+the full backbone. Retain causal hard projection and route the interior signal
+plus structure failures to the general PCNO owner.
+
+**Minimum decisive next experiment.** None on this pair. Re-enter boundary
+localization only after a one-call checkpoint passes state and structure gates
+and still exhibits a decomposed boundary-local residual.
+
+### Boundary-Information Line Closeout (2026-07-29)
+
+Status: **CLOSED WITH CONDITIONAL RE-ENTRY**. The local result-to-claim verdict
+is `partial`, high confidence; optional independent Codex review is
+`[pending Codex review]` because private-result transmission was not approved.
+The supported result is narrow: causal `P_B^*` is the preferred validation
+state/completion recurrence for exact D041, with its recorded H79 thickness and
+reference-trace caveats. The tested soft, raw, attached-`K=2`, and boundary-
+adapter routes are rejected or failed before method evidence. The teacher-
+forced gain localizes primarily to normal-node/interior output.
+
+**Verified evidence.** Every boundary row has a terminal status: B1 and BG0/
+RB0 completed without a selected checkpoint or objective; BC0P and RA0P failed
+their prospective preflight gates before their conditional runs; the minimum-
+change audit, two continuation pilots, `K=2` screen, and output splice are
+complete. No registered boundary run is active and no sealed population was
+opened.
+
+**Plausible mechanism or inference.** Boundary information helps as a causal
+contract and known conditioning, while the present rollout error is dominated
+by learned interior dynamics rather than raw boundary proposals.
+
+**Missing evidence.** Exact DG replay, characteristic/corner flux treatment,
+conservation, repeat seeds, sealed performance, and cross-family transfer
+remain untested.
+
+**Alternative explanation.** A face-aware model, different geometry family,
+or future checkpoint may expose a boundary-local residual that this nodal bump
+line cannot identify.
+
+**Claim implication.** Close this line without promoting a new learned method.
+Retain the diagnostic code and frozen artifacts; transfer the interior recipe
+and structural conflict to general PCNO work.
+
+**Minimum decisive next experiment.** None now. Re-enter only for a one-call
+checkpoint that first passes state/structure gates and then exhibits a material
+six-channel boundary-local residual under the same causal projection.
 
 ## 2026-07-27 L3R-U0 Prospective Unchecked-Continuation Contract
 

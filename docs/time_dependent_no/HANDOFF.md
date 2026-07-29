@@ -83,7 +83,7 @@ holdout, or sealed population was opened.
 | --- | --- | --- |
 | 1: large-step flow maps | Closed | On the frozen 1D Euler study, direct larger-step maps trade harder one-call approximation against fewer recurrent compositions. The preferred stride changes with horizon and metric. This is not a universal stride, CFL, timestep-transfer, or resolution-transfer result. |
 | 2: CPGNet validity and mechanism | Closed | Corrected 1D controls support message reach rather than width alone as the main gain. The 2D release-bundle legal-boundary run improves all four primitive variables on 19/20 trajectories, but remains roughly `1.6--2.4x` worse than the oracle-boundary row. Dataset/checkpoint/evaluator parity with the paper remains unresolved, and the result is one seed without a validation or grouped geometry holdout. |
-| 3: geometry-aware 2D rollout | Boundary audit and pilots closed; no training row active | D041 plus minimum-change hard projection improves H20, H79 completion, and common-survivor state error, but fails the H79 thickness no-harm envelope and worsens corrected reference trace. B1 is incompatible post hoc; both short continuation pilots fail. BG0/RB0/RA0P retain their prior dispositions. |
+| 3: geometry-aware 2D rollout | Boundary-information subline closed with conditional re-entry; no training row active | D041 plus minimum-change hard projection improves H20, H79 completion, and common-survivor state error, but fails the H79 thickness no-harm envelope and worsens corrected reference trace. `K=2` teacher forcing improves state, but output splicing localizes that gain primarily to the interior and no boundary method passes the joint gate. |
 | 4: latent forecasting and assimilation | Stopped before forecast training | Smooth-decoder and fixed-Haar capacity tests do not pass the reconstruction/front hierarchy, even though discontinuous regularity helps. No latent transition, recurrent forecast, geometry-transfer, test, or filtering result exists. |
 
 ## Current Authorization
@@ -340,17 +340,49 @@ testing the weak auxiliary, so RA0 supplies no utility evidence.
 
 The B1 review is complete: no parity-eligible checkpoint exists, so the D041
 holdout remains closed. The requested validation-only boundary-contract
-decomposition is now complete and separates physical residual, corrected
-reference trace, raw proposal, intervention, near-boundary, and future-interior
-errors. The next human decision is whether to authorize the recorded `K=2`
-call-matched recurrence gate: 256 two-step windows, 64 optimizer steps, 512
-learned sample-level calls, exact D041 plus `P_B^*`, and a teacher-forced second-
-call control. Interior one-step/H20/completion gates precede H79 and every H79
-front/strength/thickness/high-pass ratio must remain within `1.05`. No serious
-run should precede that gate. A completed miss in B1, the bounded pilots, RA0P,
-BC0P, BG0, or RB0 is a recorded result, not permission to retry, continue,
-alter thresholds, scale capacity, smooth/filter, add a second seed, transfer
-family, or access sealed data.
+decomposition separates physical residual, corrected reference trace, raw
+proposal, intervention, near-boundary, and future-interior errors. The later
+authorized call-matched `K=2` gate is also complete. Its attached recurrent-
+gradient arm fails one-step and H20; its projected-teacher control improves
+H20 all/normal by `5.32%/5.44%` and H79 all/normal by `6.33%/6.48%`, with
+30/30 completion. However, the paired H79 front-centroid ratio is `1.15102`,
+so the checkpoint fails the registered `1.05` structural envelope and is not
+selected. Training summary SHA-256 values are
+`0a9b6e5df6fcb2054dffe9e68fbc3ebd8b446db5a99723e0ec853e26e7d310d9`
+and `ef7724fd07adfba1b77acb619ccd48fc59082c2b9eb43376773846fe49369d6c`;
+teacher H79 summary SHA-256 is
+`c48c7b63dad42cbc051483a830fd323999505415d609fc93734d3e0ef8894341`.
+
+The no-training boundary/interior output splice is complete. Its source archive
+SHA-256 is
+`eedf3793dcdc7c854a71e279fbcd1a41748c5f28608e5838921763e415aa6a99`;
+its matched H20 summary SHA-256 is
+`3e3b33ce25f4b9f0fd8f5ee288a5b43ce379628206a5597741f82fe51b3ab17a`.
+D041 normal-node output plus teacher boundary output retains only
+`18.81%/17.20%` of the teacher's all/normal state gain and fails the thickness
+and strength structural gates. The reverse hybrid retains
+`136.82%/137.45%`, showing that the teacher's state gain is primarily in its
+normal-node/interior output, but it also fails thickness and strength. Both are
+30/30 complete and admissible. The boundary gate is closed: no H79, frozen-base
+boundary adapter, or new boundary training is justified for this pair. Route
+the interior signal and structural failures to general PCNO work; boundary
+localization may re-enter only after a one-call checkpoint passes joint state
+and structure gates.
+
+The boundary-information line is therefore safe to close for the current bump-
+PCNO lineage. Its result-to-claim verdict is `partial`, high confidence: causal
+minimum-change projection is retained as a deployment invariant with an anti-
+smearing caveat, while no learned boundary objective or adapter is selected.
+This does not close exact DG replay, characteristic outflow, corner fluxes,
+conservation, repeat-seed, sealed, or cross-family questions. Re-entry requires
+a future one-call checkpoint that first passes joint state/structure gates and
+then shows a material boundary-local residual under the six-channel
+decomposition. Optional independent Codex review remains
+`[pending Codex review]` because no private-result transmission was approved.
+
+A completed miss in B1, the bounded pilots, RA0P, BC0P, BG0, RB0, attached
+`K=2`, or the output splice is a result, not permission to retry, tune the
+optimizer, smooth/filter, add a seed, transfer family, or access sealed data.
 
 Do not claim a paper-level CPGNet comparison until dataset, split,
 checkpoint/evaluator, boundary, horizon, stride, and primitive-metric parity are

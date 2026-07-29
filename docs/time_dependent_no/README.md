@@ -31,7 +31,7 @@ geometry-aware neural operator.
 | --- | --- | --- | --- |
 | 1: large-step flow maps | Closed | On the frozen 1D Euler contracts, the useful stride is horizon- and metric-dependent: a harder one-call map can win after fewer recurrent compositions. | No universal optimal stride, learned CFL limit, timestep-conditioned solver, or native-grid transfer follows. |
 | 2: CPGNet validity and mechanism | Closed | In the corrected 1D study, message reach matters more than width alone; the learned interface coordinates are functional controls rather than verified physical traces. Legal-boundary training improves the release-bundle result without closing the oracle-boundary gap. | This is not a paper-table reproduction, an implicit scheme, a general learned solver, or proof of physical interface states or conservation. |
-| 3: geometry-aware 2D rollout | B1 and all boundary rows closed; no training active | B1 completed 34/40 passes without an eligible checkpoint: interior/short-horizon/front-position metrics improve, while the causal-boundary parity and joint H79/shock-shape result fail. RA0P stopped before training on its frozen BF16 repeatability gate. | No selected serious or continuation checkpoint exists. These results cannot attribute the historical gain or support capacity, dynamic-transfer, conservation, seed-robustness, or sealed-performance claims. |
+| 3: geometry-aware 2D rollout | Boundary-information subline closed with conditional re-entry; no training active | Minimum-change projection improves D041 state/completion with a thickness caveat. Projected-teacher `K=2` improves state, but the attached arm fails and the output-splice diagnostic localizes the useful change primarily to interior output; no boundary objective or adapter passes the joint gate. | No selected new checkpoint or boundary method exists. Exact DG replay, characteristic/corner fluxes, conservation, seed robustness, cross-family transfer, and sealed performance remain unsupported. |
 | 4: latent forecasting and assimilation | Stopped before forecast training | The tested smooth and fixed-Haar representations isolate a decoder-capacity limitation; discontinuous regularity helps but does not pass the reconstruction and front hierarchy. | No latent transition, autonomous recurrence, geometry transfer, neural-operator, or data-assimilation claim was tested. |
 
 ## Authorized Work And Restart Boundary
@@ -75,8 +75,14 @@ RB0P passed and RB0 completed: fixed-pair raw-boundary error and BF16 H20 state
 error improved `84.00%` and `10.97%`, but H79 state/normal and structural gates
 failed. The exact objective is rejected and both rows are closed. RA0P later
 missed its frozen BF16 gradient-ratio repeatability gate; RA0 smoke/training was
-not launched. No sweep, new/sealed split, smoothing, larger model, second seed,
-dynamic run, or data assimilation is authorized.
+not launched. The later projected-teacher `K=2` control improves H20/H79 state
+but fails the H79 front gate; its attached-gradient arm fails immediately. A
+matched frozen-output splice then retains only `18.81%/17.20%` of the teacher's
+H20 all/normal gain in boundary output, while the reverse retains
+`136.82%/137.45%` and both fail shock-shape gates. The boundary-information
+subline is closed with conditional re-entry. No sweep, new/sealed split,
+smoothing, larger model, second seed, dynamic run, or data assimilation is
+authorized from these results.
 
 The report-only failure-mode decomposition is now recorded in the tracker. Its
 family-separated conclusion is that bump D041 has verified smooth graph-high-
@@ -141,8 +147,9 @@ the proposed H159 diagnostic. A
 truth-free continuation remains qualitative admissibility/finiteness evidence,
 not longer-horizon accuracy.
 
-The active order is now `closed B1/RA0P evidence -> human review`; no training
-row is active. B1 preserves exhaustive `270*79` transition passes, AdamW with
+The active order is now `closed boundary-information evidence -> conditional
+re-entry only`; no training row is active. B1 preserves exhaustive `270*79`
+transition passes, AdamW with
 2% warmup and cosine decay, BF16, and one legal boundary closure at teacher
 input, proposal, validation, and recurrence. It stopped cleanly after 34 passes,
 725,220 presentations, and 183,600 steps. Retained epoch 22 improves exact-D041
@@ -268,6 +275,7 @@ Bump residual-PCNO preparation, evaluation, and frozen diagnostics:
 - `scripts/time_dependent_no/train_pcno_euler2d_residual.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_protocol.py`
+- `scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_splice.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_boundary_objectives.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_ripples.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_unchecked_rollout.py`
@@ -300,6 +308,7 @@ Active CPU and synthetic-fixture tests live under `tests/time_dependent_no/`:
 - Generic 2D/PCNO: `test_euler_fixture.py`, `test_euler_metrics.py`,
   `test_fv_impulse_diagnostics.py`, `test_pcno_euler2d_residual.py`,
   `test_pcno_fv_geometry.py`, `test_pcno_ripple_diagnostics.py`,
+  `test_pcno_euler2d_boundary_splice.py`,
   `test_pcno_euler2d_multistep_training.py`,
   `test_pcno_euler2d_unchecked_rollout.py`, and
   `test_pcno_euler2d_spliced_unchecked_rollout.py`.
@@ -333,9 +342,12 @@ the validation-only boundary-protocol evaluator, and dormant
 `learned_dofs_closed`/two-call training surfaces. Exact D041 plus `P_B^*` is the
 preferred current validation state/completion deployment protocol, with a failed
 H79 shock-thickness no-harm field; retained B1 is not compatible post hoc and
-both bounded D041 continuation pilots failed. These surfaces support later
-matched protocol research, not a selected new training recipe, exact DG replay,
-or conservation.
+both bounded D041 continuation pilots failed. The later `K=2` and splice results
+close the current boundary-information line: teacher-forced state gains are
+primarily interior, attached recurrence and the boundary-only route fail, and
+no adapter is licensed. These retained surfaces support reproducibility and a
+conditional future re-entry, not a selected new training recipe, exact DG
+replay, or conservation.
 Core `pcno/`,
 `baselines/`, and unrelated examples remain outside this branch-specific
 inventory.

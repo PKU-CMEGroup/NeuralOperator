@@ -861,6 +861,108 @@ def test_shard_contract_normalization_sampling_and_identity_model(
         rtol=0.0,
         atol=0.0,
     )
+    store.close()
+
+
+def test_shard_store_geometry_cache_matches_uncached_and_is_bounded(
+    tmp_path: Path,
+) -> None:
+    output = _prepare_synthetic_shards(tmp_path)
+    device = torch.device("cpu")
+    static_names = (
+        "node_mask",
+        "nodes",
+        "node_measures",
+        "node_weights",
+        "node_rhos",
+        "directed_edges",
+        "edge_gradient_weights",
+        "node_type",
+    )
+
+    with PCNOEuler2DShardStore(
+        output, max_cached_trajectories=1
+    ) as cached_store:
+        with PCNOEuler2DShardStore(
+            output, max_cached_geometry_bytes=0
+        ) as uncached_store:
+            key = cached_store.keys[0]
+            cached_first = cached_store.tensor_batch(
+                key, [0, 1], step_stride=1, device=device
+            )
+            uncached_first = uncached_store.tensor_batch(
+                key, [0, 1], step_stride=1, device=device
+            )
+            assert cached_first.keys() == uncached_first.keys()
+            for name in cached_first:
+                torch.testing.assert_close(
+                    cached_first[name],
+                    uncached_first[name],
+                    rtol=0.0,
+                    atol=0.0,
+                )
+
+            assert cached_store.cached_geometry_entries == 1
+            entry_bytes = cached_store.cached_geometry_bytes
+            assert entry_bytes > 0
+            assert uncached_store.cached_geometry_entries == 0
+            assert uncached_store.cached_geometry_bytes == 0
+
+            cached_store.states(cached_store.keys[1])
+            cached_second = cached_store.tensor_batch(
+                key, [1], step_stride=1, device=device
+            )
+            uncached_second = uncached_store.tensor_batch(
+                key, [1], step_stride=1, device=device
+            )
+            for name in static_names:
+                assert (
+                    cached_first[name].untyped_storage().data_ptr()
+                    == cached_second[name].untyped_storage().data_ptr()
+                )
+                assert (
+                    uncached_first[name].untyped_storage().data_ptr()
+                    != uncached_second[name].untyped_storage().data_ptr()
+                )
+            assert (
+                cached_first["current"].untyped_storage().data_ptr()
+                != cached_second["current"].untyped_storage().data_ptr()
+            )
+            assert set(cached_store._arrays[key]) == {"states_conservative"}
+
+            cached_store.clear_geometry_cache(device)
+            assert cached_store.cached_geometry_entries == 0
+            assert cached_store.cached_geometry_bytes == 0
+
+    assert cached_store.cached_geometry_entries == 0
+    assert cached_store.cached_geometry_bytes == 0
+
+    with PCNOEuler2DShardStore(
+        output, max_cached_geometry_bytes=entry_bytes
+    ) as evicting_store:
+        evicting_store.tensor_sample(
+            evicting_store.keys[0], 0, step_stride=1, device=device
+        )
+        evicting_store.tensor_sample(
+            evicting_store.keys[1], 0, step_stride=1, device=device
+        )
+        assert evicting_store.cached_geometry_entries == 1
+        assert evicting_store.cached_geometry_bytes <= entry_bytes
+        assert list(evicting_store._geometry_tensors[device]) == [
+            evicting_store.keys[1]
+        ]
+
+    with PCNOEuler2DShardStore(
+        output, max_cached_geometry_bytes=entry_bytes - 1
+    ) as undersized_store:
+        undersized_store.tensor_sample(
+            undersized_store.keys[0], 0, step_stride=1, device=device
+        )
+        assert undersized_store.cached_geometry_entries == 0
+        assert undersized_store.cached_geometry_bytes == 0
+
+    with pytest.raises(ValueError, match="max_cached_geometry_bytes"):
+        PCNOEuler2DShardStore(output, max_cached_geometry_bytes=-1)
 
 
 def test_normalization_retains_manifest_weight_provenance(tmp_path: Path) -> None:

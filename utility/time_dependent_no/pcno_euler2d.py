@@ -46,6 +46,7 @@ from utility.time_dependent_no.cpg_mesh_contract import (
 SCHEMA_VERSION = 1
 NUM_EULER_COMPONENTS = 4
 NUM_NODE_TYPES = 4
+DEFAULT_MAX_CACHED_GEOMETRY_BYTES = 256 * 1024 * 1024
 
 
 def _component_array(value: Sequence[float] | np.ndarray, name: str) -> np.ndarray:
@@ -1141,9 +1142,12 @@ class PCNOEuler2DShardStore:
         root: str | Path,
         *,
         max_cached_trajectories: int = 8,
+        max_cached_geometry_bytes: int = DEFAULT_MAX_CACHED_GEOMETRY_BYTES,
     ) -> None:
         if max_cached_trajectories < 1:
             raise ValueError("max_cached_trajectories must be positive")
+        if max_cached_geometry_bytes < 0:
+            raise ValueError("max_cached_geometry_bytes must be nonnegative")
         self.root = Path(root)
         manifest_path = self.root / "manifest.json"
         if not manifest_path.is_file():
@@ -1162,7 +1166,18 @@ class PCNOEuler2DShardStore:
         if not self._entries:
             raise ValueError("shard manifest contains no trajectories")
         self.max_cached_trajectories = int(max_cached_trajectories)
+        self.max_cached_geometry_bytes = int(max_cached_geometry_bytes)
         self._arrays: OrderedDict[str, dict[str, np.ndarray]] = OrderedDict()
+        self._geometry_tensors: dict[
+            torch.device, OrderedDict[str, dict[str, torch.Tensor]]
+        ] = {}
+        self._geometry_tensor_bytes: dict[torch.device, int] = {}
+
+    def __enter__(self) -> "PCNOEuler2DShardStore":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
 
     @property
     def keys(self) -> list[str]:
@@ -1201,11 +1216,35 @@ class PCNOEuler2DShardStore:
         return arrays[name]
 
     def close(self) -> None:
-        """Close all cached memory maps deterministically."""
+        """Release cached device tensors and close memory maps deterministically."""
 
+        self.clear_geometry_cache()
         for arrays in self._arrays.values():
             self._close_arrays(arrays.values())
         self._arrays.clear()
+
+    @property
+    def cached_geometry_bytes(self) -> int:
+        """Total bytes currently retained by immutable geometry caches."""
+
+        return sum(self._geometry_tensor_bytes.values())
+
+    @property
+    def cached_geometry_entries(self) -> int:
+        """Number of trajectory/device geometry entries currently retained."""
+
+        return sum(len(entries) for entries in self._geometry_tensors.values())
+
+    def clear_geometry_cache(self, device: torch.device | None = None) -> None:
+        """Drop immutable geometry tensors for one device or for all devices."""
+
+        if device is None:
+            self._geometry_tensors.clear()
+            self._geometry_tensor_bytes.clear()
+            return
+        canonical_device = _canonical_device(device)
+        self._geometry_tensors.pop(canonical_device, None)
+        self._geometry_tensor_bytes.pop(canonical_device, None)
 
     @staticmethod
     def _close_arrays(arrays: Iterable[np.ndarray]) -> None:
@@ -1257,7 +1296,11 @@ class PCNOEuler2DShardStore:
         step_stride: int,
         device: torch.device,
     ) -> dict[str, torch.Tensor]:
-        """Materialize a homogeneous batch from one trajectory geometry."""
+        """Materialize a homogeneous batch from one trajectory geometry.
+
+        Static geometry tensors are read-only expanded views and may share
+        storage across calls. Current and target states always own fresh storage.
+        """
 
         indices = np.asarray([int(index) for index in time_indices], dtype=np.int64)
         if indices.ndim != 1 or indices.size == 0:
@@ -1270,48 +1313,106 @@ class PCNOEuler2DShardStore:
             raise IndexError(
                 f"invalid time batch for trajectory {key} with {states.shape[0]} frames"
             )
-        geometry = self.geometry_numpy(key)
-        current = _copy_tensor(states[indices], torch.float32, device)
-        target = _copy_tensor(states[target_indices], torch.float32, device)
+        canonical_device = _canonical_device(device)
+        current = _copy_tensor(states[indices], torch.float32, canonical_device)
+        target = _copy_tensor(states[target_indices], torch.float32, canonical_device)
         batch_size = int(indices.size)
 
-        def expanded_geometry(value: Any, dtype: torch.dtype) -> torch.Tensor:
-            tensor = _copy_tensor(value, dtype, device)
+        geometry_tensors = self._tensor_geometry(str(key), device=canonical_device)
+
+        def expanded_geometry(name: str) -> torch.Tensor:
+            tensor = geometry_tensors[name]
             return tensor.unsqueeze(0).expand(batch_size, *tensor.shape)
 
-        nodes = expanded_geometry(geometry["nodes"], torch.float32)
-        num_nodes = nodes.shape[1]
+        nodes = expanded_geometry("nodes")
         return {
             "current": current,
             "target": target,
-            "node_mask": torch.ones(
-                (batch_size, num_nodes, 1), dtype=torch.float32, device=device
-            ),
+            "node_mask": expanded_geometry("node_mask"),
             "nodes": nodes,
-            "node_measures": expanded_geometry(
-                geometry["node_measures"], torch.float32
-            ),
-            "node_weights": expanded_geometry(geometry["node_weights"], torch.float32),
-            "node_rhos": expanded_geometry(geometry["node_rhos"], torch.float32),
-            "directed_edges": expanded_geometry(
-                geometry["directed_edges"], torch.int64
-            ),
-            "edge_gradient_weights": expanded_geometry(
-                geometry["edge_gradient_weights"], torch.float32
-            ),
-            "node_type": expanded_geometry(geometry["node_type"], torch.int64),
+            "node_measures": expanded_geometry("node_measures"),
+            "node_weights": expanded_geometry("node_weights"),
+            "node_rhos": expanded_geometry("node_rhos"),
+            "directed_edges": expanded_geometry("directed_edges"),
+            "edge_gradient_weights": expanded_geometry("edge_gradient_weights"),
+            "node_type": expanded_geometry("node_type"),
             "mach": torch.full(
                 (batch_size,),
-                float(geometry["mach"]),
+                float(self.entry(key)["mach"]),
+                dtype=torch.float32,
+                device=canonical_device,
+            ),
+        }
+
+    def _tensor_geometry(
+        self,
+        key: str,
+        *,
+        device: torch.device,
+    ) -> dict[str, torch.Tensor]:
+        """Return read-only trajectory-static tensors, caching within a byte limit."""
+
+        device_cache = self._geometry_tensors.setdefault(device, OrderedDict())
+        cached = device_cache.get(key)
+        if cached is not None:
+            device_cache.move_to_end(key)
+            return cached
+
+        geometry = self.geometry_numpy(key)
+        tensors = {
+            "nodes": _copy_tensor(geometry["nodes"], torch.float32, device),
+            "node_measures": _copy_tensor(
+                geometry["node_measures"], torch.float32, device
+            ),
+            "node_weights": _copy_tensor(
+                geometry["node_weights"], torch.float32, device
+            ),
+            "node_rhos": _copy_tensor(geometry["node_rhos"], torch.float32, device),
+            "directed_edges": _copy_tensor(
+                geometry["directed_edges"], torch.int64, device
+            ),
+            "edge_gradient_weights": _copy_tensor(
+                geometry["edge_gradient_weights"], torch.float32, device
+            ),
+            "node_type": _copy_tensor(geometry["node_type"], torch.int64, device),
+            "node_mask": torch.ones(
+                (int(np.asarray(geometry["nodes"]).shape[0]), 1),
                 dtype=torch.float32,
                 device=device,
             ),
         }
+        entry_bytes = sum(
+            tensor.numel() * tensor.element_size() for tensor in tensors.values()
+        )
+        budget = self.max_cached_geometry_bytes
+        if budget == 0 or entry_bytes > budget:
+            if not device_cache:
+                self._geometry_tensors.pop(device, None)
+                self._geometry_tensor_bytes.pop(device, None)
+            return tensors
+
+        retained_bytes = self._geometry_tensor_bytes.get(device, 0)
+        while device_cache and retained_bytes + entry_bytes > budget:
+            _, evicted = device_cache.popitem(last=False)
+            retained_bytes -= sum(
+                tensor.numel() * tensor.element_size()
+                for tensor in evicted.values()
+            )
+        device_cache[key] = tensors
+        self._geometry_tensor_bytes[device] = retained_bytes + entry_bytes
+        return tensors
 
 
 def _copy_tensor(value: Any, dtype: torch.dtype, device: torch.device) -> torch.Tensor:
     array = np.array(value, copy=True)
     return torch.as_tensor(array, dtype=dtype, device=device)
+
+
+def _canonical_device(device: torch.device) -> torch.device:
+    requested = torch.device(device)
+    if requested.type == "cuda" and requested.index is None:
+        return torch.device("cuda", torch.cuda.current_device())
+    return requested
 
 
 def _natural_key(value: str) -> tuple[int, int | str]:

@@ -240,14 +240,27 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
     # target\source : int Tensor[batch_size, max_nedges]
     # message : float Tensor[batch_size, max_nedges, in_channels*ndims]
 
-    target, source = directed_edges[...,0], directed_edges[...,1]  # source and target nodes of edges
-    message = torch.einsum('bed,bec->becd', edge_gradient_weights, f[torch.arange(batch_size).unsqueeze(1), source] - f[torch.arange(batch_size).unsqueeze(1), target]).reshape(batch_size, max_nedges, in_channels*ndims)
+    # source and target nodes of edges
+    target, source = directed_edges[..., 0], directed_edges[..., 1]
+    batch_index = torch.arange(batch_size, device=f.device).unsqueeze(1)
+    message = torch.einsum(
+        "bed,bec->becd",
+        edge_gradient_weights,
+        f[batch_index, source] - f[batch_index, target],
+    ).reshape(batch_size, max_nedges, in_channels * ndims)
 
     # f_gradients : float Tensor[batch_size, max_nnodes, in_channels*ndims]
-    f_gradients = torch.zeros(batch_size, max_nnodes, in_channels*ndims, dtype=message.dtype, device=message.device)
-    f_gradients.scatter_add_(dim=1, src=message, index=target.unsqueeze(2).repeat(1,1,in_channels*ndims))
+    f_gradients = torch.zeros(
+        batch_size,
+        max_nnodes,
+        in_channels * ndims,
+        dtype=message.dtype,
+        device=message.device,
+    )
+    scatter_index = target.unsqueeze(2).expand_as(message)
+    f_gradients.scatter_add_(dim=1, src=message, index=scatter_index)
 
-    return f_gradients.permute(0,2,1)
+    return f_gradients.permute(0, 2, 1)
 
 
 
@@ -884,8 +897,6 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
-
-
 
 
 

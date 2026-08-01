@@ -8,6 +8,72 @@ from pcno.pcno import compute_gradient, compute_Fourier_modes, compute_Fourier_b
 #####################################################################
 
 
+def _compute_gradient_materialized_reference(
+    f: torch.Tensor,
+    directed_edges: torch.Tensor,
+    edge_gradient_weights: torch.Tensor,
+) -> torch.Tensor:
+    f = f.permute(0, 2, 1)
+    batch_size, max_nnodes, in_channels = f.shape
+    _, max_nedges, ndims = edge_gradient_weights.shape
+    target, source = directed_edges[..., 0], directed_edges[..., 1]
+    batch_index = torch.arange(batch_size, device=f.device).unsqueeze(1)
+    message = torch.einsum(
+        "bed,bec->becd",
+        edge_gradient_weights,
+        f[batch_index, source] - f[batch_index, target],
+    ).reshape(batch_size, max_nedges, in_channels * ndims)
+    gradients = torch.zeros(
+        batch_size,
+        max_nnodes,
+        in_channels * ndims,
+        dtype=message.dtype,
+        device=message.device,
+    )
+    gradients.scatter_add_(
+        dim=1,
+        src=message,
+        index=target.unsqueeze(2).repeat(1, 1, in_channels * ndims),
+    )
+    return gradients.permute(0, 2, 1)
+
+
+def test_compute_gradient_matches_materialized_forward_and_backward() -> None:
+    generator = torch.Generator().manual_seed(20260801)
+    features = torch.randn(2, 3, 5, dtype=torch.float64, generator=generator)
+    directed_edges = torch.tensor(
+        [
+            [[0, 1], [0, 2], [1, 0], [1, 3], [2, 4], [4, 2]],
+            [[0, 4], [2, 1], [2, 3], [3, 0], [3, 4], [4, 1]],
+        ],
+        dtype=torch.int64,
+    )
+    edge_gradient_weights = torch.randn(
+        2, 6, 2, dtype=torch.float64, generator=generator
+    )
+    output_gradient = torch.randn(2, 6, 5, dtype=torch.float64, generator=generator)
+
+    actual_features = features.clone().requires_grad_(True)
+    actual_weights = edge_gradient_weights.clone().requires_grad_(True)
+    actual = compute_gradient(actual_features, directed_edges, actual_weights)
+    (actual * output_gradient).sum().backward()
+
+    reference_features = features.clone().requires_grad_(True)
+    reference_weights = edge_gradient_weights.clone().requires_grad_(True)
+    reference = _compute_gradient_materialized_reference(
+        reference_features, directed_edges, reference_weights
+    )
+    (reference * output_gradient).sum().backward()
+
+    torch.testing.assert_close(actual, reference, rtol=0.0, atol=0.0)
+    torch.testing.assert_close(
+        actual_features.grad, reference_features.grad, rtol=0.0, atol=0.0
+    )
+    torch.testing.assert_close(
+        actual_weights.grad, reference_weights.grad, rtol=0.0, atol=0.0
+    )
+
+
 
 def test_compute_triangle_area_supports_2d_and_3d_points():
     points_2d = np.array([[0.0, 0.0], [2.0, 0.0], [0.0, 3.0]])
@@ -511,5 +577,3 @@ if __name__ == "__main__":
     batch_gradient_test(ndims=3)
 
     preprocess_data_mesh_test()
-
-

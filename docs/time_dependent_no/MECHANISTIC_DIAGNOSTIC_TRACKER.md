@@ -2438,6 +2438,7 @@ Its manifests bind every input and output by SHA-256.
 | D060 | Line 3 | Matched serious stride-2 physical gate | D044 architecture and training contract with only `step_stride=2`; frozen epoch-34 checkpoint | all 24 position-OOD validation trajectories at physical H60; six D013 cases; strength OOD sealed | raw completion/state, shock/vortex/smooth hierarchy, totals, direct-versus-composed, same-host latency, parameter strata | MUST | DONE; PARTIAL MACRO-STEP GAIN; PROMOTION FAILED | D060 completes 24/24 and improves H60 state error on every case (`0.00729369`, `0.87434x` D044); direct/composed, strength, thickness, vortex, total, and descriptive timing gates pass. It fails the targeted joint capability: six-case D013 high-pass RMS is `1.0255x` rather than `<=0.8x`, all-24 endpoint high-pass energy worsens, and front-centroid distance is `1.4351x`. Fewer calls reduce accumulated state L2 but do not reduce the high-frequency source. Stop without retry, another stride/seed, test access, or add-on. |
 | D061 | Line 3 | Frozen multirate rollout-blend headroom | completed D044 stride-1 and D060 stride-2 serious raw validation trajectories; fixed equal blend plus 21-point truth-informed scalar oracle | six D013 cases at matched frames 2/10/30/60; 24 rows; no checkpoint execution; test sealed | aligned source contract, state/high-pass complementarity, raw admissibility, shock/vortex/total anti-smearing, disagreement localization, summed parent cost | MUST | DONE; HEADROOM FAILED; ROUTE STOPPED | All source checks close exactly and every blend is raw-admissible. At H60 the oracle reaches only `8.14%/10.10%` median state/high-pass reduction versus `10%/20%`, is jointly nonworse in 0/6, and passes anti-smearing in 0/6. D060 owns lower state error in 6/6 while D044 owns lower high-pass RMS in 6/6; averaging interpolates rather than dominates and damages shock/vortex metrics. Disagreement localization passes (`0.650` Spearman, `57.81%` top-20 capture), but does not establish alpha selection or realizability. Do not train the shared-backbone row. |
 | D062 | Line 3 | Front-fitted conservative-remap capacity oracle | frozen D060 stride-2 raw validation trajectories; target-informed row-wise front phase plus compact two-sided strength fit | six D013 cases at calls 15/30; 12 rows; no checkpoint execution; test sealed | exact row-total preservation, raw admissibility, state/front-curve/high-pass headroom, graph-front/shock/vortex anti-smearing, correction size | MUST | DONE; CAPACITY ORACLE FAILED; EXACT CHART STOPPED | All 12 rows are raw-admissible and conserve row/component totals to `2.69e-15`. At H60 the primary oracle improves front-curve MAE by `62.82%`, but median state error worsens by `41.88%`, high-pass RMS worsens by `828.08%`, joint nonworse is 0/6, and every structure count misses 5/6. The phase-only row already contains the failure. Do not train this front chart or change its extractor after results. |
+| D063 | Line 3 audit | Common-source bidirectional PCNO resolution transfer and node-type audit | frozen D044/D060 physical-type checkpoints plus one separately trained all-normal D060-like checkpoint; no fine-tuning at evaluation resolution | pilot: three train and three position-OOD validation cases; confirmation: all 24 already-open position-OOD validation cases on 125x50/250x100/500x200 restrictions of one 1000x400 evolution; strength OOD and test sealed | raw H60 state/completion/admissibility, exact-input/local/free commutators, reference floor, shock/vortex/smooth/front/physical-band/boundary hierarchy, node-type mass and interventions, cost and provenance | MUST | DONE; FROZEN R1 NUMERIC ENVELOPE PASSED; BROAD CLAIM PARTIAL | The single frozen D060 vector completes 24/24 cases on every grid with mean H60 errors `0.0149776/0.00748436/0.0161704` on coarse/native/fine grids. Exact-reference-input final commutators are `0.00157577/0.00137169`; free-rollout values rise to `0.0121705/0.0129033` and are mostly inherited input-trajectory gaps. All eight pilot-informed confirmation thresholds pass, but off-grid boundary, front, and physical-wavelength-band errors regress systematically and inference precision was not named in the frozen contract. Frozen type replacement is harmful, while the separately trained all-normal row is source/loss-population confounded. This supports bounded zero-shot transfer on the named restriction-consistent family, not proof that PCNO is an operator, a clean node-type necessity claim, native-solver equivalence, or geometry/PDE/timestep/sealed transfer. |
 | L4A-001 | Line 4A | Zero-training representation and closure preflight | identity/POD/oracle-front POD, current-state front-speed augmentation, and full-rank oracle-remap attribution | frozen 512-case nx256 Line-1 dataset; 384/64/64 split; stride-compatible frames 0:8:96 | hierarchical reconstruction, conditional-future ambiguity, fixed-size history, chart conditioning, favorable-cohort grouped bootstrap | MUST | DONE; STOP | Rank-43 POD blurs fronts; the oracle chart does not improve closure over POD; history remains materially useful; current-state speeds fail; and the existing remap fails state, recall, precision, and thickness gates even on 243 favorable snapshots from all 64 validation trajectories. Stop before learned representations. D044 has now emitted the bounded training-truth handoff with no inheritable front candidate; it does not by itself authorize transition training. |
 | L4A-002 | Line 4A | Frozen-2D representation and closure gate | identity, matched rank-5000 physical-volume POD, one generic 25x10 spatial-token autoencoder, and one matched conservative-moment spatial-token candidate; no front variables or remap | D044's frozen 84/24 train/position-OOD-validation trajectories and 61 saved states on 250x100; engineering smoke used four spread train plus two endpoint-position validation cases at frames 0/15/30/45/60; 27 strength-OOD trajectories sealed | handoff completeness, reconstruction hierarchy, raw admissibility, physical totals, conditional-future ambiguity, one-step history control, decoder perturbation gain and doubled-query-resolution scaling, cost and intervention ledger | MUST | DONE; ENGINEERING SMOKE FAILED; CANDIDATE STOPPED | Strengthened preflight hashed all 78 staged arrays, loaded endpoints, and read no test arrays. The first actual 800-update matched smoke completed all 10 paired validation rows (summary SHA-256 `e742ccf4...`). The conservative-moment row beat generic L2 on 10/10 rows (`0.005430` versus `0.007605`) and enforced near-exact token/global budgets, but retained only `0.539` mean shock strength and broadened thickness to `2.672x`; generic retained `0.463` and broadened to `3.540x`. Both miss the `0.0021` reconstruction and 5% strength/thickness gates by large margins. The structured row's lower smooth high-pass energy is not ripple reduction because fronts remain blurred. Its conditional-future ambiguity is only `5.74%` below generic, one-code history ratios are approximately one, and doubled-resolution gain is stable at `1.002`; no POD comparison can rescue the failed physical gate. The earlier real-shard shape integration attempt stopped before model construction and zero optimizer steps. Do not continue the same loss/decoder, run rank-5000 POD or a serious representation job, train a transition, access test, or filter. The second smoke was never spent, and the campaign closed that allowance; it conveys no current authorization. |
 | L4A-003 | Line 4A | Frozen-decoder code-reachability oracle | exact L4A-002 conservative checkpoint and fixed decoder/four moment channels; per-state L-BFGS fit of only 16 free channels | same two position-OOD validation trajectories and frames 0/15/30/45/60; 10 states; strength-OOD test sealed | inherited reconstruction/front/admissibility gates, overshoot, training-scale code displacement, cost and intervention ledger | MUST | DONE; DECODER MANIFOLD REJECTED; FAMILY STOPPED | Per-state fitting lowers mean L2 from `0.005430` to `0.003226` and thickness from `2.672x` to `2.109x`, but nine of 10 rows still miss `0.0021`, mean strength worsens from `0.539` to `0.490`, maximum overshoot increases, and every fitted code lies outside the one-scale training neighborhood (RMS `1.528--4.419`). All raw states are admissible, but lower smooth high-pass energy is not ripple reduction because fronts remain broad and weak. Summary SHA-256 begins `e9577b43`; cost is `0.00308` GPU-hour. Encoder remediation is ineligible. Stop serious training, POD rescue, transition, test access, and filtering for this family. This per-state oracle is capacity evidence only, not forecast evidence or a universal rejection of latent representations. |
@@ -5373,3 +5374,237 @@ multi-chart, or shock-fitting representation; it says that any future
 reopening must first predeclare how front identity and transverse regularity
 remain well defined through interacting jumps, then pass a new zero-training
 capacity oracle. No successor experiment is authorized by D062.
+
+## D063 Common-Source PCNO Resolution Transfer And Node-Type Audit
+
+The pilot artifact `pcno_resolution_rollout_bidirectional_ablation_r1_20260730a`
+and confirmation artifact `pcno_resolution_allval_teacher_r1_20260730b` close
+the first frozen D060 resolution-transfer evaluation. The pilot was examined
+before the confirmation envelope was frozen, so the latter is explicitly
+pilot-informed rather than a model-blind preregistration. The confirmation uses
+the one epoch-34 D060 checkpoint, SHA-256
+`95e6c180a3298c4b38662d8c6cb77301c0e7fd0286e9a53571bddc487b8379c9`,
+without fine-tuning, resolution-specific parameters, heads, embeddings, or
+normalizers. It evaluates all 24 already-open position-OOD validation cases;
+the 27 strength-OOD/test cases remain sealed.
+
+The physical contract is fixed across grids. One `1000x400` float64
+WENO5-HLLC-SSPRK3 evolution at saved interval `0.01` supplies every target.
+Exact conservative block restriction gives `500x200`, `250x100`, and
+`125x50` cell averages. The model uses stride two, one call per physical
+`0.02`, 30 raw recurrent calls through `t=0.6`, immutable checkpoint
+normalization, fixed Fourier periods `(2,1)`, `k_max=8`, independently
+regenerated cell volumes, node types, graph edges, and least-squares gradient
+weights, and the frozen `model_all_nodes` boundary policy. Only the dynamic-FV
+node semantics are used: `0=interior`, `1=touches y-symmetry only`,
+`2=touches x-extrapolation only`, and `3=touches both`, with the corner
+category taking precedence. No bump label meaning is mixed into this result.
+
+### Integrity and accounting
+
+The confirmation output has schema `pcno_resolution_rollout_r1_v2`, status
+`complete`, and queue status `full_accounting_passed`. Expected and observed
+row counts agree: 72 completion, 2,232 recurrent-state, 2,160
+exact-reference-input state, 4,320 commutator, 1,488 reference-gap, 6,696
+regional, and 216 structure rows. Every parsed numeric metric is finite.
+The 11 downloaded metric files reproduce their remote SHA-256 values. The
+frozen run-contract and summary hashes are respectively
+`09d331bc376788f4a038fcb7d82389951d61e5a1eb67bb8e85b3fd39360fd9fc`
+and `e44238902348f6517412844220d71332e4ed05803138a255d50cb2f35f781e0b`;
+the recurrent-state, exact-input-state, commutator, and structure-table hashes
+are `4e04808623e9...`, `93e76dc60358...`, `990b52184ed3...`, and
+`f276a5447d21...`. Evaluation source head is `c5dae75c075a...`; evaluator,
+reference-generator, translation-utility, and focused-test hashes are
+`b5c3dcf6a55f...`, `8d541e64c15b...`, `552dc3279bdc...`, and
+`91800a309825...`.
+
+Three retained `500x200` references were reused and 21 were generated. Every
+active reference independently restricts to its frozen `250x100` training
+reference with maximum absolute disagreement `1.77636e-15`. Across all times
+and adjacent pairs, the maximum reference discretization gap is
+`2.31412e-16` in relative L2. Initial translation closes to
+`9.32587e-15` before the declared float32 model-boundary rounding; the latter
+has maximum absolute difference `1.19209e-7`. Regenerated native geometry
+matches stored topology/types exactly after the stored dtype cast; maximum
+node-weight and edge-gradient-weight discrepancies are `1.01048e-12` and
+`1.69109e-12`. First-call GPU repeats are not bitwise at `500x200`: maximum
+absolute output disagreement is `1.28746e-5`, versus `2.38419e-7` on both
+smaller grids. This is far below the endpoint errors but remains a bound
+repeatability caveat.
+
+### Primary transfer and commutation result
+
+The table aggregates after each physical case; no nodewise pooling occurs
+across grids. The exact-input final field is one application from the exact
+restricted `t=0.58` state to `t=0.6`, not a rollout.
+
+| grid | relation to training grid | call-1 mean relative L2 | H60 recurrent mean | H60 recurrent median | final exact-input mean | completion/admissibility |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `125x50` | unseen coarse extrapolation | `0.000878178` | `0.014977559` | `0.014330892` | `0.002146479` | `24/24`, `24/24` |
+| `250x100` | training resolution | `0.000370172` | `0.007484356` | `0.007154602` | `0.001413592` | `24/24`, `24/24` |
+| `500x200` | unseen fine extrapolation | `0.001001463` | `0.016170421` | `0.015650076` | `0.002247353` | `24/24`, `24/24` |
+
+Coarse/native and fine/native ratios of mean H60 error are `2.00118` and
+`2.16056`; D060's training grid is better in all 24 paired cases in both
+comparisons. Per-case ratios range `1.862--2.233` and `1.819--2.618`.
+The exact-input ratios are smaller, `1.51846/1.58982`, so repeated
+composition adds part of the off-grid degradation. All endpoint states remain
+admissible: worst density/pressure/internal-energy minima are
+`0.74901/0.66532/1.66330`.
+
+| coarse restriction | final exact-input prediction commutator | exact-input update commutator / fine update | local restricted-fine-input commutator | free-rollout commutator | free input restriction gap |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `125x50 <- 250x100` | `0.001575769` | `0.206303` | `0.001508683` | `0.012170523` | `0.011482416` |
+| `250x100 <- 500x200` | `0.001371692` | `0.175978` | `0.003293187` | `0.012903283` | `0.012510834` |
+
+At call one, exact-input prediction commutators are
+`0.000852435/0.000637934`. At H60, free prediction commutators are only
+`1.060/1.031` times their pre-existing input restriction gaps: most free
+inconsistency is accumulated divergence between independently recurrent
+trajectories, not a new final-call discrepancy. The nonzero exact-input
+update ratios of `17.6--20.6%` nevertheless rule out calling the map
+resolution invariant. The fine-to-native local off-manifold row is also
+materially worse than its exact-trajectory row (`0.003293` versus
+`0.001372`), selecting generated-state sensitivity as one plausible
+contributor.
+
+### Structure and no-harm audit
+
+Every scalar in the frozen confirmation envelope passes, but the broader
+structure field has a clear training-resolution minimum.
+
+| grid | median shock-position error | median abs log-strength error | median abs log-thickness error | mean shock-centroid distance | mean vortex-core error | mean smooth-region error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `125x50` | `0.001727` | `0.402058` | `0.201879` | `0.027224` | `0.004556` | `0.011167` |
+| `250x100` | `0.000932` | `0.041082` | `0.069105` | `0.016037` | `0.006744` | `0.005407` |
+| `500x200` | `0.003655` | `0.487863` | `0.170022` | `0.051189` | `0.011545` | `0.010800` |
+
+Median predicted/reference y-mean pressure-profile thicknesses are `3/2`
+cells (`0.048/0.032`) on the coarse grid, `2/3` cells
+(`0.016/0.024`) natively, and `4/4` cells (`0.016/0.016`) on the fine grid.
+Thus cell-count and physical-unit conclusions differ, as expected.
+
+| grid | physical band `0.05--0.125` relative error | band `0.125--0.25` | mean graph-front centroid | mean graph-front Chamfer | boundary-touching relative L2 | state/boundary-balance scaled RMSE |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `125x50` | `0.402415` | `0.260532` | `0.051748` | `0.011393` | `0.026031` | `0.026239` |
+| `250x100` | `0.184095` | `0.159246` | `0.021869` | `0.002987` | `0.011107` | `0.028293` |
+| `500x200` | `0.388299` | `0.306831` | `0.070005` | `0.017584` | `0.024256` | `0.027482` |
+
+Relative to native, boundary-touching error rises `2.344x/2.184x`, the
+shorter physical-wavelength band rises `2.186x/2.109x`, graph-front centroid
+distance rises `2.366x/3.201x`, and Chamfer rises `3.814x/5.887x` on
+coarse/fine grids. These metrics had no separate frozen no-harm thresholds.
+The nearly resolution-flat balance mismatch is an outcome metric for state
+totals against reference boundary exchange, not evidence that PCNO emits
+physical fluxes or satisfies a conservation law.
+
+### Node-type scaling and interventions
+
+For total domain volume two, the tagged boundary-cell volume and normalized
+integration mass halve under each factor-two refinement.
+
+| grid | counts `0/1/2/3` | tagged physical volume `M_B` | normalized mass | x/y tagged width per side | differential input support |
+| --- | --- | ---: | ---: | --- | ---: |
+| `125x50` | `5904/246/96/4` | `0.11072` | `0.05536` | `0.016/0.020` | 3 hops, `<=0.060` |
+| `250x100` | `24304/496/196/4` | `0.05568` | `0.02784` | `0.008/0.010` | 3 hops, `<=0.030` |
+| `500x200` | `98604/996/396/4` | `0.02792` | `0.01396` | `0.004/0.005` | 3 hops, `<=0.015` |
+
+This verifies `M_B(h)=O(h)` for the one-cell-thick dynamic tags: a
+volume-weighted integral contribution carried only by those type channels
+vanishes under refinement. It does not mean every type effect vanishes.
+Pointwise layers still see the channels, while the differential branch sees a
+larger `1/h` jump passed through learned prefactors and SoftSign. The recorded
+per-layer SoftSign jump proxies increase from about `0.56--0.72` at
+`125x50` to `0.84--0.91` at `500x200`, even as their fixed-hop physical
+support shrinks fourfold. The maintained implementation also averages each
+gradient for two fixed graph hops before its learned scalar and SoftSign, a
+maintained difference from the direct paper equation. Integral attenuation,
+local saturation, and shrinking physical reach are therefore competing
+resolution scalings.
+
+The three-validation-case pilot gives the following D060 H60 means:
+
+| checkpoint / input intervention | `125x50` | `250x100` | `500x200` |
+| --- | ---: | ---: | ---: |
+| physical-type D060, correct regenerated types | `0.016536` | `0.008623` | `0.017620` |
+| same frozen checkpoint, all types replaced by normal | `0.036605` | `0.036613` | `0.037162` |
+| same frozen checkpoint, y/x boundary kinds swapped | `0.034864` | `0.030953` | `0.031702` |
+| separately trained all-normal checkpoint | `0.015731` | `0.008273` | `0.018946` |
+
+For the physical checkpoint, all-normal replacement worsens error
+`2.214x/4.246x/2.109x`, and swapping the two boundary meanings worsens it
+`2.108x/3.590x/1.799x`. The checkpoint therefore uses the channels; those
+interventions are distribution shifts and do not establish necessity.
+The all-normal-trained checkpoint, SHA-256 `f3bbe67087bec...`, is within
+`0.951x/0.959x/1.075x` of physical D060 on these three validation cases.
+It demonstrates that a competitive channel-free solution exists on this
+regular family, but it is not the requested one-factor ablation. Its run also
+changes historical D060's all-node volume-weighted loss to current
+`normal_closed` normal-node-only supervision and changes the trainer/Euler
+source snapshots (`0d35357a.../5b32140f...` to
+`d143177e.../ba17a75d...`). The input encoding and training-loss population
+are therefore confounded. Exact architecture, parameter count, data,
+normalizer, seed, optimizer, stride, 51,200 presentations, and raw
+`model_all_nodes` recurrence do match. The all-normal run completes 50 epochs
+and 13,400 updates, selects epoch 39, takes `5,664.2` seconds, and peaks at
+`8.81` GiB allocated / `11.21` GiB reserved. Treat it as capability evidence,
+not a causal node-channel ablation.
+
+The D044 physical pilot gives `0.016678/0.010105/0.032895` on the same three
+validation cases, so its fine-grid error is `3.255x` native. This is weaker
+than D060 and is pilot evidence only; no all-24 D044 confirmation or
+exact-input commutator run follows.
+
+### Frozen envelope, precision caveat, and claim gate
+
+| confirmation field | observed worst value | frozen threshold | result |
+| --- | ---: | ---: | --- |
+| completion and admissibility | `1.0` on every grid | `1.0` | pass |
+| unseen-grid mean H60 relative L2 | `0.0161704` | `<=0.025` | pass |
+| unseen/native ratio of means | `2.16056` | `<=3.0` | pass |
+| final exact-input prediction commutator | `0.00157577` | `<=0.005` | pass |
+| exact-input update commutator / fine update | `0.206303` | `<=0.75` | pass |
+| median shock-position error | `0.003655` | `<=0.005` | pass |
+| median abs log-strength error | `0.487863` | `<=0.5` | pass, narrow margin |
+| median abs log-thickness error | `0.201879` | `<=0.25` | pass |
+
+Even the maximum individual unseen/native case ratio, `2.61750`, is below
+three. However, the run contract omitted inference precision. The confirmation
+uses `amp=none` consistently on all grids, while historical D060 selection
+used BF16. The current native mean `0.00748436` is `2.619%` above the
+historical BF16 selection value `0.00729336`. Use the current FP32 native row
+for matched resolution ratios; do not describe this as bitwise reproduction
+of the original D060 evaluation. Any later confirmation contract must bind AMP
+before model evaluation.
+
+The confirmation evaluation executes 5,832 forward passes, records `110.80`
+seconds of forward time and `372.40` seconds wall time, and peaks at `1.746`
+GiB GPU memory. Median measured forward times are `4.42/8.30/44.50` ms on
+`125x50/250x100/500x200`; these are diagnostic timings, not a synchronized
+throughput benchmark. The 21 new retained references occupy `2.644` GiB and
+take `1,244.0` aggregate generator-seconds. Including three reuses, reference
+generation and evaluation finish in 30 minutes 13 seconds. CSV output is
+3.61 MiB.
+
+The local result-to-claim verdict is `partial`, with high measurement
+confidence. The bounded subclaim is supported: one resolution-independent
+D060 parameter vector gives useful zero-shot coarse and fine transfer and
+approximately commutes on exact restricted physical states for these 24
+already-open validation cases under this sampling, quadrature, normalization,
+boundary, timestep, recurrence, and evaluator. The broader claim is not
+closed because the grid used for training remains a sharp optimum, several
+front/boundary/physical-band metrics regress off-grid, thresholds were
+pilot-informed, only one seed and an open validation population were used,
+and the clean node-type ablation is absent. This finite experiment does not
+prove PCNO is an operator and supplies no independently evolved native-solver,
+bump-geometry, PDE-family, timestep, strength-OOD, test, or universal
+resolution claim.
+
+No successor run or research-direction change is authorized by D063. Before
+mixed-resolution training, a human-reviewed node-type comparison must freeze
+one source snapshot, loss node population, boundary policy, precision, sample
+stream, selection rule, and parameter budget and change only the type
+descriptor. Boundary-objective design remains owned by the separate boundary
+workstream. A bump claim still requires a defensible common-source
+multiresolution reference and regenerated connectivity/quadrature/tags; node
+dropping remains only a resampling diagnostic.

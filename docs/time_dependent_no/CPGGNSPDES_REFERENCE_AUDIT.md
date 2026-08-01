@@ -53,6 +53,7 @@ This is the paper-relevant idea: learn interface reconstruction and use a Rieman
 Do not run the reference training scripts as-is on AutoDL, HPC, or shared
 machines. The required bounded components were reimplemented in this branch
 with explicit configuration, safe device handling, and diagnostic logging.
-Further reproduction or expansion requires a new authorization; this frozen
-audit does not authorize another port, training run, or mechanism sweep.
+This audit records the completed bounded adaptation; it neither selects nor
+permanently excludes a later reproduction, port, training run, or mechanism
+study chosen through current human direction.
 

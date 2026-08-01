@@ -4,10 +4,10 @@ Status: Frozen historical result and labeling contract
 
 This record supersedes legacy Section 1.2 rows produced before the corrected
 CPGNet/FNO implementations landed. It preserves the final result record and
-analyzer contract; it does not authorize new training, reproduction, or sweep
-work. The pre-cleanup documentation, including the launch scaffold, is preserved
-at commit `31e5765`; retired implementation paths are recoverable through
-cleanup commit `729091b`.
+analyzer contract. Historical queue and stop language is evidence from that
+campaign, not current experiment policy. The pre-cleanup documentation,
+including the launch scaffold, is preserved at commit `31e5765`; retired
+implementation paths are recoverable through cleanup commit `729091b`.
 
 ## Deprecation Rules
 
@@ -107,8 +107,8 @@ architecture can fit a one-step map and backpropagate through recurrence.
 
 ## Retained Analysis Command
 
-This command analyzes existing frozen run directories only; it does not
-authorize training or create a new result row.
+This command analyzes existing frozen run directories only and does not create
+a new result row.
 
 ```bash
 BASE_OUT=/path/to/existing/section12_corrected_v1

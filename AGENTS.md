@@ -14,10 +14,31 @@ At the start of a coding session in this branch:
 
 1. Read this file.
 2. Read `docs/time_dependent_no/README.md`.
-3. Read `docs/time_dependent_no/HANDOFF.md`.
-4. Read `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md` when the task concerns experiment history or current diagnostic status.
-5. If `LOCAL_CONTEXT.md` exists, read it. It is private local context and must not be committed or quoted.
-6. Inspect `git status --short --branch` before editing.
+3. Read `docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md`.
+4. Read `docs/time_dependent_no/HANDOFF.md`.
+5. Read the compact `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md`
+   only when the task needs experiment history or diagnostic routing.
+6. When exact historical evidence is needed, search by run ID and read only the
+   matching bounded section of
+   `docs/time_dependent_no/history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md`.
+   Do not load the full archive into routine context.
+7. If `LOCAL_CONTEXT.md` exists, read it. It is private local context and must
+   not be committed or quoted.
+8. Inspect `git status --short --branch` before editing.
+
+## Documentation Governance
+
+- Current explicit human direction takes precedence over repository planning
+  snapshots. Reconcile the documents afterward when the direction changes.
+- Historical results, gates, and Codex recommendations are evidence, not
+  permanent experiment authorization or prohibition.
+- A failed gate closes the exact registered attempt. It does not reject an
+  entire method family unless the evidence supports that claim and the current
+  human direction adopts it.
+- Standing privacy, sealed-population, destructive-action, and claim-validity
+  boundaries persist until explicitly changed by the human owner.
+- Preserve exact historical language in the archive. Keep active README,
+  handoff, decision, and experiment-index files compact and current.
 
 ## Implementation Discipline
 

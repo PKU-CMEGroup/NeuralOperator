@@ -20,10 +20,13 @@ import numpy as np
 import torch
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PCNO_SOURCE_SNAPSHOT_SCHEMA = "pcno_euler2d_source_snapshot_v2"
-PCNO_SOURCE_SNAPSHOT_FILES = (
+PCNO_SOURCE_SNAPSHOT_SCHEMA = "pcno_euler2d_source_snapshot_v3"
+PCNO_SOURCE_SNAPSHOT_V2_SCHEMA = "pcno_euler2d_source_snapshot_v2"
+PCNO_SOURCE_PROVENANCE_FILES = (
     "docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md",
     "docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md",
+)
+PCNO_SOURCE_SNAPSHOT_FILES = (
     "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
     "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
     "utility/time_dependent_no/pcno_artifacts.py",
@@ -34,6 +37,10 @@ PCNO_SOURCE_SNAPSHOT_FILES = (
     "utility/time_dependent_no/pcno_rollout.py",
     "utility/time_dependent_no/cpg_mesh_contract.py",
     "pcno/pcno.py",
+)
+PCNO_SOURCE_SNAPSHOT_V2_FILES = (
+    *PCNO_SOURCE_PROVENANCE_FILES,
+    *PCNO_SOURCE_SNAPSHOT_FILES,
 )
 
 
@@ -138,42 +145,56 @@ def write_source_snapshot(output_dir: Path) -> dict[str, Any]:
 
     snapshot_dir = output_dir / "source_snapshot"
     snapshot_dir.mkdir(parents=True, exist_ok=False)
-    files = {}
-    for relative_name in PCNO_SOURCE_SNAPSHOT_FILES:
-        source = REPOSITORY_ROOT / relative_name
-        if not source.is_file():
-            raise FileNotFoundError(source)
-        destination = snapshot_dir / relative_name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-        files[relative_name] = {
-            "sha256": sha256_file(destination),
-            "bytes": int(destination.stat().st_size),
-        }
+
+    def copy_files(relative_names: Sequence[str]) -> dict[str, dict[str, Any]]:
+        records = {}
+        for relative_name in relative_names:
+            source = REPOSITORY_ROOT / relative_name
+            if not source.is_file():
+                raise FileNotFoundError(source)
+            destination = snapshot_dir / relative_name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+            records[relative_name] = {
+                "sha256": sha256_file(destination),
+                "bytes": int(destination.stat().st_size),
+            }
+        return records
+
+    files = copy_files(PCNO_SOURCE_SNAPSHOT_FILES)
+    provenance_files = copy_files(PCNO_SOURCE_PROVENANCE_FILES)
     payload = {
         "schema": PCNO_SOURCE_SNAPSHOT_SCHEMA,
         "git": git_state(),
         "files": files,
+        "provenance_files": provenance_files,
         "source_set_digest": _digest_mapping(files),
+        "provenance_set_digest": _digest_mapping(provenance_files),
     }
     write_json(snapshot_dir / "manifest.json", payload)
     return payload
 
 
 def verify_source_snapshot(snapshot: Mapping[str, Any]) -> None:
-    """Reject continuation unless the registered v2 source bytes still match."""
+    """Reject continuation unless the schema-specific bound source still matches."""
 
     schema = snapshot.get("schema")
-    if schema != PCNO_SOURCE_SNAPSHOT_SCHEMA:
+    expected_files = (
+        PCNO_SOURCE_SNAPSHOT_V2_FILES
+        if schema == PCNO_SOURCE_SNAPSHOT_V2_SCHEMA
+        else PCNO_SOURCE_SNAPSHOT_FILES
+    )
+    if schema not in {PCNO_SOURCE_SNAPSHOT_V2_SCHEMA, PCNO_SOURCE_SNAPSHOT_SCHEMA}:
         raise ValueError(
             "unsupported PCNO source snapshot schema: "
-            f"{schema!r}; expected {PCNO_SOURCE_SNAPSHOT_SCHEMA!r}"
+            f"{schema!r}; expected {PCNO_SOURCE_SNAPSHOT_V2_SCHEMA!r} or "
+            f"{PCNO_SOURCE_SNAPSHOT_SCHEMA!r}"
         )
     files = snapshot.get("files")
-    if not isinstance(files, Mapping) or set(files) != set(PCNO_SOURCE_SNAPSHOT_FILES):
+    if not isinstance(files, Mapping) or set(files) != set(expected_files):
         raise ValueError("source snapshot does not cover the registered source set")
     mismatches = []
-    for relative_name in PCNO_SOURCE_SNAPSHOT_FILES:
+    for relative_name in expected_files:
         record = files[relative_name]
         if not isinstance(record, Mapping):
             mismatches.append(relative_name)
@@ -183,6 +204,21 @@ def verify_source_snapshot(snapshot: Mapping[str, Any]) -> None:
             mismatches.append(relative_name)
     if mismatches:
         raise ValueError(f"current source differs from run snapshot: {mismatches}")
+
+    if schema == PCNO_SOURCE_SNAPSHOT_V2_SCHEMA:
+        if snapshot.get("source_set_digest") != _digest_mapping(files):
+            raise ValueError("v2 source snapshot source-set digest mismatch")
+        return
+
+    provenance_files = snapshot.get("provenance_files")
+    if not isinstance(provenance_files, Mapping) or set(provenance_files) != set(
+        PCNO_SOURCE_PROVENANCE_FILES
+    ):
+        raise ValueError("source snapshot does not cover the provenance-only set")
+    if snapshot.get("source_set_digest") != _digest_mapping(files):
+        raise ValueError("source snapshot source-set digest mismatch")
+    if snapshot.get("provenance_set_digest") != _digest_mapping(provenance_files):
+        raise ValueError("source snapshot provenance-set digest mismatch")
 
 
 def json_safe(value: Any) -> Any:

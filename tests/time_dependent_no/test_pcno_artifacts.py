@@ -11,8 +11,11 @@ import pytest
 import torch
 
 from utility.time_dependent_no.pcno_artifacts import (
+    PCNO_SOURCE_PROVENANCE_FILES,
     PCNO_SOURCE_SNAPSHOT_FILES,
     PCNO_SOURCE_SNAPSHOT_SCHEMA,
+    PCNO_SOURCE_SNAPSHOT_V2_FILES,
+    PCNO_SOURCE_SNAPSHOT_V2_SCHEMA,
     atomic_torch_save,
     atomic_write_json,
     atomic_write_json_with_paths,
@@ -99,24 +102,86 @@ def test_hash_and_atomic_torch_helpers_match_previous_contract(tmp_path: Path) -
     assert not checkpoint_path.with_suffix(".pt.tmp").exists()
 
 
-def test_source_snapshot_v2_is_explicit_and_v1_fails_closed(
+def test_source_snapshot_v3_separates_bound_source_from_provenance(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     snapshot = write_source_snapshot(tmp_path / "run")
     assert snapshot["schema"] == PCNO_SOURCE_SNAPSHOT_SCHEMA
     assert set(snapshot["files"]) == set(PCNO_SOURCE_SNAPSHOT_FILES)
+    assert set(snapshot["provenance_files"]) == set(PCNO_SOURCE_PROVENANCE_FILES)
+    assert not set(snapshot["files"]) & set(snapshot["provenance_files"])
     assert "utility/time_dependent_no/pcno_artifacts.py" in snapshot["files"]
     assert "utility/time_dependent_no/pcno_runtime.py" in snapshot["files"]
     assert "utility/time_dependent_no/pcno_rollout.py" in snapshot["files"]
+    assert (
+        "docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md"
+        in snapshot["provenance_files"]
+    )
     verify_source_snapshot(snapshot)
 
-    legacy = json.loads(json.dumps(snapshot))
-    legacy["schema"] = "pcno_euler2d_source_snapshot_v1"
+    original_sha256_file = sha256_file
+
+    def reject_provenance_read(path: str | Path) -> str:
+        relative = Path(path).resolve().relative_to(Path(__file__).resolve().parents[2])
+        assert relative.as_posix() not in PCNO_SOURCE_PROVENANCE_FILES
+        return original_sha256_file(path)
+
+    monkeypatch.setattr(
+        "utility.time_dependent_no.pcno_artifacts.sha256_file",
+        reject_provenance_read,
+    )
+    verify_source_snapshot(snapshot)
+
+    corrupted_source_digest = json.loads(json.dumps(snapshot))
+    corrupted_source_digest["source_set_digest"] = "0" * 64
+    with pytest.raises(ValueError, match="source-set digest mismatch"):
+        verify_source_snapshot(corrupted_source_digest)
+
+    corrupted_provenance = json.loads(json.dumps(snapshot))
+    provenance_path = PCNO_SOURCE_PROVENANCE_FILES[0]
+    corrupted_provenance["provenance_files"][provenance_path]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="provenance-set digest mismatch"):
+        verify_source_snapshot(corrupted_provenance)
+
+    legacy_v1 = json.loads(json.dumps(snapshot))
+    legacy_v1["schema"] = "pcno_euler2d_source_snapshot_v1"
     with pytest.raises(ValueError, match="unsupported PCNO source snapshot schema"):
-        verify_source_snapshot(legacy)
+        verify_source_snapshot(legacy_v1)
 
     corrupted = json.loads(json.dumps(snapshot))
     first_source = next(iter(corrupted["files"]))
     corrupted["files"][first_source]["sha256"] = "0" * 64
     with pytest.raises(ValueError, match="current source differs"):
         verify_source_snapshot(corrupted)
+
+
+def test_source_snapshot_v2_keeps_historical_document_equality(
+    tmp_path: Path,
+) -> None:
+    snapshot = write_source_snapshot(tmp_path / "run")
+    historical_files = {
+        **snapshot["provenance_files"],
+        **snapshot["files"],
+    }
+    encoded_files = json.dumps(
+        historical_files, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    historical = {
+        "schema": PCNO_SOURCE_SNAPSHOT_V2_SCHEMA,
+        "files": historical_files,
+        "source_set_digest": hashlib.sha256(encoded_files).hexdigest(),
+    }
+    assert set(historical["files"]) == set(PCNO_SOURCE_SNAPSHOT_V2_FILES)
+    verify_source_snapshot(historical)
+
+    corrupted = json.loads(json.dumps(historical))
+    history_path = PCNO_SOURCE_PROVENANCE_FILES[0]
+    corrupted["files"][history_path]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="current source differs"):
+        verify_source_snapshot(corrupted)
+
+    corrupted_digest = json.loads(json.dumps(historical))
+    corrupted_digest["source_set_digest"] = "0" * 64
+    with pytest.raises(ValueError, match="v2 source snapshot source-set digest"):
+        verify_source_snapshot(corrupted_digest)

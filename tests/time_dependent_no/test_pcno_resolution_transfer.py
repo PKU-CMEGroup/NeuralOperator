@@ -8,6 +8,14 @@ import numpy as np
 import pytest
 import torch
 
+from pcno.pcno import compute_gradient
+from scripts.time_dependent_no.evaluate_pcno_resolution_rollout import (
+    _aggregate,
+    _commutator_row,
+    _pressure_profile_shock_metrics,
+    _reference_at_resolution,
+    _step_stride,
+)
 from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import main
 from utility.time_dependent_no.pcno_euler2d import (
     Euler2DNormalization,
@@ -16,9 +24,12 @@ from utility.time_dependent_no.pcno_euler2d import (
 from utility.time_dependent_no.pcno_resolution_transfer import (
     build_resolution_geometry,
     commutator_metrics,
+    initial_state_for_model_grid,
+    initial_states_from_common_source,
     node_type_scaling_summary,
     node_types_for_protocol,
     parse_resolution,
+    physical_wavelength_band_metrics,
     restrict_nested_state,
 )
 from utility.time_dependent_no.shock_vortex_fv import ShockVortexFVConfig
@@ -71,6 +82,16 @@ def test_dynamic_node_types_have_expected_counts_and_volume_scaling() -> None:
         training_resolution=(20, 16),
     )
     assert not bool(all_normal.any())
+    swapped = node_types_for_protocol(
+        geometry,
+        config,
+        "swapped_boundary_kinds",
+        training_resolution=(20, 16),
+    )
+    assert np.array_equal(swapped == 0, physical == 0)
+    assert np.array_equal(swapped == 3, physical == 3)
+    assert np.array_equal(swapped == 1, physical == 2)
+    assert np.array_equal(swapped == 2, physical == 1)
 
 
 def test_training_band_keeps_width_when_target_grid_can_resolve_it() -> None:
@@ -134,9 +155,287 @@ def test_conservative_restriction_and_update_commutator() -> None:
     assert metrics["input_restriction_gap_scaled_rms"] == pytest.approx(0.0)
     assert metrics["prediction_commutator_scaled_rms"] == pytest.approx(0.0)
     assert metrics["update_commutator_scaled_rms"] == pytest.approx(0.0)
-    assert metrics["update_commutator_relative_to_fine_update"] == pytest.approx(
-        0.0
+    assert metrics["update_commutator_relative_to_fine_update"] == pytest.approx(0.0)
+
+
+def test_common_source_initialization_restricts_conservative_cell_averages() -> None:
+    base = ShockVortexFVConfig(initial_quadrature_order=4)
+    source_resolution = (12, 12)
+    targets = ((6, 6), source_resolution)
+    source, states = initial_states_from_common_source(
+        base,
+        targets,
+        source_resolution=source_resolution,
+        quadrature_order=4,
     )
+
+    assert np.array_equal(states[source_resolution], source)
+    expected_coarse = restrict_nested_state(
+        source,
+        fine_resolution=source_resolution,
+        coarse_resolution=(6, 6),
+    )
+    assert np.array_equal(states[(6, 6)], expected_coarse)
+    direct_coarse = initial_state_for_model_grid(base, (6, 6), quadrature_order=4)
+    # Direct coarse quadrature is a different representation protocol and need
+    # not equal restriction of a common fine quadrature at low resolution.
+    assert np.max(np.abs(direct_coarse - expected_coarse)) > 1.0e-5
+    assert np.mean(source, axis=0) == pytest.approx(
+        np.mean(expected_coarse, axis=0), abs=1.0e-14
+    )
+
+    with pytest.raises(ValueError, match="divide the common source"):
+        initial_states_from_common_source(
+            base,
+            ((5, 6),),
+            source_resolution=source_resolution,
+            quadrature_order=4,
+        )
+
+
+def test_rebuilt_least_squares_gradient_is_affine_exact_across_grids() -> None:
+    base = ShockVortexFVConfig()
+    for resolution in ((6, 6), (12, 12)):
+        _, geometry = build_resolution_geometry(base, resolution)
+        nodes = torch.as_tensor(geometry.nodes, dtype=torch.float64)
+        affine = 2.0 * nodes[:, 0] - 3.0 * nodes[:, 1] + 0.7
+        gradient = compute_gradient(
+            affine.reshape(1, 1, -1),
+            torch.as_tensor(geometry.directed_edges).unsqueeze(0),
+            torch.as_tensor(
+                geometry.edge_gradient_weights, dtype=torch.float64
+            ).unsqueeze(0),
+        )
+        expected = torch.tensor([2.0, -3.0], dtype=torch.float64).reshape(1, 2, 1)
+        assert torch.max(torch.abs(gradient - expected)).item() < 1.0e-11
+
+
+def test_reference_restriction_is_available_only_at_or_below_native_grid() -> None:
+    native = np.arange(4 * 4 * 2, dtype=np.float64).reshape(16, 2)
+    coarse = _reference_at_resolution(
+        native,
+        reference_resolution=(4, 4),
+        target_resolution=(2, 2),
+    )
+    assert np.array_equal(
+        coarse,
+        restrict_nested_state(
+            native,
+            fine_resolution=(4, 4),
+            coarse_resolution=(2, 2),
+        ),
+    )
+    assert (
+        _reference_at_resolution(
+            native,
+            reference_resolution=(4, 4),
+            target_resolution=(8, 8),
+        )
+        is None
+    )
+
+
+def test_pressure_profile_shock_metrics_report_physical_and_cell_width() -> None:
+    nx, ny = 8, 4
+    gamma = 1.4
+    pressure = np.ones((ny, nx), dtype=np.float64)
+    pressure[:, nx // 2 :] = 2.0
+    state = np.zeros((ny, nx, 4), dtype=np.float64)
+    state[..., 0] = 1.0
+    state[..., 3] = pressure / (gamma - 1.0)
+    flattened = state.reshape(nx * ny, 4)
+    metrics = _pressure_profile_shock_metrics(
+        flattened,
+        flattened,
+        resolution=(nx, ny),
+        x_min=0.0,
+        x_max=2.0,
+        gamma=gamma,
+    )
+
+    assert metrics["shock_position_absolute_error"] == pytest.approx(0.0)
+    assert metrics["prediction_shock_position_x"] == pytest.approx(1.0)
+    assert metrics["prediction_shock_thickness_cells"] == 1
+    assert metrics["prediction_shock_thickness_physical"] == pytest.approx(0.25)
+    assert metrics["pressure_profile_shock_thickness_ratio"] == pytest.approx(1.0)
+
+
+def test_physical_wavelength_band_is_resolution_independent() -> None:
+    def field(resolution: tuple[int, int]) -> np.ndarray:
+        nx, ny = resolution
+        x = (np.arange(nx, dtype=np.float64) + 0.5) * (2.0 / nx)
+        wave = np.sin(2.0 * np.pi * 10.0 * x / 2.0)
+        return np.broadcast_to(wave[None, :, None], (ny, nx, 1)).reshape(-1, 1)
+
+    rows = []
+    for resolution in ((32, 16), (64, 32)):
+        reference = field(resolution)
+        prediction = 1.25 * reference
+        rows.append(
+            physical_wavelength_band_metrics(
+                prediction,
+                reference,
+                resolution=resolution,
+                domain_lengths=(2.0, 1.0),
+                component_scale=np.ones(1),
+                wavelength_min=0.125,
+                wavelength_max=0.25,
+            )
+        )
+    assert rows[0]["relative_spectral_l2"] == pytest.approx(0.25)
+    assert rows[1]["relative_spectral_l2"] == pytest.approx(0.25)
+
+
+def test_checkpoint_step_stride_declarations_must_agree() -> None:
+    checkpoint = {
+        "step_stride": 2,
+        "training_args": {"step_stride": 2},
+        "data_contract": {},
+    }
+    assert _step_stride(checkpoint) == 2
+    checkpoint["training_args"]["step_stride"] = 1
+    with pytest.raises(ValueError, match="declarations disagree"):
+        _step_stride(checkpoint)
+
+
+def test_rollout_aggregate_counts_resolution_specific_noncompletion() -> None:
+    state_rows = [
+        {
+            "case_id": "a",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "125x50",
+            "call": 2,
+            "scaled_relative_l2_physical_volume": 0.1,
+        },
+        {
+            "case_id": "a",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "250x100",
+            "call": 2,
+            "scaled_relative_l2_physical_volume": 0.2,
+        },
+        {
+            "case_id": "b",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "250x100",
+            "call": 2,
+            "scaled_relative_l2_physical_volume": 0.3,
+        },
+    ]
+    completion_rows = [
+        {
+            "case_id": "a",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "125x50",
+            "full_completion": True,
+            "all_completed_calls_admissible": True,
+        },
+        {
+            "case_id": "b",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "125x50",
+            "full_completion": False,
+            "all_completed_calls_admissible": False,
+        },
+        {
+            "case_id": "a",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "250x100",
+            "full_completion": True,
+            "all_completed_calls_admissible": True,
+        },
+        {
+            "case_id": "b",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "250x100",
+            "full_completion": True,
+            "all_completed_calls_admissible": False,
+        },
+    ]
+    teacher_state_rows = [
+        {
+            "case_id": "a",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "125x50",
+            "call": 2,
+            "finite": True,
+            "admissible": True,
+            "scaled_relative_l2_physical_volume": 0.04,
+        },
+        {
+            "case_id": "b",
+            "case_split": "validation",
+            "node_type_protocol": "physical",
+            "resolution": "125x50",
+            "call": 2,
+            "finite": True,
+            "admissible": False,
+            "scaled_relative_l2_physical_volume": 0.06,
+        },
+    ]
+
+    aggregate = _aggregate(
+        state_rows,
+        [],
+        completion_rows,
+        teacher_state_rows=teacher_state_rows,
+        final_call=2,
+    )
+    by_resolution = {row["resolution"]: row for row in aggregate["final_state"]}
+    coarse = by_resolution["125x50"]
+    assert coarse["case_count"] == 2
+    assert coarse["final_state_case_count"] == 1
+    assert coarse["completion_fraction"] == pytest.approx(0.5)
+    assert coarse["admissible_fraction_of_cases"] == pytest.approx(0.5)
+    assert coarse["mean_scaled_relative_l2_physical_volume"] == pytest.approx(0.1)
+    native = by_resolution["250x100"]
+    assert native["case_count"] == 2
+    assert native["final_state_case_count"] == 2
+    assert native["completion_fraction"] == pytest.approx(1.0)
+    assert native["admissible_fraction_of_cases"] == pytest.approx(0.5)
+    assert native["mean_scaled_relative_l2_physical_volume"] == pytest.approx(0.25)
+    teacher = aggregate["final_teacher_forced_state"][0]
+    assert teacher["case_count"] == 2
+    assert teacher["finite_fraction"] == pytest.approx(1.0)
+    assert teacher["admissible_fraction"] == pytest.approx(0.5)
+    assert teacher["mean_scaled_relative_l2_physical_volume"] == pytest.approx(0.05)
+
+
+def test_commutator_row_binds_input_and_output_times() -> None:
+    row = _commutator_row(
+        case_id="sv_e00_y00",
+        case_split="validation",
+        protocol="physical",
+        kind="teacher_forced_exact_reference_input",
+        coarse=(125, 50),
+        fine=(250, 100),
+        call=5,
+        input_frame=8,
+        output_frame=10,
+        input_physical_time=0.08,
+        output_physical_time=0.1,
+        reference_gap=0.01,
+        metrics={
+            "prediction_commutator_scaled_rms": 0.03,
+            "prediction_commutator_relative_l2": 0.02,
+            "update_commutator_relative_to_fine_update": 0.25,
+        },
+    )
+
+    assert row["input_call"] == 4
+    assert row["input_frame"] == 8
+    assert row["output_frame"] == 10
+    assert row["input_physical_time"] == pytest.approx(0.08)
+    assert row["physical_time"] == pytest.approx(0.1)
+    assert row["model_inconsistency_excess_scaled_rms"] == pytest.approx(0.02)
 
 
 def test_frozen_checkpoint_runs_on_two_node_and_edge_counts(tmp_path: Path) -> None:

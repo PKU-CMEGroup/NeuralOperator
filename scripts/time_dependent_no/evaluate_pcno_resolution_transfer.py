@@ -61,6 +61,7 @@ SCHEMA = "pcno_resolution_transfer_r0_v1"
 CHECKPOINT_SCHEMA_VERSION = 4
 DEFAULT_CASE_IDS = ("sv_e00_y04", "sv_e06_y04", "sv_e11_y04")
 DEFAULT_RESOLUTIONS = ("125x50", "250x100", "500x200")
+MODEL_NODE_TYPE_INPUTS = ("physical", "all_normal")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -233,7 +234,26 @@ def load_checkpoint(path: Path) -> dict[str, Any]:
         raise TypeError("checkpoint inference_interventions must be a mapping")
     if any(bool(value) for value in interventions.values()):
         raise ValueError("resolution transfer forbids checkpoint-time interventions")
+    checkpoint_model_node_type_input(checkpoint)
     return dict(checkpoint)
+
+
+def checkpoint_model_node_type_input(checkpoint: Mapping[str, Any]) -> str:
+    """Resolve the model-facing type contract, defaulting legacy runs to physical."""
+
+    training_args = checkpoint.get("training_args", {})
+    from_args = (
+        training_args.get("model_node_type_input")
+        if isinstance(training_args, Mapping)
+        else None
+    )
+    declared = checkpoint.get("model_node_type_input")
+    if declared is not None and from_args is not None and declared != from_args:
+        raise ValueError("checkpoint node-type input declarations disagree")
+    mode = str(declared if declared is not None else from_args or "physical")
+    if mode not in MODEL_NODE_TYPE_INPUTS:
+        raise ValueError(f"unsupported checkpoint node-type input: {mode}")
+    return mode
 
 
 def build_model(
@@ -252,6 +272,7 @@ def build_model(
         zero_initialize=False,
     ).to(device)
     model.load_state_dict(checkpoint["model_state"], strict=True)
+    model.model_node_type_input = checkpoint_model_node_type_input(checkpoint)
     model.eval()
     return model, normalization
 
@@ -272,6 +293,9 @@ def timed_model_call(
         torch.cuda.reset_peak_memory_stats(device)
     predictions: list[np.ndarray] = []
     seconds: list[float] = []
+    node_type = sample["node_type"]
+    if getattr(model, "model_node_type_input", "physical") == "all_normal":
+        node_type = torch.zeros_like(node_type)
     for _ in range(repeats):
         synchronize(device)
         started = perf_counter()
@@ -284,7 +308,7 @@ def timed_model_call(
                 node_rhos=sample["node_rhos"],
                 directed_edges=sample["directed_edges"],
                 edge_gradient_weights=sample["edge_gradient_weights"],
-                node_type=sample["node_type"],
+                node_type=node_type,
                 mach=sample["mach"],
             )
         synchronize(device)
@@ -635,9 +659,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 prediction_rows.append(
                     {
                         "case_id": case_id,
-                        "case_split": family_case_provenance(
-                            manifest, case_id
-                        )["split"],
+                        "case_split": family_case_provenance(manifest, case_id)[
+                            "split"
+                        ],
                         "resolution": label,
                         "node_type_protocol": protocol,
                         "num_nodes": int(current.shape[0]),
@@ -682,9 +706,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     coarse_prediction=prediction_by_key[
                         (case_id, coarse_resolution, protocol)
                     ],
-                    fine_current=current_by_case_resolution[
-                        (case_id, fine_resolution)
-                    ],
+                    fine_current=current_by_case_resolution[(case_id, fine_resolution)],
                     fine_prediction=prediction_by_key[
                         (case_id, fine_resolution, protocol)
                     ],
@@ -877,8 +899,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 maximum_peak_gpu_memory if device.type == "cuda" else None
             ),
             "gradient_layer_softsign_prefactors": [
-                float(layer.gw1.detach().float().cpu())
-                for layer in model.backbone.gws
+                float(layer.gw1.detach().float().cpu()) for layer in model.backbone.gws
             ],
         },
         "geometry": geometry_rows,

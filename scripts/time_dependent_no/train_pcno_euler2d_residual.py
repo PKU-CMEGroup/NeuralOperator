@@ -162,6 +162,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--k-max", type=int, default=8)
     parser.add_argument("--domain-lengths", type=float, nargs=2, default=(6.0, 2.0))
     parser.add_argument(
+        "--model-node-type-input",
+        choices=("physical", "all_normal"),
+        default="physical",
+        help=(
+            "Feed regenerated physical type codes or zeros to the unchanged four-slot "
+            "one-hot input; physical codes remain available to metrics and masks."
+        ),
+    )
+    parser.add_argument(
         "--layers", type=int, nargs="+", default=(128, 128, 128, 128, 128)
     )
     parser.add_argument("--fc-dim", type=int, default=128)
@@ -987,6 +996,14 @@ def assert_checkpoint_contract(
         ):
             raise ValueError("initialization boundary transition metadata mismatch")
     saved_training_args = checkpoint.get("training_args", {})
+    saved_model_node_type_input = str(
+        checkpoint.get(
+            "model_node_type_input",
+            saved_training_args.get("model_node_type_input", "physical"),
+        )
+    )
+    if saved_model_node_type_input != args.model_node_type_input:
+        raise ValueError("checkpoint and requested model node-type inputs differ")
     saved_split_mode = str(saved_training_args.get("split_mode", "stratified"))
     if saved_split_mode != args.split_mode:
         raise ValueError("checkpoint and requested split modes differ")
@@ -1034,7 +1051,7 @@ def build_model(
 ) -> PCNOEuler2DResidual:
     """Construct the conservative-residual baseline."""
 
-    return PCNOEuler2DResidual(
+    model = PCNOEuler2DResidual(
         normalization=normalization,
         k_max=args.k_max,
         domain_lengths=args.domain_lengths,
@@ -1042,6 +1059,8 @@ def build_model(
         fc_dim=args.fc_dim,
         zero_initialize=zero_initialize,
     )
+    model.model_node_type_input = args.model_node_type_input
+    return model
 
 
 def target_contract() -> dict[str, Any]:
@@ -1106,9 +1125,7 @@ def boundary_training_objective_contract(args: argparse.Namespace) -> dict[str, 
         primary_prediction = "raw_model_proposal_before_causal_closure"
         primary_node_population = "all_valid_nodes"
     elif primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE:
-        primary = (
-            "projected_all_node_proxy_weighted_scaled_conservative_next_state_mse"
-        )
+        primary = "projected_all_node_proxy_weighted_scaled_conservative_next_state_mse"
         primary_prediction = "minimum_change_closed_deployed_proposal"
         primary_node_population = (
             "all_valid_nodes_with_fixed_and_constrained_dofs_zeroed_by_projection"
@@ -1175,9 +1192,7 @@ def boundary_training_objective_contract(args: argparse.Namespace) -> dict[str, 
             else None
         ),
         "wall_tangential_density_pressure_and_outflow_supervision": (
-            "enabled"
-            if primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE
-            else None
+            "enabled" if primary_kind == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE else None
         ),
         "clipping_smoothing_or_limiter": False,
     }
@@ -1246,8 +1261,7 @@ def compare_initialized_boundary_contracts(
             {
                 "field": "training_objective",
                 "kind": (
-                    "legacy_normal_closed_objective_recovered_from_"
-                    "operational_fields"
+                    "legacy_normal_closed_objective_recovered_from_operational_fields"
                 ),
             }
         )
@@ -1525,6 +1539,9 @@ def forward_sample(
     sample: Mapping[str, torch.Tensor],
     current: torch.Tensor,
 ) -> torch.Tensor:
+    node_type = sample["node_type"]
+    if getattr(model, "model_node_type_input", "physical") == "all_normal":
+        node_type = torch.zeros_like(node_type)
     return model(
         current,
         node_mask=sample["node_mask"],
@@ -1533,7 +1550,7 @@ def forward_sample(
         node_rhos=sample["node_rhos"],
         directed_edges=sample["directed_edges"],
         edge_gradient_weights=sample["edge_gradient_weights"],
-        node_type=sample["node_type"],
+        node_type=node_type,
         mach=sample["mach"],
     )
 
@@ -1594,16 +1611,14 @@ def primary_training_metrics(
         objective_target = target
         loss_node_mask = sample["node_mask"]
     elif primary_objective == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE:
-        if boundary_policy is None or str(
-            boundary_policy.get("closure_kind")
-        ) != "minimum_change_primitive_projection":
-            raise ValueError(
-                "learned-DOF supervision requires a minimum-change policy"
-            )
+        if (
+            boundary_policy is None
+            or str(boundary_policy.get("closure_kind"))
+            != "minimum_change_primitive_projection"
+        ):
+            raise ValueError("learned-DOF supervision requires a minimum-change policy")
         objective_prediction = prediction
-        objective_target = close_boundary(
-            target, boundary_policy, gamma=model.gamma
-        )
+        objective_target = close_boundary(target, boundary_policy, gamma=model.gamma)
         loss_node_mask = sample["node_mask"]
     elif primary_objective == NORMAL_CLOSED_PRIMARY_OBJECTIVE:
         objective_prediction = prediction
@@ -2509,6 +2524,7 @@ def checkpoint_payload(
         "normalization_digest": data_contract["normalization_digest"],
         "data_manifest_digest": store.manifest_digest,
         "step_stride": int(args.step_stride),
+        "model_node_type_input": args.model_node_type_input,
         "training_args": jsonable_args(args),
         "config_digest": digest_mapping(jsonable_args(args)),
         "best_selection": None if best_selection is None else list(best_selection),
@@ -2529,9 +2545,7 @@ def checkpoint_payload(
             "boundary_decode_reencode_closure": (
                 args.boundary_mode != "model_all_nodes"
             ),
-            "decode_reencode_projection": (
-                args.boundary_mode != "model_all_nodes"
-            ),
+            "decode_reencode_projection": (args.boundary_mode != "model_all_nodes"),
         },
         "weight_provenance": normalization.weight_provenance,
         "generated_state_exposure": {
@@ -3160,9 +3174,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         epoch=0,
         tiny_bank=tiny_bank,
     )
-    accounting_presentation_stream_sha256 = presentation_stream_sha256(
-        accounting_pairs
-    )
+    accounting_presentation_stream_sha256 = presentation_stream_sha256(accounting_pairs)
     resolved_presentations_per_epoch = len(accounting_pairs)
     effective_batch_size = args.batch_size * args.gradient_accumulation_steps
     optimizer_steps_per_epoch = homogeneous_optimizer_step_count(
@@ -3837,9 +3849,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             "boundary_decode_reencode_closure": (
                 args.boundary_mode != "model_all_nodes"
             ),
-            "decode_reencode_projection": (
-                args.boundary_mode != "model_all_nodes"
-            ),
+            "decode_reencode_projection": (args.boundary_mode != "model_all_nodes"),
         },
         "input_noise_std": args.input_noise_std,
         "generated_state_exposure": {

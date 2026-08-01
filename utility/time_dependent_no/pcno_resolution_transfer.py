@@ -30,10 +30,17 @@ from utility.time_dependent_no.shock_vortex_fv import (
 )
 
 Resolution = tuple[int, int]
-NodeTypeProtocol = Literal["physical", "all_normal", "training_band"]
+MULTIRES_REFERENCE_SCHEMA = "shock_vortex_multires_restriction_reference_v1"
+NodeTypeProtocol = Literal[
+    "physical",
+    "all_normal",
+    "swapped_boundary_kinds",
+    "training_band",
+]
 NODE_TYPE_PROTOCOLS: tuple[NodeTypeProtocol, ...] = (
     "physical",
     "all_normal",
+    "swapped_boundary_kinds",
     "training_band",
 )
 
@@ -112,6 +119,52 @@ def initial_state_for_model_grid(
     return state.detach().cpu().numpy().reshape(config.nx * config.ny, 4)
 
 
+def initial_states_from_common_source(
+    base: ShockVortexFVConfig,
+    resolutions: Sequence[Resolution],
+    *,
+    source_resolution: Resolution,
+    dtype: torch.dtype = torch.float64,
+    quadrature_order: int | None = None,
+) -> tuple[np.ndarray, dict[Resolution, np.ndarray]]:
+    """Sample once on a common fine grid, then conservatively restrict.
+
+    This is the finite-volume sampling contract for a restriction-consistent
+    physical map.  Every returned component is a cell average of a conserved
+    variable; primitive variables are never interpolated or restricted.
+    """
+
+    source_nx, source_ny = source_resolution
+    requested = list(resolutions)
+    if not requested:
+        raise ValueError("at least one target resolution is required")
+    if len(set(requested)) != len(requested):
+        raise ValueError("target resolutions must be unique")
+    for target_nx, target_ny in requested:
+        if source_nx % target_nx or source_ny % target_ny:
+            raise ValueError(
+                "every target grid must divide the common source grid exactly"
+            )
+
+    source = initial_state_for_model_grid(
+        base,
+        source_resolution,
+        dtype=dtype,
+        quadrature_order=quadrature_order,
+    )
+    states = {}
+    for resolution in requested:
+        if resolution == source_resolution:
+            states[resolution] = np.array(source, copy=True)
+        else:
+            states[resolution] = restrict_nested_state(
+                source,
+                fine_resolution=source_resolution,
+                coarse_resolution=resolution,
+            )
+    return source, states
+
+
 def node_types_for_protocol(
     geometry: PCNOFiniteVolumeGeometry,
     config: ShockVortexFVConfig,
@@ -122,9 +175,13 @@ def node_types_for_protocol(
     """Return dynamic-family node types under one declared intervention.
 
     ``physical`` regenerates the one-cell boundary-touch descriptor on the
-    target mesh. ``all_normal`` removes the descriptor. ``training_band`` is a
-    diagnostic that holds the tagged physical width equal to one cell of the
-    training grid, so a fine mesh can contain multiple tagged cell layers.
+    target mesh. ``all_normal`` removes the descriptor.
+    ``swapped_boundary_kinds`` preserves the tagged set but exchanges the
+    y-symmetry-only and x-extrapolation-only categories (codes 1 and 2);
+    corner code 3 is unchanged. ``training_band`` is a binary
+    cell-intersection diagnostic that approximates a boundary strip one
+    training cell wide. It is exact only when the target mesh resolves that
+    width and is not a replacement boundary policy.
     """
 
     if protocol not in NODE_TYPE_PROTOCOLS:
@@ -135,6 +192,12 @@ def node_types_for_protocol(
         return np.array(geometry.node_type, dtype=np.int64, copy=True)
     if protocol == "all_normal":
         return np.zeros(config.nx * config.ny, dtype=np.int64)
+    if protocol == "swapped_boundary_kinds":
+        physical = np.asarray(geometry.node_type, dtype=np.int64)
+        swapped = np.array(physical, copy=True)
+        swapped[physical == 1] = 2
+        swapped[physical == 2] = 1
+        return swapped
 
     training_nx, training_ny = training_resolution
     if training_nx < 1 or training_ny < 1:
@@ -149,25 +212,24 @@ def node_types_for_protocol(
     right_edge = x + 0.5 * target_dx
     bottom_edge = y - 0.5 * target_dy
     top_edge = y + 0.5 * target_dy
-    tolerance = 32.0 * np.finfo(np.float64).eps * max(
-        abs(config.x_min),
-        abs(config.x_max),
-        abs(config.y_min),
-        abs(config.y_max),
-        1.0,
+    tolerance = (
+        32.0
+        * np.finfo(np.float64).eps
+        * max(
+            abs(config.x_min),
+            abs(config.x_max),
+            abs(config.y_min),
+            abs(config.y_max),
+            1.0,
+        )
     )
-    touches_x_band = (
-        (left_edge < config.x_min + fixed_x_width - tolerance)
-        | (right_edge > config.x_max - fixed_x_width + tolerance)
+    touches_x_band = (left_edge < config.x_min + fixed_x_width - tolerance) | (
+        right_edge > config.x_max - fixed_x_width + tolerance
     )
-    touches_y_band = (
-        (bottom_edge < config.y_min + fixed_y_width - tolerance)
-        | (top_edge > config.y_max - fixed_y_width + tolerance)
+    touches_y_band = (bottom_edge < config.y_min + fixed_y_width - tolerance) | (
+        top_edge > config.y_max - fixed_y_width + tolerance
     )
-    return (
-        2 * touches_x_band.astype(np.int64)
-        + touches_y_band.astype(np.int64)
-    )
+    return 2 * touches_x_band.astype(np.int64) + touches_y_band.astype(np.int64)
 
 
 def node_type_scaling_summary(
@@ -214,8 +276,7 @@ def node_type_scaling_summary(
         str(code): float(volumes[codes == code].sum()) for code in range(4)
     }
     normalized_mass = {
-        str(code): float(normalized_weights[codes == code].sum())
-        for code in range(4)
+        str(code): float(normalized_weights[codes == code].sum()) for code in range(4)
     }
     return {
         "nx": int(config.nx),
@@ -269,17 +330,13 @@ def make_model_sample(
 
     num_nodes = geometry.nodes.shape[0]
     return {
-        "node_mask": torch.ones(
-            (1, num_nodes, 1), dtype=torch.float32, device=device
-        ),
+        "node_mask": torch.ones((1, num_nodes, 1), dtype=torch.float32, device=device),
         "nodes": batched(geometry.nodes, torch.float32),
         "node_measures": batched(geometry.node_measures, torch.float32),
         "node_weights": batched(geometry.node_weights, torch.float32),
         "node_rhos": batched(geometry.node_rhos, torch.float32),
         "directed_edges": batched(geometry.directed_edges, torch.int64),
-        "edge_gradient_weights": batched(
-            geometry.edge_gradient_weights, torch.float32
-        ),
+        "edge_gradient_weights": batched(geometry.edge_gradient_weights, torch.float32),
         "node_type": batched(codes, torch.int64),
         "mach": torch.tensor([float(mach)], dtype=torch.float32, device=device),
     }
@@ -374,12 +431,93 @@ def weighted_scaled_relative_l2(
     error = (prediction_array[selected] - reference_array[selected]) / scale
     baseline = reference_array[selected] / scale
     numerator = float(np.einsum("n,nc,nc->", weights[selected], error, error))
-    denominator = float(
-        np.einsum("n,nc,nc->", weights[selected], baseline, baseline)
-    )
+    denominator = float(np.einsum("n,nc,nc->", weights[selected], baseline, baseline))
     if denominator <= denominator_epsilon:
         return None
     return float(np.sqrt(numerator / denominator))
+
+
+def physical_wavelength_band_metrics(
+    prediction: np.ndarray,
+    reference: np.ndarray,
+    *,
+    resolution: Resolution,
+    domain_lengths: tuple[float, float],
+    component_scale: Sequence[float] | np.ndarray,
+    wavelength_min: float,
+    wavelength_max: float,
+    denominator_epsilon: float = 1.0e-30,
+) -> dict[str, float | int | None]:
+    """Measure regular-grid spectral error in one fixed physical wavelength band.
+
+    The band is declared in physical units and therefore does not move with a
+    grid's Nyquist frequency. Inputs are row-major cell-centered fields with
+    components on the final axis.
+    """
+
+    nx, ny = resolution
+    lx, ly = (float(value) for value in domain_lengths)
+    if (
+        nx < 2
+        or ny < 2
+        or lx <= 0.0
+        or ly <= 0.0
+        or not np.isfinite(wavelength_min)
+        or not np.isfinite(wavelength_max)
+        or wavelength_min <= 0.0
+        or wavelength_max <= wavelength_min
+    ):
+        raise ValueError("invalid grid, domain, or physical wavelength band")
+    prediction_array = np.asarray(prediction, dtype=np.float64)
+    reference_array = np.asarray(reference, dtype=np.float64)
+    if (
+        prediction_array.ndim != 2
+        or prediction_array.shape[0] != nx * ny
+        or reference_array.shape != prediction_array.shape
+    ):
+        raise ValueError("prediction/reference must be flattened row-major grid fields")
+    scale = np.asarray(component_scale, dtype=np.float64)
+    if scale.shape != (prediction_array.shape[-1],) or np.any(scale <= 0.0):
+        raise ValueError("component_scale must be positive and match components")
+
+    scaled_prediction = prediction_array.reshape(ny, nx, -1) / scale.reshape(1, 1, -1)
+    scaled_reference = reference_array.reshape(ny, nx, -1) / scale.reshape(1, 1, -1)
+    error_spectrum = np.fft.rfftn(
+        scaled_prediction - scaled_reference,
+        axes=(0, 1),
+        norm="ortho",
+    )
+    reference_spectrum = np.fft.rfftn(
+        scaled_reference,
+        axes=(0, 1),
+        norm="ortho",
+    )
+    frequency_x = np.fft.rfftfreq(nx, d=lx / nx)
+    frequency_y = np.fft.fftfreq(ny, d=ly / ny)
+    radial_frequency = np.hypot(
+        frequency_y[:, None],
+        frequency_x[None, :],
+    )
+    lower_frequency = 1.0 / wavelength_max
+    upper_frequency = 1.0 / wavelength_min
+    mask = (radial_frequency >= lower_frequency) & (radial_frequency < upper_frequency)
+    mode_count = int(np.count_nonzero(mask))
+    if mode_count == 0:
+        raise ValueError("the physical wavelength band contains no Fourier modes")
+    error_energy = float(np.sum(np.abs(error_spectrum[mask]) ** 2))
+    reference_energy = float(np.sum(np.abs(reference_spectrum[mask]) ** 2))
+    return {
+        "wavelength_min": float(wavelength_min),
+        "wavelength_max": float(wavelength_max),
+        "mode_count": mode_count,
+        "error_spectral_l2": float(np.sqrt(error_energy)),
+        "reference_spectral_l2": float(np.sqrt(reference_energy)),
+        "relative_spectral_l2": (
+            float(np.sqrt(error_energy / reference_energy))
+            if reference_energy > denominator_epsilon
+            else None
+        ),
+    }
 
 
 def commutator_metrics(

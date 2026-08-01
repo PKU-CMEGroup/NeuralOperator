@@ -26,6 +26,7 @@ from scripts.time_dependent_no.train_pcno_euler2d_residual import (
     assert_resume_training_args,
     boundary_auxiliary_loss,
     close_boundary,
+    forward_sample,
     jsonable_args,
     manifest_train_val_test_split,
     parse_args,
@@ -69,6 +70,39 @@ from utility.time_dependent_no.pcno_euler2d import (
     stratified_train_val_split,
     weighted_scaled_mse,
 )
+
+
+def test_all_normal_training_input_does_not_mutate_physical_type_tensor() -> None:
+    class RecordingModel(torch.nn.Module):
+        model_node_type_input = "all_normal"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.seen_node_type: torch.Tensor | None = None
+
+        def forward(
+            self, current: torch.Tensor, **kwargs: torch.Tensor
+        ) -> torch.Tensor:
+            self.seen_node_type = kwargs["node_type"].detach().clone()
+            return current
+
+    model = RecordingModel()
+    current = torch.zeros(1, 3, 4)
+    physical_type = torch.tensor([[0, 1, 3]], dtype=torch.int64)
+    sample = {
+        "node_mask": torch.ones(1, 3, 1),
+        "nodes": torch.zeros(1, 3, 2),
+        "node_weights": torch.ones(1, 3, 1) / 3.0,
+        "node_rhos": torch.ones(1, 3, 1),
+        "directed_edges": torch.zeros(1, 1, 2, dtype=torch.int64),
+        "edge_gradient_weights": torch.zeros(1, 1, 2),
+        "node_type": physical_type,
+        "mach": torch.ones(1),
+    }
+
+    assert torch.equal(forward_sample(model, sample, current), current)
+    assert torch.equal(model.seen_node_type, torch.zeros_like(physical_type))
+    assert torch.equal(sample["node_type"], physical_type)
 
 
 def _write_raw_trajectory(group: h5py.Group, trajectory_index: int) -> None:
@@ -1596,15 +1630,29 @@ def test_cpu_minimum_change_training_and_validation_protocol(tmp_path: Path) -> 
     evaluation = json.loads(
         (evaluation_dir / "summary.json").read_text(encoding="utf-8")
     )
+    assert evaluation["schema"] == "pcno_euler2d_boundary_protocol_validation_v2"
     assert evaluation["selection_population"] == "checkpoint_validation_split_only"
     assert evaluation["test_split_opened"] is False
+    assert evaluation["evaluation"]["start_frame"] == 0
+    assert (
+        "utility/time_dependent_no/cpg_mesh_contract.py" in evaluation["source_sha256"]
+    )
     assert evaluation["native"]["rollout"]["completion_rate"] == 1.0
+    assert evaluation["causal"]["rollout"]["completion_rate"] == 1.0
     assert evaluation["minimum_change"]["rollout"]["completion_rate"] == 1.0
     assert evaluation["native"]["structure"]["completion_rate"] == 1.0
+    assert evaluation["causal"]["structure"]["completion_rate"] == 1.0
     assert evaluation["minimum_change"]["structure"]["completion_rate"] == 1.0
     assert evaluation["native"]["structure"]["endpoints"]["1"]["population_count"] == 1
     assert evaluation["paired_structure_ratios"]["ratio"] == (
         "minimum_change_over_native"
+    )
+    assert evaluation["paired_causal_structure_ratios"]["ratio"] == (
+        "causal_over_native"
+    )
+    assert (
+        evaluation["causal"]["projection_decomposition"]["wall_constraint_max_abs"]
+        <= 1.0e-6
     )
     assert (
         evaluation["minimum_change"]["projection_decomposition"][

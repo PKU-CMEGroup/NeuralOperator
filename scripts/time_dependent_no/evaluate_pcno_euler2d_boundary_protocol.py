@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare a checkpoint's native recurrence with minimum-change boundaries.
+"""Compare native, causal, and minimum-change boundary recurrences.
 
 This is a validation-only protocol-selection evaluator. It never selects or
 opens the manifest test split. Final test reporting remains the responsibility
@@ -56,7 +56,7 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     normal_node_mask,
 )
 
-SCHEMA = "pcno_euler2d_boundary_protocol_validation_v1"
+SCHEMA = "pcno_euler2d_boundary_protocol_validation_v2"
 STRUCTURE_ERROR_FIELDS = (
     "smooth_highpass_energy_reconstructed_weight_proxy",
     "front_centroid_distance",
@@ -181,34 +181,36 @@ def _structure_summary(
 
 
 def _paired_structure_ratios(
-    native: Mapping[str, Any],
-    minimum_change: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+    candidate: Mapping[str, Any],
     *,
+    ratio_name: str,
     rollout_checkpoints: Sequence[int],
 ) -> dict[str, Any]:
-    native_rows = {
-        (str(row["trajectory"]), int(row["call_index"])): row for row in native["rows"]
-    }
-    minimum_rows = {
+    baseline_rows = {
         (str(row["trajectory"]), int(row["call_index"])): row
-        for row in minimum_change["rows"]
+        for row in baseline["rows"]
+    }
+    candidate_rows = {
+        (str(row["trajectory"]), int(row["call_index"])): row
+        for row in candidate["rows"]
     }
     result: dict[str, Any] = {}
     for checkpoint in rollout_checkpoints:
         endpoint: dict[str, Any] = {}
         for field in STRUCTURE_ERROR_FIELDS:
             ratios = []
-            for key, native_row in native_rows.items():
-                if key[1] != checkpoint or key not in minimum_rows:
+            for key, baseline_row in baseline_rows.items():
+                if key[1] != checkpoint or key not in candidate_rows:
                     continue
-                baseline = native_row.get(field)
-                candidate = minimum_rows[key].get(field)
+                baseline_value = baseline_row.get(field)
+                candidate_value = candidate_rows[key].get(field)
                 if (
-                    baseline is not None
-                    and candidate is not None
-                    and float(baseline) > 0.0
+                    baseline_value is not None
+                    and candidate_value is not None
+                    and float(baseline_value) > 0.0
                 ):
-                    ratios.append(float(candidate) / float(baseline))
+                    ratios.append(float(candidate_value) / float(baseline_value))
             endpoint[field] = {
                 "count": len(ratios),
                 "mean_ratio": None if not ratios else float(np.mean(ratios)),
@@ -216,7 +218,7 @@ def _paired_structure_ratios(
             }
         result[str(checkpoint)] = endpoint
     return {
-        "ratio": "minimum_change_over_native",
+        "ratio": ratio_name,
         "direction": "less_than_or_equal_to_one_is_nonworse",
         "paired_by": ["trajectory", "call_index"],
         "endpoints": result,
@@ -431,14 +433,26 @@ def projection_decomposition(
         primitive = conservative_to_primitive_torch(
             prediction.float(), gamma=model.gamma
         )
-        wall_nodes = policy["wall_constrained_nodes"]
-        projectors = policy["wall_velocity_projectors"].to(
-            dtype=primitive.dtype, device=device
-        )
-        wall_velocity = primitive[:, wall_nodes, 1:3]
-        forbidden = wall_velocity - torch.einsum(
-            "nij,bnj->bni", projectors, wall_velocity
-        )
+        if "wall_velocity_projectors" in policy:
+            wall_nodes = policy["wall_constrained_nodes"]
+            projectors = policy["wall_velocity_projectors"].to(
+                dtype=primitive.dtype, device=device
+            )
+            wall_velocity = primitive[:, wall_nodes, 1:3]
+            forbidden = wall_velocity - torch.einsum(
+                "nij,bnj->bni", projectors, wall_velocity
+            )
+        else:
+            wall_rows = policy["wall_rows"]
+            wall_nodes = policy["target_nodes"][wall_rows]
+            wall_normals = policy["target_normals"][wall_rows].to(
+                dtype=primitive.dtype, device=device
+            )
+            wall_velocity = primitive[:, wall_nodes, 1:3]
+            wall_normal_speed = torch.sum(
+                wall_velocity * wall_normals.unsqueeze(0), dim=-1, keepdim=True
+            )
+            forbidden = wall_normal_speed * wall_normals.unsqueeze(0)
         metrics["wall_constraint_rms"].append(
             float(torch.sqrt(forbidden.square().mean()).cpu())
         )
@@ -515,6 +529,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         rho_inf=args.boundary_rho_inf,
         p_inf=args.boundary_p_inf,
     )
+    causal_policies, causal_metadata = _policy_set(
+        CAUSAL_BOUNDARY_MODE,
+        {},
+        store,
+        validation_keys,
+        device=device,
+        rho_inf=args.boundary_rho_inf,
+        p_inf=args.boundary_p_inf,
+    )
     minimum_policies, minimum_metadata = _policy_set(
         MINIMUM_CHANGE_BOUNDARY_MODE,
         {},
@@ -546,6 +569,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         primary_objective=saved_primary,
         boundary_policies=native_policies,
     )
+    causal_one_step = evaluate_pairs(
+        model,
+        store,
+        pairs,
+        step_stride=step_stride,
+        batch_size=1,
+        device=device,
+        amp=args.amp,
+        primary_objective=NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+        boundary_policies=causal_policies,
+    )
     minimum_one_step = evaluate_pairs(
         model,
         store,
@@ -567,6 +601,18 @@ def main(argv: Sequence[str] | None = None) -> None:
         device=device,
         amp=args.amp,
         boundary_policies=native_policies,
+        rollout_checkpoints=args.rollout_checkpoints,
+    )
+    causal_rollout = evaluate_rollouts(
+        model,
+        store,
+        rollout_keys,
+        step_stride=step_stride,
+        start_frame=args.start_frame,
+        num_steps=args.rollout_steps,
+        device=device,
+        amp=args.amp,
+        boundary_policies=causal_policies,
         rollout_checkpoints=args.rollout_checkpoints,
     )
     minimum_rollout = evaluate_rollouts(
@@ -594,6 +640,19 @@ def main(argv: Sequence[str] | None = None) -> None:
         device=device,
         amp=args.amp,
     )
+    causal_structure = rollout_structure_diagnostics(
+        model,
+        store,
+        rollout_keys,
+        causal_policies,
+        step_stride=step_stride,
+        start_frame=args.start_frame,
+        num_steps=args.rollout_steps,
+        rollout_checkpoints=args.rollout_checkpoints,
+        shock_quantile=args.shock_quantile,
+        device=device,
+        amp=args.amp,
+    )
     minimum_structure = rollout_structure_diagnostics(
         model,
         store,
@@ -610,9 +669,25 @@ def main(argv: Sequence[str] | None = None) -> None:
     structure_ratios = _paired_structure_ratios(
         native_structure,
         minimum_structure,
+        ratio_name="minimum_change_over_native",
         rollout_checkpoints=args.rollout_checkpoints,
     )
-    decomposition = projection_decomposition(
+    causal_structure_ratios = _paired_structure_ratios(
+        native_structure,
+        causal_structure,
+        ratio_name="causal_over_native",
+        rollout_checkpoints=args.rollout_checkpoints,
+    )
+    causal_decomposition = projection_decomposition(
+        model,
+        store,
+        pairs,
+        causal_policies,
+        step_stride=step_stride,
+        device=device,
+        amp=args.amp,
+    )
+    minimum_decomposition = projection_decomposition(
         model,
         store,
         pairs,
@@ -625,6 +700,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         Path(__file__).resolve(),
         ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
         ROOT / "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
+        ROOT / "utility/time_dependent_no/cpg_mesh_contract.py",
         ROOT / "utility/time_dependent_no/pcno_euler2d.py",
     )
     summary = {
@@ -648,6 +724,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             ],
             "presentation_seed": args.presentation_seed,
             "rollout_keys": rollout_keys,
+            "start_frame": args.start_frame,
             "rollout_steps": args.rollout_steps,
             "rollout_checkpoints": args.rollout_checkpoints,
             "shock_quantile": args.shock_quantile,
@@ -661,17 +738,25 @@ def main(argv: Sequence[str] | None = None) -> None:
             "structure": native_structure,
             "policy_metadata": native_metadata,
         },
+        "causal": {
+            "one_step": causal_one_step,
+            "rollout": causal_rollout,
+            "structure": causal_structure,
+            "projection_decomposition": causal_decomposition,
+            "policy_metadata": causal_metadata,
+        },
         "minimum_change": {
             "one_step": minimum_one_step,
             "rollout": minimum_rollout,
             "structure": minimum_structure,
-            "projection_decomposition": decomposition,
+            "projection_decomposition": minimum_decomposition,
             "policy_metadata": minimum_metadata,
         },
         "paired_structure_ratios": structure_ratios,
+        "paired_causal_structure_ratios": causal_structure_ratios,
         "claim_boundary": {
-            "verified": "frozen-checkpoint validation behavior under two causal recurrences",
-            "inference": "whether minimum-change enforcement is promising enough for matched training",
+            "verified": "frozen-checkpoint validation behavior under three matched recurrences",
+            "inference": "whether either hard-boundary recurrence improves the frozen checkpoint",
             "not_supported": [
                 "exact DG boundary replay",
                 "physical conservation",
@@ -680,7 +765,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             ],
         },
         "source_sha256": {
-            str(path.relative_to(ROOT)): sha256_file(path) for path in source_paths
+            path.relative_to(ROOT).as_posix(): sha256_file(path)
+            for path in source_paths
         },
     }
     args.output_dir.mkdir(parents=True)
@@ -690,6 +776,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             {
                 "status": "complete",
                 "native_horizon": native_rollout["mean_endpoint_relative_l2"],
+                "causal_horizon": causal_rollout["mean_endpoint_relative_l2"],
                 "minimum_change_horizon": minimum_rollout["mean_endpoint_relative_l2"],
             },
             sort_keys=True,

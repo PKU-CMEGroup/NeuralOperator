@@ -222,7 +222,8 @@ This section is the sole documentation inventory of active code. Presence here
 records a maintained implementation or reproducibility surface; it does not
 authorize a new experiment. Historical one-off probes and failed-method
 scaffolds are recoverable from commit `729091b`. The pruned active surface is
-commit `cf6cbe1`.
+commit `cf6cbe1`. Completed or failed-and-closed entry points retired in the
+later codebase cleanup remain recoverable from the pre-cleanup commit `ce5d6a2`.
 
 ### Reusable utilities
 
@@ -248,7 +249,10 @@ CPG/bump contracts and diagnostics:
 
 Residual-PCNO and dynamic finite-volume support:
 
+- `utility/time_dependent_no/pcno_artifacts.py`
 - `utility/time_dependent_no/pcno_euler2d.py`
+- `utility/time_dependent_no/pcno_rollout.py`
+- `utility/time_dependent_no/pcno_runtime.py`
 - `utility/time_dependent_no/pcno_fv_geometry.py`
 - `utility/time_dependent_no/pcno_ripple_diagnostics.py`
 - `utility/time_dependent_no/pcno_resolution_transfer.py`
@@ -269,7 +273,6 @@ Frozen 1D Euler generation, training, evaluation, and reporting:
 - `scripts/time_dependent_no/benchmark_euler1d_flow_map_runtime.py`
 - `scripts/time_dependent_no/generate_euler1d_flow_map_ood.py`
 - `scripts/time_dependent_no/visualize_euler1d_flow_map_frontier.py`
-- `scripts/time_dependent_no/launch_euler1d_large_step_frontier.sh`
 
 `euler1d_weno_hllc_ader_dataset.py` is a configuration-driven generator, not an
 argparse help surface. Do not invoke it with `--help`: that starts its default
@@ -291,16 +294,11 @@ Bump residual-PCNO preparation, evaluation, and frozen diagnostics:
 - `scripts/time_dependent_no/train_pcno_euler2d_residual.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_protocol.py`
-- `scripts/time_dependent_no/visualize_pcno_euler2d_boundary_protocol.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_splice.py`
-- `scripts/time_dependent_no/diagnose_pcno_euler2d_boundary_objectives.py`
 - `scripts/time_dependent_no/decompose_pcno_euler2d_rollout_error.py`
-- `scripts/time_dependent_no/diagnose_pcno_euler2d_ripples.py`
-- `scripts/time_dependent_no/diagnose_pcno_euler2d_unchecked_rollout.py`
-- `scripts/time_dependent_no/diagnose_pcno_euler2d_spliced_unchecked_rollout.py`
 - `scripts/time_dependent_no/rollout_pcno_preprocessed.py`
 
-Dynamic shock-vortex reference, family, residual-PCNO, resolution, and coarse-CFD surfaces:
+Dynamic shock-vortex reference, family, residual-PCNO, and resolution surfaces:
 
 - `scripts/time_dependent_no/generate_euler2d_shock_vortex_reference.py`
 - `scripts/time_dependent_no/generate_euler2d_shock_vortex_pyro_reference.py`
@@ -314,12 +312,12 @@ Dynamic shock-vortex reference, family, residual-PCNO, resolution, and coarse-CF
 - `scripts/time_dependent_no/evaluate_pcno_resolution_transfer.py`
 - `scripts/time_dependent_no/evaluate_pcno_resolution_rollout.py`
 - `scripts/time_dependent_no/visualize_pcno_resolution_rollout.py`
-- `scripts/time_dependent_no/benchmark_pcno_shock_vortex_coarse_cfd.py`
 
 ### Tests
 
 Active CPU and synthetic-fixture tests live under `tests/time_dependent_no/`:
 
+- Shared PCNO fixture support: `_pcno_test_support.py`.
 - CPG/release: `test_cpg_euler_data.py`, `test_cpg_mesh_contract.py`,
   `test_cpg_reach.py`, `test_cpg_release.py`,
   `test_train_cpg_legal_boundary.py`, and
@@ -328,14 +326,13 @@ Active CPU and synthetic-fixture tests live under `tests/time_dependent_no/`:
   `test_euler1d_flow_map_visualization.py`, `test_euler1d_solver_targets.py`, and
   `test_euler1d_training_noise.py`.
 - Generic 2D/PCNO: `test_euler_fixture.py`, `test_euler_metrics.py`,
-  `test_fv_impulse_diagnostics.py`, `test_pcno_euler2d_residual.py`,
+  `test_fv_impulse_diagnostics.py`, `test_pcno_artifacts.py`,
+  `test_pcno_euler2d_residual.py`,
   `test_pcno_fv_geometry.py`, `test_pcno_ripple_diagnostics.py`,
-  `test_pcno_rollout_error_decomposition.py`,
-  `test_visualize_pcno_euler2d_boundary_protocol.py`,
+  `test_pcno_rollout.py`, `test_pcno_rollout_error_decomposition.py`,
+  `test_pcno_runtime.py`,
   `test_pcno_euler2d_boundary_splice.py`,
-  `test_pcno_euler2d_multistep_training.py`,
-  `test_pcno_euler2d_unchecked_rollout.py`, and
-  `test_pcno_euler2d_spliced_unchecked_rollout.py`.
+  and `test_pcno_euler2d_multistep_training.py`.
 - Dynamic shock-vortex: `test_pcno_shock_vortex_baseline.py`,
   `test_pcno_resolution_transfer.py`, `test_visualize_pcno_resolution_rollout.py`,
   `test_shock_vortex_coarse_cfd.py`, `test_shock_vortex_family.py`,

@@ -17,34 +17,29 @@ from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (
 )
 from scripts.time_dependent_no.prepare_pcno_euler2d_shards import main as prepare_main
 from scripts.time_dependent_no.train_pcno_euler2d_residual import (
-    LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
-    MINIMUM_CHANGE_BOUNDARY_MODE,
-    NORMAL_CLOSED_PRIMARY_OBJECTIVE,
-    RAW_ALL_NODES_PRIMARY_OBJECTIVE,
     RAW_BOUNDARY_REFERENCE_AUXILIARY,
     RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION,
     assert_resume_training_args,
     boundary_auxiliary_loss,
-    close_boundary,
-    forward_sample,
-    jsonable_args,
+    main as train_main,
     manifest_train_val_test_split,
     parse_args,
-    primary_training_metrics,
-    rollout_trajectory,
     selection_tuple,
     validate_args,
-    verify_source_snapshot,
     warmup_cosine_factor,
-    write_source_snapshot,
 )
-from scripts.time_dependent_no.train_pcno_euler2d_residual import (
-    main as train_main,
+from tests.time_dependent_no._pcno_test_support import (
+    prepare_boundary_synthetic_shards as _prepare_boundary_synthetic_shards,
 )
 from utility.time_dependent_no.cpg_mesh_contract import (
     INFLOW_NODE,
     NORMAL_NODE,
     OUTFLOW_NODE,
+)
+from utility.time_dependent_no.pcno_artifacts import (
+    jsonable_args,
+    verify_source_snapshot,
+    write_source_snapshot,
 )
 from utility.time_dependent_no.pcno_euler2d import (
     PCNOEuler2DResidual,
@@ -70,6 +65,16 @@ from utility.time_dependent_no.pcno_euler2d import (
     stratified_train_val_split,
     weighted_scaled_mse,
 )
+from utility.time_dependent_no.pcno_rollout import (
+    LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+    MINIMUM_CHANGE_BOUNDARY_MODE,
+    NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+    RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+    close_boundary,
+    primary_training_metrics,
+    rollout_trajectory,
+)
+from utility.time_dependent_no.pcno_runtime import forward_sample
 
 
 def test_all_normal_training_input_does_not_mutate_physical_type_tensor() -> None:
@@ -140,71 +145,6 @@ def _prepare_synthetic_shards(tmp_path: Path) -> Path:
         _write_raw_trajectory(handle.create_group("0"), 0)
         _write_raw_trajectory(handle.create_group("1"), 1)
     output = tmp_path / "shards"
-    prepare_main(
-        [
-            "--source-h5",
-            str(source),
-            "--output-dir",
-            str(output),
-            "--static-check",
-            "all",
-        ]
-    )
-    return output
-
-
-def _write_boundary_trajectory(group: h5py.Group, trajectory_index: int) -> None:
-    num_steps = 4
-    nodes = np.asarray(
-        [
-            [0.0, 0.0],
-            [0.5, 0.0],
-            [1.0, 0.0],
-            [0.0, 0.5],
-            [0.5, 0.5],
-            [1.0, 0.5],
-            [0.0, 1.0],
-            [0.5, 1.0],
-            [1.0, 1.0],
-        ],
-        dtype=np.float32,
-    )
-    perimeter = np.asarray(
-        [[0, 1], [1, 2], [2, 5], [5, 8], [8, 7], [7, 6], [6, 3], [3, 0]],
-        dtype=np.int64,
-    )
-    spokes = np.asarray(
-        [[4, node] for node in (0, 1, 2, 3, 5, 6, 7, 8)], dtype=np.int64
-    )
-    edges = np.concatenate((perimeter, spokes), axis=0)
-    node_type = np.asarray([3, 1, 2, 3, 0, 2, 3, 1, 2], dtype=np.int64)[:, None]
-    mach_value = 1.6 + 0.05 * trajectory_index
-    mach = np.full((nodes.shape[0], 1), mach_value, dtype=np.float32)
-
-    group.create_dataset("pos", data=np.repeat(nodes[None, ...], num_steps, axis=0))
-    group.create_dataset("edges", data=np.repeat(edges[None, ...], num_steps, axis=0))
-    group.create_dataset(
-        "node_type", data=np.repeat(node_type[None, ...], num_steps, axis=0)
-    )
-    group.create_dataset("Mach", data=np.repeat(mach[None, ...], num_steps, axis=0))
-
-    time = np.arange(num_steps, dtype=np.float32)[:, None, None]
-    x = nodes[None, :, 0:1]
-    y = nodes[None, :, 1:2]
-    group.create_dataset(
-        "rho", data=1.4 + 0.01 * trajectory_index + 0.002 * time + 0.001 * x
-    )
-    group.create_dataset("v1", data=mach_value + 0.01 * time + 0.005 * x)
-    group.create_dataset("v2", data=0.02 * (y - 0.5) + 0.001 * time)
-    group.create_dataset("pres", data=1.0 + 0.004 * time + 0.002 * x)
-
-
-def _prepare_boundary_synthetic_shards(tmp_path: Path) -> Path:
-    source = tmp_path / "raw_boundary.h5"
-    with h5py.File(source, "w") as handle:
-        _write_boundary_trajectory(handle.create_group("0"), 0)
-        _write_boundary_trajectory(handle.create_group("1"), 1)
-    output = tmp_path / "boundary_shards"
     prepare_main(
         [
             "--source-h5",
@@ -1105,6 +1045,11 @@ def test_cpu_training_smoke_uses_requested_stride_and_writes_strict_json(
         "pcno_euler2d",
         "pcno_core",
         "cpg_mesh_contract",
+        "pcno_artifacts",
+        "euler2d_metrics",
+        "pcno_runtime",
+        "pcno_rollout",
+        "pcno_ripple_diagnostics",
         "evaluator",
     }
     assert all(len(value) == 64 for value in summary["code_sha256"].values())
@@ -1636,6 +1581,20 @@ def test_cpu_minimum_change_training_and_validation_protocol(tmp_path: Path) -> 
     assert evaluation["evaluation"]["start_frame"] == 0
     assert (
         "utility/time_dependent_no/cpg_mesh_contract.py" in evaluation["source_sha256"]
+    )
+    assert "utility/time_dependent_no/pcno_rollout.py" in evaluation["source_sha256"]
+    assert "utility/time_dependent_no/euler2d_metrics.py" in evaluation["source_sha256"]
+    assert (
+        "utility/time_dependent_no/pcno_ripple_diagnostics.py"
+        in evaluation["source_sha256"]
+    )
+    assert (
+        "scripts/time_dependent_no/train_pcno_euler2d_residual.py"
+        not in evaluation["source_sha256"]
+    )
+    assert (
+        "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py"
+        not in evaluation["source_sha256"]
     )
     assert evaluation["native"]["rollout"]["completion_rate"] == 1.0
     assert evaluation["causal"]["rollout"]["completion_rate"] == 1.0

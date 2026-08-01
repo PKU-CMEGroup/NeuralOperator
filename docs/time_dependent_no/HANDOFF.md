@@ -346,10 +346,13 @@ row, authorize training, or change the registered L3R order.
   surface.
 - Commit `729091b` preserves the exact pre-code-cleanup diagnostic source;
   commit `cf6cbe1` prunes the closed experiment scaffolding.
-- The post-code-cleanup `tests/time_dependent_no` suite passed `306` tests with
-  two existing Torch JIT deprecation warnings.
-- The U0/U1 continuation surfaces pass eight focused CPU tests. Their runtime
-  and post-run visualization-correction hashes are frozen in the tracker.
+- At commit `cf6cbe1`, the post-code-cleanup `tests/time_dependent_no` suite
+  passed `306` tests with two existing Torch JIT deprecation warnings.
+- The subsequent reusable-infrastructure cleanup suite passed `368` tests with
+  the same two upstream Torch JIT deprecation warnings.
+- The closed U0/U1 runtime and post-run visualization-correction hashes remain
+  frozen in the tracker. Their retired entry points are recoverable from the
+  pre-cleanup commit `ce5d6a2`.
 - The maintained code surface and the ADER-generator invocation warning are
   listed only in [`README.md`](README.md).
 - Machine-specific paths and credentials remain in ignored local context;

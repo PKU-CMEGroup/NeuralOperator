@@ -27,24 +27,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.time_dependent_no.evaluate_pcno_euler2d_boundary_protocol import (  # noqa: E402
-    STRUCTURE_ERROR_FIELDS,
-    projection_decomposition,
-    rollout_structure_diagnostics,
-)
-from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (  # noqa: E402
-    build_model,
-    load_checkpoint,
+from utility.time_dependent_no.pcno_artifacts import (
     sha256_file,
-)
-from scripts.time_dependent_no.train_pcno_euler2d_residual import (  # noqa: E402
-    LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
-    evaluate_pairs,
-    evaluate_rollouts,
-    select_device,
     write_json,
 )
-from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
+from utility.time_dependent_no.pcno_euler2d import (
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     balanced_presentations,
@@ -52,6 +39,17 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     digest_mapping,
     normal_node_mask,
 )
+from utility.time_dependent_no.pcno_rollout import (
+    LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+    STRUCTURE_ERROR_FIELDS,
+    build_bump_checkpoint_model as build_model,
+    evaluate_pairs,
+    evaluate_rollouts,
+    load_bump_checkpoint as load_checkpoint,
+    projection_decomposition,
+    rollout_structure_diagnostics,
+)
+from utility.time_dependent_no.pcno_runtime import select_device
 
 SCHEMA = "pcno_euler2d_boundary_output_splice_validation_v2"
 BOUNDARY_FROM_TEACHER = "parent_normal_teacher_boundary"
@@ -654,10 +652,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     source_paths = (
         Path(__file__).resolve(),
-        ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_protocol.py",
-        ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
-        ROOT / "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
+        ROOT / "utility/time_dependent_no/pcno_artifacts.py",
+        ROOT / "utility/time_dependent_no/euler2d_metrics.py",
         ROOT / "utility/time_dependent_no/pcno_euler2d.py",
+        ROOT / "utility/time_dependent_no/pcno_ripple_diagnostics.py",
+        ROOT / "utility/time_dependent_no/pcno_rollout.py",
+        ROOT / "utility/time_dependent_no/pcno_runtime.py",
     )
     summary = {
         "schema": SCHEMA,

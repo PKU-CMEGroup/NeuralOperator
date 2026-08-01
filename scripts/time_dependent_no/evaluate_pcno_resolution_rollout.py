@@ -11,9 +11,7 @@ the checkpoint's training grid.
 from __future__ import annotations
 
 import argparse
-import json
 import math
-import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from itertools import pairwise
@@ -28,47 +26,58 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import (
-    atomic_write_json,
-    build_model,
-    checkpoint_model_node_type_input,
-    conservative_admissibility_summary,
-    load_checkpoint,
-    select_device,
-    sha256_file,
-    timed_model_call,
-    write_csv,
-)
 from utility.time_dependent_no.euler2d_metrics import shock_centroid
+from utility.time_dependent_no.pcno_artifacts import (
+    atomic_write_json_with_paths as atomic_write_json,
+    git_head as _git_head,
+    sha256_file,
+    sha256_files,
+    write_csv_with_paths as write_csv,
+)
 from utility.time_dependent_no.pcno_euler2d import (
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     parameter_count,
 )
 from utility.time_dependent_no.pcno_resolution_transfer import (
-    MULTIRES_REFERENCE_SCHEMA,
     NODE_TYPE_PROTOCOLS,
+    PHYSICAL_WAVELENGTH_BANDS,
     Resolution,
+    aggregate_resolution_rollout,
+    as_model_state,
+    build_resolution_checkpoint_model,
     build_resolution_geometry,
     commutator_metrics,
+    commutator_row,
+    conservative_admissibility_summary,
     fixed_boundary_distance_mask,
     initial_state_for_model_grid,
     initial_states_from_common_source,
+    load_resolution_checkpoint,
+    load_resolution_reference,
     make_model_sample,
+    native_geometry_audit,
     node_type_scaling_summary,
     node_types_for_protocol,
     parse_resolution,
     physical_wavelength_band_metrics,
+    predict_resolution_sample,
+    pressure_profile_shock_metrics,
+    reference_at_resolution,
     resolution_label,
     restrict_nested_state,
+    validate_resolution_rollout_contract,
     weighted_scaled_relative_l2,
     weighted_scaled_rms,
 )
 from utility.time_dependent_no.pcno_ripple_diagnostics import (
     conservative_to_primitive_raw,
 )
+from utility.time_dependent_no.pcno_runtime import (
+    checkpoint_model_node_type_input,
+    select_device,
+)
 from utility.time_dependent_no.shock_vortex_family import (
-    REFERENCE_ARTIFACT_SCHEMA,
     config_for_family_case,
     family_case_provenance,
     load_shock_vortex_family_manifest,
@@ -79,9 +88,6 @@ from utility.time_dependent_no.shock_vortex_metrics import (
 )
 
 SCHEMA = "pcno_resolution_rollout_r1_v2"
-RESTRICTION_CROSSCHECK_ABS_TOLERANCE = 1.0e-12
-PHYSICAL_WAVELENGTH_BANDS = ((0.05, 0.125), (0.125, 0.25))
-SHOCK_WINDOW_HALF_WIDTH = 0.2
 DEFAULT_CASE_IDS = (
     "sv_e00_y04",
     "sv_e06_y04",
@@ -145,524 +151,26 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _git_head() -> str | None:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip() if result.returncode == 0 else None
-
-
 def _source_hashes() -> dict[str, str]:
     paths = (
         Path("pcno/pcno.py"),
+        Path("utility/time_dependent_no/euler2d_metrics.py"),
+        Path("utility/time_dependent_no/pcno_artifacts.py"),
         Path("utility/time_dependent_no/pcno_euler2d.py"),
+        Path("utility/time_dependent_no/pcno_runtime.py"),
         Path("utility/time_dependent_no/pcno_fv_geometry.py"),
         Path("utility/time_dependent_no/pcno_resolution_transfer.py"),
+        Path("utility/time_dependent_no/pcno_ripple_diagnostics.py"),
+        Path("utility/time_dependent_no/shock_vortex_coarse_cfd.py"),
         Path("utility/time_dependent_no/shock_vortex_family.py"),
+        Path("utility/time_dependent_no/shock_vortex_fv.py"),
         Path("utility/time_dependent_no/shock_vortex_metrics.py"),
         Path(
             "scripts/time_dependent_no/generate_pcno_shock_vortex_multires_reference.py"
         ),
         Path("scripts/time_dependent_no/evaluate_pcno_resolution_rollout.py"),
     )
-    return {str(path): sha256_file(ROOT / path) for path in paths}
-
-
-def _step_stride(checkpoint: Mapping[str, Any]) -> int:
-    declared = {
-        int(value)
-        for value in (
-            checkpoint.get("step_stride"),
-            checkpoint.get("training_args", {}).get("step_stride"),
-            checkpoint.get("data_contract", {}).get("step_stride"),
-        )
-        if value is not None
-    }
-    if len(declared) != 1:
-        raise ValueError(f"checkpoint step-stride declarations disagree: {declared}")
-    stride = declared.pop()
-    if stride < 1:
-        raise ValueError("checkpoint step stride must be positive")
-    return stride
-
-
-def _validate_contract(
-    args: argparse.Namespace,
-    checkpoint: Mapping[str, Any],
-    manifest: Mapping[str, Any],
-    store: PCNOEuler2DShardStore,
-    resolutions: Sequence[Resolution],
-    source_resolution: Resolution,
-    training_resolution: Resolution,
-) -> tuple[int, int, float, set[int]]:
-    checkpoint_sha = sha256_file(args.checkpoint)
-    if (
-        args.expected_checkpoint_sha256 is not None
-        and checkpoint_sha.lower() != args.expected_checkpoint_sha256.lower()
-    ):
-        raise ValueError("checkpoint SHA-256 mismatch")
-    if (
-        args.expected_normalization_digest is not None
-        and checkpoint["normalization_digest"] != args.expected_normalization_digest
-    ):
-        raise ValueError("checkpoint normalization digest mismatch")
-    if store.manifest_digest != checkpoint["data_manifest_digest"]:
-        raise ValueError("checkpoint and retained data manifest digests differ")
-
-    data_contract = checkpoint["data_contract"]
-    if data_contract.get("source_family_id") != manifest["family_id"]:
-        raise ValueError("checkpoint and family identifiers differ")
-    if (
-        data_contract.get("source_family_manifest_digest")
-        != manifest["manifest_digest_sha256"]
-    ):
-        raise ValueError("checkpoint and family manifest digests differ")
-    model_config = checkpoint["model_config"]
-    if int(model_config["k_max"]) != args.expected_k_max:
-        raise ValueError("checkpoint k_max differs from the frozen bandwidth")
-    if tuple(float(v) for v in model_config["domain_lengths"]) != tuple(
-        float(v) for v in args.expected_domain_lengths
-    ):
-        raise ValueError("checkpoint Fourier periods differ from the physical domain")
-    if int(model_config["nmeasures"]) != 1:
-        raise ValueError("maintained Euler wrapper must use exactly one measure")
-    model_node_type_input = checkpoint_model_node_type_input(checkpoint)
-    requested_protocols = list(dict.fromkeys(args.protocols))
-    if model_node_type_input == "all_normal" and requested_protocols != ["all_normal"]:
-        raise ValueError(
-            "an all-normal-trained checkpoint must be evaluated with only the "
-            "all_normal model-input protocol"
-        )
-
-    expected_source = tuple(
-        int(v) for v in manifest["reference_fidelity"]["evolution_grid"]
-    )
-    expected_training = tuple(
-        int(v) for v in manifest["reference_fidelity"]["stored_model_grid"]
-    )
-    if source_resolution != expected_source or training_resolution != expected_training:
-        raise ValueError("source/training grids differ from the frozen family contract")
-    if len(resolutions) < 2 or len(set(resolutions)) != len(resolutions):
-        raise ValueError("at least two unique target resolutions are required")
-    if training_resolution not in resolutions:
-        raise ValueError("evaluation resolutions must include the native training grid")
-    ordered = sorted(resolutions, key=lambda value: value[0] * value[1])
-    for resolution in ordered:
-        if source_resolution[0] % resolution[0] or source_resolution[1] % resolution[1]:
-            raise ValueError("every target grid must divide the common source grid")
-    for coarse, fine in pairwise(ordered):
-        if fine[0] % coarse[0] or fine[1] % coarse[1]:
-            raise ValueError("successive target grids must be nested")
-
-    stride = _step_stride(checkpoint)
-    if args.expected_step_stride is not None and stride != args.expected_step_stride:
-        raise ValueError("checkpoint step stride differs from the expected stride")
-    base_dt = float(data_contract["time_contract"]["delta_t"])
-    saved_calls = int(data_contract["time_contract"]["saved_calls"])
-    maximum_calls = saved_calls // stride
-    rollout_calls = maximum_calls if args.rollout_calls is None else args.rollout_calls
-    if rollout_calls < 1 or rollout_calls > maximum_calls:
-        raise ValueError("rollout calls exceed the checkpoint-bound reference horizon")
-    physical_dt = stride * base_dt
-    endpoint_calls: set[int] = set()
-    for physical_time in args.endpoint_physical_times:
-        call = round(float(physical_time) / physical_dt)
-        if (
-            call < 1
-            or call > rollout_calls
-            or not math.isclose(
-                call * physical_dt, float(physical_time), rel_tol=0.0, abs_tol=1.0e-12
-            )
-        ):
-            raise ValueError(
-                "endpoint times must align with model calls inside the horizon"
-            )
-        endpoint_calls.add(call)
-    if not 0.0 < args.shock_quantile < 1.0:
-        raise ValueError("shock quantile must lie strictly between zero and one")
-    if args.repeat_forward < 1:
-        raise ValueError("repeat-forward must be positive")
-    widths = np.asarray(args.boundary_band_widths, dtype=np.float64)
-    if np.any(~np.isfinite(widths)) or np.any(widths <= 0.0):
-        raise ValueError("boundary-band widths must be positive and finite")
-    return stride, rollout_calls, physical_dt, endpoint_calls
-
-
-def _array_comparison(rebuilt: np.ndarray, stored: np.ndarray) -> dict[str, Any]:
-    rebuilt_array = np.asarray(rebuilt)
-    stored_array = np.asarray(stored)
-    if rebuilt_array.shape != stored_array.shape:
-        raise ValueError("rebuilt and stored arrays have different shapes")
-    cast = rebuilt_array.astype(stored_array.dtype, copy=False)
-    integer = np.issubdtype(stored_array.dtype, np.integer)
-    return {
-        "shape": list(stored_array.shape),
-        "stored_dtype": str(stored_array.dtype),
-        "exact_after_stored_dtype_cast": bool(np.array_equal(cast, stored_array)),
-        "maximum_absolute_difference": (
-            None
-            if integer
-            else float(
-                np.max(
-                    np.abs(
-                        rebuilt_array.astype(np.float64)
-                        - stored_array.astype(np.float64)
-                    )
-                )
-            )
-        ),
-    }
-
-
-def _native_geometry_audit(
-    geometry: Any,
-    store: PCNOEuler2DShardStore,
-    case_id: str,
-) -> dict[str, Any]:
-    stored = store.geometry_numpy(case_id)
-    rows = {}
-    for name in (
-        "nodes",
-        "node_measures",
-        "node_weights",
-        "node_rhos",
-        "directed_edges",
-        "edge_gradient_weights",
-        "node_type",
-    ):
-        rows[name] = _array_comparison(getattr(geometry, name), stored[name])
-    failed = [
-        name for name, row in rows.items() if not row["exact_after_stored_dtype_cast"]
-    ]
-    if failed:
-        raise ValueError(f"regenerated native geometry differs from shards: {failed}")
-    return rows
-
-
-def _load_reference(
-    family_root: Path,
-    multires_reference_root: Path | None,
-    store: PCNOEuler2DShardStore,
-    manifest: Mapping[str, Any],
-    case_id: str,
-    *,
-    training_resolution: Resolution,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Load and bind frozen 250 truth, then optionally promote finer truth."""
-
-    path = family_root / case_id / "reference.npz"
-    expected_sha = store.entry(case_id).get("source_reference_sha256")
-    actual_sha = sha256_file(path)
-    if actual_sha != expected_sha:
-        raise ValueError(f"reference digest mismatch for {case_id}")
-    expected_provenance = family_case_provenance(manifest, case_id)
-    names = (
-        "schema",
-        "family_contract_json",
-        "conservative_states",
-        "physical_times",
-        "cell_centers",
-        "cell_volume",
-        "interval_boundary_exchange",
-    )
-    with np.load(path, allow_pickle=False) as artifact:
-        missing = sorted(set(names) - set(artifact.files))
-        if missing:
-            raise ValueError(f"reference {case_id} is missing arrays: {missing}")
-        if artifact["schema"].item() != REFERENCE_ARTIFACT_SCHEMA:
-            raise ValueError(f"reference schema mismatch for {case_id}")
-        provenance = json.loads(artifact["family_contract_json"].item())
-        if provenance != expected_provenance:
-            raise ValueError(f"reference provenance mismatch for {case_id}")
-        reference = {
-            name: np.array(artifact[name], copy=True)
-            for name in names
-            if name not in {"schema", "family_contract_json"}
-        }
-
-    expected_nodes = training_resolution[0] * training_resolution[1]
-    states = reference["conservative_states"]
-    if states.ndim != 3 or states.shape[1:] != (expected_nodes, 4):
-        raise ValueError(f"reference state shape mismatch for {case_id}")
-    if reference["physical_times"].shape != (states.shape[0],):
-        raise ValueError(f"reference time shape mismatch for {case_id}")
-    if reference["cell_centers"].shape != (expected_nodes, 2):
-        raise ValueError(f"reference node shape mismatch for {case_id}")
-    if reference["cell_volume"].shape != (expected_nodes,):
-        raise ValueError(f"reference volume shape mismatch for {case_id}")
-    if reference["interval_boundary_exchange"].shape != (states.shape[0] - 1, 4):
-        raise ValueError(f"reference boundary-exchange shape mismatch for {case_id}")
-    shard_states = np.asarray(store.states(case_id), dtype=np.float64)
-    if not np.allclose(shard_states, states, rtol=1.0e-6, atol=1.0e-7):
-        raise ValueError(f"reference and checkpoint-bound shards differ for {case_id}")
-    reference["retained_resolution"] = training_resolution
-    check: dict[str, Any] = {
-        "case_id": case_id,
-        "frozen_training_reference_sha256": actual_sha,
-        "active_reference_artifact_sha256": actual_sha,
-        "retained_resolution": resolution_label(training_resolution),
-        "state_dtype": str(states.dtype),
-        "state_shape": list(states.shape),
-    }
-    if multires_reference_root is None:
-        check["restriction_crosscheck_max_abs"] = 0.0
-        return reference, check
-
-    multires_case_root = multires_reference_root / case_id
-    multires_path = multires_case_root / "reference.npz"
-    multires_summary_path = multires_case_root / "summary.json"
-    multires_summary = json.loads(multires_summary_path.read_text(encoding="utf-8"))
-    multires_sha = sha256_file(multires_path)
-    if multires_summary.get("status") != "passed":
-        raise ValueError(f"multires reference did not pass for {case_id}")
-    if multires_summary.get("reference_artifact_sha256") != multires_sha:
-        raise ValueError(f"multires reference digest mismatch for {case_id}")
-    names = (
-        "schema",
-        "family_contract_json",
-        "config_json",
-        "conservative_states",
-        "physical_times",
-        "interval_boundary_exchange",
-        "source_resolution",
-        "retained_resolution",
-        "training_resolution",
-        "frozen_training_reference_sha256",
-    )
-    with np.load(multires_path, allow_pickle=False) as artifact:
-        missing = sorted(set(names) - set(artifact.files))
-        if missing:
-            raise ValueError(f"multires reference is missing arrays: {missing}")
-        if artifact["schema"].item() != MULTIRES_REFERENCE_SCHEMA:
-            raise ValueError(f"multires reference schema mismatch for {case_id}")
-        if json.loads(artifact["family_contract_json"].item()) != expected_provenance:
-            raise ValueError(f"multires reference provenance mismatch for {case_id}")
-        retained_resolution = tuple(
-            int(value) for value in artifact["retained_resolution"].tolist()
-        )
-        source_resolution = tuple(
-            int(value) for value in artifact["source_resolution"].tolist()
-        )
-        artifact_training_resolution = tuple(
-            int(value) for value in artifact["training_resolution"].tolist()
-        )
-        expected_source_resolution = tuple(
-            int(value) for value in manifest["reference_fidelity"]["evolution_grid"]
-        )
-        if source_resolution != expected_source_resolution:
-            raise ValueError(f"multires evolution grid mismatch for {case_id}")
-        if artifact_training_resolution != training_resolution:
-            raise ValueError(f"multires training grid mismatch for {case_id}")
-        if artifact["frozen_training_reference_sha256"].item() != actual_sha:
-            raise ValueError(
-                f"multires source-reference binding mismatch for {case_id}"
-            )
-        expected_config = config_for_family_case(manifest, case_id).to_dict()
-        expected_config["coarse_nx"] = retained_resolution[0]
-        expected_config["coarse_ny"] = retained_resolution[1]
-        expected_config["restriction_x"] = (
-            expected_config["nx"] // retained_resolution[0]
-        )
-        expected_config["restriction_y"] = (
-            expected_config["ny"] // retained_resolution[1]
-        )
-        if json.loads(artifact["config_json"].item()) != expected_config:
-            raise ValueError(f"multires solver configuration mismatch for {case_id}")
-        multires_reference = {
-            "conservative_states": np.array(artifact["conservative_states"], copy=True),
-            "physical_times": np.array(artifact["physical_times"], copy=True),
-            "interval_boundary_exchange": np.array(
-                artifact["interval_boundary_exchange"], copy=True
-            ),
-            "retained_resolution": retained_resolution,
-        }
-
-    multires_states = multires_reference["conservative_states"]
-    expected_retained_nodes = retained_resolution[0] * retained_resolution[1]
-    if multires_states.shape != (states.shape[0], expected_retained_nodes, 4):
-        raise ValueError(f"multires state shape mismatch for {case_id}")
-    if not np.array_equal(
-        multires_reference["physical_times"], reference["physical_times"]
-    ):
-        raise ValueError(f"multires physical times mismatch for {case_id}")
-    if (
-        multires_reference["interval_boundary_exchange"].shape
-        != reference["interval_boundary_exchange"].shape
-    ):
-        raise ValueError(f"multires boundary-exchange shape mismatch for {case_id}")
-    restricted = restrict_nested_state(
-        multires_states,
-        fine_resolution=retained_resolution,
-        coarse_resolution=training_resolution,
-    )
-    restriction_crosscheck_max_abs = float(np.max(np.abs(restricted - states)))
-    if restriction_crosscheck_max_abs > RESTRICTION_CROSSCHECK_ABS_TOLERANCE:
-        raise ValueError(
-            f"multires reference does not reproduce frozen training truth for {case_id}: "
-            f"{restriction_crosscheck_max_abs:.6e}"
-        )
-    check.update(
-        {
-            "active_reference_artifact_sha256": multires_sha,
-            "retained_resolution": resolution_label(retained_resolution),
-            "state_dtype": str(multires_states.dtype),
-            "state_shape": list(multires_states.shape),
-            "restriction_crosscheck_max_abs": restriction_crosscheck_max_abs,
-        }
-    )
-    return multires_reference, check
-
-
-def _reference_at_resolution(
-    reference_state: np.ndarray,
-    *,
-    reference_resolution: Resolution,
-    target_resolution: Resolution,
-) -> np.ndarray | None:
-    if target_resolution == reference_resolution:
-        return np.asarray(reference_state, dtype=np.float64)
-    if (
-        reference_resolution[0] % target_resolution[0]
-        or reference_resolution[1] % target_resolution[1]
-    ):
-        return None
-    return restrict_nested_state(
-        reference_state,
-        fine_resolution=reference_resolution,
-        coarse_resolution=target_resolution,
-    )
-
-
-def _as_model_state(state: np.ndarray) -> np.ndarray:
-    """Round explicitly to the float32 state seen by the checkpoint."""
-
-    return np.asarray(state, dtype=np.float32).astype(np.float64)
-
-
-def _predict(
-    model: PCNOEuler2DResidual,
-    sample: Mapping[str, torch.Tensor],
-    state: np.ndarray,
-    *,
-    device: torch.device,
-    amp: str,
-    repeats: int,
-) -> tuple[np.ndarray, dict[str, Any]]:
-    current = torch.as_tensor(
-        np.asarray(state, dtype=np.float32), dtype=torch.float32, device=device
-    ).unsqueeze(0)
-    prediction, timing = timed_model_call(
-        model,
-        sample,
-        current,
-        device=device,
-        amp=amp,
-        repeats=repeats,
-    )
-    del current
-    return _as_model_state(prediction), timing
-
-
-def _pressure_profile_shock_metrics(
-    prediction: np.ndarray,
-    target: np.ndarray,
-    *,
-    resolution: Resolution,
-    x_min: float,
-    x_max: float,
-    gamma: float,
-    shock_center_x: float | None = None,
-    shock_window_half_width: float = SHOCK_WINDOW_HALF_WIDTH,
-    relative_threshold: float = 0.25,
-) -> dict[str, float | int | str | None]:
-    """Return a local y-averaged pressure-jump shock proxy in physical units."""
-
-    nx, ny = resolution
-    dx = (x_max - x_min) / nx
-    center_x = (
-        0.5 * (x_min + x_max) if shock_center_x is None else float(shock_center_x)
-    )
-    if (
-        not x_min < center_x < x_max
-        or not math.isfinite(shock_window_half_width)
-        or shock_window_half_width <= 0.0
-    ):
-        raise ValueError("invalid physical shock window")
-
-    def summarize(state: np.ndarray) -> dict[str, float | int | None]:
-        primitive = conservative_to_primitive_raw(state, gamma=gamma).reshape(ny, nx, 4)
-        profile = np.mean(primitive[..., 3], axis=0)
-        jump = np.abs(np.diff(profile))
-        face_x = x_min + dx * np.arange(1, nx, dtype=np.float64)
-        eligible = np.flatnonzero(np.abs(face_x - center_x) <= shock_window_half_width)
-        if eligible.size == 0:
-            raise ValueError("shock window contains no grid faces")
-        peak = int(eligible[np.argmax(jump[eligible])])
-        maximum = float(jump[peak])
-        if not math.isfinite(maximum) or maximum <= 0.0:
-            return {
-                "position": None,
-                "thickness_cells": 0,
-                "thickness_physical": 0.0,
-                "strength": maximum,
-            }
-        threshold = relative_threshold * maximum
-        eligible_start = int(eligible[0])
-        eligible_end = int(eligible[-1])
-        left = peak
-        right = peak
-        while left > eligible_start and jump[left - 1] >= threshold:
-            left -= 1
-        while right < eligible_end and jump[right + 1] >= threshold:
-            right += 1
-        active = np.arange(left, right + 1, dtype=np.int64)
-        position = float(np.dot(jump[active], face_x[active]) / np.sum(jump[active]))
-        thickness_cells = int(active.size)
-        return {
-            "position": position,
-            "thickness_cells": thickness_cells,
-            "thickness_physical": float(thickness_cells * dx),
-            "strength": maximum,
-        }
-
-    predicted = summarize(prediction)
-    reference = summarize(target)
-    position_error = (
-        abs(float(predicted["position"]) - float(reference["position"]))
-        if predicted["position"] is not None and reference["position"] is not None
-        else None
-    )
-    thickness_ratio = (
-        float(predicted["thickness_physical"]) / float(reference["thickness_physical"])
-        if float(reference["thickness_physical"]) > 0.0
-        else None
-    )
-    strength_ratio = (
-        float(predicted["strength"]) / float(reference["strength"])
-        if float(reference["strength"]) > 0.0
-        else None
-    )
-    return {
-        "shock_profile_contract": (
-            "y-mean pressure adjacent-x-jump; contiguous peak component; "
-            "threshold_0.25; fixed physical window"
-        ),
-        "shock_window_center_x": center_x,
-        "shock_window_half_width": float(shock_window_half_width),
-        "prediction_shock_position_x": predicted["position"],
-        "reference_shock_position_x": reference["position"],
-        "shock_position_absolute_error": position_error,
-        "prediction_shock_thickness_cells": predicted["thickness_cells"],
-        "reference_shock_thickness_cells": reference["thickness_cells"],
-        "prediction_shock_thickness_physical": predicted["thickness_physical"],
-        "reference_shock_thickness_physical": reference["thickness_physical"],
-        "pressure_profile_shock_thickness_ratio": thickness_ratio,
-        "pressure_profile_shock_strength_ratio": strength_ratio,
-    }
+    return sha256_files(paths, root=ROOT)
 
 
 def _expected_vortex_center(
@@ -700,7 +208,7 @@ def _translation_rows(
         direct = np.asarray(direct_states[resolution], dtype=np.float64)
         geometry = geometry_by_resolution[resolution]
         delta = direct - common
-        target = _reference_at_resolution(
+        target = reference_at_resolution(
             reference["conservative_states"][0],
             reference_resolution=reference_resolution,
             target_resolution=resolution,
@@ -717,7 +225,7 @@ def _translation_rows(
             "reference_available": target is not None,
         }
         if target is not None:
-            reference_delta = _as_model_state(common) - target
+            reference_delta = as_model_state(common) - target
             row.update(
                 {
                     "model_input_vs_reference_t0_max_abs": float(
@@ -898,7 +406,7 @@ def _structure_row(
         "shock_centroid_distance_physical": float(
             np.linalg.norm(prediction_centroid - reference_centroid)
         ),
-        **_pressure_profile_shock_metrics(
+        **pressure_profile_shock_metrics(
             state,
             reference_state,
             resolution=resolution,
@@ -929,205 +437,6 @@ def _structure_row(
             component_scale=state_scale,
         ),
         **spectral_fields,
-    }
-
-
-def _mean(rows: Sequence[Mapping[str, Any]], key: str) -> float | None:
-    values = [
-        float(row[key])
-        for row in rows
-        if row.get(key) is not None and math.isfinite(float(row[key]))
-    ]
-    return float(np.mean(values)) if values else None
-
-
-def _commutator_row(
-    *,
-    case_id: str,
-    case_split: str,
-    protocol: str,
-    kind: str,
-    coarse: Resolution,
-    fine: Resolution,
-    call: int,
-    input_frame: int,
-    output_frame: int,
-    input_physical_time: float,
-    output_physical_time: float,
-    reference_gap: float | None,
-    metrics: Mapping[str, Any],
-) -> dict[str, Any]:
-    prediction_gap = float(metrics["prediction_commutator_scaled_rms"])
-    return {
-        "case_id": case_id,
-        "case_split": case_split,
-        "node_type_protocol": protocol,
-        "commutator_kind": kind,
-        "coarse_resolution": resolution_label(coarse),
-        "fine_resolution": resolution_label(fine),
-        "call": call,
-        "input_call": call - 1,
-        "input_frame": input_frame,
-        "output_frame": output_frame,
-        "input_physical_time": input_physical_time,
-        "physical_time": output_physical_time,
-        "reference_discretization_gap_scaled_rms": reference_gap,
-        "model_inconsistency_excess_scaled_rms": (
-            max(prediction_gap - reference_gap, 0.0)
-            if reference_gap is not None
-            else None
-        ),
-        **metrics,
-    }
-
-
-def _aggregate(
-    state_rows: Sequence[Mapping[str, Any]],
-    commutator_rows: Sequence[Mapping[str, Any]],
-    completion_rows: Sequence[Mapping[str, Any]],
-    *,
-    teacher_state_rows: Sequence[Mapping[str, Any]] = (),
-    final_call: int,
-) -> dict[str, Any]:
-    final_states = [row for row in state_rows if int(row["call"]) == final_call]
-    state_groups = sorted(
-        {
-            (
-                str(row["node_type_protocol"]),
-                str(row["resolution"]),
-                str(row["case_split"]),
-            )
-            for row in completion_rows
-        }
-    )
-    states = []
-    for protocol, resolution, split in state_groups:
-        selected_states = [
-            row
-            for row in final_states
-            if row["node_type_protocol"] == protocol
-            and row["resolution"] == resolution
-            and row["case_split"] == split
-        ]
-        selected_completion = [
-            row
-            for row in completion_rows
-            if row["node_type_protocol"] == protocol
-            and row["resolution"] == resolution
-            and row["case_split"] == split
-        ]
-        states.append(
-            {
-                "node_type_protocol": protocol,
-                "resolution": resolution,
-                "case_split": split,
-                "case_count": len(selected_completion),
-                "final_state_case_count": len(selected_states),
-                "completion_fraction": float(
-                    np.mean(
-                        [bool(row["full_completion"]) for row in selected_completion]
-                    )
-                ),
-                "admissible_fraction_of_cases": float(
-                    np.mean(
-                        [
-                            bool(row["all_completed_calls_admissible"])
-                            for row in selected_completion
-                        ]
-                    )
-                ),
-                "mean_scaled_relative_l2_physical_volume": _mean(
-                    selected_states, "scaled_relative_l2_physical_volume"
-                ),
-            }
-        )
-
-    final_teacher_states = [
-        row for row in teacher_state_rows if int(row["call"]) == final_call
-    ]
-    teacher_groups = sorted(
-        {
-            (
-                str(row["node_type_protocol"]),
-                str(row["resolution"]),
-                str(row["case_split"]),
-            )
-            for row in final_teacher_states
-        }
-    )
-    teacher_states = []
-    for protocol, resolution, split in teacher_groups:
-        selected = [
-            row
-            for row in final_teacher_states
-            if row["node_type_protocol"] == protocol
-            and row["resolution"] == resolution
-            and row["case_split"] == split
-        ]
-        teacher_states.append(
-            {
-                "node_type_protocol": protocol,
-                "resolution": resolution,
-                "case_split": split,
-                "case_count": len(selected),
-                "finite_fraction": float(
-                    np.mean([bool(row["finite"]) for row in selected])
-                ),
-                "admissible_fraction": float(
-                    np.mean([bool(row["admissible"]) for row in selected])
-                ),
-                "mean_scaled_relative_l2_physical_volume": _mean(
-                    selected, "scaled_relative_l2_physical_volume"
-                ),
-            }
-        )
-
-    final_commutators = [
-        row for row in commutator_rows if int(row["call"]) == final_call
-    ]
-    commutator_groups = sorted(
-        {
-            (
-                str(row["node_type_protocol"]),
-                str(row["commutator_kind"]),
-                str(row["coarse_resolution"]),
-                str(row["fine_resolution"]),
-                str(row["case_split"]),
-            )
-            for row in final_commutators
-        }
-    )
-    commutators = []
-    for protocol, kind, coarse, fine, split in commutator_groups:
-        selected = [
-            row
-            for row in final_commutators
-            if row["node_type_protocol"] == protocol
-            and row["commutator_kind"] == kind
-            and row["coarse_resolution"] == coarse
-            and row["fine_resolution"] == fine
-            and row["case_split"] == split
-        ]
-        commutators.append(
-            {
-                "node_type_protocol": protocol,
-                "commutator_kind": kind,
-                "coarse_resolution": coarse,
-                "fine_resolution": fine,
-                "case_split": split,
-                "case_count": len(selected),
-                "mean_prediction_commutator_relative_l2": _mean(
-                    selected, "prediction_commutator_relative_l2"
-                ),
-                "mean_update_commutator_relative_to_fine_update": _mean(
-                    selected, "update_commutator_relative_to_fine_update"
-                ),
-            }
-        )
-    return {
-        "final_state": states,
-        "final_teacher_forced_state": teacher_states,
-        "final_commutator": commutators,
     }
 
 
@@ -1220,7 +529,7 @@ def _run_experiment(
     device = select_device(args.device)
     if args.amp != "none" and device.type != "cuda":
         raise ValueError("mixed precision evaluation requires CUDA")
-    model, normalization = build_model(checkpoint, device)
+    model, normalization = build_resolution_checkpoint_model(checkpoint, device)
     first_config = next(iter(case_configs.values()))
     physical_lengths = (
         first_config.x_max - first_config.x_min,
@@ -1278,7 +587,7 @@ def _run_experiment(
             flush=True,
         )
 
-    native_geometry_audit = _native_geometry_audit(
+    native_geometry_audit_rows = native_geometry_audit(
         geometry_by_resolution[training_resolution], store, args.case_ids[0]
     )
     output_dir = args.output_dir
@@ -1328,7 +637,7 @@ def _run_experiment(
             "loading reference and translating t0",
             flush=True,
         )
-        reference, reference_check = _load_reference(
+        reference, reference_check = load_resolution_reference(
             args.family_root,
             args.multires_reference_root,
             store,
@@ -1398,12 +707,12 @@ def _run_experiment(
             ):
                 raise ValueError(f"reference time mismatch for {case_id} call {call}")
             for coarse, fine in pairwise(ordered_resolutions):
-                coarse_reference = _reference_at_resolution(
+                coarse_reference = reference_at_resolution(
                     reference["conservative_states"][frame],
                     reference_resolution=reference_resolution,
                     target_resolution=coarse,
                 )
-                fine_reference = _reference_at_resolution(
+                fine_reference = reference_at_resolution(
                     reference["conservative_states"][frame],
                     reference_resolution=reference_resolution,
                     target_resolution=fine,
@@ -1441,7 +750,7 @@ def _run_experiment(
 
         for protocol in protocols:
             free_states = {
-                resolution: _as_model_state(common_states[resolution])
+                resolution: as_model_state(common_states[resolution])
                 for resolution in ordered_resolutions
             }
             initial_states = {
@@ -1462,7 +771,7 @@ def _run_experiment(
             }
 
             for resolution in ordered_resolutions:
-                reference_t0 = _reference_at_resolution(
+                reference_t0 = reference_at_resolution(
                     reference["conservative_states"][0],
                     reference_resolution=reference_resolution,
                     target_resolution=resolution,
@@ -1516,7 +825,7 @@ def _run_experiment(
                 for resolution in ordered_resolutions:
                     if not active_at_start[resolution]:
                         continue
-                    prediction, timing = _predict(
+                    prediction, timing = predict_resolution_sample(
                         model,
                         sample_by_resolution_protocol[(resolution, protocol)],
                         previous_states[resolution],
@@ -1536,12 +845,12 @@ def _run_experiment(
                 teacher_predictions = {}
                 teacher_finite_by_resolution = {}
                 for resolution in ordered_resolutions:
-                    reference_input = _reference_at_resolution(
+                    reference_input = reference_at_resolution(
                         reference["conservative_states"][input_frame],
                         reference_resolution=reference_resolution,
                         target_resolution=resolution,
                     )
-                    reference_target = _reference_at_resolution(
+                    reference_target = reference_at_resolution(
                         reference["conservative_states"][frame],
                         reference_resolution=reference_resolution,
                         target_resolution=resolution,
@@ -1551,8 +860,8 @@ def _run_experiment(
                             "teacher-forced reference is unavailable on an "
                             "evaluation grid"
                         )
-                    teacher_current = _as_model_state(reference_input)
-                    teacher_prediction, teacher_timing = _predict(
+                    teacher_current = as_model_state(reference_input)
+                    teacher_prediction, teacher_timing = predict_resolution_sample(
                         model,
                         sample_by_resolution_protocol[(resolution, protocol)],
                         teacher_current,
@@ -1611,7 +920,7 @@ def _run_experiment(
                         )
                         reference_gap = reference_gap_lookup.get((coarse, fine, call))
                         commutator_rows.append(
-                            _commutator_row(
+                            commutator_row(
                                 case_id=case_id,
                                 case_split=case_split,
                                 protocol=protocol,
@@ -1628,14 +937,14 @@ def _run_experiment(
                             )
                         )
 
-                        local_current = _as_model_state(
+                        local_current = as_model_state(
                             restrict_nested_state(
                                 previous_states[fine],
                                 fine_resolution=fine,
                                 coarse_resolution=coarse,
                             )
                         )
-                        local_prediction, local_timing = _predict(
+                        local_prediction, local_timing = predict_resolution_sample(
                             model,
                             sample_by_resolution_protocol[(coarse, protocol)],
                             local_current,
@@ -1659,7 +968,7 @@ def _run_experiment(
                                 residual_scale=normalization.residual_scale,
                             )
                             commutator_rows.append(
-                                _commutator_row(
+                                commutator_row(
                                     case_id=case_id,
                                     case_split=case_split,
                                     protocol=protocol,
@@ -1694,7 +1003,7 @@ def _run_experiment(
                         )
                         reference_gap = reference_gap_lookup.get((coarse, fine, call))
                         commutator_rows.append(
-                            _commutator_row(
+                            commutator_row(
                                 case_id=case_id,
                                 case_split=case_split,
                                 protocol=protocol,
@@ -1716,7 +1025,7 @@ def _run_experiment(
                     if not active_at_start[resolution]:
                         continue
                     geometry = geometry_by_resolution[resolution]
-                    target = _reference_at_resolution(
+                    target = reference_at_resolution(
                         reference["conservative_states"][frame],
                         reference_resolution=reference_resolution,
                         target_resolution=resolution,
@@ -1942,11 +1251,11 @@ def _run_experiment(
             "rollout_calls": rollout_calls,
             "physical_horizon": rollout_calls * physical_dt,
         },
-        "native_geometry_audit": native_geometry_audit,
+        "native_geometry_audit": native_geometry_audit_rows,
         "architecture_audit": _architecture_audit(model, geometry_rows),
         "execution": execution,
         "completion": completion_rows,
-        "aggregate": _aggregate(
+        "aggregate": aggregate_resolution_rollout(
             state_rows,
             commutator_rows,
             completion_rows,
@@ -1966,17 +1275,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     training_resolution = parse_resolution(args.training_resolution)
     manifest_path = args.family_root / "family_manifest.json"
     manifest = load_shock_vortex_family_manifest(manifest_path)
-    checkpoint = load_checkpoint(args.checkpoint)
+    checkpoint = load_resolution_checkpoint(args.checkpoint)
     store = PCNOEuler2DShardStore(args.data_dir, max_cached_trajectories=2)
     try:
-        stride, rollout_calls, physical_dt, endpoint_calls = _validate_contract(
-            args,
-            checkpoint,
-            manifest,
-            store,
-            resolutions,
-            source_resolution,
-            training_resolution,
+        stride, rollout_calls, physical_dt, endpoint_calls = (
+            validate_resolution_rollout_contract(
+                args,
+                checkpoint,
+                manifest,
+                store,
+                resolutions,
+                source_resolution,
+                training_resolution,
+            )
         )
         print(
             "resolution rollout:",

@@ -40,32 +40,30 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.time_dependent_no.evaluate_pcno_resolution_rollout import (
-    _as_model_state,
-    _load_reference,
-    _native_geometry_audit,
-    _predict,
-    _reference_at_resolution,
-    _validate_contract,
-)
-from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import (
-    build_model,
-    checkpoint_model_node_type_input,
-    load_checkpoint,
-    select_device,
-    sha256_file,
-)
+from utility.time_dependent_no.pcno_artifacts import sha256_file
 from utility.time_dependent_no.pcno_euler2d import PCNOEuler2DShardStore
 from utility.time_dependent_no.pcno_resolution_transfer import (
     NODE_TYPE_PROTOCOLS,
     Resolution,
+    as_model_state,
+    build_resolution_checkpoint_model,
     build_resolution_geometry,
     initial_states_from_common_source,
+    load_resolution_checkpoint,
+    load_resolution_reference,
     make_model_sample,
+    native_geometry_audit,
     node_types_for_protocol,
     parse_resolution,
+    predict_resolution_sample,
+    reference_at_resolution,
     resolution_label,
+    validate_resolution_rollout_contract,
     weighted_scaled_relative_l2,
+)
+from utility.time_dependent_no.pcno_runtime import (
+    checkpoint_model_node_type_input,
+    select_device,
 )
 from utility.time_dependent_no.shock_vortex_family import (
     config_for_family_case,
@@ -241,13 +239,13 @@ def collect_bundle(args: argparse.Namespace) -> int:
     training_resolution = parse_resolution(args.training_resolution)
     protocols = list(dict.fromkeys(args.protocols))
 
-    checkpoint = load_checkpoint(args.checkpoint)
+    checkpoint = load_resolution_checkpoint(args.checkpoint)
     manifest = load_shock_vortex_family_manifest(
         args.family_root / "family_manifest.json"
     )
     store = PCNOEuler2DShardStore(args.data_dir, max_cached_trajectories=1)
     try:
-        stride, rollout_calls, physical_dt, _ = _validate_contract(
+        stride, rollout_calls, physical_dt, _ = validate_resolution_rollout_contract(
             _contract_namespace(args),
             checkpoint,
             manifest,
@@ -263,7 +261,7 @@ def collect_bundle(args: argparse.Namespace) -> int:
         device = select_device(args.device)
         if args.amp != "none" and device.type != "cuda":
             raise ValueError("mixed precision requires CUDA")
-        model, normalization = build_model(checkpoint, device)
+        model, normalization = build_resolution_checkpoint_model(checkpoint, device)
 
         geometry_by_resolution: dict[Resolution, Any] = {}
         sample_by_key: dict[tuple[Resolution, str], Mapping[str, torch.Tensor]] = {}
@@ -283,11 +281,11 @@ def collect_bundle(args: argparse.Namespace) -> int:
                     mach=case_config.shock_mach,
                     device=device,
                 )
-        _native_geometry_audit(
+        native_geometry_audit(
             geometry_by_resolution[training_resolution], store, args.case_id
         )
 
-        reference, reference_check = _load_reference(
+        reference, reference_check = load_resolution_reference(
             args.family_root,
             args.multires_reference_root,
             store,
@@ -327,7 +325,7 @@ def collect_bundle(args: argparse.Namespace) -> int:
                     actual_time, expected_time, rel_tol=0.0, abs_tol=1.0e-12
                 ):
                     raise ValueError("reference and rollout physical times differ")
-                state = _reference_at_resolution(
+                state = reference_at_resolution(
                     reference["conservative_states"][frame],
                     reference_resolution=reference_resolution,
                     target_resolution=resolution,
@@ -342,7 +340,7 @@ def collect_bundle(args: argparse.Namespace) -> int:
             ).reshape(-1)
 
             for protocol in protocols:
-                current = _as_model_state(common_states[resolution])
+                current = as_model_state(common_states[resolution])
                 predictions = [np.asarray(current, dtype=np.float32)]
                 metrics = [
                     weighted_scaled_relative_l2(
@@ -353,7 +351,7 @@ def collect_bundle(args: argparse.Namespace) -> int:
                     )
                 ]
                 for _ in range(rollout_calls):
-                    current, _ = _predict(
+                    current, _ = predict_resolution_sample(
                         model,
                         sample_by_key[(resolution, protocol)],
                         current,

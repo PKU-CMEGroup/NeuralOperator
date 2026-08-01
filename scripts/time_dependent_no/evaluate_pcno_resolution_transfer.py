@@ -11,15 +11,8 @@ that requires common high-fidelity trajectories restricted to every model grid.
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
-import json
-import math
-import os
-import subprocess
 import sys
 from collections.abc import Mapping, Sequence
-from contextlib import nullcontext
 from itertools import pairwise
 from pathlib import Path
 from time import perf_counter
@@ -32,18 +25,24 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
-    Euler2DNormalization,
-    PCNOEuler2DResidual,
-    parameter_count,
+from utility.time_dependent_no.pcno_artifacts import (
+    atomic_write_json_with_paths as atomic_write_json,
+    git_head,
+    sha256_file,
+    sha256_files,
+    write_csv_with_paths as write_csv,
 )
-from utility.time_dependent_no.pcno_resolution_transfer import (  # noqa: E402
+from utility.time_dependent_no.pcno_euler2d import parameter_count
+from utility.time_dependent_no.pcno_resolution_transfer import (
     NODE_TYPE_PROTOCOLS,
     Resolution,
+    build_resolution_checkpoint_model,
     build_resolution_geometry,
     commutator_metrics,
+    conservative_admissibility_summary,
     fixed_boundary_distance_mask,
     initial_state_for_model_grid,
+    load_resolution_checkpoint,
     make_model_sample,
     node_type_scaling_summary,
     node_types_for_protocol,
@@ -51,17 +50,19 @@ from utility.time_dependent_no.pcno_resolution_transfer import (  # noqa: E402
     resolution_label,
     weighted_scaled_rms,
 )
-from utility.time_dependent_no.shock_vortex_family import (  # noqa: E402
+from utility.time_dependent_no.pcno_runtime import (
+    select_device,
+    timed_model_call,
+)
+from utility.time_dependent_no.shock_vortex_family import (
     config_for_family_case,
     family_case_provenance,
     load_shock_vortex_family_manifest,
 )
 
 SCHEMA = "pcno_resolution_transfer_r0_v1"
-CHECKPOINT_SCHEMA_VERSION = 4
 DEFAULT_CASE_IDS = ("sv_e00_y04", "sv_e06_y04", "sv_e11_y04")
 DEFAULT_RESOLUTIONS = ("125x50", "250x100", "500x200")
-MODEL_NODE_TYPE_INPUTS = ("physical", "all_normal")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -120,257 +121,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def json_safe(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {str(key): json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [json_safe(item) for item in value]
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, np.ndarray):
-        return json_safe(value.tolist())
-    if isinstance(value, (np.integer,)):
-        return int(value)
-    if isinstance(value, (np.floating, float)):
-        numeric = float(value)
-        return numeric if math.isfinite(numeric) else None
-    if isinstance(value, (np.bool_,)):
-        return bool(value)
-    return value
-
-
-def atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(json_safe(value), indent=2, sort_keys=True, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
-
-
-def write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    if not rows:
-        raise ValueError(f"cannot write an empty CSV: {path}")
-    fieldnames: list[str] = []
-    for row in rows:
-        for key in row:
-            key_string = str(key)
-            if key_string not in fieldnames:
-                fieldnames.append(key_string)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in rows:
-            serialized: dict[str, Any] = {}
-            for key, value in row.items():
-                safe = json_safe(value)
-                if isinstance(safe, (dict, list)):
-                    safe = json.dumps(safe, sort_keys=True, separators=(",", ":"))
-                serialized[str(key)] = safe
-            writer.writerow(serialized)
-
-
-def select_device(name: str) -> torch.device:
-    if name == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if name == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA was requested but is unavailable")
-    return torch.device(name)
-
-
-def synchronize(device: torch.device) -> None:
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
-
-
-def autocast_context(device: torch.device, amp: str):
-    if amp == "none":
-        return nullcontext()
-    if device.type != "cuda":
-        raise ValueError("mixed-precision evaluation requires CUDA")
-    dtype = torch.bfloat16 if amp == "bf16" else torch.float16
-    return torch.autocast(device_type="cuda", dtype=dtype)
-
-
-def load_checkpoint(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    except TypeError:
-        checkpoint = torch.load(path, map_location="cpu")
-    required = {
-        "checkpoint_schema_version",
-        "model_state",
-        "model_config",
-        "normalization",
-        "normalization_digest",
-        "data_manifest_digest",
-        "data_contract",
-        "config_digest",
-        "boundary_mode",
-        "raw_recurrence",
-        "inference_interventions",
-    }
-    missing = sorted(required - set(checkpoint))
-    if missing:
-        raise ValueError(f"checkpoint is missing frozen contract fields: {missing}")
-    if int(checkpoint["checkpoint_schema_version"]) != CHECKPOINT_SCHEMA_VERSION:
-        raise ValueError("unsupported PCNO checkpoint schema")
-    if checkpoint["boundary_mode"] != "model_all_nodes":
-        raise ValueError("resolution transfer freezes model_all_nodes recurrence")
-    if checkpoint["raw_recurrence"] is not True:
-        raise ValueError("checkpoint does not declare raw recurrence")
-    interventions = checkpoint["inference_interventions"]
-    if not isinstance(interventions, Mapping):
-        raise TypeError("checkpoint inference_interventions must be a mapping")
-    if any(bool(value) for value in interventions.values()):
-        raise ValueError("resolution transfer forbids checkpoint-time interventions")
-    checkpoint_model_node_type_input(checkpoint)
-    return dict(checkpoint)
-
-
-def checkpoint_model_node_type_input(checkpoint: Mapping[str, Any]) -> str:
-    """Resolve the model-facing type contract, defaulting legacy runs to physical."""
-
-    training_args = checkpoint.get("training_args", {})
-    from_args = (
-        training_args.get("model_node_type_input")
-        if isinstance(training_args, Mapping)
-        else None
-    )
-    declared = checkpoint.get("model_node_type_input")
-    if declared is not None and from_args is not None and declared != from_args:
-        raise ValueError("checkpoint node-type input declarations disagree")
-    mode = str(declared if declared is not None else from_args or "physical")
-    if mode not in MODEL_NODE_TYPE_INPUTS:
-        raise ValueError(f"unsupported checkpoint node-type input: {mode}")
-    return mode
-
-
-def build_model(
-    checkpoint: Mapping[str, Any],
-    device: torch.device,
-) -> tuple[PCNOEuler2DResidual, Euler2DNormalization]:
-    normalization = Euler2DNormalization.from_mapping(checkpoint["normalization"])
-    config = checkpoint["model_config"]
-    model = PCNOEuler2DResidual(
-        normalization=normalization,
-        k_max=int(config["k_max"]),
-        domain_lengths=tuple(config["domain_lengths"]),
-        layers=tuple(config["layers"]),
-        fc_dim=int(config["fc_dim"]),
-        nmeasures=int(config["nmeasures"]),
-        zero_initialize=False,
-    ).to(device)
-    model.load_state_dict(checkpoint["model_state"], strict=True)
-    model.model_node_type_input = checkpoint_model_node_type_input(checkpoint)
-    model.eval()
-    return model, normalization
-
-
-@torch.inference_mode()
-def timed_model_call(
-    model: PCNOEuler2DResidual,
-    sample: Mapping[str, torch.Tensor],
-    current: torch.Tensor,
-    *,
-    device: torch.device,
-    amp: str,
-    repeats: int,
-) -> tuple[np.ndarray, dict[str, Any]]:
-    if repeats < 1:
-        raise ValueError("repeat-forward must be positive")
-    if device.type == "cuda":
-        torch.cuda.reset_peak_memory_stats(device)
-    predictions: list[np.ndarray] = []
-    seconds: list[float] = []
-    node_type = sample["node_type"]
-    if getattr(model, "model_node_type_input", "physical") == "all_normal":
-        node_type = torch.zeros_like(node_type)
-    for _ in range(repeats):
-        synchronize(device)
-        started = perf_counter()
-        with autocast_context(device, amp):
-            prediction = model(
-                current,
-                node_mask=sample["node_mask"],
-                nodes=sample["nodes"],
-                node_weights=sample["node_weights"],
-                node_rhos=sample["node_rhos"],
-                directed_edges=sample["directed_edges"],
-                edge_gradient_weights=sample["edge_gradient_weights"],
-                node_type=node_type,
-                mach=sample["mach"],
-            )
-        synchronize(device)
-        seconds.append(perf_counter() - started)
-        predictions.append(
-            prediction[0].detach().float().cpu().numpy().astype(np.float64)
-        )
-    reference = predictions[0]
-    repeat_max_abs = max(
-        float(np.max(np.abs(value - reference))) for value in predictions
-    )
-    return reference, {
-        "forward_seconds": seconds,
-        "mean_forward_seconds": float(np.mean(seconds)),
-        "minimum_forward_seconds": float(np.min(seconds)),
-        "repeat_max_abs": repeat_max_abs,
-        "peak_gpu_memory_bytes": (
-            int(torch.cuda.max_memory_allocated(device))
-            if device.type == "cuda"
-            else None
-        ),
-    }
-
-
-def conservative_admissibility_summary(
-    state: np.ndarray,
-    *,
-    gamma: float,
-) -> dict[str, Any]:
-    values = np.asarray(state, dtype=np.float64)
-    rho = values[:, 0]
-    momentum_square = np.square(values[:, 1]) + np.square(values[:, 2])
-    with np.errstate(divide="ignore", invalid="ignore"):
-        internal_energy = values[:, 3] - 0.5 * momentum_square / rho
-        pressure = (gamma - 1.0) * internal_energy
-    finite = (
-        np.isfinite(values).all(axis=-1)
-        & np.isfinite(internal_energy)
-        & np.isfinite(pressure)
-    )
-    admissible = finite & (rho > 0.0) & (internal_energy > 0.0) & (pressure > 0.0)
-    return {
-        "finite": bool(finite.all()),
-        "admissible": bool(admissible.all()),
-        "admissible_fraction": float(admissible.mean()),
-        "minimum_density": float(np.nanmin(rho)),
-        "minimum_internal_energy": float(np.nanmin(internal_energy)),
-        "minimum_pressure": float(np.nanmin(pressure)),
-    }
-
-
-def git_head() -> str | None:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip() if result.returncode == 0 else None
-
-
 def validate_contract(
     args: argparse.Namespace,
     checkpoint: Mapping[str, Any],
@@ -420,15 +170,18 @@ def validate_contract(
 def source_hashes() -> dict[str, str]:
     paths = (
         Path("pcno/pcno.py"),
+        Path("utility/time_dependent_no/pcno_artifacts.py"),
         Path("utility/time_dependent_no/pcno_euler2d.py"),
+        Path("utility/time_dependent_no/pcno_runtime.py"),
         Path("utility/time_dependent_no/pcno_fv_geometry.py"),
         Path("utility/time_dependent_no/pcno_resolution_transfer.py"),
+        Path("utility/time_dependent_no/pcno_ripple_diagnostics.py"),
         Path("utility/time_dependent_no/shock_vortex_coarse_cfd.py"),
         Path("utility/time_dependent_no/shock_vortex_family.py"),
         Path("utility/time_dependent_no/shock_vortex_fv.py"),
         Path("scripts/time_dependent_no/evaluate_pcno_resolution_transfer.py"),
     )
-    return {str(path): sha256_file(ROOT / path) for path in paths}
+    return sha256_files(paths, root=ROOT)
 
 
 def aggregate_rows(
@@ -489,7 +242,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     training_resolution = parse_resolution(args.training_resolution)
     protocols = list(dict.fromkeys(args.protocols))
     checkpoint_sha256 = sha256_file(args.checkpoint)
-    checkpoint = load_checkpoint(args.checkpoint)
+    checkpoint = load_resolution_checkpoint(args.checkpoint)
     validate_contract(args, checkpoint, checkpoint_sha256, resolutions)
     manifest = load_shock_vortex_family_manifest(args.family_manifest)
 
@@ -546,7 +299,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise ValueError(f"unsupported checkpoint AMP declaration: {amp}")
     if amp != "none" and device.type != "cuda":
         raise ValueError("mixed precision requires CUDA; use --amp none on CPU")
-    model, normalization = build_model(checkpoint, device)
+    model, normalization = build_resolution_checkpoint_model(checkpoint, device)
 
     print(
         "resolution transfer:",

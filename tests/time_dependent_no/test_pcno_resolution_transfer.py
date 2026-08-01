@@ -9,32 +9,31 @@ import pytest
 import torch
 
 from pcno.pcno import compute_gradient
-from scripts.time_dependent_no.evaluate_pcno_resolution_rollout import (
-    _aggregate,
-    _commutator_row,
-    _pressure_profile_shock_metrics,
-    _reference_at_resolution,
-    _step_stride,
-)
 from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import main
 from utility.time_dependent_no.pcno_euler2d import (
     Euler2DNormalization,
     PCNOEuler2DResidual,
 )
 from utility.time_dependent_no.pcno_resolution_transfer import (
+    aggregate_resolution_rollout,
     build_resolution_geometry,
+    checkpoint_step_stride,
     commutator_metrics,
+    commutator_row,
     initial_state_for_model_grid,
     initial_states_from_common_source,
     node_type_scaling_summary,
     node_types_for_protocol,
     parse_resolution,
     physical_wavelength_band_metrics,
+    pressure_profile_shock_metrics,
+    reference_at_resolution,
     restrict_nested_state,
 )
+from utility.time_dependent_no.shock_vortex_family import (
+    build_shock_vortex_family_manifest,
+)
 from utility.time_dependent_no.shock_vortex_fv import ShockVortexFVConfig
-
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def _sha256(path: Path) -> str:
@@ -212,7 +211,7 @@ def test_rebuilt_least_squares_gradient_is_affine_exact_across_grids() -> None:
 
 def test_reference_restriction_is_available_only_at_or_below_native_grid() -> None:
     native = np.arange(4 * 4 * 2, dtype=np.float64).reshape(16, 2)
-    coarse = _reference_at_resolution(
+    coarse = reference_at_resolution(
         native,
         reference_resolution=(4, 4),
         target_resolution=(2, 2),
@@ -226,7 +225,7 @@ def test_reference_restriction_is_available_only_at_or_below_native_grid() -> No
         ),
     )
     assert (
-        _reference_at_resolution(
+        reference_at_resolution(
             native,
             reference_resolution=(4, 4),
             target_resolution=(8, 8),
@@ -244,7 +243,7 @@ def test_pressure_profile_shock_metrics_report_physical_and_cell_width() -> None
     state[..., 0] = 1.0
     state[..., 3] = pressure / (gamma - 1.0)
     flattened = state.reshape(nx * ny, 4)
-    metrics = _pressure_profile_shock_metrics(
+    metrics = pressure_profile_shock_metrics(
         flattened,
         flattened,
         resolution=(nx, ny),
@@ -292,10 +291,10 @@ def test_checkpoint_step_stride_declarations_must_agree() -> None:
         "training_args": {"step_stride": 2},
         "data_contract": {},
     }
-    assert _step_stride(checkpoint) == 2
+    assert checkpoint_step_stride(checkpoint) == 2
     checkpoint["training_args"]["step_stride"] = 1
     with pytest.raises(ValueError, match="declarations disagree"):
-        _step_stride(checkpoint)
+        checkpoint_step_stride(checkpoint)
 
 
 def test_rollout_aggregate_counts_resolution_specific_noncompletion() -> None:
@@ -382,7 +381,7 @@ def test_rollout_aggregate_counts_resolution_specific_noncompletion() -> None:
         },
     ]
 
-    aggregate = _aggregate(
+    aggregate = aggregate_resolution_rollout(
         state_rows,
         [],
         completion_rows,
@@ -410,7 +409,7 @@ def test_rollout_aggregate_counts_resolution_specific_noncompletion() -> None:
 
 
 def test_commutator_row_binds_input_and_output_times() -> None:
-    row = _commutator_row(
+    row = commutator_row(
         case_id="sv_e00_y00",
         case_split="validation",
         protocol="physical",
@@ -477,12 +476,11 @@ def test_frozen_checkpoint_runs_on_two_node_and_edge_counts(tmp_path: Path) -> N
     checkpoint_path = tmp_path / "synthetic.pt"
     torch.save(checkpoint, checkpoint_path)
     output_dir = tmp_path / "resolution"
-    manifest = (
-        ROOT
-        / "artifacts"
-        / "time_dependent_no"
-        / "shock_vortex_family_frozen_20260720a"
-        / "family_manifest.json"
+    manifest = tmp_path / "family_manifest.json"
+    manifest.write_text(
+        json.dumps(build_shock_vortex_family_manifest(), indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
     )
 
     assert (

@@ -18,10 +18,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from pathlib import Path
 import platform
 import sys
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -30,27 +31,24 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (  # noqa: E402
-    CAUSAL_BOUNDARY_MODE,
-    build_model,
-    load_checkpoint,
-    select_device,
-    sha256_file,
-)
-from scripts.time_dependent_no.train_pcno_euler2d_residual import (  # noqa: E402
-    contract_forward_sample,
-)
-from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
+from utility.time_dependent_no.pcno_artifacts import sha256_file
+from utility.time_dependent_no.pcno_euler2d import (
     PCNOEuler2DShardStore,
     build_graph_causal_boundary_policy,
     reference_smooth_region_mask,
 )
-from utility.time_dependent_no.pcno_ripple_diagnostics import (  # noqa: E402
+from utility.time_dependent_no.pcno_ripple_diagnostics import (
     node_highpass_field,
     normalized_node_weights,
     raw_admissibility_summary,
 )
-
+from utility.time_dependent_no.pcno_rollout import (
+    CAUSAL_BOUNDARY_MODE,
+    build_bump_checkpoint_model as build_model,
+    contract_forward_sample,
+    load_bump_checkpoint as load_checkpoint,
+)
+from utility.time_dependent_no.pcno_runtime import select_device
 
 ERROR_SOURCE_SCHEMA = "pcno_euler2d_causal_error_source_v1"
 IDENTITY_RELATIVE_TOLERANCE = 1.0e-6
@@ -382,9 +380,11 @@ def _selected_keys(
 def _source_hashes() -> dict[str, str]:
     files = (
         Path(__file__),
-        ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
-        ROOT / "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
+        ROOT / "utility/time_dependent_no/pcno_artifacts.py",
+        ROOT / "utility/time_dependent_no/euler2d_metrics.py",
         ROOT / "utility/time_dependent_no/pcno_euler2d.py",
+        ROOT / "utility/time_dependent_no/pcno_rollout.py",
+        ROOT / "utility/time_dependent_no/pcno_runtime.py",
         ROOT / "utility/time_dependent_no/pcno_ripple_diagnostics.py",
     )
     return {

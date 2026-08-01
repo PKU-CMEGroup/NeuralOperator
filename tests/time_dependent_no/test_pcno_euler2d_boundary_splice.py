@@ -20,7 +20,7 @@ from scripts.time_dependent_no.evaluate_pcno_euler2d_boundary_splice import (
     validate_summary_contract,
     verified_normalization_digest,
 )
-from scripts.time_dependent_no.evaluate_pcno_euler2d_boundary_protocol import (
+from utility.time_dependent_no.pcno_rollout import (
     STRUCTURE_ERROR_FIELDS,
 )
 

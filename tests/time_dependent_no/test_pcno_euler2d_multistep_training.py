@@ -7,8 +7,8 @@ import pytest
 import torch
 
 import scripts.time_dependent_no.train_pcno_euler2d_residual as training
-from tests.time_dependent_no.test_pcno_euler2d_residual import (
-    _prepare_boundary_synthetic_shards,
+from tests.time_dependent_no._pcno_test_support import (
+    prepare_boundary_synthetic_shards as _prepare_boundary_synthetic_shards,
 )
 from utility.time_dependent_no.pcno_euler2d import PCNOEuler2DShardStore
 
@@ -334,9 +334,7 @@ def test_legacy_boundary_metadata_compatibility_is_narrow_and_auditable() -> Non
             0.3,
             0.4,
         ],
-        "outflow_characteristic_treatment": (
-            "current-interior nodal extrapolation"
-        ),
+        "outflow_characteristic_treatment": ("current-interior nodal extrapolation"),
         "physical_conservation_claim": False,
         "projection_metric": None,
         "training_objective": {

@@ -11,7 +11,6 @@ change, not a decoded or supervised face flux.
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
 import csv
 import hashlib
 import json
@@ -35,6 +34,14 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     PCNOEuler2DShardStore,
     parameter_count,
 )
+from utility.time_dependent_no.pcno_runtime import (  # noqa: E402
+    CHECKPOINT_SCHEMA_VERSION,
+    autocast_context as runtime_autocast_context,
+    build_checkpoint_model,
+    load_checkpoint_payload,
+    select_device,
+    synchronize,
+)
 from utility.time_dependent_no.pcno_ripple_diagnostics import (  # noqa: E402
     conservative_to_primitive_raw,
     raw_admissibility_summary,
@@ -49,7 +56,6 @@ from utility.time_dependent_no.shock_vortex_metrics import (  # noqa: E402
 )
 
 SCHEMA = "pcno_shock_vortex_physical_baseline_v1"
-CHECKPOINT_SCHEMA_VERSION = 4
 DEFAULT_ENDPOINT_CALLS = (1, 5, 10, 20, 40, 60)
 CONTROL_PARAMETER_NAMES = ("vortex_epsilon", "vortex_y")
 CONTROL_NEIGHBOR_COUNT = 4
@@ -136,35 +142,15 @@ def write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
             writer.writerow(serialized)
 
 
-def select_device(name: str) -> torch.device:
-    if name == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if name == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA was requested but is unavailable")
-    return torch.device(name)
-
-
-def synchronize(device: torch.device) -> None:
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
-
-
 def autocast_context(device: torch.device, amp: str):
-    if amp == "none":
-        return nullcontext()
-    if device.type != "cuda":
-        raise ValueError("mixed-precision evaluation requires CUDA")
-    dtype = torch.bfloat16 if amp == "bf16" else torch.float16
-    return torch.autocast(device_type="cuda", dtype=dtype)
+    """Preserve the frozen evaluator's legacy unknown-AMP-to-fp16 fallback."""
+
+    resolved_amp = amp if amp in {"none", "bf16"} else "fp16"
+    return runtime_autocast_context(device, resolved_amp)
 
 
 def load_checkpoint(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    except TypeError:
-        checkpoint = torch.load(path, map_location="cpu")
+    checkpoint = load_checkpoint_payload(path)
     required = {
         "checkpoint_schema_version",
         "model_state",
@@ -197,19 +183,11 @@ def load_checkpoint(path: Path) -> dict[str, Any]:
 def build_model(
     checkpoint: Mapping[str, Any], device: torch.device
 ) -> PCNOEuler2DResidual:
-    normalization = Euler2DNormalization.from_mapping(checkpoint["normalization"])
-    config = checkpoint["model_config"]
-    model = PCNOEuler2DResidual(
-        normalization=normalization,
-        k_max=int(config["k_max"]),
-        domain_lengths=tuple(config["domain_lengths"]),
-        layers=tuple(config["layers"]),
-        fc_dim=int(config["fc_dim"]),
-        nmeasures=int(config["nmeasures"]),
-        zero_initialize=False,
-    ).to(device)
-    model.load_state_dict(checkpoint["model_state"], strict=True)
-    model.eval()
+    model, _ = build_checkpoint_model(
+        checkpoint,
+        device,
+        model_node_type_input="physical",
+    )
     return model
 
 

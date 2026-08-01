@@ -15,10 +15,6 @@ import torch.nn.functional as F
 from utility.time_dependent_no.fv import FiniteVolumeGeometry, finite_volume_update
 
 
-EULER1D_PRIMITIVE_NAMES: tuple[str, ...] = ("rho", "u", "p")
-EULER1D_CONSERVATIVE_NAMES: tuple[str, ...] = ("rho", "rho_u", "energy")
-
-
 @dataclass(frozen=True)
 class Euler1DBatch:
     """Batched 1D Euler state plus finite-volume geometry."""
@@ -188,13 +184,6 @@ def rusanov_flux_from_primitive(
     return 0.5 * (owner_flux + neighbor_flux) - 0.5 * speed.unsqueeze(-1) * (
         neighbor_cons - owner_cons
     )
-
-
-def reflect_primitive(primitive: torch.Tensor) -> torch.Tensor:
-    """Reflect a primitive state at a stationary 1D wall."""
-
-    rho, velocity, pressure = primitive.unbind(dim=-1)
-    return torch.stack((rho, -velocity, pressure), dim=-1)
 
 
 def make_uniform_1d_geometry(x: torch.Tensor) -> FiniteVolumeGeometry:

@@ -17,15 +17,13 @@ conservation or flux claims.
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
 import json
 import math
-import os
-from pathlib import Path
 import sys
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 from time import perf_counter
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -34,23 +32,23 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from utility.time_dependent_no.cpg_mesh_contract import (  # noqa: E402
+from utility.time_dependent_no.cpg_mesh_contract import (
     BoundaryStencil,
     apply_torch_boundary_policy,
     build_torch_boundary_policy,
 )
-from utility.time_dependent_no.cpg_release import release_rollout_metrics  # noqa: E402
-from utility.time_dependent_no.euler2d import PRIMITIVE_NAMES  # noqa: E402
-from utility.time_dependent_no.euler2d_metrics import (  # noqa: E402
-    front_centroid_distance,
-    front_distance_metrics,
-    front_overlap_metrics,
+from utility.time_dependent_no.cpg_release import release_rollout_metrics
+from utility.time_dependent_no.euler2d import PRIMITIVE_NAMES
+from utility.time_dependent_no.euler2d_metrics import (
     median_edge_length,
-    shock_front_masks,
-    shock_smearing_metrics,
 )
-from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
-    Euler2DNormalization,
+from utility.time_dependent_no.pcno_artifacts import (
+    atomic_write_json,
+    json_safe,
+    sha256_file,
+    write_csv,
+)
+from utility.time_dependent_no.pcno_euler2d import (
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     apply_causal_boundary_conservative_batch,
@@ -59,26 +57,30 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     parameter_count,
     primitive_to_conservative_torch,
 )
-from utility.time_dependent_no.pcno_ripple_diagnostics import (  # noqa: E402
+from utility.time_dependent_no.pcno_ripple_diagnostics import (
     conservative_to_primitive_raw,
-    induced_subgraph,
-    node_highpass_amplitude,
-    normalized_node_weights,
     raw_admissibility_summary,
     trace_pcno_branches,
     weighted_relative_l2_numpy,
 )
+from utility.time_dependent_no.pcno_rollout import (
+    CAUSAL_BOUNDARY_MODE,
+    build_bump_checkpoint_model as build_model,
+    endpoint_diagnostics,
+    load_bump_checkpoint as load_checkpoint,
+)
+from utility.time_dependent_no.pcno_runtime import (
+    select_device,
+    synchronize,
+)
 
 EVALUATION_SCHEMA = "pcno_euler2d_official_rollout_v1"
-CHECKPOINT_SCHEMA_VERSION = 4
 NO_COUNTERFACTUAL = "none"
 POINTWISE_TAIL_GAIN = 0.75
 POINTWISE_COUNTERFACTUAL = "pointwise_tail_gain_0p75"
 CAUSAL_BOUNDARY_COUNTERFACTUAL = "causal_nodal_boundary"
 FIXED_INFLOW_COUNTERFACTUAL = "fixed_freestream_inflow"
 NATIVE_CAUSAL_BOUNDARY_SCOPE = "native_causal_nodal_physical"
-CAUSAL_BOUNDARY_MODE = "causal_nodal_physical"
-MINIMUM_CHANGE_BOUNDARY_MODE = "minimum_change_nodal_physical"
 POINTWISE_VARIANT = "pcno_pointwise_tail_gain_0p75"
 CAUSAL_BOUNDARY_VARIANT = "pcno_causal_nodal_boundary_sensitivity"
 FIXED_INFLOW_VARIANT = "pcno_fixed_freestream_inflow_sensitivity"
@@ -163,133 +165,6 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "--boundary-mesh-audit is only valid for boundary counterfactuals"
         )
-
-
-def select_device(name: str) -> torch.device:
-    if name == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if name == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA was requested but is unavailable")
-    return torch.device(name)
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def json_safe(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {str(key): json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [json_safe(item) for item in value]
-    if isinstance(value, np.ndarray):
-        return json_safe(value.tolist())
-    if isinstance(value, (np.integer,)):
-        return int(value)
-    if isinstance(value, (np.floating, float)):
-        numeric = float(value)
-        return numeric if math.isfinite(numeric) else None
-    if isinstance(value, (np.bool_,)):
-        return bool(value)
-    return value
-
-
-def atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(json_safe(value), indent=2, sort_keys=True, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
-
-
-def write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    if not rows:
-        raise ValueError(f"cannot write empty CSV: {path}")
-    fieldnames: list[str] = []
-    for row in rows:
-        for key in row:
-            if key not in fieldnames:
-                fieldnames.append(str(key))
-    serialized_rows = []
-    for row in rows:
-        serialized = {}
-        for key, value in row.items():
-            safe_value = json_safe(value)
-            if isinstance(safe_value, (dict, list)):
-                safe_value = json.dumps(
-                    safe_value, sort_keys=True, separators=(",", ":")
-                )
-            serialized[str(key)] = safe_value
-        serialized_rows.append(serialized)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(serialized_rows)
-
-
-def load_checkpoint(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    except TypeError:
-        checkpoint = torch.load(path, map_location="cpu")
-    required = {
-        "checkpoint_schema_version",
-        "model_state",
-        "model_config",
-        "normalization",
-        "data_manifest_digest",
-        "step_stride",
-        "config_digest",
-        "boundary_mode",
-        "raw_recurrence",
-    }
-    missing = sorted(required - set(checkpoint))
-    if missing:
-        raise ValueError(f"checkpoint is missing required fields: {missing}")
-    if int(checkpoint["checkpoint_schema_version"]) != CHECKPOINT_SCHEMA_VERSION:
-        raise ValueError("unsupported PCNO checkpoint schema")
-    boundary_mode = str(checkpoint["boundary_mode"])
-    if boundary_mode not in {
-        "model_all_nodes",
-        CAUSAL_BOUNDARY_MODE,
-        MINIMUM_CHANGE_BOUNDARY_MODE,
-    }:
-        raise ValueError(f"unsupported checkpoint boundary mode: {boundary_mode}")
-    expected_raw = boundary_mode == "model_all_nodes"
-    if checkpoint["raw_recurrence"] is not expected_raw:
-        raise ValueError("checkpoint recurrence declaration contradicts boundary mode")
-    if boundary_mode in {CAUSAL_BOUNDARY_MODE, MINIMUM_CHANGE_BOUNDARY_MODE}:
-        boundary_contract = checkpoint.get("boundary_contract")
-        if not isinstance(boundary_contract, Mapping):
-            raise ValueError("hard-boundary checkpoint lacks its boundary contract")
-        if str(boundary_contract.get("mode")) != boundary_mode:
-            raise ValueError("checkpoint boundary contract mode is inconsistent")
-    return dict(checkpoint)
-
-
-def build_model(
-    checkpoint: Mapping[str, Any], device: torch.device
-) -> PCNOEuler2DResidual:
-    config = checkpoint["model_config"]
-    model = PCNOEuler2DResidual(
-        normalization=Euler2DNormalization.from_mapping(checkpoint["normalization"]),
-        k_max=int(config["k_max"]),
-        domain_lengths=config["domain_lengths"],
-        layers=config["layers"],
-        fc_dim=int(config["fc_dim"]),
-        nmeasures=int(config["nmeasures"]),
-        zero_initialize=False,
-    ).to(device)
-    model.load_state_dict(checkpoint["model_state"], strict=True)
-    model.eval()
-    return model
 
 
 def _trajectory_metadata(
@@ -640,11 +515,6 @@ def model_call(
     return (current + normalized_residual * model.residual_scale) * sample["node_mask"]
 
 
-def synchronize(device: torch.device) -> None:
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
-
-
 def rollout_variant(
     model: PCNOEuler2DResidual,
     store: PCNOEuler2DShardStore,
@@ -731,19 +601,6 @@ def rollout_variant(
     }
 
 
-def _dilate_mask(mask: np.ndarray, edges: np.ndarray, hops: int = 1) -> np.ndarray:
-    result = np.asarray(mask, dtype=bool).copy()
-    edge_index = np.asarray(edges, dtype=np.int64)
-    for _ in range(hops):
-        expanded = result.copy()
-        left = edge_index[:, 0]
-        right = edge_index[:, 1]
-        np.logical_or.at(expanded, left, result[right])
-        np.logical_or.at(expanded, right, result[left])
-        result = expanded
-    return result
-
-
 def failure_location_fields(
     failed_proposal: np.ndarray | None,
     node_type: np.ndarray,
@@ -787,104 +644,6 @@ def failure_location_fields(
         "failure_node_type": int(types[index]),
         "failure_quantity": quantity,
         "failure_quantity_value": value,
-    }
-
-
-def _scalar(value: Any) -> float | None:
-    array = np.asarray(value)
-    if array.size != 1:
-        raise ValueError("expected a scalar diagnostic")
-    numeric = float(array.reshape(-1)[0])
-    return numeric if math.isfinite(numeric) else None
-
-
-def endpoint_diagnostics(
-    prediction: np.ndarray,
-    target: np.ndarray,
-    *,
-    positions: np.ndarray,
-    edges: np.ndarray,
-    node_type: np.ndarray,
-    proxy_weights: np.ndarray,
-    component_scale: np.ndarray,
-    gamma: float,
-    shock_quantile: float,
-) -> dict[str, Any]:
-    pred_primitive = conservative_to_primitive_raw(prediction, gamma=gamma)
-    target_primitive = conservative_to_primitive_raw(target, gamma=gamma)
-    interior = np.asarray(node_type).reshape(-1) == 0
-    if np.count_nonzero(interior) < 3:
-        interior = np.ones_like(interior)
-    fronts = shock_front_masks(
-        pred_primitive,
-        target_primitive,
-        edges,
-        quantile=shock_quantile,
-        node_mask=interior,
-    )
-    overlap = front_overlap_metrics(fronts["prediction_mask"], fronts["target_mask"])
-    distance = front_distance_metrics(
-        fronts["prediction_mask"], fronts["target_mask"], positions
-    )
-    pred_interior, interior_edges, _ = induced_subgraph(
-        pred_primitive, edges, np.ones(prediction.shape[0]), interior
-    )
-    target_interior, _, _ = induced_subgraph(
-        target_primitive, edges, np.ones(prediction.shape[0]), interior
-    )
-    smearing = shock_smearing_metrics(
-        pred_interior, target_interior, interior_edges, scalar_index=3
-    )
-
-    target_front = _dilate_mask(fronts["target_mask"], edges, hops=1)
-    smooth = interior & ~target_front
-    smooth_contract = "target_pressure_front_dilated_one_hop"
-    if not np.any(smooth):
-        smooth = interior & ~fronts["target_mask"]
-        smooth_contract = "target_pressure_front_without_dilation_fallback"
-    scaled_error = (prediction - target) / component_scale.reshape(1, -1)
-    highpass = node_highpass_amplitude(scaled_error, edges)
-    proxy_mass = normalized_node_weights(proxy_weights, name="endpoint high-pass")
-    equal_mass = np.full(prediction.shape[0], 1.0 / prediction.shape[0])
-
-    def smooth_energy(mass: np.ndarray) -> float:
-        selected = mass * smooth
-        return float(np.sum(selected * np.square(highpass)) / np.sum(selected))
-
-    thickness_ratio = _scalar(smearing["thickness_ratio"])
-    strength_ratio = _scalar(smearing["strength_ratio"])
-
-    def log_error(value: float | None) -> float | None:
-        if value is None or value <= 0.0:
-            return None
-        return abs(math.log(value))
-
-    error_energy = proxy_mass * np.sum(np.square(scaled_error), axis=-1)
-    return {
-        "scaled_relative_l2_reconstructed_weight_proxy": weighted_relative_l2_numpy(
-            prediction, target, proxy_weights, component_scale
-        ),
-        "scaled_relative_l2_equal_node_proxy": weighted_relative_l2_numpy(
-            prediction, target, np.ones(prediction.shape[0]), component_scale
-        ),
-        "smooth_region_contract": smooth_contract,
-        "smooth_region_node_fraction": float(np.mean(smooth)),
-        "smooth_highpass_energy_reconstructed_weight_proxy": smooth_energy(proxy_mass),
-        "smooth_highpass_energy_equal_node_proxy": smooth_energy(equal_mass),
-        "scaled_error_energy_fraction_target_front_dilated_proxy": float(
-            error_energy[target_front].sum() / max(float(error_energy.sum()), 1e-30)
-        ),
-        "front_iou": _scalar(overlap["iou"]),
-        "front_symmetric_chamfer": _scalar(distance["symmetric_chamfer_mean"]),
-        "front_centroid_distance": _scalar(
-            front_centroid_distance(
-                fronts["prediction_mask"], fronts["target_mask"], positions
-            )
-        ),
-        "shock_thickness_ratio": thickness_ratio,
-        "shock_strength_ratio": strength_ratio,
-        "shock_thickness_log_error": log_error(thickness_ratio),
-        "shock_strength_log_error": log_error(strength_ratio),
     }
 
 
@@ -1703,7 +1462,6 @@ def main(argv: Sequence[str] | None = None) -> None:
                 ),
                 dtype=np.int64,
             ),
-
             "weight_provenance": np.asarray(
                 "reconstructed_vertex_lumped_proxy_and_equal_node_proxy"
             ),
@@ -1815,8 +1573,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                     or len(native_metadata) == len(keys)
                 ),
                 "native_boundary_policies_use_no_fallback": all(
-                    int(item["fallback_target_count"]) == 0
-                    for item in native_metadata
+                    int(item["fallback_target_count"]) == 0 for item in native_metadata
                 ),
             },
             "learned_method_authorized": False,

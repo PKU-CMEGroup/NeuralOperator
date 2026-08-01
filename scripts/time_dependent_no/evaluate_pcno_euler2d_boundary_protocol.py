@@ -22,47 +22,33 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (  # noqa: E402
-    build_model,
-    endpoint_diagnostics,
-    load_checkpoint,
+from utility.time_dependent_no.pcno_artifacts import (
     sha256_file,
+    write_json,
 )
-from scripts.time_dependent_no.train_pcno_euler2d_residual import (  # noqa: E402
+from utility.time_dependent_no.pcno_euler2d import (
+    PCNOEuler2DShardStore,
+    balanced_presentations,
+    build_graph_causal_boundary_policy,
+    build_graph_minimum_change_boundary_policy,
+)
+from utility.time_dependent_no.pcno_rollout import (
     CAUSAL_BOUNDARY_MODE,
     LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
     MINIMUM_CHANGE_BOUNDARY_MODE,
     NORMAL_CLOSED_PRIMARY_OBJECTIVE,
     RAW_ALL_NODES_PRIMARY_OBJECTIVE,
-    autocast_context,
-    boundary_outflow_normal_mach,
-    close_boundary,
-    contract_forward_sample,
+    STRUCTURE_ERROR_FIELDS,
+    build_bump_checkpoint_model as build_model,
     evaluate_pairs,
     evaluate_rollouts,
-    failure_cause,
-    optional_region_relative_l2,
-    select_device,
-    write_json,
+    load_bump_checkpoint as load_checkpoint,
+    projection_decomposition,
+    rollout_structure_diagnostics,
 )
-from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
-    PCNOEuler2DResidual,
-    PCNOEuler2DShardStore,
-    balanced_presentations,
-    boundary_band_normal_node_mask,
-    build_graph_causal_boundary_policy,
-    build_graph_minimum_change_boundary_policy,
-    conservative_to_primitive_torch,
-    normal_node_mask,
-)
+from utility.time_dependent_no.pcno_runtime import select_device
 
 SCHEMA = "pcno_euler2d_boundary_protocol_validation_v2"
-STRUCTURE_ERROR_FIELDS = (
-    "smooth_highpass_energy_reconstructed_weight_proxy",
-    "front_centroid_distance",
-    "shock_thickness_log_error",
-    "shock_strength_log_error",
-)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -148,38 +134,6 @@ def _policy_set(
     return policies, metadata
 
 
-def _mean(values: Sequence[float]) -> float | None:
-    return None if not values else float(np.mean(values))
-
-
-def _structure_summary(
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    rollout_checkpoints: Sequence[int],
-) -> dict[str, Any]:
-    fields = (
-        *STRUCTURE_ERROR_FIELDS,
-        "front_iou",
-        "front_symmetric_chamfer",
-        "smooth_highpass_energy_equal_node_proxy",
-    )
-    endpoints: dict[str, dict[str, Any]] = {}
-    for checkpoint in rollout_checkpoints:
-        selected = [row for row in rows if row["call_index"] == checkpoint]
-        endpoint: dict[str, Any] = {"population_count": len(selected)}
-        for field in fields:
-            values = [
-                float(row[field]) for row in selected if row.get(field) is not None
-            ]
-            endpoint[field] = {
-                "count": len(values),
-                "mean": None if not values else float(np.mean(values)),
-                "median": None if not values else float(np.median(values)),
-            }
-        endpoints[str(checkpoint)] = endpoint
-    return {"rows": list(rows), "endpoints": endpoints}
-
-
 def _paired_structure_ratios(
     baseline: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -223,263 +177,6 @@ def _paired_structure_ratios(
         "paired_by": ["trajectory", "call_index"],
         "endpoints": result,
     }
-
-
-@torch.no_grad()
-def rollout_structure_diagnostics(
-    model: PCNOEuler2DResidual,
-    store: PCNOEuler2DShardStore,
-    keys: Sequence[str],
-    policies: Mapping[str, Mapping[str, Any]],
-    *,
-    step_stride: int,
-    start_frame: int,
-    num_steps: int,
-    rollout_checkpoints: Sequence[int],
-    shock_quantile: float,
-    device: torch.device,
-    amp: str,
-) -> dict[str, Any]:
-    rows: list[dict[str, Any]] = []
-    trajectories: list[dict[str, Any]] = []
-    component_scale = model.state_scale.detach().float().cpu().numpy()
-    model.eval()
-    for key in keys:
-        states = store.states(key)
-        available = (states.shape[0] - 1 - start_frame) // step_stride
-        if available < num_steps:
-            raise ValueError(
-                f"trajectory {key} exposes only {available} structural calls; "
-                f"{num_steps} were requested"
-            )
-        sample = store.tensor_sample(
-            key, start_frame, step_stride=step_stride, device=device
-        )
-        policy = policies.get(key)
-        current = sample["current"]
-        positions = np.array(store.array(key, "nodes"), copy=True)
-        edges = np.array(store.array(key, "edges"), copy=True)
-        node_type = np.array(store.array(key, "node_type"), copy=True).reshape(-1)
-        proxy_weights = np.array(store.array(key, "node_weights"), copy=True).sum(
-            axis=-1
-        )
-        valid_length = 0
-        stopped_for = "completed"
-        for call_index in range(1, num_steps + 1):
-            with autocast_context(device, amp):
-                prediction, _, _ = contract_forward_sample(
-                    model,
-                    sample,
-                    current,
-                    boundary_policy=policy,
-                )
-            stopped_for, _ = failure_cause(prediction, gamma=model.gamma)
-            if stopped_for is not None:
-                break
-            if policy is not None:
-                outflow = boundary_outflow_normal_mach(prediction.float(), policy)
-                if (
-                    outflow is None
-                    or not bool(torch.isfinite(outflow).all())
-                    or float(outflow.min().cpu()) <= 1.0
-                ):
-                    stopped_for = "invalid_outflow_regime"
-                    break
-            valid_length = call_index
-            if call_index in rollout_checkpoints:
-                target_index = start_frame + call_index * step_stride
-                target = np.array(states[target_index], copy=True)
-                rows.append(
-                    {
-                        "trajectory": key,
-                        "call_index": call_index,
-                        **endpoint_diagnostics(
-                            prediction[0].float().cpu().numpy(),
-                            target,
-                            positions=positions,
-                            edges=edges,
-                            node_type=node_type,
-                            proxy_weights=proxy_weights,
-                            component_scale=component_scale,
-                            gamma=model.gamma,
-                            shock_quantile=shock_quantile,
-                        ),
-                    }
-                )
-            current = prediction
-        trajectories.append(
-            {
-                "trajectory": key,
-                "requested_steps": num_steps,
-                "valid_length": valid_length,
-                "completed": valid_length == num_steps,
-                "failure_cause": (
-                    "completed" if valid_length == num_steps else stopped_for
-                ),
-            }
-        )
-    return {
-        "trajectories": trajectories,
-        "completion_rate": (
-            sum(bool(row["completed"]) for row in trajectories) / len(trajectories)
-        ),
-        **_structure_summary(rows, rollout_checkpoints=rollout_checkpoints),
-    }
-
-
-@torch.no_grad()
-def projection_decomposition(
-    model: PCNOEuler2DResidual,
-    store: PCNOEuler2DShardStore,
-    pairs: Sequence[tuple[str, int]],
-    policies: Mapping[str, Mapping[str, Any]],
-    *,
-    step_stride: int,
-    device: torch.device,
-    amp: str,
-) -> dict[str, Any]:
-    metrics: dict[str, list[float]] = {
-        "reference_closure_bias_all_relative_l2": [],
-        "reference_closure_bias_boundary_relative_l2": [],
-        "model_under_closure_all_relative_l2": [],
-        "model_under_closure_boundary_relative_l2": [],
-        "raw_to_corrected_intervention_rms": [],
-        "near_boundary_1_reference_relative_l2": [],
-        "near_boundary_2_reference_relative_l2": [],
-        "near_boundary_3_reference_relative_l2": [],
-        "wall_constraint_rms": [],
-        "inflow_constraint_rms": [],
-        "outflow_normal_mach_min": [],
-    }
-    wall_constraint_max = 0.0
-    inflow_constraint_max = 0.0
-    model.eval()
-    for key, time_index in pairs:
-        sample = store.tensor_batch(
-            key, [time_index], step_stride=step_stride, device=device
-        )
-        policy = policies[key]
-        with autocast_context(device, amp):
-            prediction, raw_prediction, _ = contract_forward_sample(
-                model,
-                sample,
-                sample["current"],
-                boundary_policy=policy,
-            )
-            projected_target = close_boundary(
-                sample["target"], policy, gamma=model.gamma
-            )
-        normal = normal_node_mask(sample["node_type"], sample["node_mask"])
-        boundary = sample["node_mask"] - normal
-
-        def append_relative(
-            name: str,
-            left: torch.Tensor,
-            right: torch.Tensor,
-            mask: torch.Tensor,
-            pair_sample: Mapping[str, torch.Tensor] = sample,
-            evaluated_model: PCNOEuler2DResidual = model,
-        ) -> None:
-            value = optional_region_relative_l2(
-                left, right, pair_sample, mask, evaluated_model
-            )
-            if value is not None:
-                metrics[name].append(value)
-
-        append_relative(
-            "reference_closure_bias_all_relative_l2",
-            projected_target.float(),
-            sample["target"],
-            sample["node_mask"],
-        )
-        append_relative(
-            "reference_closure_bias_boundary_relative_l2",
-            projected_target.float(),
-            sample["target"],
-            boundary,
-        )
-        append_relative(
-            "model_under_closure_all_relative_l2",
-            prediction.float(),
-            projected_target.float(),
-            sample["node_mask"],
-        )
-        append_relative(
-            "model_under_closure_boundary_relative_l2",
-            prediction.float(),
-            projected_target.float(),
-            boundary,
-        )
-        scale = model.state_scale.to(dtype=prediction.dtype, device=device)
-        intervention = ((prediction - raw_prediction) / scale).square() * boundary
-        denominator = boundary.sum() * prediction.shape[-1]
-        metrics["raw_to_corrected_intervention_rms"].append(
-            float(torch.sqrt(intervention.sum() / denominator.clamp_min(1.0)).cpu())
-        )
-        for hops in (1, 2, 3):
-            band = boundary_band_normal_node_mask(
-                sample["node_type"],
-                sample["node_mask"],
-                sample["directed_edges"],
-                max_hops=hops,
-            )
-            append_relative(
-                f"near_boundary_{hops}_reference_relative_l2",
-                prediction.float(),
-                sample["target"],
-                band,
-            )
-
-        primitive = conservative_to_primitive_torch(
-            prediction.float(), gamma=model.gamma
-        )
-        if "wall_velocity_projectors" in policy:
-            wall_nodes = policy["wall_constrained_nodes"]
-            projectors = policy["wall_velocity_projectors"].to(
-                dtype=primitive.dtype, device=device
-            )
-            wall_velocity = primitive[:, wall_nodes, 1:3]
-            forbidden = wall_velocity - torch.einsum(
-                "nij,bnj->bni", projectors, wall_velocity
-            )
-        else:
-            wall_rows = policy["wall_rows"]
-            wall_nodes = policy["target_nodes"][wall_rows]
-            wall_normals = policy["target_normals"][wall_rows].to(
-                dtype=primitive.dtype, device=device
-            )
-            wall_velocity = primitive[:, wall_nodes, 1:3]
-            wall_normal_speed = torch.sum(
-                wall_velocity * wall_normals.unsqueeze(0), dim=-1, keepdim=True
-            )
-            forbidden = wall_normal_speed * wall_normals.unsqueeze(0)
-        metrics["wall_constraint_rms"].append(
-            float(torch.sqrt(forbidden.square().mean()).cpu())
-        )
-        wall_constraint_max = max(
-            wall_constraint_max, float(forbidden.abs().max().cpu())
-        )
-        inflow = primitive[:, policy["inflow_nodes"]]
-        stream = policy["freestream"].to(dtype=inflow.dtype, device=device)
-        inflow_difference = inflow - stream
-        metrics["inflow_constraint_rms"].append(
-            float(torch.sqrt(inflow_difference.square().mean()).cpu())
-        )
-        inflow_constraint_max = max(
-            inflow_constraint_max, float(inflow_difference.abs().max().cpu())
-        )
-        outflow = boundary_outflow_normal_mach(prediction.float(), policy)
-        if outflow is not None:
-            metrics["outflow_normal_mach_min"].append(float(outflow.min().cpu()))
-    result = {name: _mean(values) for name, values in metrics.items()}
-    result["wall_constraint_max_abs"] = wall_constraint_max
-    result["inflow_constraint_max_abs"] = inflow_constraint_max
-    result["outflow_normal_mach_min"] = (
-        min(metrics["outflow_normal_mach_min"])
-        if metrics["outflow_normal_mach_min"]
-        else None
-    )
-    return result
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -698,10 +395,13 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     source_paths = (
         Path(__file__).resolve(),
-        ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
-        ROOT / "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
+        ROOT / "utility/time_dependent_no/pcno_artifacts.py",
         ROOT / "utility/time_dependent_no/cpg_mesh_contract.py",
+        ROOT / "utility/time_dependent_no/euler2d_metrics.py",
         ROOT / "utility/time_dependent_no/pcno_euler2d.py",
+        ROOT / "utility/time_dependent_no/pcno_ripple_diagnostics.py",
+        ROOT / "utility/time_dependent_no/pcno_rollout.py",
+        ROOT / "utility/time_dependent_no/pcno_runtime.py",
     )
     summary = {
         "schema": SCHEMA,

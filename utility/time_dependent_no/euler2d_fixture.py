@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-import json
 
 import numpy as np
 
@@ -102,17 +100,6 @@ def run_euler2d_fixture_diagnostics(
         "cases": case_payloads,
         "checks": _diagnostic_checks(case_payloads),
     }
-
-
-def write_euler2d_fixture_diagnostics_json(
-    payload: dict[str, Any],
-    path: str | Path,
-) -> None:
-    """Write a fixture diagnostic payload as stable JSON."""
-
-    output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(_json_ready(payload), indent=2, sort_keys=True))
 
 
 def _diagnostic_checks(cases: dict[str, dict[str, Any]]) -> dict[str, bool]:

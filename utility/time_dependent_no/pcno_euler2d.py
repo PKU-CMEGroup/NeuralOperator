@@ -1558,10 +1558,3 @@ def parameter_count(model: nn.Module) -> int:
 def digest_mapping(value: Mapping[str, Any]) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
-
-
-def ensure_unique(values: Iterable[str], *, name: str) -> list[str]:
-    result = [str(value) for value in values]
-    if len(result) != len(set(result)):
-        raise ValueError(f"{name} contains duplicate values")
-    return result

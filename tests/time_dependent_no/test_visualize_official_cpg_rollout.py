@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import shutil
-import uuid
 from pathlib import Path
 
 import numpy as np
@@ -15,22 +13,14 @@ pytest.importorskip("matplotlib")
 def _load_module():
     root = Path(__file__).resolve().parents[2]
     path = root / "scripts" / "time_dependent_no" / "visualize_official_cpg_rollout.py"
-    spec = importlib.util.spec_from_file_location("visualize_official_cpg_rollout", path)
+    spec = importlib.util.spec_from_file_location(
+        "visualize_official_cpg_rollout", path
+    )
     assert spec is not None
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
-
-
-@pytest.fixture
-def artifact_root() -> Path:
-    root = Path(".pytest_tmp") / "time_dependent_no" / f"visualize_{uuid.uuid4().hex}"
-    root.mkdir(parents=True)
-    try:
-        yield root
-    finally:
-        shutil.rmtree(root, ignore_errors=True)
 
 
 def _write_fixture(root: Path) -> tuple[Path, Path]:
@@ -65,9 +55,9 @@ def _write_fixture(root: Path) -> tuple[Path, Path]:
     return dataset_file, result_file
 
 
-def test_save_visualization_from_official_rollout_fixture(artifact_root: Path):
+def test_save_visualization_from_official_rollout_fixture(tmp_path: Path):
     module = _load_module()
-    root = artifact_root
+    root = tmp_path
     dataset_file, result_file = _write_fixture(root)
 
     summary = module.save_official_rollout_visualization(
@@ -91,9 +81,9 @@ def test_save_visualization_from_official_rollout_fixture(artifact_root: Path):
         assert Path(path).is_file()
 
 
-def test_result_geometry_node_count_mismatch_is_rejected(artifact_root: Path):
+def test_result_geometry_node_count_mismatch_is_rejected(tmp_path: Path):
     module = _load_module()
-    root = artifact_root
+    root = tmp_path
     dataset_file, result_file = _write_fixture(root)
     with h5py.File(dataset_file, "a") as handle:
         del handle["00"]["pos"]
@@ -108,13 +98,17 @@ def test_result_geometry_node_count_mismatch_is_rejected(artifact_root: Path):
         )
 
 
-def test_save_visualization_uses_embedded_result_geometry_without_dataset_file(artifact_root: Path):
+def test_save_visualization_uses_embedded_result_geometry_without_dataset_file(
+    tmp_path: Path,
+):
     module = _load_module()
-    root = artifact_root
+    root = tmp_path
     dataset_file, result_file = _write_fixture(root)
     with h5py.File(dataset_file, "r") as dataset, h5py.File(result_file, "a") as result:
         result.create_dataset("pos", data=np.asarray(dataset["00"]["pos"][0]))
-        result.create_dataset("node_type", data=np.asarray(dataset["00"]["node_type"][0]))
+        result.create_dataset(
+            "node_type", data=np.asarray(dataset["00"]["node_type"][0])
+        )
         result.attrs["trajectory_key"] = "00"
 
     summary = module.save_official_rollout_visualization(

@@ -7,16 +7,12 @@ import argparse
 import hashlib
 import json
 import math
-import os
-import platform
 import random
-import shutil
-import subprocess
 import sys
-from contextlib import nullcontext
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -25,14 +21,23 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from utility.time_dependent_no.cpg_mesh_contract import NORMAL_NODE  # noqa: E402
-from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
+from utility.time_dependent_no.cpg_mesh_contract import NORMAL_NODE
+from utility.time_dependent_no.pcno_artifacts import (
+    atomic_torch_save,
+    digest_array,
+    git_state,
+    jsonable_args,
+    runtime_environment,
+    sha256_file,
+    verify_source_snapshot,
+    write_json,
+    write_source_snapshot,
+)
+from utility.time_dependent_no.pcno_euler2d import (
     Euler2DNormalization,
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     apply_admissible_primitive_noise,
-    apply_causal_boundary_conservative_batch,
-    apply_minimum_change_boundary_conservative_batch,
     balanced_presentations,
     boundary_band_normal_node_mask,
     build_graph_causal_boundary_policy,
@@ -51,14 +56,29 @@ from utility.time_dependent_no.pcno_euler2d import (  # noqa: E402
     weighted_scaled_mse,
     weighted_scaled_relative_l2,
 )
+from utility.time_dependent_no.pcno_rollout import (
+    CAUSAL_BOUNDARY_MODE,
+    LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
+    MINIMUM_CHANGE_BOUNDARY_MODE,
+    NORMAL_CLOSED_PRIMARY_OBJECTIVE,
+    RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+    boundary_outflow_normal_mach,
+    close_boundary,
+    contract_forward_sample,
+    evaluate_pairs,
+    evaluate_rollouts,
+    pair_metrics,
+    primary_training_metrics,
+    resolve_boundary_policy,
+)
+from utility.time_dependent_no.pcno_runtime import (
+    CHECKPOINT_SCHEMA_VERSION,
+    autocast_context,
+    load_checkpoint,
+    select_device,
+)
 
-CHECKPOINT_SCHEMA_VERSION = 4
 RESIDUAL_TARGET_KIND = "conservative_variable_residual"
-CAUSAL_BOUNDARY_MODE = "causal_nodal_physical"
-MINIMUM_CHANGE_BOUNDARY_MODE = "minimum_change_nodal_physical"
-NORMAL_CLOSED_PRIMARY_OBJECTIVE = "normal_closed"
-RAW_ALL_NODES_PRIMARY_OBJECTIVE = "raw_all_nodes"
-LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE = "learned_dofs_closed"
 NO_BOUNDARY_AUXILIARY = "none"
 PROJECTED_BOUNDARY_AUXILIARY = "projected_target"
 NEAR_BOUNDARY_AUXILIARY = "near_boundary_band"
@@ -73,15 +93,6 @@ INTERIOR_SELECTION_MODE = "interior_rollout"
 FIXED_HORIZON_BLOCKS_PRESENTATION_MODE = "fixed_horizon_blocks"
 ATTACHED_PREDICTION_MULTISTEP_INPUT = "attached_prediction"
 PROJECTED_TEACHER_MULTISTEP_INPUT = "projected_teacher"
-SOURCE_SNAPSHOT_FILES = (
-    "docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md",
-    "docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md",
-    "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
-    "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
-    "utility/time_dependent_no/pcno_euler2d.py",
-    "utility/time_dependent_no/cpg_mesh_contract.py",
-    "pcno/pcno.py",
-)
 RESUME_MUTABLE_ARGS = {
     "checkpoint_every",
     "device",
@@ -351,16 +362,6 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def select_device(name: str) -> torch.device:
-    if name == "cpu":
-        return torch.device("cpu")
-    if name == "cuda":
-        if not torch.cuda.is_available():
-            raise RuntimeError("CUDA was requested but is unavailable")
-        return torch.device("cuda")
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
 def validate_args(args: argparse.Namespace, device: torch.device) -> None:
     positive_ints = {
         "epochs": args.epochs,
@@ -587,124 +588,6 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         raise RuntimeError("the selected CUDA device does not support bfloat16")
 
 
-def jsonable_args(args: argparse.Namespace) -> dict[str, Any]:
-    result = {}
-    for key, value in vars(args).items():
-        if isinstance(value, Path):
-            result[key] = str(value)
-        elif isinstance(value, tuple):
-            result[key] = list(value)
-        else:
-            result[key] = value
-    return result
-
-
-def git_state() -> dict[str, Any]:
-    def command(*arguments: str) -> str:
-        try:
-            return subprocess.check_output(
-                ["git", *arguments],
-                cwd=ROOT,
-                text=True,
-                stderr=subprocess.DEVNULL,
-            ).strip()
-        except (OSError, subprocess.CalledProcessError):
-            return "unknown"
-
-    status = command("status", "--porcelain")
-    return {
-        "commit": command("rev-parse", "HEAD"),
-        "branch": command("branch", "--show-current"),
-        "dirty": bool(status and status != "unknown"),
-    }
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def digest_array(value: np.ndarray) -> str:
-    array = np.ascontiguousarray(value)
-    digest = hashlib.sha256()
-    digest.update(str(array.shape).encode("ascii"))
-    digest.update(array.dtype.str.encode("ascii"))
-    digest.update(array.tobytes(order="C"))
-    return digest.hexdigest()
-
-
-def runtime_environment(device: torch.device) -> dict[str, Any]:
-    """Record the runtime facts needed to interpret throughput and numerics."""
-
-    cuda_device = None
-    if device.type == "cuda":
-        properties = torch.cuda.get_device_properties(device)
-        cuda_device = {
-            "name": properties.name,
-            "total_memory_bytes": int(properties.total_memory),
-            "capability": list(torch.cuda.get_device_capability(device)),
-        }
-    return {
-        "python": sys.version,
-        "platform": platform.platform(),
-        "numpy": np.__version__,
-        "torch": torch.__version__,
-        "cuda_runtime": torch.version.cuda,
-        "cudnn": torch.backends.cudnn.version(),
-        "cuda_device": cuda_device,
-        "float32_matmul_precision": torch.get_float32_matmul_precision(),
-    }
-
-
-def write_source_snapshot(output_dir: Path) -> dict[str, Any]:
-    """Retain the exact small source surface used by this training run."""
-
-    snapshot_dir = output_dir / "source_snapshot"
-    snapshot_dir.mkdir(parents=True, exist_ok=False)
-    files = {}
-    for relative_name in SOURCE_SNAPSHOT_FILES:
-        source = ROOT / relative_name
-        if not source.is_file():
-            raise FileNotFoundError(source)
-        destination = snapshot_dir / relative_name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-        files[relative_name] = {
-            "sha256": sha256_file(destination),
-            "bytes": int(destination.stat().st_size),
-        }
-    payload = {
-        "schema": "pcno_euler2d_source_snapshot_v1",
-        "git": git_state(),
-        "files": files,
-        "source_set_digest": digest_mapping(files),
-    }
-    write_json(snapshot_dir / "manifest.json", payload)
-    return payload
-
-
-def verify_source_snapshot(snapshot: Mapping[str, Any]) -> None:
-    """Reject continuation under source bytes unlike the run-start snapshot."""
-
-    files = snapshot.get("files")
-    if not isinstance(files, Mapping) or set(files) != set(SOURCE_SNAPSHOT_FILES):
-        raise ValueError("source snapshot does not cover the registered source set")
-    mismatches = []
-    for relative_name in SOURCE_SNAPSHOT_FILES:
-        record = files[relative_name]
-        if not isinstance(record, Mapping):
-            mismatches.append(relative_name)
-            continue
-        source = ROOT / relative_name
-        if not source.is_file() or sha256_file(source) != record.get("sha256"):
-            mismatches.append(relative_name)
-    if mismatches:
-        raise ValueError(f"current source differs from run snapshot: {mismatches}")
-
-
 def assert_resume_training_args(
     checkpoint: Mapping[str, Any], args: argparse.Namespace
 ) -> None:
@@ -847,21 +730,6 @@ def build_data_contract_summary(
             "line4_front_candidate_available": None,
         },
     }
-
-
-def load_checkpoint(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    try:
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    except TypeError:
-        checkpoint = torch.load(path, map_location="cpu")
-    if (
-        int(checkpoint.get("checkpoint_schema_version", -1))
-        != CHECKPOINT_SCHEMA_VERSION
-    ):
-        raise ValueError(f"unsupported checkpoint schema in {path}")
-    return checkpoint
 
 
 def manifest_train_val_test_split(
@@ -1466,179 +1334,6 @@ def build_boundary_contract(
     return policies, summary
 
 
-def boundary_outflow_normal_mach(
-    conservative: torch.Tensor,
-    policy: Mapping[str, Any],
-) -> torch.Tensor | None:
-    """Return per-sample minimum outward Mach on causal outflow nodes."""
-
-    outflow_rows = policy["outflow_rows"]
-    if outflow_rows.numel() == 0:
-        return None
-    primitive = conservative_to_primitive_torch(
-        conservative, gamma=float(policy["gamma"])
-    )
-    nodes = policy["target_nodes"][outflow_rows]
-    normals = policy["target_normals"][outflow_rows].to(
-        dtype=primitive.dtype, device=primitive.device
-    )
-    values = primitive[:, nodes]
-    normal_speed = torch.sum(values[..., 1:3] * normals.unsqueeze(0), dim=-1)
-    sound_speed = torch.sqrt(float(policy["gamma"]) * values[..., 3] / values[..., 0])
-    return (normal_speed / sound_speed).min(dim=1).values
-
-
-def resolve_boundary_policy(
-    boundary_policies: Mapping[str, Mapping[str, Any]] | None,
-    key: str,
-) -> Mapping[str, Any] | None:
-    if not boundary_policies:
-        return None
-    if key not in boundary_policies:
-        raise KeyError(f"boundary contract lacks trajectory {key}")
-    return boundary_policies[key]
-
-
-def close_boundary(
-    state: torch.Tensor,
-    policy: Mapping[str, Any] | None,
-    *,
-    gamma: float,
-) -> torch.Tensor:
-    if policy is None:
-        return state
-    kind = str(policy.get("closure_kind", "causal_interior_reconstruction"))
-    if kind == "causal_interior_reconstruction":
-        return apply_causal_boundary_conservative_batch(state, policy, gamma=gamma)
-    if kind == "minimum_change_primitive_projection":
-        return apply_minimum_change_boundary_conservative_batch(
-            state, policy, gamma=gamma
-        )
-    raise ValueError(f"unsupported boundary closure kind: {kind}")
-
-
-def contract_forward_sample(
-    model: PCNOEuler2DResidual,
-    sample: Mapping[str, torch.Tensor],
-    current: torch.Tensor,
-    *,
-    boundary_policy: Mapping[str, Any] | None,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    model_current = close_boundary(current, boundary_policy, gamma=model.gamma)
-    raw_prediction = forward_sample(model, sample, model_current)
-    prediction = close_boundary(
-        raw_prediction,
-        boundary_policy,
-        gamma=model.gamma,
-    )
-    return prediction, raw_prediction, model_current
-
-
-def forward_sample(
-    model: PCNOEuler2DResidual,
-    sample: Mapping[str, torch.Tensor],
-    current: torch.Tensor,
-) -> torch.Tensor:
-    node_type = sample["node_type"]
-    if getattr(model, "model_node_type_input", "physical") == "all_normal":
-        node_type = torch.zeros_like(node_type)
-    return model(
-        current,
-        node_mask=sample["node_mask"],
-        nodes=sample["nodes"],
-        node_weights=sample["node_weights"],
-        node_rhos=sample["node_rhos"],
-        directed_edges=sample["directed_edges"],
-        edge_gradient_weights=sample["edge_gradient_weights"],
-        node_type=node_type,
-        mach=sample["mach"],
-    )
-
-
-def autocast_context(device: torch.device, amp: str):
-    if amp == "none":
-        return nullcontext()
-    dtype = torch.bfloat16 if amp == "bf16" else torch.float16
-    return torch.autocast(device_type=device.type, dtype=dtype)
-
-
-def pair_metrics(
-    prediction: torch.Tensor,
-    target: torch.Tensor,
-    sample: Mapping[str, torch.Tensor],
-    model: PCNOEuler2DResidual,
-    *,
-    loss_node_mask: torch.Tensor | None = None,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    resolved_loss_mask = (
-        sample["node_mask"] if loss_node_mask is None else loss_node_mask
-    )
-    loss = weighted_scaled_mse(
-        prediction,
-        target,
-        sample["node_weights"],
-        resolved_loss_mask,
-        model.state_scale,
-    )
-    relative_l2 = weighted_scaled_relative_l2(
-        prediction,
-        target,
-        sample["node_weights"],
-        sample["node_mask"],
-        model.state_scale,
-    )
-    return loss, relative_l2
-
-
-def primary_training_metrics(
-    prediction: torch.Tensor,
-    raw_prediction: torch.Tensor,
-    target: torch.Tensor,
-    sample: Mapping[str, torch.Tensor],
-    model: PCNOEuler2DResidual,
-    *,
-    boundary_policy: Mapping[str, Any] | None,
-    primary_objective: str,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Evaluate the selected clean one-step objective without changing recurrence."""
-
-    if primary_objective == RAW_ALL_NODES_PRIMARY_OBJECTIVE:
-        if boundary_policy is None:
-            raise ValueError(
-                "raw all-node supervision requires a causal boundary policy"
-            )
-        objective_prediction = raw_prediction
-        objective_target = target
-        loss_node_mask = sample["node_mask"]
-    elif primary_objective == LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE:
-        if (
-            boundary_policy is None
-            or str(boundary_policy.get("closure_kind"))
-            != "minimum_change_primitive_projection"
-        ):
-            raise ValueError("learned-DOF supervision requires a minimum-change policy")
-        objective_prediction = prediction
-        objective_target = close_boundary(target, boundary_policy, gamma=model.gamma)
-        loss_node_mask = sample["node_mask"]
-    elif primary_objective == NORMAL_CLOSED_PRIMARY_OBJECTIVE:
-        objective_prediction = prediction
-        objective_target = target
-        loss_node_mask = (
-            normal_node_mask(sample["node_type"], sample["node_mask"])
-            if boundary_policy is not None
-            else sample["node_mask"]
-        )
-    else:
-        raise ValueError(f"unsupported primary objective: {primary_objective}")
-    return pair_metrics(
-        objective_prediction,
-        objective_target,
-        sample,
-        model,
-        loss_node_mask=loss_node_mask,
-    )
-
-
 def multistep_future_comparison_count(
     store: PCNOEuler2DShardStore,
     pairs: Sequence[tuple[str, int]],
@@ -1822,514 +1517,6 @@ def boundary_auxiliary_loss(
     )
 
 
-def optional_region_relative_l2(
-    prediction: torch.Tensor,
-    target: torch.Tensor,
-    sample: Mapping[str, torch.Tensor],
-    node_mask: torch.Tensor,
-    model: PCNOEuler2DResidual,
-) -> float | None:
-    """Return a regional metric, or ``None`` when that region is absent."""
-
-    support = (sample["node_weights"].sum(dim=-1, keepdim=True) * node_mask).sum()
-    if not bool(support > 0.0):
-        return None
-    value = weighted_scaled_relative_l2(
-        prediction,
-        target,
-        sample["node_weights"],
-        node_mask,
-        model.state_scale,
-    )
-    return float(value.detach().cpu())
-
-
-def evaluate_pairs(
-    model: PCNOEuler2DResidual,
-    store: PCNOEuler2DShardStore,
-    pairs: Sequence[tuple[str, int]],
-    *,
-    step_stride: int,
-    batch_size: int,
-    device: torch.device,
-    amp: str,
-    primary_objective: str = NORMAL_CLOSED_PRIMARY_OBJECTIVE,
-    boundary_policies: Mapping[str, Mapping[str, Any]] | None = None,
-) -> dict[str, Any]:
-    model.eval()
-    losses = []
-    relative_errors = []
-    all_relative_errors = []
-    normal_relative_errors = []
-    boundary_relative_errors = []
-    raw_all_relative_errors = []
-    raw_normal_relative_errors = []
-    raw_boundary_relative_errors = []
-    boundary_correction_rms = []
-    outflow_mach_min = math.inf
-    admissible = 0
-    batches = homogeneous_presentation_batches(pairs, batch_size=batch_size)
-    for key, time_indices in batches:
-        sample = store.tensor_batch(
-            key,
-            time_indices,
-            step_stride=step_stride,
-            device=device,
-        )
-        boundary_policy = resolve_boundary_policy(boundary_policies, key)
-        with autocast_context(device, amp):
-            prediction, raw_prediction, _ = contract_forward_sample(
-                model,
-                sample,
-                sample["current"],
-                boundary_policy=boundary_policy,
-            )
-        batch_normal_mask = normal_node_mask(sample["node_type"], sample["node_mask"])
-        batch_boundary_mask = sample["node_mask"] - batch_normal_mask
-        if boundary_policy is not None:
-            scale = model.state_scale.to(
-                dtype=prediction.dtype, device=prediction.device
-            )
-            correction = ((prediction - raw_prediction) / scale).square()
-            denominator = batch_boundary_mask.sum(dim=1).squeeze(-1) * 4.0
-            per_sample_rms = torch.sqrt(
-                (correction * batch_boundary_mask).sum(dim=(1, 2))
-                / denominator.clamp_min(1.0)
-            )
-            boundary_correction_rms.extend(
-                float(value) for value in per_sample_rms.detach().cpu()
-            )
-            outflow = boundary_outflow_normal_mach(prediction.float(), boundary_policy)
-            if outflow is not None:
-                outflow_mach_min = min(
-                    outflow_mach_min, float(outflow.min().detach().cpu())
-                )
-        for batch_index in range(prediction.shape[0]):
-            sample_slice = {
-                name: value[batch_index : batch_index + 1]
-                for name, value in sample.items()
-            }
-            loss, relative_l2 = primary_training_metrics(
-                prediction[batch_index : batch_index + 1],
-                raw_prediction[batch_index : batch_index + 1],
-                sample["target"][batch_index : batch_index + 1],
-                sample_slice,
-                model,
-                boundary_policy=boundary_policy,
-                primary_objective=primary_objective,
-            )
-            losses.append(float(loss.detach().cpu()))
-            relative_errors.append(float(relative_l2.detach().cpu()))
-            all_relative_l2 = optional_region_relative_l2(
-                prediction[batch_index : batch_index + 1],
-                sample["target"][batch_index : batch_index + 1],
-                sample_slice,
-                sample_slice["node_mask"],
-                model,
-            )
-            if all_relative_l2 is None:
-                raise RuntimeError("a validation presentation has no valid nodes")
-            all_relative_errors.append(all_relative_l2)
-            normal_mask = batch_normal_mask[batch_index : batch_index + 1]
-            boundary_mask = batch_boundary_mask[batch_index : batch_index + 1]
-            normal_relative_l2 = optional_region_relative_l2(
-                prediction[batch_index : batch_index + 1],
-                sample["target"][batch_index : batch_index + 1],
-                sample_slice,
-                normal_mask,
-                model,
-            )
-            boundary_relative_l2 = optional_region_relative_l2(
-                prediction[batch_index : batch_index + 1],
-                sample["target"][batch_index : batch_index + 1],
-                sample_slice,
-                boundary_mask,
-                model,
-            )
-            if normal_relative_l2 is not None:
-                normal_relative_errors.append(normal_relative_l2)
-            if boundary_relative_l2 is not None:
-                boundary_relative_errors.append(boundary_relative_l2)
-            if boundary_policy is not None:
-                raw_all_relative_l2 = optional_region_relative_l2(
-                    raw_prediction[batch_index : batch_index + 1],
-                    sample["target"][batch_index : batch_index + 1],
-                    sample_slice,
-                    sample_slice["node_mask"],
-                    model,
-                )
-                raw_normal_relative_l2 = optional_region_relative_l2(
-                    raw_prediction[batch_index : batch_index + 1],
-                    sample["target"][batch_index : batch_index + 1],
-                    sample_slice,
-                    normal_mask,
-                    model,
-                )
-                raw_boundary_relative_l2 = optional_region_relative_l2(
-                    raw_prediction[batch_index : batch_index + 1],
-                    sample["target"][batch_index : batch_index + 1],
-                    sample_slice,
-                    boundary_mask,
-                    model,
-                )
-                if raw_all_relative_l2 is None:
-                    raise RuntimeError(
-                        "a validation presentation has no valid raw nodes"
-                    )
-                raw_all_relative_errors.append(raw_all_relative_l2)
-                if raw_normal_relative_l2 is not None:
-                    raw_normal_relative_errors.append(raw_normal_relative_l2)
-                if raw_boundary_relative_l2 is not None:
-                    raw_boundary_relative_errors.append(raw_boundary_relative_l2)
-        diagnostics = conservative_admissibility(prediction.float(), gamma=model.gamma)
-        per_sample_admissible = (
-            diagnostics["admissible"].reshape(prediction.shape[0], -1).all(dim=1)
-        )
-        admissible += int(per_sample_admissible.sum().cpu())
-    return {
-        "loss": float(np.mean(losses)),
-        "relative_l2": float(np.mean(relative_errors)),
-        "all_relative_l2": float(np.mean(all_relative_errors)),
-        "normal_relative_l2": (
-            None
-            if not normal_relative_errors
-            else float(np.mean(normal_relative_errors))
-        ),
-        "boundary_relative_l2": (
-            None
-            if not boundary_relative_errors
-            else float(np.mean(boundary_relative_errors))
-        ),
-        "raw_all_relative_l2": (
-            None
-            if not raw_all_relative_errors
-            else float(np.mean(raw_all_relative_errors))
-        ),
-        "raw_normal_relative_l2": (
-            None
-            if not raw_normal_relative_errors
-            else float(np.mean(raw_normal_relative_errors))
-        ),
-        "raw_boundary_relative_l2": (
-            None
-            if not raw_boundary_relative_errors
-            else float(np.mean(raw_boundary_relative_errors))
-        ),
-        "boundary_correction_rms": (
-            None
-            if not boundary_correction_rms
-            else float(np.mean(boundary_correction_rms))
-        ),
-        "outflow_normal_mach_min": (
-            None if not math.isfinite(outflow_mach_min) else outflow_mach_min
-        ),
-        "admissible_fraction": admissible / len(pairs),
-        "presentations": len(pairs),
-    }
-
-
-def finite_minimum(value: torch.Tensor) -> float | None:
-    finite = value[torch.isfinite(value)]
-    if finite.numel() == 0:
-        return None
-    return float(finite.min().cpu())
-
-
-def failure_cause(
-    prediction: torch.Tensor,
-    *,
-    gamma: float,
-) -> tuple[str | None, dict[str, float | None]]:
-    diagnostics = conservative_admissibility(prediction.float(), gamma=gamma)
-    finite = bool(diagnostics["finite_components"].all())
-    density = diagnostics["density"]
-    internal_energy = diagnostics["internal_energy"]
-    pressure = diagnostics["pressure"]
-    summary = {
-        "min_density": finite_minimum(density),
-        "min_internal_energy": finite_minimum(internal_energy),
-        "min_pressure": finite_minimum(pressure),
-    }
-    if (
-        not finite
-        or not bool(torch.isfinite(internal_energy).all())
-        or not bool(torch.isfinite(pressure).all())
-    ):
-        return "nonfinite_state", summary
-    if not bool((density > 0.0).all()):
-        return "nonpositive_density", summary
-    if not bool((internal_energy > 0.0).all()):
-        return "nonpositive_internal_energy", summary
-    if not bool((pressure > 0.0).all()):
-        return "nonpositive_pressure", summary
-    return None, summary
-
-
-@torch.no_grad()
-def rollout_trajectory(
-    model: PCNOEuler2DResidual,
-    store: PCNOEuler2DShardStore,
-    key: str,
-    *,
-    step_stride: int,
-    start_frame: int,
-    num_steps: int,
-    device: torch.device,
-    amp: str,
-    boundary_policy: Mapping[str, Any] | None = None,
-    rollout_checkpoints: Sequence[int] = (),
-) -> dict[str, Any]:
-    states = store.states(key)
-    available = (states.shape[0] - 1 - start_frame) // step_stride
-    requested = int(num_steps)
-    if available < requested:
-        raise ValueError(
-            f"trajectory {key} exposes only {available} calls from frame "
-            f"{start_frame} at stride {step_stride}; {requested} were requested"
-        )
-    sample = store.tensor_sample(
-        key, start_frame, step_stride=step_stride, device=device
-    )
-    current = sample["current"]
-    errors = []
-    normal_errors = []
-    boundary_errors = []
-    normal_mask = normal_node_mask(sample["node_type"], sample["node_mask"])
-    boundary_mask = sample["node_mask"] - normal_mask
-    minimums = {
-        "min_density": math.inf,
-        "min_internal_energy": math.inf,
-        "min_pressure": math.inf,
-    }
-    failure = None
-    endpoint_errors: dict[str, float] = {}
-    endpoint_normal_errors: dict[str, float] = {}
-    endpoint_boundary_errors: dict[str, float] = {}
-    maximum_boundary_correction_rms = 0.0
-    minimum_outflow_normal_mach = math.inf
-    model.eval()
-    for call_index in range(requested):
-        with autocast_context(device, amp):
-            proposal, raw_proposal, _ = contract_forward_sample(
-                model,
-                sample,
-                current,
-                boundary_policy=boundary_policy,
-            )
-        if boundary_policy is not None:
-            scale = model.state_scale.to(dtype=proposal.dtype, device=proposal.device)
-            correction = ((proposal - raw_proposal) / scale).square()
-            denominator = boundary_mask.sum() * 4.0
-            correction_rms = torch.sqrt(
-                (correction * boundary_mask).sum() / denominator.clamp_min(1.0)
-            )
-            maximum_boundary_correction_rms = max(
-                maximum_boundary_correction_rms,
-                float(correction_rms.detach().cpu()),
-            )
-        failure, current_minimums = failure_cause(proposal, gamma=model.gamma)
-        for name, value in current_minimums.items():
-            if value is not None:
-                minimums[name] = min(minimums[name], value)
-        if failure is not None:
-            break
-        if boundary_policy is not None:
-            outflow = boundary_outflow_normal_mach(proposal.float(), boundary_policy)
-            if outflow is None or not bool(torch.isfinite(outflow).all()):
-                failure = "nonfinite_outflow_normal_mach"
-                break
-            current_outflow = float(outflow.min().cpu())
-            minimum_outflow_normal_mach = min(
-                minimum_outflow_normal_mach, current_outflow
-            )
-            if current_outflow <= 1.0:
-                failure = "non_supersonic_outflow"
-                break
-        target_index = start_frame + (call_index + 1) * step_stride
-        target = torch.as_tensor(
-            np.array(states[target_index], copy=True),
-            dtype=torch.float32,
-            device=device,
-        ).unsqueeze(0)
-        relative_l2 = weighted_scaled_relative_l2(
-            proposal.float(),
-            target,
-            sample["node_weights"],
-            sample["node_mask"],
-            model.state_scale,
-        )
-        errors.append(float(relative_l2.cpu()))
-        normal_relative_l2 = optional_region_relative_l2(
-            proposal.float(), target, sample, normal_mask, model
-        )
-        boundary_relative_l2 = optional_region_relative_l2(
-            proposal.float(), target, sample, boundary_mask, model
-        )
-        if normal_relative_l2 is not None:
-            normal_errors.append(normal_relative_l2)
-        if boundary_relative_l2 is not None:
-            boundary_errors.append(boundary_relative_l2)
-        call_number = call_index + 1
-        if call_number in rollout_checkpoints:
-            endpoint_errors[str(call_number)] = errors[-1]
-            if normal_relative_l2 is not None:
-                endpoint_normal_errors[str(call_number)] = normal_relative_l2
-            if boundary_relative_l2 is not None:
-                endpoint_boundary_errors[str(call_number)] = boundary_relative_l2
-        current = proposal
-    valid_length = len(errors)
-    minimum_summary = {
-        name: None if not math.isfinite(value) else value
-        for name, value in minimums.items()
-    }
-    return {
-        "trajectory": key,
-        "requested_steps": requested,
-        "valid_length": valid_length,
-        "completed": valid_length == requested,
-        "failure_cause": "completed" if valid_length == requested else failure,
-        "survival_fraction": valid_length / requested,
-        "final_relative_l2": errors[-1] if errors else None,
-        "mean_prefix_relative_l2": float(np.mean(errors)) if errors else None,
-        "endpoint_relative_l2": endpoint_errors,
-        "final_normal_relative_l2": normal_errors[-1] if normal_errors else None,
-        "mean_prefix_normal_relative_l2": (
-            float(np.mean(normal_errors)) if normal_errors else None
-        ),
-        "endpoint_normal_relative_l2": endpoint_normal_errors,
-        "final_boundary_relative_l2": (
-            boundary_errors[-1] if boundary_errors else None
-        ),
-        "mean_prefix_boundary_relative_l2": (
-            float(np.mean(boundary_errors)) if boundary_errors else None
-        ),
-        "endpoint_boundary_relative_l2": endpoint_boundary_errors,
-        "maximum_boundary_correction_rms": (
-            maximum_boundary_correction_rms if boundary_policy is not None else None
-        ),
-        "minimum_outflow_normal_mach": (
-            None
-            if not math.isfinite(minimum_outflow_normal_mach)
-            else minimum_outflow_normal_mach
-        ),
-        **minimum_summary,
-    }
-
-
-@torch.no_grad()
-def evaluate_rollouts(
-    model: PCNOEuler2DResidual,
-    store: PCNOEuler2DShardStore,
-    keys: Sequence[str],
-    *,
-    step_stride: int,
-    start_frame: int,
-    num_steps: int,
-    device: torch.device,
-    amp: str,
-    boundary_policies: Mapping[str, Mapping[str, Any]] | None = None,
-    rollout_checkpoints: Sequence[int] = (),
-    parity_keys: Sequence[str] = (),
-    parity_horizon: int = 20,
-) -> dict[str, Any]:
-    rows = [
-        rollout_trajectory(
-            model,
-            store,
-            key,
-            step_stride=step_stride,
-            start_frame=start_frame,
-            num_steps=num_steps,
-            device=device,
-            amp=amp,
-            boundary_policy=resolve_boundary_policy(boundary_policies, key),
-            rollout_checkpoints=rollout_checkpoints,
-        )
-        for key in keys
-    ]
-    completed = [row for row in rows if row["completed"]]
-    all_completed = len(completed) == len(rows)
-    if all_completed:
-        selection_values = [float(row["final_relative_l2"]) for row in rows]
-        selection_population = "all_trajectories_completed_final"
-    else:
-        selection_values = [
-            float(row["mean_prefix_relative_l2"])
-            for row in rows
-            if row["mean_prefix_relative_l2"] is not None
-        ]
-        selection_population = "mixed_valid_prefix"
-    mean_error = None if not selection_values else float(np.mean(selection_values))
-
-    def mean_available(field: str) -> float | None:
-        values = [float(row[field]) for row in rows if row[field] is not None]
-        return None if not values else float(np.mean(values))
-
-    def aggregate_endpoints(
-        field: str,
-    ) -> tuple[dict[str, float | None], dict[str, int]]:
-        means: dict[str, float | None] = {}
-        counts: dict[str, int] = {}
-        for checkpoint in rollout_checkpoints:
-            values = [
-                row[field][str(checkpoint)]
-                for row in rows
-                if str(checkpoint) in row[field]
-            ]
-            counts[str(checkpoint)] = len(values)
-            means[str(checkpoint)] = None if not values else float(np.mean(values))
-        return means, counts
-
-    endpoint_means, endpoint_counts = aggregate_endpoints("endpoint_relative_l2")
-    normal_endpoint_means, normal_endpoint_counts = aggregate_endpoints(
-        "endpoint_normal_relative_l2"
-    )
-    boundary_endpoint_means, boundary_endpoint_counts = aggregate_endpoints(
-        "endpoint_boundary_relative_l2"
-    )
-    parity = None
-    if parity_keys:
-        row_by_key = {str(row["trajectory"]): row for row in rows}
-        missing = sorted(set(str(key) for key in parity_keys) - set(row_by_key))
-        if missing:
-            raise ValueError(f"parity cohort is absent from rollout rows: {missing}")
-        parity_rows = [row_by_key[str(key)] for key in parity_keys]
-        parity_values = [
-            float(row["endpoint_relative_l2"][str(parity_horizon)])
-            for row in parity_rows
-            if str(parity_horizon) in row["endpoint_relative_l2"]
-        ]
-        parity = {
-            "keys": [str(key) for key in parity_keys],
-            "horizon": int(parity_horizon),
-            "completed": len(parity_values),
-            "completion_rate": len(parity_values) / len(parity_rows),
-            "mean_relative_l2": (
-                None if not parity_values else float(np.mean(parity_values))
-            ),
-        }
-    return {
-        "trajectories": rows,
-        "num_trajectories": len(rows),
-        "completed": len(completed),
-        "completion_rate": len(completed) / len(rows),
-        "mean_survival_fraction": float(
-            np.mean([row["survival_fraction"] for row in rows])
-        ),
-        "mean_selection_relative_l2": mean_error,
-        "mean_final_normal_relative_l2": mean_available("final_normal_relative_l2"),
-        "mean_final_boundary_relative_l2": mean_available("final_boundary_relative_l2"),
-        "mean_endpoint_relative_l2": endpoint_means,
-        "endpoint_population_count": endpoint_counts,
-        "mean_endpoint_normal_relative_l2": normal_endpoint_means,
-        "normal_endpoint_population_count": normal_endpoint_counts,
-        "mean_endpoint_boundary_relative_l2": boundary_endpoint_means,
-        "boundary_endpoint_population_count": boundary_endpoint_counts,
-        "selection_population": selection_population,
-        "parity": parity,
-    }
-
-
 def selection_tuple(
     rollout: Mapping[str, Any],
     one_step: Mapping[str, float],
@@ -2464,21 +1651,6 @@ def clone_state_dict_cpu(model: torch.nn.Module) -> dict[str, torch.Tensor]:
     return {
         name: value.detach().cpu().clone() for name, value in model.state_dict().items()
     }
-
-
-def atomic_torch_save(payload: Mapping[str, Any], path: Path) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    torch.save(dict(payload), temporary)
-    os.replace(temporary, path)
-
-
-def write_json(path: Path, value: Mapping[str, Any]) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
 
 
 def checkpoint_payload(
@@ -3907,6 +3079,21 @@ def main(argv: Sequence[str] | None = None) -> None:
             "pcno_core": sha256_file(ROOT / "pcno/pcno.py"),
             "cpg_mesh_contract": sha256_file(
                 ROOT / "utility/time_dependent_no/cpg_mesh_contract.py"
+            ),
+            "pcno_artifacts": sha256_file(
+                ROOT / "utility/time_dependent_no/pcno_artifacts.py"
+            ),
+            "euler2d_metrics": sha256_file(
+                ROOT / "utility/time_dependent_no/euler2d_metrics.py"
+            ),
+            "pcno_runtime": sha256_file(
+                ROOT / "utility/time_dependent_no/pcno_runtime.py"
+            ),
+            "pcno_rollout": sha256_file(
+                ROOT / "utility/time_dependent_no/pcno_rollout.py"
+            ),
+            "pcno_ripple_diagnostics": sha256_file(
+                ROOT / "utility/time_dependent_no/pcno_ripple_diagnostics.py"
             ),
             "evaluator": sha256_file(
                 ROOT / "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py"

@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-07-28
+Updated: 2026-07-30
 
 This directory records the summer 2026 time-dependent neural-operator work on
 branch `time-dependent-no`.
@@ -31,7 +31,7 @@ geometry-aware neural operator.
 | --- | --- | --- | --- |
 | 1: large-step flow maps | Closed | On the frozen 1D Euler contracts, the useful stride is horizon- and metric-dependent: a harder one-call map can win after fewer recurrent compositions. | No universal optimal stride, learned CFL limit, timestep-conditioned solver, or native-grid transfer follows. |
 | 2: CPGNet validity and mechanism | Closed | In the corrected 1D study, message reach matters more than width alone; the learned interface coordinates are functional controls rather than verified physical traces. Legal-boundary training improves the release-bundle result without closing the oracle-boundary gap. | This is not a paper-table reproduction, an implicit scheme, a general learned solver, or proof of physical interface states or conservation. |
-| 3: geometry-aware 2D rollout | Boundary-information subline closed with conditional re-entry; no training active | Minimum-change projection improves D041 state/completion with a thickness caveat. Projected-teacher `K=2` improves state, but the attached arm fails and the output-splice diagnostic localizes the useful change primarily to interior output; no boundary objective or adapter passes the joint gate. | No selected new checkpoint or boundary method exists. Exact DG replay, characteristic/corner fluxes, conservation, seed robustness, cross-family transfer, and sealed performance remain unsupported. |
+| 3: geometry-aware 2D rollout | Boundary-information subline closed; K2D0 complete; K2T0 remains zero-step with no retry authorized | Minimum-change projection improves D041 state/completion with a thickness caveat. Full-scale attached K2 strongly improves retained B1 H79; K2D0 shows a better propagated error path, unchanged normal propagation gain, and no fresh smooth-high-pass cure. The first projected-teacher attempt lacked the option; the reviewed repair then stopped on a duplicated hash literal before staged tests. | No selected D041 replacement, boundary method, or full-scale projected-teacher result exists. Attached-gradient attribution, Jacobian causality, exact DG replay, conservation, seed robustness, cross-family transfer, and sealed performance remain unsupported. |
 | 4: latent forecasting and assimilation | Stopped before forecast training | The tested smooth and fixed-Haar representations isolate a decoder-capacity limitation; discontinuous regularity helps but does not pass the reconstruction and front hierarchy. | No latent transition, autonomous recurrence, geometry transfer, neural-operator, or data-assimilation claim was tested. |
 
 ## Authorized Work And Restart Boundary
@@ -83,6 +83,21 @@ H20 all/normal gain in boundary output, while the reverse retains
 subline is closed with conditional re-entry. No sweep, new/sealed split,
 smoothing, larger model, second seed, dynamic run, or data assimilation is
 authorized from these results.
+
+The later full-scale attached-K2 result and L3R-K2D0 replay are separate from
+that bounded D041 screen. K2D0 completes exact FP32 fresh/propagated identities
+for retained B1 and its attached continuation. H79 normal full-state error is
+about 97% propagated for both; attached total/propagated error improves roughly
+30%, while fresh defect improves only 2.43% and finite-amplitude normal gain is
+unchanged. Smooth high-pass improves through its propagated component while its
+fresh source is unchanged. K2T0 attempt 20260730a stopped before its first
+optimizer step because the frozen staged trainer lacked the requested projected-
+teacher CLI. A human-reviewed isolated repair then passed local focused tests,
+but its 20260730b launcher duplicated the tracker identity as a 62-character
+literal, omitting `ef`, and stopped before remote staged tests or training. Both
+records are zero-step implementation-provenance failures, not negative method
+results. Exact hashes and the minimum recovery are in the decision file and
+tracker; a new execution is not authorized.
 
 The report-only failure-mode decomposition is now recorded in the tracker. Its
 family-separated conclusion is that bump D041 has verified smooth graph-high-
@@ -236,6 +251,7 @@ Residual-PCNO and dynamic finite-volume support:
 - `utility/time_dependent_no/pcno_euler2d.py`
 - `utility/time_dependent_no/pcno_fv_geometry.py`
 - `utility/time_dependent_no/pcno_ripple_diagnostics.py`
+- `utility/time_dependent_no/pcno_resolution_transfer.py`
 - `utility/time_dependent_no/shock_vortex_fv.py`
 - `utility/time_dependent_no/shock_vortex_coarse_cfd.py`
 - `utility/time_dependent_no/shock_vortex_metrics.py`
@@ -275,14 +291,16 @@ Bump residual-PCNO preparation, evaluation, and frozen diagnostics:
 - `scripts/time_dependent_no/train_pcno_euler2d_residual.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_protocol.py`
+- `scripts/time_dependent_no/visualize_pcno_euler2d_boundary_protocol.py`
 - `scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_splice.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_boundary_objectives.py`
+- `scripts/time_dependent_no/decompose_pcno_euler2d_rollout_error.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_ripples.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_unchecked_rollout.py`
 - `scripts/time_dependent_no/diagnose_pcno_euler2d_spliced_unchecked_rollout.py`
 - `scripts/time_dependent_no/rollout_pcno_preprocessed.py`
 
-Dynamic shock-vortex reference, family, residual-PCNO, and coarse-CFD surfaces:
+Dynamic shock-vortex reference, family, residual-PCNO, resolution, and coarse-CFD surfaces:
 
 - `scripts/time_dependent_no/generate_euler2d_shock_vortex_reference.py`
 - `scripts/time_dependent_no/generate_euler2d_shock_vortex_pyro_reference.py`
@@ -290,8 +308,12 @@ Dynamic shock-vortex reference, family, residual-PCNO, and coarse-CFD surfaces:
 - `scripts/time_dependent_no/audit_euler2d_shock_vortex_convergence.py`
 - `scripts/time_dependent_no/build_euler2d_shock_vortex_family.py`
 - `scripts/time_dependent_no/generate_euler2d_shock_vortex_family_case.py`
+- `scripts/time_dependent_no/generate_pcno_shock_vortex_multires_reference.py`
 - `scripts/time_dependent_no/prepare_pcno_shock_vortex_shards.py`
 - `scripts/time_dependent_no/evaluate_pcno_shock_vortex_baseline.py`
+- `scripts/time_dependent_no/evaluate_pcno_resolution_transfer.py`
+- `scripts/time_dependent_no/evaluate_pcno_resolution_rollout.py`
+- `scripts/time_dependent_no/visualize_pcno_resolution_rollout.py`
 - `scripts/time_dependent_no/benchmark_pcno_shock_vortex_coarse_cfd.py`
 
 ### Tests
@@ -308,11 +330,14 @@ Active CPU and synthetic-fixture tests live under `tests/time_dependent_no/`:
 - Generic 2D/PCNO: `test_euler_fixture.py`, `test_euler_metrics.py`,
   `test_fv_impulse_diagnostics.py`, `test_pcno_euler2d_residual.py`,
   `test_pcno_fv_geometry.py`, `test_pcno_ripple_diagnostics.py`,
+  `test_pcno_rollout_error_decomposition.py`,
+  `test_visualize_pcno_euler2d_boundary_protocol.py`,
   `test_pcno_euler2d_boundary_splice.py`,
   `test_pcno_euler2d_multistep_training.py`,
   `test_pcno_euler2d_unchecked_rollout.py`, and
   `test_pcno_euler2d_spliced_unchecked_rollout.py`.
 - Dynamic shock-vortex: `test_pcno_shock_vortex_baseline.py`,
+  `test_pcno_resolution_transfer.py`, `test_visualize_pcno_resolution_rollout.py`,
   `test_shock_vortex_coarse_cfd.py`, `test_shock_vortex_family.py`,
   `test_shock_vortex_fv.py`, and `test_shock_vortex_sharpclaw_adapter.py`.
 

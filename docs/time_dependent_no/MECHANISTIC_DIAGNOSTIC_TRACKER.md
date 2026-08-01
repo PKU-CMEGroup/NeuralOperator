@@ -2,11 +2,12 @@
 
 Date: 2026-07-04
 Evidence frozen through: 2026-07-23
-Consolidated: 2026-07-29
+Consolidated: 2026-07-30
 Line 3 restart registered: 2026-07-26
 L3R-U0/U1 diagnostics authorized: 2026-07-27
 Boundary protocol evidence logged: 2026-07-29
-Status: Frozen evidence ledger plus Line 3 register; minimum-change validation audit and bounded pilots are closed without a serious new checkpoint
+Long-K2 interior attribution authorized: 2026-07-30
+Status: Frozen evidence ledger plus Line 3 register; boundary-information subline closed, K2D0 complete, and K2T0 remains zero-step after a repaired-preflight hash-literal stop; no retry authorized
 
 This file preserves the historical experiment contracts, results, and stopping
 decisions. Status words and forward-looking language inside dated entries record
@@ -51,6 +52,12 @@ matched continuation diagnostics completed; neither continuation passed, so no
 serious new checkpoint was launched. These artifacts receive no post-hoc L3R
 run ID and do not reopen or relabel the registered rows below.
 
+After the boundary closeout and the separate full-scale attached-K2 B1
+continuation were reviewed, the owner explicitly authorized L3R-K2D0 and one
+conditional L3R-K2T0 on 2026-07-30. These rows belong to general interior-PCNO
+attribution, not boundary-line re-entry. They retain B1's native causal `P_B`,
+the exact 270/30 validation contract, and the holdout/sealed prohibition.
+
 | Run ID | Milestone | Purpose | Population | Priority | Status |
 | --- | --- | --- | --- | --- | --- |
 | L3R-M0 | Restart preflight | Report semantics; checkpoint/source/configuration/data/environment/evaluator provenance; retrieve compact missing sidecars and hashes | Existing local artifacts plus authorized read-only AutoDL provenance; no checkpoint execution, training, or new/sealed split read | MUST | DONE / CLOSED AFTER AUTHORIZED READ-ONLY RETRIEVAL; RESIDUAL COLLABORATOR/SOURCE GAPS DECLARED |
@@ -70,10 +77,119 @@ run ID and do not reopen or relabel the registered rows below.
 | L3R-RB0 | Raw all-node continuation | Train one exact-D041 continuation on raw all-node reference targets while preserving causal hard closure for inference and recurrence; compare with retained BG0 control | Existing bump 270/30 train/validation only; holdout remains closed | MUST IF RB0P PASSES | DONE / CLOSED; RAW BOUNDARY AND H20 IMPROVED, BUT H79 STATE/NORMAL AND FRONT/HIGH-PASS GATES FAILED; NOT SELECTED |
 | L3R-RA0P | Gradient-normalized raw-boundary auxiliary preflight | Add one raw-boundary-only reference auxiliary to the unchanged deployed normal-node primary; reproduce the exact coefficient and pass default-path, identity, legality, gradient, and BF16 memory gates | Existing bump train/validation only; no holdout or sealed population | MUST | FAILED / CLOSED; REPEATED BF16 RATIO MISSED THE FROZEN RELATIVE TOLERANCE; SMOKE NOT RUN |
 | L3R-RA0 | Weak raw-boundary auxiliary continuation | Train one exact-D041 continuation with `normal_closed + 0.0018733749 * raw_boundary_reference`, causal recurrence, and retained BG0 control comparison | Existing bump 270/30 train/validation only; holdout remains closed | MUST IF RA0P PASSES | NOT LAUNCHED; STOPPED BY RA0P |
+| L3R-K2D0 | Exact fresh/propagated replay | FP32 same-process additive error decomposition for exact B1 epoch 22 and its full-scale attached-K2 selected continuation, including normal/smooth/front/high-pass support and causal-policy identities | Exact shared 30-trajectory bump validation population, calls 1--79; no holdout or sealed data | MUST | DONE / CLOSED; 4,740 ROWS AND EVERY REGISTERED CONTRACT GATE PASS |
+| L3R-K2T0 | Matched projected-teacher control | Eight full-coverage passes from the exact B1 parent with calls, targets, coefficients, optimizer steps, seed, selection, and validation exposure matched to the completed attached-K2 row; only call-2 input differs | Bump 270/30 train/validation only; no holdout or sealed population | MUST IF K2D0 CONTRACT PASSES | ZERO-STEP 20260730A ARGUMENT FAILURE AND ZERO-STEP 20260730B PREFLIGHT HASH-LITERAL FAILURE PRESERVED; NO PROJECTED-TEACHER RESULT AND NO RETRY AUTHORIZED |
 | L3R-MR0 | Primary dynamic method | One shared stride-conditioned PCNO trained on stride-1 and stride-2 transitions | Dynamic 84/24 train/position-OOD-validation split; strength OOD and test sealed | DEFERRED | NOT AUTHORIZED; A LATER HUMAN REVIEW FOLLOWS B1 |
 | L3R-MR1 | Confirmation | Three independent seeds of the frozen L3R-MR0 contract | Same dynamic train/position-OOD-validation split | MUST IF MR0 PASSES | BLOCKED ON L3R-MR0 |
 | L3R-L0 | Conditional method | Jointly trained D055-sensor-gated local residual branch versus a matched ungated branch | Dynamic train/position-OOD validation only | CONDITIONAL | NOT AUTHORIZED; REQUIRES SPECIFIC MR0 FAILURE AND NEW REVIEW |
 | L3R-F0 | Sealed evaluation | One-time evaluation of a frozen seed-confirmed method | Dynamic strength-OOD and test | CONDITIONAL | SEALED; NOT AUTHORIZED |
+
+## 2026-07-30 L3R-K2D0 Result And K2T0 Execution Stop
+
+Status: **K2D0 DONE/CLOSED; K2T0 ZERO-STEP EXECUTION FAILURE**.
+
+Both exact maps completed the registered FP32 `30*79` validation replay under
+their native causal `P_B`. Each emits 2,370 rows; every rollout is finite,
+admissible, and complete; all policy/source/data/population checks pass; call-1
+propagation is exactly zero; and maximum identity residual is below
+`8.86e-16`. Parent/attached summary hashes are
+`197aafb39fed4cb0895c3f9fc46e1b1e6eeaf76bec08dc829b8d3d0d5846f619`
+and
+`f937f5c0230be0f2320abbb1c374ac5a89d5381c46f1c6595d6ea9ece96e09d5`;
+row-ledger hashes are
+`a8824858f824ddbb2562b03bbbe5a4daa0dec415a3f981f157e25361a77c6e6a`
+and
+`21e0af438abb0e8c920810a61ab5b77a0b6e82c45f725b6a43df7b0446ef92b3`.
+The reconstructed vertex-lumped weights remain diagnostic proxies.
+
+At H79, attached versus parent normal-node total/fresh/propagated scaled norms
+are `0.112972/0.021204/0.110911` versus
+`0.160892/0.021732/0.158322`: relative changes
+`-29.78%/-2.43%/-29.95%`. Propagated energy is `96.58%/96.96%` for
+attached/parent. Incoming normal error is about 30% lower, but H79
+finite-amplitude propagation gain is `1.00154/0.998322` and calls-2--79 mean is
+`0.967927/0.967288`; the selected map is not demonstrably more contractive in
+this metric. Fresh normal defect is nevertheless lower at 78/79 calls, allowing
+small per-step changes to compound into the better path.
+
+At H79, attached smooth high-pass total/fresh/propagated norms change
+`-6.91%/-0.08%/-10.34%`. Across all calls, total/propagated improve
+`8.58%/12.17%`, while fresh worsens `0.20%` and wins only 24/79 call means.
+Attached H79 propagated/fresh/cross energy shares are
+`59.90%/45.04%/-4.93%`. The bump high-pass result is therefore mixed and
+recurrence-path dominated; it must not be substituted for dynamic D053b's
+mostly-fresh smooth-high-pass conclusion.
+
+H79 total error improves `30.18%` in the reference-smooth region and `29.28%`
+on front support but only `6.31%` on boundary nodes. Across all calls boundary
+error is `0.88%` worse. This agrees with the frozen output-splice evidence that
+the main gain is interior. K2D0 all-node state/high-pass changes
+`-26.99%/-6.91%` agree closely with the independent evaluator's
+`-27.23%/-6.87%`.
+
+The K2T0 process then exited in argument parsing. Its launcher required frozen
+trainer hash
+`8373671920d98adff35aa0394948d0e633c79616af82ae22fb8f07e7de6bc0b1`,
+which implements attached K2 only, and invoked absent option
+`--multistep-recurrent-input projected_teacher`. Failure-log SHA-256 is
+`934a21d73f6530d44c95df6ea1dae6fcedb85ae8cdcbb213e1c3b24a8282b6f0`.
+No training directory, sample presentation, optimizer step, checkpoint, or
+post-evaluation exists. This is source-staging/harness evidence, not a negative
+projected-teacher result.
+
+The full-scale attached-gradient attribution remains open. The minimum repair,
+if human-reviewed, is an exact frozen-base isolated source plus only the
+projected-teacher switch and provenance tests, with new hashes and exact staged-
+source CPU validation before the unchanged control budget. Current trainer
+changes may not be copied wholesale, and no holdout or sealed population opens.
+The complete endpoint tables, paired case-bootstrap intervals, alternatives,
+and claim boundaries are retained in ignored artifact
+`l3r_k2_attribution_20260730a/ANALYSIS.md`.
+
+## 2026-07-30 L3R-K2T0 Repaired Preflight Stop
+
+Status: **ZERO TRAINING / HARNESS FAILURE; NO RETRY AUTHORIZED**.
+
+**Verified evidence.** The human-reviewed isolated repair reconstructs the exact
+attached source, changes only the trainer and focused multistep test, and has
+repaired trainer SHA-256
+`87c4418591bb5ce033f027e81cef33336c138f98fff7ad7fce6dab7aaf893641`
+and seven-file source-set digest
+`65332ec10e9cc9398503cf18c230e540ca2e5a8a2335a9cfe865c58ef691533c`.
+The exact local staged source passed 40/40 focused CPU tests. Remote parent,
+data, K2D0, environment, storage, staged-bundle hashes, and Bash syntax passed.
+The executed launcher SHA-256 is
+`1321ea6044bc45e145cff1371d6795e9a16ee769a6f12b594fd41c47b8f23d61`.
+
+The process exited 125 during source identity preflight, before staged tests, the
+GPU queue, or training. Archived and extracted tracker SHA-256 is
+`4855f7f0e6d4e00b9aa59188fbef8c28fbecb84fe8a46c5d604ead677a7234ed`,
+whereas the duplicated expected literal is the 62-character
+`4855f7f0e6d4e00b9aa59188fb8c28fbecb84fe8a46c5d604ead677a7234ed`,
+which omits `ef`. Comparing all 17 duplicated launcher identities to their
+authoritative manifest/input values found this as the only mismatch. No staged-
+test log, training directory, sample presentation, optimizer step, checkpoint,
+or post-evaluation exists.
+
+**Plausible mechanism or inference.** This is a manual hash-transcription error
+in the launcher, not evidence of a source, data, environment, optimizer, or
+projected-teacher defect.
+
+**Missing evidence.** The registered projected-teacher map has not been trained
+or evaluated at full scale; the attached-gradient attribution remains open.
+
+**Alternative explanation.** Archive corruption or remote mutation is not
+supported: local archive streaming and remote extracted-file hashes agree, and
+the exhaustive identity audit isolates only the short expected literal.
+
+**Claim implication.** The stop strengthens harness-provenance discipline only.
+It supplies no model comparison and cannot change any K2D0 scientific claim.
+
+**Minimum decisive next experiment.** A new unique execution requires explicit
+human authorization for the one-line literal correction and a complete
+launcher-constant-versus-manifest/input assertion before staging. Scientific
+source, data, budget, evaluator, and the registered one-variable contract must
+remain unchanged.
 
 ## 2026-07-28 L3R-B1 Serious Baseline Result
 

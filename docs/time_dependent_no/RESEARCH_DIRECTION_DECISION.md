@@ -1,6 +1,6 @@
 # Research Direction Decision: Frozen Evidence And Line 3 Restart
 
-Updated: 2026-07-28
+Updated: 2026-07-30
 Status: Accepted normative source
 
 ## Authority And Change Protocol
@@ -134,13 +134,221 @@ closure boundary metric is 10.48 times the raw-D041 value and the resulting
 all-node gate fails. B1 is done/closed as a replacement miss, while its
 interior/short-horizon gain remains valid descriptive evidence.
 
+## Line 3 Long-K2 Interior Attribution Amendment (2026-07-30)
+
+After reviewing the full-scale attached-recurrence result and the completed
+boundary-information closeout, the owner explicitly authorized one
+validation-only error-source replay, L3R-K2D0, followed by one matched
+projected-teacher control, L3R-K2T0, if the replay identities and provenance
+gates pass. This is general interior-PCNO attribution, not boundary-line
+re-entry. The boundary closeout remains binding: hard causal closure is the
+deployment invariant, tested boundary losses/adapters remain rejected, and no
+holdout or sealed population is opened.
+
+The frozen attached result is run `l3r_k2_b1_cont_20260729b`. It starts from
+retained B1 epoch 22, SHA-256
+`221d12c3cd5f3df65546bb02537354fce334b481ab36478e7ff9f35f8e4323dc`,
+and selects epoch 1, SHA-256
+`830f81c4ff8cfb4a09b44919201a7dc64f0acd13341712e0c28469fff914e0b9`.
+The training-data manifest SHA-256 is
+`5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`;
+the recoverable seven-file training-source digest is
+`048d2ce2ed0dfb75fdbe5bf26710f4213ad175f7878206c1a9f67ef622047eaf`.
+Its isolated source has no `.git` metadata, so Git identity is `unknown`; the
+retained base archive, overlays, launcher, per-file source manifest, and hashes
+are the recovery contract. This is weaker than a clean-commit-only identity and
+must not be relabeled.
+
+The attached run completed eight full-coverage passes before its wall guard:
+`170,640` one-step anchors, `168,480` valid second-step comparisons, `339,120`
+learned calls, and `43,200` optimizer steps. On the exact 30-trajectory
+validation population, its selected checkpoint improves FP32 H20/H40/H60/H79
+state error over the exact B1 parent by
+`7.42%/13.70%/21.33%/27.23%`, with `30/30` completion for both. At H79 it also
+improves smooth high-pass RMS, front IoU, symmetric Chamfer, and mean shock
+thickness/strength error, but H20 thickness and strength worsen and the H79
+front-centroid result is case-heterogeneous. The gain is absent at the first
+call, begins at call 7, and grows with recurrent depth. This supports a
+recurrence-aware mechanism as an inference, not an attribution: extra calls,
+extra targets, fresh AdamW, continuation, and validation-H79 selection are
+still bundled.
+
+### Authorized K2 attribution rows
+
+| Run ID | Frozen purpose and contract | Status |
+| --- | --- | --- |
+| L3R-K2D0 | Replay the exact B1 parent and attached-K2 selected checkpoint in FP32 on only their identical 30 validation trajectories and calls 1--79 under checkpoint-native `P_B`. At each call record the exact identity `G(uhat_t)-u_(t+1)=[G(uhat_t)-G(u_t)]+[G(u_t)-u_(t+1)]`, cross energy/cosine, normal/smooth/front support, linear graph-high-pass terms, incoming-error gains, admissibility, and policy/source/data identities. Require all `2*30*79` rows, call-1 zero propagation, relative full/high-pass identity residual at most `1e-6`, exact policy digests, and no smooth-mask fallback. Reconstructed bump weights remain diagnostic proxies. | **DONE / CLOSED 2026-07-30; ALL CONTRACT GATES PASSED** |
+| L3R-K2T0 | If every K2D0 contract gate passes, start from the same B1 bytes and run exactly eight projected-teacher K=2 full-coverage passes. Match the attached row's source, 270/30 split, time blocks, targets, normalized coefficients, `170,640` anchors, `168,480` future comparisons, `339,120` calls, `43,200` steps, architecture, seed, fresh AdamW at constant `2e-4`, BF16, effective batch 4, validation exposure, and checkpoint-selection rule. The sole causal difference is that call 2 consumes legal `P_B(U_(t+1))` instead of attached `P_B(G(P_B(U_t)))`. | **20260730B REPAIRED PREFLIGHT STOPPED BEFORE STAGED TESTS; DUPLICATED TRACKER HASH OMITTED TWO HEX CHARACTERS; ZERO TRAINING; NO RELAUNCH AUTHORIZED** |
+
+`P_B` is deliberately retained for both rows. Switching to the later `P_B^*`
+would change the learned map and violate the one-variable comparison; B1 is
+also not post-hoc compatible with `P_B^*`. K2T0 adds no boundary auxiliary,
+noise, smoothing, filtering, clipping, limiter, capacity, split, or new
+population. Stop without retry for a parent/source/data/policy/stream mismatch,
+nonfinite loss/gradient/state, inadmissibility during registered validation,
+OOM, or the 23-hour wall guard.
+
+The primary selector is all-30 FP32 H79 all- and normal-node state error, with
+completion and positive density/internal-energy/pressure margins required.
+H20/H40/H60 state, one-step defect, the six boundary channels, H20
+thickness/strength, and H79 smooth high-pass, front IoU, centroid, Chamfer,
+thickness, and strength are mandatory anti-smearing/no-harm fields. Attached
+recurrence receives mechanism support only if both H79 state ratios versus
+K2T0 are at most `0.90` and no registered H79 structural error ratio exceeds
+`1.05` (IoU must be at least `0.95`); this would still be one-seed,
+validation-selected evidence. Projected-teacher dense supervision is sufficient
+to explain the gain if both of its H79 state ratios versus the attached row are
+at most `1.05` with the same structural envelope. A projected-teacher win
+rejects the attached-gradient explanation at this scale. Any other conjunction
+is mixed/inconclusive. No outcome establishes Jacobian causality, physical
+conservation, D041 replacement, repeat-seed robustness, holdout/sealed
+performance, or cross-family transfer.
+
+### L3R-K2D0 result and L3R-K2T0 execution failure
+
+**Verified evidence.** Both K2D0 summaries close every prospective gate on the
+exact 30 validation trajectories and calls 1--79: `2,370` rows per map,
+30/30 completed finite and admissible rollouts, exact checkpoint-native policy
+digests, zero call-1 propagation, no test keys or smooth-mask fallback, and
+maximum relative vector/high-pass identity residual below `8.86e-16`. Parent
+and attached summary SHA-256 values are respectively
+`197aafb39fed4cb0895c3f9fc46e1b1e6eeaf76bec08dc829b8d3d0d5846f619`
+and
+`f937f5c0230be0f2320abbb1c374ac5a89d5381c46f1c6595d6ea9ece96e09d5`;
+their row-ledger hashes are
+`a8824858f824ddbb2562b03bbbe5a4daa0dec415a3f981f157e25361a77c6e6a`
+and
+`21e0af438abb0e8c920810a61ab5b77a0b6e82c45f725b6a43df7b0446ef92b3`.
+The node measure remains a reconstructed bump proxy, not a physical control
+volume.
+
+At H79, attached versus parent normal-node scaled full-state error changes from
+`0.160892` to `0.112972` (`-29.78%`), while the propagated term changes from
+`0.158322` to `0.110911` (`-29.95%`) and fresh teacher-forced defect changes
+only from `0.021732` to `0.021204` (`-2.43%`). Propagated energy contributes
+`96.96%/96.58%` of parent/attached H79 normal-state error. The incoming normal
+error is already about 30% smaller, whereas the finite-amplitude propagation
+gain is essentially unchanged (`0.998322/1.00154` at H79 and
+`0.967288/0.967927` averaged over calls 2--79). The attached fresh normal
+defect is nevertheless lower at 78/79 call indices, so small systematic source
+changes may compound into the better recurrent path.
+
+Bump smooth graph-high-pass is a different mixture. At H79 its total changes
+`0.026235 -> 0.024423` (`-6.91%`), its propagated term changes
+`0.020580 -> 0.018453` (`-10.34%`), and its fresh defect is unchanged
+(`-0.08%`). Across all calls, total and propagated high-pass improve
+`8.58%/12.17%`, while fresh high-pass worsens `0.20%` and wins only 24/79
+call-index means. H79 propagated/fresh/cross energy fractions are
+`63.74%/39.05%/-2.79%` for the parent and
+`59.90%/45.04%/-4.93%` for the attached map. This bump evidence therefore does
+not inherit the dynamic-family D053b conclusion that smooth high-pass is mostly
+fresh. It also does not show that attached K2 cured a one-step ripple source.
+
+Spatially, the H79 attached reduction is `30.18%` in reference-smooth full
+state and `29.28%` on front support, but only `6.31%` on boundary nodes.
+Across all calls the boundary total is `0.88%` worse and becomes persistently
+better only at call 73. This agrees with the frozen boundary-splice result that
+the useful change is primarily interior rather than a better boundary proposal.
+The independent FP32 evaluator's H79 state/high-pass changes
+(`-27.23%/-6.87%`) closely reproduce K2D0's all-node/high-pass changes
+(`-26.99%/-6.91%`), while the registered H20 shape and H79 centroid caveats
+remain.
+
+L3R-K2T0 then stopped in argument parsing before creating a training directory:
+the launcher required frozen trainer SHA-256
+`8373671920d98adff35aa0394948d0e633c79616af82ae22fb8f07e7de6bc0b1`,
+whose parser implements attached K2 only, and invoked its absent
+`--multistep-recurrent-input projected_teacher` option. The failure-log hash is
+`934a21d73f6530d44c95df6ea1dae6fcedb85ae8cdcbb213e1c3b24a8282b6f0`.
+No optimizer step, sample presentation, checkpoint, or FP32 control evaluation
+exists. This is an execution-harness/source-snapshot incompatibility, not a
+negative projected-teacher result.
+
+**Plausible mechanism or inference.** The attached checkpoint follows a much
+better recurrent error path without a lower normal-state finite-amplitude gain.
+Its small, time-consistent teacher-defect reductions and mildly lower high-pass
+gain may keep the incoming error smaller, after which essentially the same
+normal-state response transmits it. This is consistent with compounding
+defect-direction/path shaping, not proof of a more contractive Jacobian.
+
+**Missing evidence.** The full-scale projected-teacher control is absent, so
+attached-gradient credit remains confounded with extra target comparisons,
+fresh AdamW continuation, and H79 validation selection. The gain ratios use
+each checkpoint's own incoming perturbation, not one common Jacobian-vector
+probe. Seed confirmation, D041 replacement, holdout/sealed evaluation,
+physical bump conservation, and cross-family transfer remain absent.
+
+**Alternative explanation.** Call-matched projected-teacher dense supervision
+may equal or outperform the attached row, as it did in the earlier bounded
+D041 screen; that screen uses a different parent and scale and cannot answer
+the full-scale question. Fresh optimization and checkpoint selection may also
+explain part of the gain.
+
+**Claim implication.** L3R-K2D0 closes the fresh/propagated reporting gap and
+supports a recurrence-path improvement, but not the stronger statement that
+attached gradients are the missing recipe or that the map became globally more
+contractive. L3R-K2T0 supplies no method evidence and its registered selector
+cannot be evaluated.
+
+**Minimum decisive next experiment.** If this attribution remains worth one
+run, a human-reviewed repair must derive an isolated control source from the
+exact attached snapshot, apply only the projected-teacher recurrent-input
+switch and provenance fields/tests, bind the new source hashes, and run those
+tests against the exact staged source before spending the unchanged registered
+K2T0 budget. Do not copy the current trainer wholesale or relabel the failed
+zero-step process as the control.
+
+**Human-reviewed repair authorization (2026-07-30).** The owner explicitly
+authorized one repaired execution after reviewing the zero-step source-staging
+failure. The isolated source was reconstructed from the three retained attached
+archives and first reproduced attached source-set digest
+`048d2ce2ed0dfb75fdbe5bf26710f4213ad175f7878206c1a9f67ef622047eaf`.
+Only the frozen trainer and focused multistep test were changed: the repair adds
+the attached/projected-teacher recurrent-input switch, call-matched projected
+teacher routing, K=1 validation, explicit recurrent-input/gradient/reference-use
+provenance, and focused routing/gradient tests. It does not import the maintained
+trainer's fixed-horizon or node-type changes.
+
+The repaired trainer SHA-256 is
+`87c4418591bb5ce033f027e81cef33336c138f98fff7ad7fce6dab7aaf893641`,
+the focused test SHA-256 is
+`29c5ac7ce2fbc7e1b3ec9011e76842a7510f2da2d2cbb281975cda7a9d5ee376`,
+and the seven-file source-set digest is
+`65332ec10e9cc9398503cf18c230e540ca2e5a8a2335a9cfe865c58ef691533c`.
+The exact isolated source passes 40/40 focused CPU tests. One AutoDL execution
+attempt may proceed only after the same exact staged bytes repeat those tests
+and all parent/data/K2D0/environment gates pass. The failed 20260730a process
+remains a separate zero-step record; no holdout or sealed population opens.
+
+**Repaired execution outcome (2026-07-30).** The exact staged archive and its
+remote SHA-256 matched the reviewed bundle; parent, data, K2D0, environment,
+storage, and Bash-syntax checks also passed. Launcher SHA-256
+`1321ea6044bc45e145cff1371d6795e9a16ee769a6f12b594fd41c47b8f23d61`
+then stopped with exit 125 during source identity preflight, before staged CPU
+tests, the GPU queue, or training. The archived and extracted tracker both have
+SHA-256
+`4855f7f0e6d4e00b9aa59188fbef8c28fbecb84fe8a46c5d604ead677a7234ed`,
+but the launcher's duplicated 62-character expected literal was
+`4855f7f0e6d4e00b9aa59188fb8c28fbecb84fe8a46c5d604ead677a7234ed`,
+omitting `ef`. An exhaustive comparison of all 17 duplicated launcher identity
+constants against their authoritative manifest/input values found this as the
+only mismatch. There is no staged-test log, training directory, sample
+presentation, optimizer step, checkpoint, or post-evaluation from 20260730b.
+This supplies harness/provenance evidence only and no K2T0 method result.
+
+A further execution is not automatically authorized. The minimum recovery for
+human review is the one-line expected-tracker correction in a new unique attempt,
+plus a complete launcher-constant-versus-manifest/input assertion before staging
+and a new launcher hash. The scientific source, data, budget, evaluator, and
+registered one-variable contract must remain unchanged.
+
 ## Four-Line Status
 
 | Line | Status | Frozen conclusion | Non-claim |
 | --- | --- | --- | --- |
 | 1: large-step flow maps | Closed | Under the frozen 1D contracts, the useful stride depends on horizon and metric: a harder one-call map can win after fewer recurrent compositions. | No universal optimal stride, learned CFL limit, timestep-conditioned solver, ripple cure, or native-grid transfer follows. |
 | 2: CPGNet validity and mechanism | Closed | Corrected 1D controls support message reach rather than width alone; interface coordinates act as functional controls rather than verified physical traces. Legal-boundary training helps without closing the oracle-boundary gap. | No paper-faithful reproduction, implicit scheme, physical-interface, conservation, or PCNO-transfer claim follows. |
-| 3: geometry-aware 2D rollout | Boundary-information subline closed with conditional re-entry; no training row active | Minimum-change projection improves D041 state/completion with a thickness caveat. The projected-teacher control improves state, but its gain localizes primarily to interior output and no boundary objective or adapter passes the joint state/structure gate. | No selected new checkpoint or boundary method exists. Exact DG replay, characteristic/corner fluxes, conservation, seed robustness, cross-family transfer, holdout, and sealed performance remain unsupported. |
+| 3: geometry-aware 2D rollout | Boundary-information subline closed; K2D0 closed; repaired K2T0 preflight stopped and no retry is authorized | Minimum-change projection remains a deployment result with a thickness caveat. Full-scale attached K2 strongly improves B1 long rollout; K2D0 shows the H79 state gain is almost entirely a smaller propagated term on an already-better incoming-error path, while fresh smooth high-pass is unchanged. The exact repaired scientific source passes local tests, but its launcher duplicated one tracker hash incorrectly and stopped before staged tests or training. | No selected D041 replacement, boundary method, or full-scale projected-teacher result exists. Attached-gradient attribution remains open; Jacobian causality, exact DG replay, conservation, seed robustness, cross-family transfer, holdout, and sealed performance remain unsupported. |
 | 4: latent forecasting and assimilation | Stopped before forecast training | Smooth-decoder and fixed-Haar capacity tests isolate a representation-capacity limitation; discontinuous regularity helps but still misses the reconstruction/front hierarchy. | No latent transition, autonomous recurrence, geometry transfer, neural-operator, or data-assimilation claim was tested. |
 
 ## Line 3 Serious Bump Baseline Amendment (2026-07-27)

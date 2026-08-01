@@ -1,6 +1,6 @@
 # Handoff
 
-Updated: 2026-07-29
+Updated: 2026-07-30
 
 This page is a concise operational snapshot derived from
 [`RESEARCH_DIRECTION_DECISION.md`](RESEARCH_DIRECTION_DECISION.md). The decision
@@ -77,13 +77,35 @@ pilots, dense deployed-degree supervision and a matched normal-only control,
 both sharply regress H20. No serious checkpoint was launched and no test,
 holdout, or sealed population was opened.
 
+The boundary-information subline is now closed with conditional re-entry. Its
+output-splice diagnostic shows that only `18.81%/17.20%` of the projected-
+teacher H20 all/normal gain follows the boundary proposal, while the reverse
+interior splice retains `136.82%/137.45%`; both fail shock-shape gates. The
+owner subsequently authorized general-PCNO K2 attribution on 2026-07-30. The
+full-scale attached-K2 continuation from exact B1 epoch 22 improves FP32 H79
+validation state error `27.23%` with 30/30 completion and a broadly favorable
+H79 front/high-pass hierarchy. L3R-K2D0 now closes every contract gate. At H79,
+normal-state total and propagated error improve `29.78%/29.95%`, fresh defect
+improves only `2.43%`, and finite-amplitude normal propagation gain is unchanged;
+the map follows a better incoming-error path rather than a verified more-
+contractive map. Smooth high-pass improves `6.91%` through its propagated term,
+while fresh high-pass is unchanged. The principal gain is interior/front, not
+boundary-local. L3R-K2T0 attempt 20260730a stopped in argument parsing before
+training because the staged frozen trainer lacked the registered projected-
+teacher option. It has zero sample presentations, no checkpoint, and no method
+result. A human-reviewed isolated repair then passed 40/40 local focused tests,
+but its 20260730b launcher duplicated a 62-character expected tracker hash,
+omitting `ef`, and stopped during remote source preflight before staged tests or
+training. Both records remain zero-step harness failures. No retry is authorized,
+and no holdout or sealed population was opened.
+
 ## Four-Line Status
 
 | Line | Operational status | Frozen conclusion |
 | --- | --- | --- |
 | 1: large-step flow maps | Closed | On the frozen 1D Euler study, direct larger-step maps trade harder one-call approximation against fewer recurrent compositions. The preferred stride changes with horizon and metric. This is not a universal stride, CFL, timestep-transfer, or resolution-transfer result. |
 | 2: CPGNet validity and mechanism | Closed | Corrected 1D controls support message reach rather than width alone as the main gain. The 2D release-bundle legal-boundary run improves all four primitive variables on 19/20 trajectories, but remains roughly `1.6--2.4x` worse than the oracle-boundary row. Dataset/checkpoint/evaluator parity with the paper remains unresolved, and the result is one seed without a validation or grouped geometry holdout. |
-| 3: geometry-aware 2D rollout | Boundary-information subline closed with conditional re-entry; no training row active | D041 plus minimum-change hard projection improves H20, H79 completion, and common-survivor state error, but fails the H79 thickness no-harm envelope and worsens corrected reference trace. `K=2` teacher forcing improves state, but output splicing localizes that gain primarily to the interior and no boundary method passes the joint gate. |
+| 3: geometry-aware 2D rollout | Boundary-information subline closed; K2D0 closed; K2T0 remains zero-step and no retry is authorized | D041 plus minimum-change projection retains its thickness caveat. Full-scale attached K2 improves B1 H79; K2D0 attributes the endpoint state gain primarily to a smaller propagated term on a better incoming-error path and finds no fresh smooth-high-pass cure. Both projected-teacher execution records are harness failures, so the matched control has no result and attached-gradient attribution remains open. |
 | 4: latent forecasting and assimilation | Stopped before forecast training | Smooth-decoder and fixed-Haar capacity tests do not pass the reconstruction/front hierarchy, even though discontinuous regularity helps. No latent transition, recurrent forecast, geometry-transfer, test, or filtering result exists. |
 
 ## Current Authorization
@@ -91,10 +113,16 @@ holdout, or sealed population was opened.
 The frozen-artifact report queue remains authorized. L3R-B0P is spent and B0 was
 not launched. B1P passed; B1 is now done/closed without an eligible checkpoint.
 BC0P, BG0P/BG0, RB0P/RB0, and RA0P are also spent and closed; BC0 and RA0 were
-not launched. No retry, continuation, changed tolerance, allocator, coefficient,
-batch, environment, host, second seed, learned boundary module, or other
-training change follows without a new human-reviewed contract. Every training
-row is currently closed. The queue may:
+not launched. The boundary-information line remains closed and L3R-K2D0 is
+complete. L3R-K2T0 has a zero-step 20260730a argument failure and a zero-step
+20260730b source-identity preflight failure; neither supplies a control result.
+The human-reviewed isolated scientific source passes local tests, but no retry
+is authorized. Minimum recovery requires human review of the one-line expected-
+tracker correction, a complete launcher-constant-versus-manifest/input audit,
+a new unique attempt, and a new launcher hash. No other retry, continuation,
+changed tolerance, allocator, coefficient, batch, environment, host, second
+seed, learned boundary module, or training change is authorized. The report
+queue may:
 
 - compare D044 and D060 state, high-pass, front, and geometry-stratum curves;
 - show D053 propagated-versus-fresh shares beside the D052 branch

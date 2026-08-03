@@ -1,8 +1,17 @@
+from unittest.mock import patch
+
 import numpy as np
 import torch
 from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights, compute_triangle_area_
-from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list, sample_close_node_pairs
-from pcno.pcno import compute_gradient, compute_Fourier_modes, compute_Fourier_bases
+from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list
+from pcno.pcno import (
+    PCNO,
+    _compute_Fourier_bases_and_weights,
+    compute_flat_edge_indices,
+    compute_gradient,
+    compute_neighbor_degree,
+    graph_neighbor_average,
+)
 #####################################################################
 # PCNO CODE TESTS
 #####################################################################
@@ -72,6 +81,275 @@ def test_compute_gradient_matches_materialized_forward_and_backward() -> None:
     torch.testing.assert_close(
         actual_weights.grad, reference_weights.grad, rtol=0.0, atol=0.0
     )
+
+
+def test_homogeneous_fourier_tensors_match_materialized_batch_and_share_storage() -> None:
+    generator = torch.Generator().manual_seed(20260802)
+    batch_size = 3
+    base_nodes = torch.rand(1, 5, 2, dtype=torch.float64, generator=generator)
+    base_weights = torch.rand(1, 5, 1, dtype=torch.float64, generator=generator)
+    modes = torch.tensor(
+        [
+            [[1.0], [0.5]],
+            [[0.25], [-0.75]],
+            [[-0.5], [1.25]],
+        ],
+        dtype=torch.float64,
+    )
+    expanded_nodes = base_nodes.expand(batch_size, -1, -1)
+    expanded_weights = base_weights.expand(batch_size, -1, -1)
+
+    actual = _compute_Fourier_bases_and_weights(
+        expanded_nodes,
+        expanded_weights,
+        modes,
+    )
+    reference = _compute_Fourier_bases_and_weights(
+        expanded_nodes.clone(),
+        expanded_weights.clone(),
+        modes,
+    )
+
+    for actual_tensor, reference_tensor in zip(actual, reference):
+        torch.testing.assert_close(
+            actual_tensor,
+            reference_tensor,
+            rtol=0.0,
+            atol=0.0,
+        )
+        assert actual_tensor.stride(0) == 0
+        assert actual_tensor.untyped_storage().nbytes() == (
+            actual_tensor[0].numel() * actual_tensor.element_size()
+        )
+
+
+def test_neighbor_degree_matches_materialized_batch_and_shares_storage() -> None:
+    batch_size = 4
+    base_edges = torch.tensor(
+        [[[0, 1], [0, 2], [1, 0], [2, 3], [2, 4], [4, 1]]],
+        dtype=torch.int64,
+    )
+    expanded_edges = base_edges.expand(batch_size, -1, -1)
+
+    actual = compute_neighbor_degree(
+        expanded_edges,
+        nnodes=5,
+        dtype=torch.float64,
+    )
+    reference = compute_neighbor_degree(
+        expanded_edges.clone(),
+        nnodes=5,
+        dtype=torch.float64,
+    )
+
+    torch.testing.assert_close(actual, reference, rtol=0.0, atol=0.0)
+    assert actual.stride(0) == 0
+    assert actual.untyped_storage().nbytes() == (
+        actual[0].numel() * actual.element_size()
+    )
+
+
+def test_graph_neighbor_average_reuses_degree_without_changing_gradients() -> None:
+    generator = torch.Generator().manual_seed(20260802)
+    features = torch.randn(2, 3, 5, dtype=torch.float64, generator=generator)
+    directed_edges = torch.tensor(
+        [
+            [[0, 1], [0, 2], [1, 0], [2, 3], [2, 4], [4, 1]],
+            [[0, 4], [1, 2], [1, 3], [3, 0], [3, 4], [4, 2]],
+        ],
+        dtype=torch.int64,
+    )
+    output_gradient = torch.randn(2, 3, 5, dtype=torch.float64, generator=generator)
+    neighbor_degree = compute_neighbor_degree(
+        directed_edges,
+        nnodes=features.shape[-1],
+        dtype=features.dtype,
+    )
+
+    actual_features = features.clone().requires_grad_(True)
+    actual = graph_neighbor_average(
+        actual_features,
+        directed_edges,
+        iterations=2,
+        neighbor_degree=neighbor_degree,
+    )
+    (actual * output_gradient).sum().backward()
+
+    reference_features = features.clone().requires_grad_(True)
+    reference = graph_neighbor_average(
+        reference_features,
+        directed_edges,
+        iterations=2,
+    )
+    (reference * output_gradient).sum().backward()
+
+    torch.testing.assert_close(actual, reference, rtol=0.0, atol=0.0)
+    torch.testing.assert_close(
+        actual_features.grad,
+        reference_features.grad,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    flat_features = features.clone().requires_grad_(True)
+    flat = graph_neighbor_average(
+        flat_features,
+        directed_edges,
+        iterations=2,
+        neighbor_degree=neighbor_degree,
+        flat_edge_indices=compute_flat_edge_indices(
+            directed_edges,
+            features.shape[-1],
+        ),
+    )
+    (flat * output_gradient).sum().backward()
+
+    torch.testing.assert_close(flat, reference, rtol=1.0e-15, atol=1.0e-15)
+    torch.testing.assert_close(
+        flat_features.grad,
+        reference_features.grad,
+        rtol=1.0e-15,
+        atol=1.0e-15,
+    )
+
+
+def test_flat_graph_average_passes_first_and_second_derivative_checks() -> None:
+    directed_edges = torch.tensor(
+        [[[0, 1], [0, 2], [1, 0], [2, 3], [3, 1]]],
+        dtype=torch.int64,
+    )
+    nnodes = 4
+    neighbor_degree = compute_neighbor_degree(
+        directed_edges,
+        nnodes,
+        dtype=torch.float64,
+    )
+    flat_edge_indices = compute_flat_edge_indices(directed_edges, nnodes)
+    values = torch.randn(
+        1,
+        2,
+        nnodes,
+        dtype=torch.float64,
+        generator=torch.Generator().manual_seed(20260802),
+        requires_grad=True,
+    )
+
+    def function(tensor: torch.Tensor) -> torch.Tensor:
+        return graph_neighbor_average(
+            tensor,
+            directed_edges,
+            iterations=2,
+            neighbor_degree=neighbor_degree,
+            flat_edge_indices=flat_edge_indices,
+        )
+
+    with patch("pcno.pcno._GRAPH_MESSAGE_CHUNK_BYTES", 16):
+        assert torch.autograd.gradcheck(function, (values,))
+        assert torch.autograd.gradgradcheck(function, (values,))
+
+
+def test_pcno_homogeneous_geometry_matches_materialized_forward_and_backward() -> None:
+    generator = torch.Generator().manual_seed(20260802)
+    batch_size, nnodes = 3, 5
+    modes = torch.tensor(
+        [
+            [[1.0], [0.0]],
+            [[0.0], [1.0]],
+            [[1.0], [1.0]],
+        ],
+        dtype=torch.float64,
+    )
+    base_node_mask = torch.ones(1, nnodes, 1, dtype=torch.float64)
+    base_nodes = torch.rand(1, nnodes, 2, dtype=torch.float64, generator=generator)
+    base_weights = torch.rand(
+        1,
+        nnodes,
+        1,
+        dtype=torch.float64,
+        generator=generator,
+    )
+    base_edges = torch.tensor(
+        [[[0, 1], [0, 2], [1, 0], [2, 3], [2, 4], [3, 1], [4, 2]]],
+        dtype=torch.int64,
+    )
+    base_edge_weights = torch.randn(
+        1,
+        base_edges.shape[1],
+        2,
+        dtype=torch.float64,
+        generator=generator,
+    )
+    expanded_aux = [
+        base_node_mask.expand(batch_size, -1, -1),
+        base_nodes.expand(batch_size, -1, -1),
+        base_weights.expand(batch_size, -1, -1),
+        base_edges.expand(batch_size, -1, -1),
+        base_edge_weights.expand(batch_size, -1, -1),
+    ]
+    materialized_aux = [tensor.clone() for tensor in expanded_aux]
+
+    torch.manual_seed(20260802)
+    actual_model = PCNO(
+        ndims=2,
+        modes=modes,
+        nmeasures=1,
+        layers=[4, 4, 4],
+        fc_dim=5,
+        in_dim=3,
+        out_dim=2,
+    ).double()
+    reference_model = PCNO(
+        ndims=2,
+        modes=modes,
+        nmeasures=1,
+        layers=[4, 4, 4],
+        fc_dim=5,
+        in_dim=3,
+        out_dim=2,
+    ).double()
+    reference_model.load_state_dict(actual_model.state_dict())
+
+    inputs = torch.randn(
+        batch_size,
+        nnodes,
+        3,
+        dtype=torch.float64,
+        generator=generator,
+    )
+    output_gradient = torch.randn(
+        batch_size,
+        nnodes,
+        2,
+        dtype=torch.float64,
+        generator=generator,
+    )
+
+    actual_inputs = inputs.clone().requires_grad_(True)
+    actual = actual_model(actual_inputs, expanded_aux)
+    (actual * output_gradient).sum().backward()
+
+    reference_inputs = inputs.clone().requires_grad_(True)
+    reference = reference_model(reference_inputs, materialized_aux)
+    (reference * output_gradient).sum().backward()
+
+    torch.testing.assert_close(actual, reference, rtol=0.0, atol=0.0)
+    torch.testing.assert_close(
+        actual_inputs.grad,
+        reference_inputs.grad,
+        rtol=0.0,
+        atol=0.0,
+    )
+    for (actual_name, actual_parameter), (
+        reference_name,
+        reference_parameter,
+    ) in zip(actual_model.named_parameters(), reference_model.named_parameters()):
+        assert actual_name == reference_name
+        torch.testing.assert_close(
+            actual_parameter.grad,
+            reference_parameter.grad,
+            rtol=0.0,
+            atol=0.0,
+        )
 
 
 

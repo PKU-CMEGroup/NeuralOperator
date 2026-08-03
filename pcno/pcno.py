@@ -1,7 +1,5 @@
-import math
 import numpy as np
 import torch
-import sys
 import torch.nn as nn
 import torch.nn.functional as F
 from timeit import default_timer
@@ -137,6 +135,38 @@ def compute_Fourier_bases(nodes, modes):
     batch_size, nnodes, _, nmeasures = temp.shape
     bases_0 = torch.ones(batch_size, nnodes, 1, nmeasures, dtype=temp.dtype, device=temp.device)
     return bases_c, bases_s, bases_0
+
+
+def _compute_Fourier_bases_and_weights(nodes, node_weights, modes):
+    """Build Fourier tensors once when a batch shares expanded geometry."""
+
+    batch_size = nodes.shape[0]
+    homogeneous_geometry = (
+        batch_size > 1
+        and node_weights.shape[0] == batch_size
+        and nodes.stride(0) == 0
+        and node_weights.stride(0) == 0
+    )
+    if homogeneous_geometry:
+        nodes = nodes[:1]
+        node_weights = node_weights[:1]
+
+    bases = compute_Fourier_bases(nodes, modes)
+    weighted_bases = tuple(
+        torch.einsum("bxkw,bxw->bxkw", basis, node_weights)
+        for basis in bases
+    )
+
+    if homogeneous_geometry:
+        bases = tuple(
+            basis.expand(batch_size, *basis.shape[1:]) for basis in bases
+        )
+        weighted_bases = tuple(
+            basis.expand(batch_size, *basis.shape[1:])
+            for basis in weighted_bases
+        )
+
+    return (*bases, *weighted_bases)
 
 ################################################################
 # Fourier layer
@@ -360,10 +390,141 @@ def graph_diffusion_smooth(
     return y.permute(0, 2, 1)
 
 
+def compute_neighbor_degree(
+    directed_edges: torch.Tensor,
+    nnodes: int,
+    *,
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    """Count each node and its incoming neighbors for graph averaging."""
+
+    batch_size = directed_edges.shape[0]
+    target = directed_edges[..., 0]
+    homogeneous_geometry = batch_size > 1 and directed_edges.stride(0) == 0
+    if homogeneous_geometry:
+        target = target[:1]
+
+    degree = torch.ones(
+        target.shape[0],
+        nnodes,
+        1,
+        dtype=dtype,
+        device=directed_edges.device,
+    )
+    degree.scatter_add_(
+        dim=1,
+        index=target.unsqueeze(-1),
+        src=torch.ones_like(target, dtype=dtype).unsqueeze(-1),
+    )
+
+    if homogeneous_geometry:
+        degree = degree.expand(batch_size, -1, -1)
+    return degree
+
+
+def compute_flat_edge_indices(
+    directed_edges: torch.Tensor,
+    nnodes: int,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Flatten batched graph indices into one disjoint node index space."""
+
+    batch_size = directed_edges.shape[0]
+    offsets = (
+        torch.arange(
+            batch_size,
+            dtype=directed_edges.dtype,
+            device=directed_edges.device,
+        )
+        * nnodes
+    ).unsqueeze(1)
+    flat_target = (directed_edges[..., 0] + offsets).reshape(-1)
+    flat_source = (directed_edges[..., 1] + offsets).reshape(-1)
+    return flat_target, flat_source
+
+
+_GRAPH_MESSAGE_CHUNK_BYTES = 64 * 1024 * 1024
+
+
+class _FlatGraphAverage(torch.autograd.Function):
+    """Memory-bounded autograd for a fixed linear graph-average operator."""
+
+    @staticmethod
+    def forward(
+        ctx,
+        values,
+        flat_target,
+        flat_source,
+        degree,
+        iterations,
+        chunk_size,
+    ):
+        ctx.save_for_backward(flat_target, flat_source, degree)
+        ctx.iterations = int(iterations)
+        ctx.chunk_size = int(chunk_size)
+        y = values
+        for _ in range(ctx.iterations):
+            output = y.clone()
+            for start in range(0, flat_source.numel(), ctx.chunk_size):
+                end = min(start + ctx.chunk_size, flat_source.numel())
+                source_values = torch.index_select(y, 0, flat_source[start:end])
+                output.index_add_(0, flat_target[start:end], source_values)
+            y = output / degree
+        return y
+
+    @staticmethod
+    def backward(ctx, output_gradient):
+        flat_target, flat_source, degree = ctx.saved_tensors
+        gradient = output_gradient
+        for _ in range(ctx.iterations):
+            scaled = gradient / degree
+            gradient = scaled.clone()
+            for start in range(0, flat_target.numel(), ctx.chunk_size):
+                end = min(start + ctx.chunk_size, flat_target.numel())
+                target_values = torch.index_select(
+                    scaled,
+                    0,
+                    flat_target[start:end],
+                )
+                gradient.index_add_(0, flat_source[start:end], target_values)
+        return gradient, None, None, None, None, None
+
+
+def _flattened_graph_neighbor_average(
+    x: torch.Tensor,
+    flat_target: torch.Tensor,
+    flat_source: torch.Tensor,
+    neighbor_degree: torch.Tensor,
+    *,
+    iterations: int,
+) -> torch.Tensor:
+    batch_size, channels, nnodes = x.shape
+    values = x.permute(0, 2, 1).reshape(batch_size * nnodes, channels)
+    degree = neighbor_degree.reshape(batch_size * nnodes, 1)
+    message_bytes_per_edge = max(1, channels * values.element_size())
+    chunk_size = max(
+        1,
+        min(
+            flat_source.numel(),
+            _GRAPH_MESSAGE_CHUNK_BYTES // message_bytes_per_edge,
+        ),
+    )
+    result = _FlatGraphAverage.apply(
+        values,
+        flat_target,
+        flat_source,
+        degree,
+        iterations,
+        chunk_size,
+    )
+    return result.reshape(batch_size, nnodes, channels).permute(0, 2, 1)
+
+
 def graph_neighbor_average(
     x: torch.Tensor,
     directed_edges: torch.Tensor,
     iterations: int = 1,
+    neighbor_degree: torch.Tensor = None,
+    flat_edge_indices: tuple[torch.Tensor, torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Repeated self-plus-neighbor averaging on a directed graph.
@@ -384,6 +545,14 @@ def graph_neighbor_average(
     iterations : int, default=1
         Number of averaging iterations.
 
+    neighbor_degree : Tensor[batch_size, nnodes, 1], optional
+        Precomputed self-plus-incoming-neighbor counts. Supplying this avoids
+        rebuilding the same static graph quantity in repeated calls.
+
+    flat_edge_indices : tuple[Tensor, Tensor], optional
+        Precomputed target and source indices in a flattened disjoint batch
+        graph. This enables the memory-bounded CUDA autograd path.
+
     Returns
     -------
     Tensor[batch_size, channels, nnodes]
@@ -394,20 +563,50 @@ def graph_neighbor_average(
     This is a special case of graph smoothing with uniform weights and implicit self-inclusion.
     """
 
+    batch_size, in_channels, nnodes = x.shape
+
+    device, dtype = x.device, x.dtype
+    if neighbor_degree is None:
+        neighbor_degree = compute_neighbor_degree(
+            directed_edges,
+            nnodes,
+            dtype=dtype,
+        )
+    expected_shape = (batch_size, nnodes, 1)
+    if neighbor_degree.shape != expected_shape:
+        raise ValueError(
+            f"neighbor_degree must have shape {expected_shape}, "
+            f"got {tuple(neighbor_degree.shape)}"
+        )
+    if neighbor_degree.device != device or neighbor_degree.dtype != dtype:
+        raise ValueError("neighbor_degree must match the input device and dtype")
+
+    if flat_edge_indices is not None:
+        flat_target, flat_source = flat_edge_indices
+        expected_edges = batch_size * directed_edges.shape[1]
+        for name, index in (
+            ("flat_target", flat_target),
+            ("flat_source", flat_source),
+        ):
+            if index.ndim != 1 or index.numel() != expected_edges:
+                raise ValueError(
+                    f"{name} must contain {expected_edges} flattened edge indices"
+                )
+            if index.device != device or index.dtype != directed_edges.dtype:
+                raise ValueError(
+                    f"{name} must match the directed-edge device and dtype"
+                )
+        return _flattened_graph_neighbor_average(
+            x,
+            flat_target,
+            flat_source,
+            neighbor_degree,
+            iterations=iterations,
+        )
+
     x = x.permute(0, 2, 1)        # [B, N, C]
-    batch_size,  nnodes, in_channels =  x.shape
-    _, max_nedges, _ = directed_edges.shape
-
-    device,dtype = x.device, x.dtype
     batch_index = torch.arange(batch_size, device=device).unsqueeze(1)
-
     target, source = directed_edges[..., 0], directed_edges[..., 1]  # [B, E]
-
-    # aggregate weights to targets
-    w = torch.ones(batch_size, max_nedges, 1, dtype=dtype, device=device)
-    deg = torch.ones(batch_size,  nnodes, 1, dtype=dtype, device=device)
-    deg.scatter_add_(dim=1, index=target.unsqueeze(-1), src=w,)
-
 
     # aggregate weighted sum to targets
     y = x.clone()
@@ -415,7 +614,7 @@ def graph_neighbor_average(
     for _ in range(iterations):
         # gather source features y[batch_index, source] and then scatter add: [B, E, C]
         y.scatter_add_(dim=1, index=target.unsqueeze(-1).expand(-1, -1, in_channels), src=y[batch_index, source],)
-        y =  y / deg  # [B, N, C]
+        y = y / neighbor_degree  # [B, N, C]
 
     return y.permute(0, 2, 1)
 
@@ -437,7 +636,14 @@ class GradientLayer(nn.Module):
         self.gw2 = nn.Conv1d(ndims * in_channels, out_channels, 1, bias=False)
         self.geo_act = _get_act(geo_act)
 
-    def forward(self, x, directed_edges, edge_gradient_weights):
+    def forward(
+        self,
+        x,
+        directed_edges,
+        edge_gradient_weights,
+        neighbor_degree=None,
+        flat_edge_indices=None,
+    ):
         '''
         Input:
             x: float[batch_size, in_channels, nnodes]
@@ -446,9 +652,18 @@ class GradientLayer(nn.Module):
         Return:
             float[batch_size, out_channels, nnodes]
         '''
-        return self.gw2(self.geo_act(self.gw1 * (
-            graph_neighbor_average(compute_gradient(x, directed_edges, edge_gradient_weights),directed_edges, iterations=2)
-            )))
+        return self.gw2(
+            self.geo_act(
+                self.gw1
+                * graph_neighbor_average(
+                    compute_gradient(x, directed_edges, edge_gradient_weights),
+                    directed_edges,
+                    iterations=2,
+                    neighbor_degree=neighbor_degree,
+                    flat_edge_indices=flat_edge_indices,
+                )
+            )
+        )
         # return self.gw2(self.geo_act(self.gw1 * (
         #     compute_gradient(graph_neighbor_average(x, directed_edges, iterations=2), directed_edges, edge_gradient_weights)
         #     )))
@@ -603,23 +818,43 @@ class PCNO(nn.Module):
 
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
-        # bases: float[batch_size, nnodes, nmodes]
-        bases_c,  bases_s,  bases_0  = compute_Fourier_bases(nodes, self.modes)
-        # node_weights: float[batch_size, nnodes, nmeasures]
-        # wbases: float[batch_size, nnodes, nmodes, nmeasures]
-        # set nodes with zero measure to 0
-        wbases_c = torch.einsum("bxkw,bxw->bxkw", bases_c, node_weights)
-        wbases_s = torch.einsum("bxkw,bxw->bxkw", bases_s, node_weights)
-        wbases_0 = torch.einsum("bxkw,bxw->bxkw", bases_0, node_weights)
-
+        # Reuse static Fourier tensors across homogeneous expanded batches.
+        (
+            bases_c,
+            bases_s,
+            bases_0,
+            wbases_c,
+            wbases_s,
+            wbases_0,
+        ) = _compute_Fourier_bases_and_weights(nodes, node_weights, self.modes)
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
+        neighbor_degree = (
+            compute_neighbor_degree(
+                directed_edges,
+                x.shape[-1],
+                dtype=x.dtype,
+            )
+            if length > 0
+            else None
+        )
+        flat_edge_indices = (
+            compute_flat_edge_indices(directed_edges, x.shape[-1])
+            if length > 0 and x.is_cuda and torch.is_grad_enabled()
+            else None
+        )
 
         for i, (speconv, w, gw) in enumerate(zip(self.sp_convs, self.ws, self.gws)):
             x1 = speconv(x, bases_c, bases_s, bases_0, wbases_c, wbases_s, wbases_0)
             x2 = w(x)
-            x3 = gw(x, directed_edges, edge_gradient_weights)
+            x3 = gw(
+                x,
+                directed_edges,
+                edge_gradient_weights,
+                neighbor_degree=neighbor_degree,
+                flat_edge_indices=flat_edge_indices,
+            )
 
             if self.act is not None and i != length - 1:
                 x = x + self.act(x1 + x2 + x3)
@@ -897,6 +1132,3 @@ def PCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, mo
 
 
     return train_rel_l2_losses, test_rel_l2_losses, test_l2_losses
-
-
-

@@ -1109,6 +1109,7 @@ def make_model_sample(
     *,
     mach: float,
     device: torch.device,
+    boundary_features: np.ndarray | None = None,
 ) -> dict[str, torch.Tensor]:
     """Materialize one unpadded, homogeneous-resolution PCNO geometry batch."""
 
@@ -1121,7 +1122,7 @@ def make_model_sample(
         return torch.as_tensor(copied, dtype=dtype, device=device).unsqueeze(0)
 
     num_nodes = geometry.nodes.shape[0]
-    return {
+    sample = {
         "node_mask": torch.ones((1, num_nodes, 1), dtype=torch.float32, device=device),
         "nodes": batched(geometry.nodes, torch.float32),
         "node_measures": batched(geometry.node_measures, torch.float32),
@@ -1132,6 +1133,22 @@ def make_model_sample(
         "node_type": batched(codes, torch.int64),
         "mach": torch.tensor([float(mach)], dtype=torch.float32, device=device),
     }
+    if boundary_features is not None:
+        fields = np.asarray(boundary_features, dtype=np.float64)
+        if (
+            fields.ndim != 2
+            or fields.shape[0] != num_nodes
+            or fields.shape[1] < 1
+            or not np.all(np.isfinite(fields))
+            or np.any(fields < 0.0)
+            or np.any(fields > 1.0)
+        ):
+            raise ValueError(
+                "boundary_features must have finite shape [num_nodes, C] "
+                "and lie in [0,1]"
+            )
+        sample["boundary_features"] = batched(fields, torch.float32)
+    return sample
 
 
 def restrict_nested_state(

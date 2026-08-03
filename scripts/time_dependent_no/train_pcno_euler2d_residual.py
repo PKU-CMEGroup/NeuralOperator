@@ -34,6 +34,11 @@ from utility.time_dependent_no.pcno_artifacts import (
     write_source_snapshot,
 )
 from utility.time_dependent_no.pcno_euler2d import (
+    BOUNDARY_FIELD_MODES,
+    BOUNDARY_FIELD_NONE,
+    NODE_TYPE_FEATURE_CONSTANT_ZERO,
+    NODE_TYPE_FEATURE_OMITTED,
+    NODE_TYPE_FEATURE_ONE_HOT,
     Euler2DNormalization,
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
@@ -44,6 +49,8 @@ from utility.time_dependent_no.pcno_euler2d import (
     build_graph_minimum_change_boundary_policy,
     conservative_admissibility,
     conservative_to_primitive_torch,
+    copy_no_boundary_initialization_to_boundary_field_model,
+    copy_no_type_initialization_to_zero_channels,
     digest_mapping,
     fit_normalization,
     fixed_tiny_presentations,
@@ -93,6 +100,16 @@ INTERIOR_SELECTION_MODE = "interior_rollout"
 FIXED_HORIZON_BLOCKS_PRESENTATION_MODE = "fixed_horizon_blocks"
 ATTACHED_PREDICTION_MULTISTEP_INPUT = "attached_prediction"
 PROJECTED_TEACHER_MULTISTEP_INPUT = "projected_teacher"
+STANDARD_NODE_TYPE_CHANNEL_CONTROL = "standard"
+NO_TYPE_CHANNEL_CONTROL = "no_type_channels"
+ZERO_CHANNEL_ORDINARY_CONTROL = "four_zero_channels_ordinary"
+ZERO_CHANNEL_MATCHED_CONTROL = "four_zero_channels_matched"
+NODE_TYPE_CHANNEL_CONTROLS = (
+    STANDARD_NODE_TYPE_CHANNEL_CONTROL,
+    NO_TYPE_CHANNEL_CONTROL,
+    ZERO_CHANNEL_ORDINARY_CONTROL,
+    ZERO_CHANNEL_MATCHED_CONTROL,
+)
 RESUME_MUTABLE_ARGS = {
     "checkpoint_every",
     "device",
@@ -179,6 +196,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=(
             "Feed regenerated physical type codes or zeros to the unchanged four-slot "
             "one-hot input; physical codes remain available to metrics and masks."
+        ),
+    )
+    parser.add_argument(
+        "--node-type-channel-control",
+        choices=NODE_TYPE_CHANNEL_CONTROLS,
+        default=STANDARD_NODE_TYPE_CHANNEL_CONTROL,
+        help=(
+            "Training-only controlled comparison: retain the standard one-hot "
+            "layout, omit all four type columns, use four literal-zero columns "
+            "with ordinary initialization, or copy the no-type initialization "
+            "into the four-zero-column model exactly."
+        ),
+    )
+    parser.add_argument(
+        "--boundary-field-mode",
+        choices=BOUNDARY_FIELD_MODES,
+        default=BOUNDARY_FIELD_NONE,
+        help=(
+            "Use no continuous boundary input, the union geometry collar, or "
+            "the manifest-declared semantic collars. Active field modes require "
+            "--node-type-channel-control no_type_channels."
         ),
     )
     parser.add_argument(
@@ -363,6 +401,32 @@ def set_seed(seed: int) -> None:
 
 
 def validate_args(args: argparse.Namespace, device: torch.device) -> None:
+    if (
+        args.boundary_field_mode != BOUNDARY_FIELD_NONE
+        and args.node_type_channel_control != NO_TYPE_CHANNEL_CONTROL
+    ):
+        raise ValueError(
+            "continuous boundary fields require "
+            "--node-type-channel-control no_type_channels"
+        )
+    if args.node_type_channel_control != STANDARD_NODE_TYPE_CHANNEL_CONTROL:
+        if args.model_node_type_input != "physical":
+            raise ValueError(
+                "controlled zero-channel runs retain physical type tensors for "
+                "metrics and require --model-node-type-input physical"
+            )
+        if (
+            args.node_type_channel_control != NO_TYPE_CHANNEL_CONTROL
+            and args.boundary_mode != "model_all_nodes"
+        ):
+            raise ValueError(
+                "constant-zero-channel controls freeze "
+                "--boundary-mode model_all_nodes"
+            )
+        if args.init_checkpoint is not None:
+            raise ValueError(
+                "controlled zero-channel runs require fresh initialization"
+            )
     positive_ints = {
         "epochs": args.epochs,
         "presentations_per_epoch": args.presentations_per_epoch,
@@ -593,9 +657,15 @@ def assert_resume_training_args(
 ) -> None:
     """Allow operational resume changes but freeze scientific/numerical choices."""
 
-    saved = checkpoint.get("training_args")
-    if not isinstance(saved, Mapping):
+    saved_payload = checkpoint.get("training_args")
+    if not isinstance(saved_payload, Mapping):
         raise ValueError("resume checkpoint lacks its training arguments")
+    saved = dict(saved_payload)
+    saved.setdefault(
+        "node_type_channel_control", STANDARD_NODE_TYPE_CHANNEL_CONTROL
+    )
+    saved.setdefault("boundary_field_mode", BOUNDARY_FIELD_NONE)
+    saved.setdefault("boundary_field_names", [])
     current = jsonable_args(args)
     missing = sorted(set(current) - set(saved) - RESUME_MUTABLE_ARGS)
     differences = {
@@ -702,6 +772,7 @@ def build_data_contract_summary(
             raise ValueError("shock-vortex saved times are not uniformly spaced")
 
     normalization_payload = normalization.to_dict()
+    boundary_field_contract = store.boundary_field_contract
     return {
         "schema": "pcno_euler2d_data_contract_v1",
         "dataset": store.manifest.get("dataset"),
@@ -710,6 +781,7 @@ def build_data_contract_summary(
         "source_family_manifest_digest": store.manifest.get(
             "source_family_manifest_digest"
         ),
+        "requested_splits": store.manifest.get("requested_splits"),
         "source_artifact_set_digest": digest_mapping(source_artifacts),
         "grouped_split_digest": digest_mapping(split_contract),
         "geometry_contract_digest": digest_mapping(geometry_by_trajectory),
@@ -724,6 +796,12 @@ def build_data_contract_summary(
         "weight_provenance": normalization.weight_provenance,
         "normalization_digest": digest_mapping(normalization_payload),
         "mesh_to_graph_map": store.manifest.get("mesh_to_graph_map"),
+        "boundary_field_contract": boundary_field_contract,
+        "boundary_field_contract_digest": (
+            None
+            if boundary_field_contract is None
+            else digest_mapping(boundary_field_contract)
+        ),
         "line4_handoff": {
             "status": "prerequisites_only_baseline_not_frozen",
             "line4_training_truth_authorized": None,
@@ -738,6 +816,26 @@ def manifest_train_val_test_split(
     """Return an exact, complete manifest partition or fail closed."""
 
     split_names = ("train", "validation", "test")
+    raw_requested_splits = store.manifest.get("requested_splits")
+    if raw_requested_splits is None:
+        requested_splits = split_names
+    else:
+        if not isinstance(raw_requested_splits, list) or not all(
+            isinstance(name, str) for name in raw_requested_splits
+        ):
+            raise ValueError("manifest requested_splits must be a list of names")
+        requested_splits = tuple(raw_requested_splits)
+        canonical_requested = tuple(
+            name for name in split_names if name in set(requested_splits)
+        )
+        if (
+            requested_splits != canonical_requested
+            or not {"train", "validation"}.issubset(requested_splits)
+        ):
+            raise ValueError(
+                "manifest requested_splits must contain train and validation "
+                "once each in canonical order"
+            )
     raw_splits = store.manifest.get("splits")
     if not isinstance(raw_splits, Mapping) or set(raw_splits) != set(split_names):
         raise ValueError(
@@ -751,8 +849,12 @@ def manifest_train_val_test_split(
         ):
             raise ValueError(f"manifest split {split_name!r} must be a list of keys")
         keys = list(raw_keys)
-        if not keys:
+        if split_name in requested_splits and not keys:
             raise ValueError(f"manifest split {split_name!r} must not be empty")
+        if split_name not in requested_splits and keys:
+            raise ValueError(
+                f"manifest split {split_name!r} is outside requested_splits"
+            )
         if len(set(keys)) != len(keys):
             raise ValueError(f"manifest split {split_name!r} contains duplicate keys")
         splits[split_name] = keys
@@ -771,16 +873,38 @@ def manifest_train_val_test_split(
         )
 
     actual_counts = {name: len(splits[name]) for name in split_names}
-    for field_name in ("declared_split_counts", "prepared_split_counts"):
-        raw_counts = store.manifest.get(field_name)
-        if not isinstance(raw_counts, Mapping):
-            raise ValueError(f"manifest split mode requires {field_name}")
-        counts = {name: int(raw_counts.get(name, -1)) for name in split_names}
-        if counts != actual_counts:
-            raise ValueError(
-                f"{field_name} does not match the complete manifest partition: "
-                f"{counts} != {actual_counts}"
-            )
+    raw_prepared_counts = store.manifest.get("prepared_split_counts")
+    if not isinstance(raw_prepared_counts, Mapping):
+        raise ValueError("manifest split mode requires prepared_split_counts")
+    prepared_counts = {
+        name: int(raw_prepared_counts.get(name, -1)) for name in split_names
+    }
+    if prepared_counts != actual_counts:
+        raise ValueError(
+            "prepared_split_counts does not match the complete manifest partition: "
+            f"{prepared_counts} != {actual_counts}"
+        )
+
+    raw_declared_counts = store.manifest.get("declared_split_counts")
+    if not isinstance(raw_declared_counts, Mapping):
+        raise ValueError("manifest split mode requires declared_split_counts")
+    declared_counts = {
+        name: int(raw_declared_counts.get(name, -1)) for name in split_names
+    }
+    invalid_declared = {
+        name: (declared_counts[name], actual_counts[name])
+        for name in split_names
+        if declared_counts[name] < 0
+        or (
+            name in requested_splits
+            and declared_counts[name] != actual_counts[name]
+        )
+    }
+    if invalid_declared:
+        raise ValueError(
+            "declared_split_counts disagrees with requested populations: "
+            f"{invalid_declared}"
+        )
 
     for split_name in split_names:
         for key in splits[split_name]:
@@ -872,6 +996,13 @@ def assert_checkpoint_contract(
     )
     if saved_model_node_type_input != args.model_node_type_input:
         raise ValueError("checkpoint and requested model node-type inputs differ")
+    saved_channel_control = str(
+        saved_training_args.get(
+            "node_type_channel_control", STANDARD_NODE_TYPE_CHANNEL_CONTROL
+        )
+    )
+    if saved_channel_control != args.node_type_channel_control:
+        raise ValueError("checkpoint and requested node-type channel controls differ")
     saved_split_mode = str(saved_training_args.get("split_mode", "stratified"))
     if saved_split_mode != args.split_mode:
         raise ValueError("checkpoint and requested split modes differ")
@@ -903,12 +1034,55 @@ def assert_checkpoint_contract(
         "domain_lengths": [float(value) for value in args.domain_lengths],
         "layers": [int(value) for value in args.layers],
         "fc_dim": int(args.fc_dim),
+        "node_type_feature_mode": node_type_feature_mode_for_control(
+            args.node_type_channel_control
+        ),
+        "boundary_field_mode": getattr(
+            args, "boundary_field_mode", BOUNDARY_FIELD_NONE
+        ),
+        "boundary_field_names": list(
+            getattr(args, "boundary_field_names", ())
+        ),
     }
     for key, value in expected.items():
-        if actual[key] != value:
+        if key == "node_type_feature_mode":
+            actual_value = actual.get(key, NODE_TYPE_FEATURE_ONE_HOT)
+        elif key == "boundary_field_mode":
+            actual_value = actual.get(key, BOUNDARY_FIELD_NONE)
+        elif key == "boundary_field_names":
+            actual_value = actual.get(key, [])
+        else:
+            actual_value = actual[key]
+        if actual_value != value:
             raise ValueError(
-                f"checkpoint model config mismatch for {key}: {actual[key]} != {value}"
+                f"checkpoint model config mismatch for {key}: "
+                f"{actual_value} != {value}"
             )
+
+
+def node_type_feature_mode_for_control(control: str) -> str:
+    if control == STANDARD_NODE_TYPE_CHANNEL_CONTROL:
+        return NODE_TYPE_FEATURE_ONE_HOT
+    if control == NO_TYPE_CHANNEL_CONTROL:
+        return NODE_TYPE_FEATURE_OMITTED
+    if control in {ZERO_CHANNEL_ORDINARY_CONTROL, ZERO_CHANNEL_MATCHED_CONTROL}:
+        return NODE_TYPE_FEATURE_CONSTANT_ZERO
+    raise ValueError(f"unsupported node-type channel control: {control}")
+
+
+def boundary_field_names_for_store(
+    store: PCNOEuler2DShardStore, mode: str
+) -> tuple[str, ...]:
+    """Resolve model field order only from the verified shard manifest."""
+
+    if mode == BOUNDARY_FIELD_NONE:
+        return ()
+    names = store.boundary_field_names
+    if not names:
+        raise ValueError(
+            f"boundary-field mode {mode!r} requires a shard boundary-field contract"
+        )
+    return names
 
 
 def build_model(
@@ -919,14 +1093,79 @@ def build_model(
 ) -> PCNOEuler2DResidual:
     """Construct the conservative-residual baseline."""
 
-    model = PCNOEuler2DResidual(
-        normalization=normalization,
-        k_max=args.k_max,
-        domain_lengths=args.domain_lengths,
-        layers=args.layers,
-        fc_dim=args.fc_dim,
-        zero_initialize=zero_initialize,
+    common = {
+        "normalization": normalization,
+        "k_max": args.k_max,
+        "domain_lengths": args.domain_lengths,
+        "layers": args.layers,
+        "fc_dim": args.fc_dim,
+        "zero_initialize": zero_initialize,
+    }
+    control = args.node_type_channel_control
+    boundary_field_mode = getattr(
+        args, "boundary_field_mode", BOUNDARY_FIELD_NONE
     )
+    boundary_field_names = tuple(getattr(args, "boundary_field_names", ()))
+    if boundary_field_mode != BOUNDARY_FIELD_NONE:
+        if control != NO_TYPE_CHANNEL_CONTROL:
+            raise ValueError(
+                "continuous boundary fields require the no-type-channel control"
+            )
+        no_boundary_model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED,
+        )
+        no_boundary_rng_state = torch.get_rng_state().clone()
+        model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED,
+            boundary_field_mode=boundary_field_mode,
+            boundary_field_names=boundary_field_names,
+        )
+        initialization_control = (
+            copy_no_boundary_initialization_to_boundary_field_model(
+                no_boundary_model, model
+            )
+        )
+        torch.set_rng_state(no_boundary_rng_state)
+        initialization_control["cpu_rng_state_matches_no_boundary_arm"] = True
+    elif control == ZERO_CHANNEL_MATCHED_CONTROL:
+        no_type_model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED,
+        )
+        no_type_rng_state = torch.get_rng_state().clone()
+        model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=NODE_TYPE_FEATURE_CONSTANT_ZERO,
+        )
+        initialization_control = copy_no_type_initialization_to_zero_channels(
+            no_type_model, model
+        )
+        torch.set_rng_state(no_type_rng_state)
+        initialization_control["cpu_rng_state_matches_no_type_arm"] = True
+    else:
+        feature_mode = node_type_feature_mode_for_control(control)
+        model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=feature_mode,
+        )
+        initialization_control = {
+            "schema": "pcno_zero_channel_initialization_v1",
+            "kind": control,
+            "feature_mode": feature_mode,
+            "ordinary_initialization": control
+            in {
+                STANDARD_NODE_TYPE_CHANNEL_CONTROL,
+                NO_TYPE_CHANNEL_CONTROL,
+                ZERO_CHANNEL_ORDINARY_CONTROL,
+            },
+            "mathematical_initial_function_match": None,
+        }
+    initialization_control["training_control"] = control
+    initialization_control["boundary_field_mode"] = boundary_field_mode
+    initialization_control["boundary_field_names"] = list(boundary_field_names)
+    model.initialization_control = initialization_control
     model.model_node_type_input = args.model_node_type_input
     return model
 
@@ -998,6 +1237,10 @@ def boundary_training_objective_contract(args: argparse.Namespace) -> dict[str, 
         primary_node_population = (
             "all_valid_nodes_with_fixed_and_constrained_dofs_zeroed_by_projection"
         )
+    elif args.boundary_mode == "model_all_nodes":
+        primary = "raw_all_node_proxy_weighted_scaled_conservative_next_state_mse"
+        primary_prediction = "raw_model_proposal_equal_to_deployed_proposal"
+        primary_node_population = "all_valid_nodes"
     else:
         primary = "normal_node_proxy_weighted_scaled_conservative_next_state_mse"
         primary_prediction = "causally_closed_deployed_proposal"
@@ -1697,6 +1940,8 @@ def checkpoint_payload(
         "data_manifest_digest": store.manifest_digest,
         "step_stride": int(args.step_stride),
         "model_node_type_input": args.model_node_type_input,
+        "node_type_channel_control": args.node_type_channel_control,
+        "initialization_control": dict(model.initialization_control),
         "training_args": jsonable_args(args),
         "config_digest": digest_mapping(jsonable_args(args)),
         "best_selection": None if best_selection is None else list(best_selection),
@@ -2215,6 +2460,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     set_seed(args.seed)
     torch.set_float32_matmul_precision("high")
     store = PCNOEuler2DShardStore(args.data_dir)
+    args.boundary_field_names = list(
+        boundary_field_names_for_store(store, args.boundary_field_mode)
+    )
     checkpoint_path = args.resume_checkpoint or args.init_checkpoint
     checkpoint = load_checkpoint(checkpoint_path) if checkpoint_path else None
     if args.resume_checkpoint is not None:
@@ -2614,6 +2862,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "target_contract": resolved_target_contract,
         "source_snapshot": source_snapshot,
         "initialization_transition": initialization_transition,
+        "initialization_control": dict(model.initialization_control),
         "boundary_contract_compatibility": boundary_contract_compatibility,
         "environment": runtime_environment(device),
         "git": git_state(),
@@ -2995,6 +3244,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         "amp": args.amp,
         "parameter_count": parameter_count(model),
         "model_config": model.model_config(),
+        "node_type_channel_control": args.node_type_channel_control,
+        "boundary_field_mode": args.boundary_field_mode,
+        "boundary_field_names": list(args.boundary_field_names),
+        "initialization_control": dict(model.initialization_control),
         "normalization": normalization.to_dict(),
         "normalization_digest": data_contract["normalization_digest"],
         "data_contract": data_contract,

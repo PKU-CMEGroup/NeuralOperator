@@ -16,6 +16,10 @@ from utility.time_dependent_no.pcno_artifacts import (
     PCNO_SOURCE_SNAPSHOT_SCHEMA,
     PCNO_SOURCE_SNAPSHOT_V2_FILES,
     PCNO_SOURCE_SNAPSHOT_V2_SCHEMA,
+    PCNO_SOURCE_SNAPSHOT_V3_FILES,
+    PCNO_SOURCE_SNAPSHOT_V3_SCHEMA,
+    PCNO_SOURCE_SNAPSHOT_V4_FILES,
+    PCNO_SOURCE_SNAPSHOT_V4_SCHEMA,
     atomic_torch_save,
     atomic_write_json,
     atomic_write_json_with_paths,
@@ -102,7 +106,7 @@ def test_hash_and_atomic_torch_helpers_match_previous_contract(tmp_path: Path) -
     assert not checkpoint_path.with_suffix(".pt.tmp").exists()
 
 
-def test_source_snapshot_v3_separates_bound_source_from_provenance(
+def test_source_snapshot_v5_covers_boundary_fields_and_separates_provenance(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -114,6 +118,10 @@ def test_source_snapshot_v3_separates_bound_source_from_provenance(
     assert "utility/time_dependent_no/pcno_artifacts.py" in snapshot["files"]
     assert "utility/time_dependent_no/pcno_runtime.py" in snapshot["files"]
     assert "utility/time_dependent_no/pcno_rollout.py" in snapshot["files"]
+    assert "pcno/geo_utility.py" in snapshot["files"]
+    assert "utility/time_dependent_no/euler2d.py" in snapshot["files"]
+    assert "utility/time_dependent_no/errors.py" in snapshot["files"]
+    assert "utility/time_dependent_no/pcno_boundary_fields.py" in snapshot["files"]
     assert (
         "docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md"
         in snapshot["provenance_files"]
@@ -160,9 +168,12 @@ def test_source_snapshot_v2_keeps_historical_document_equality(
     tmp_path: Path,
 ) -> None:
     snapshot = write_source_snapshot(tmp_path / "run")
-    historical_files = {
+    current_files = {
         **snapshot["provenance_files"],
         **snapshot["files"],
+    }
+    historical_files = {
+        name: current_files[name] for name in PCNO_SOURCE_SNAPSHOT_V2_FILES
     }
     encoded_files = json.dumps(
         historical_files, sort_keys=True, separators=(",", ":")
@@ -185,3 +196,41 @@ def test_source_snapshot_v2_keeps_historical_document_equality(
     corrupted_digest["source_set_digest"] = "0" * 64
     with pytest.raises(ValueError, match="v2 source snapshot source-set digest"):
         verify_source_snapshot(corrupted_digest)
+
+
+def test_source_snapshot_v3_remains_compatible(tmp_path: Path) -> None:
+    snapshot = write_source_snapshot(tmp_path / "run")
+    historical_files = {
+        name: snapshot["files"][name] for name in PCNO_SOURCE_SNAPSHOT_V3_FILES
+    }
+    encoded_files = json.dumps(
+        historical_files, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    historical = {
+        "schema": PCNO_SOURCE_SNAPSHOT_V3_SCHEMA,
+        "files": historical_files,
+        "provenance_files": snapshot["provenance_files"],
+        "source_set_digest": hashlib.sha256(encoded_files).hexdigest(),
+        "provenance_set_digest": snapshot["provenance_set_digest"],
+    }
+
+    verify_source_snapshot(historical)
+
+
+def test_source_snapshot_v4_remains_compatible(tmp_path: Path) -> None:
+    snapshot = write_source_snapshot(tmp_path / "run")
+    historical_files = {
+        name: snapshot["files"][name] for name in PCNO_SOURCE_SNAPSHOT_V4_FILES
+    }
+    encoded_files = json.dumps(
+        historical_files, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    historical = {
+        "schema": PCNO_SOURCE_SNAPSHOT_V4_SCHEMA,
+        "files": historical_files,
+        "provenance_files": snapshot["provenance_files"],
+        "source_set_digest": hashlib.sha256(encoded_files).hexdigest(),
+        "provenance_set_digest": snapshot["provenance_set_digest"],
+    }
+
+    verify_source_snapshot(historical)

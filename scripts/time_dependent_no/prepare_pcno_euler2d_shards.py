@@ -45,6 +45,16 @@ from utility.time_dependent_no.euler2d import (  # noqa: E402
     load_cpg_primitive_sequence,
     primitive_to_conservative,
 )
+from utility.time_dependent_no.cpg_mesh_contract import (  # noqa: E402
+    INFLOW_NODE,
+    OUTFLOW_NODE,
+    WALL_NODE,
+)
+from utility.time_dependent_no.pcno_boundary_fields import (  # noqa: E402
+    BoundaryFieldData,
+    recover_tagged_boundary_cycle,
+    tagged_polyline_boundary_fields,
+)
 from utility.time_dependent_no.pcno_euler2d import SCHEMA_VERSION  # noqa: E402
 
 REQUIRED_KEYS = ("pos", "edges", "node_type", "rho", "v1", "v2", "pres", "Mach")
@@ -74,6 +84,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--min-face-nodes", type=int, default=3)
     parser.add_argument("--max-face-nodes", type=int, default=4)
     parser.add_argument("--gradient-rcond", type=float, default=1e-3)
+    parser.add_argument(
+        "--boundary-collar-width",
+        type=float,
+        default=None,
+        help=(
+            "Optionally publish fixed-physical-width wall, outflow, and inflow "
+            "collars. Existing categorical node types are retained for policy "
+            "and metrics but are not used to scale these fields."
+        ),
+    )
     parser.add_argument(
         "--static-check",
         choices=("all", "endpoints"),
@@ -269,6 +289,20 @@ def prepare_trajectory(
     )
     if not np.isfinite(conservative).all():
         raise ValueError(f"trajectory {key} contains nonfinite conservative states")
+    boundary_field_data: BoundaryFieldData | None = None
+    if args.boundary_collar_width is not None:
+        boundary_edges = recover_tagged_boundary_cycle(edges, node_type)
+        boundary_field_data = tagged_polyline_boundary_fields(
+            nodes,
+            boundary_edges,
+            node_type,
+            semantic_codes={
+                "wall": WALL_NODE,
+                "outflow": OUTFLOW_NODE,
+                "inflow": INFLOW_NODE,
+            },
+            physical_width=float(args.boundary_collar_width),
+        )
 
     folder_name = shard_folder_name(key)
     final_folder = output_root / folder_name
@@ -279,6 +313,26 @@ def prepare_trajectory(
         existing = json.loads(metadata_path.read_text(encoding="utf-8"))
         if existing.get("source_key") != key:
             raise FileExistsError(f"shard collision at {final_folder}")
+        expected_field_contract = (
+            None if boundary_field_data is None else boundary_field_data.contract
+        )
+        if existing.get("boundary_field_contract") != expected_field_contract:
+            raise FileExistsError(
+                f"existing shard boundary-field contract differs: {final_folder}"
+            )
+        if boundary_field_data is not None:
+            expected_digest = sha256_arrays(boundary_field_data.values)
+            entry = existing.get("manifest_entry", {})
+            boundary_path = final_folder / "boundary_features.npy"
+            if (
+                entry.get("boundary_features_digest") != expected_digest
+                or not boundary_path.is_file()
+                or sha256_arrays(np.load(boundary_path, allow_pickle=False))
+                != expected_digest
+            ):
+                raise FileExistsError(
+                    f"existing shard boundary features differ: {final_folder}"
+                )
         print(f"skip existing trajectory {key}: {final_folder}")
         return existing["manifest_entry"]
 
@@ -290,6 +344,13 @@ def prepare_trajectory(
     save_array(temporary_folder, "edges", edges, np.int64)
     save_array(temporary_folder, "elements", elements, np.int32)
     save_array(temporary_folder, "node_type", node_type, np.int64)
+    if boundary_field_data is not None:
+        save_array(
+            temporary_folder,
+            "boundary_features",
+            boundary_field_data.values,
+            np.float32,
+        )
     save_array(temporary_folder, "node_measures", node_measures, np.float32)
     save_array(temporary_folder, "node_weights", node_weights, np.float32)
     save_array(temporary_folder, "node_rhos", node_rhos, np.float32)
@@ -318,6 +379,10 @@ def prepare_trajectory(
         "weight_provenance": "reconstructed_vertex_lumped_proxy",
         "zero_weight_nodes": int(np.count_nonzero(node_weights[:, 0] == 0.0)),
     }
+    if boundary_field_data is not None:
+        entry["boundary_features_digest"] = sha256_arrays(
+            boundary_field_data.values
+        )
     metadata = {
         "schema_version": SCHEMA_VERSION,
         "source_key": key,
@@ -330,6 +395,8 @@ def prepare_trajectory(
         "edge_stats": edge_stats,
         "gradient_rcond": float(args.gradient_rcond),
     }
+    if boundary_field_data is not None:
+        metadata["boundary_field_contract"] = boundary_field_data.contract
     (temporary_folder / "metadata.json").write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -358,6 +425,7 @@ def write_manifest(
     source_h5: Path,
     args: argparse.Namespace,
     new_entries: Sequence[dict[str, Any]],
+    boundary_field_contract: dict[str, Any] | None,
 ) -> Path:
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists():
@@ -365,6 +433,10 @@ def write_manifest(
         existing_source = Path(str(manifest["source_h5"])).resolve()
         if existing_source != source_h5.resolve():
             raise ValueError("cannot merge shards from a different source HDF5")
+        if manifest.get("boundary_field_contract") != boundary_field_contract:
+            raise ValueError(
+                "cannot merge shards with a different boundary-field contract"
+            )
     else:
         stat = source_h5.stat()
         manifest = {
@@ -377,6 +449,7 @@ def write_manifest(
             "state_convention": "conservative_[rho,rho_v1,rho_v2,E]",
             "coordinate_convention": "source_HDF5_node_order_xy",
             "weight_provenance": "reconstructed_vertex_lumped_proxy",
+            "boundary_field_contract": boundary_field_contract,
             "trajectories": [],
         }
     entries = {str(entry["key"]): dict(entry) for entry in manifest["trajectories"]}
@@ -400,6 +473,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         raise FileNotFoundError(args.source_h5)
     if args.gamma <= 1.0 or args.dt <= 0.0:
         raise ValueError("gamma must exceed one and dt must be positive")
+    if args.boundary_collar_width is not None and (
+        not np.isfinite(args.boundary_collar_width)
+        or args.boundary_collar_width <= 0.0
+    ):
+        raise ValueError("--boundary-collar-width must be positive and finite")
     if args.min_face_nodes < 3 or args.max_face_nodes < args.min_face_nodes:
         raise ValueError("invalid face-node bounds")
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -416,11 +494,18 @@ def main(argv: Sequence[str] | None = None) -> None:
                     args=args,
                 )
             )
+    boundary_field_contract = None
+    if entries and args.boundary_collar_width is not None:
+        metadata_path = args.output_dir / entries[0]["folder"] / "metadata.json"
+        boundary_field_contract = json.loads(
+            metadata_path.read_text(encoding="utf-8")
+        )["boundary_field_contract"]
     manifest_path = write_manifest(
         args.output_dir,
         source_h5=args.source_h5,
         args=args,
         new_entries=entries,
+        boundary_field_contract=boundary_field_contract,
     )
     print(
         json.dumps(

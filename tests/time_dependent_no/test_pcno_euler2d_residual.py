@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import h5py
 import numpy as np
@@ -17,16 +18,22 @@ from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (
 )
 from scripts.time_dependent_no.prepare_pcno_euler2d_shards import main as prepare_main
 from scripts.time_dependent_no.train_pcno_euler2d_residual import (
+    NO_TYPE_CHANNEL_CONTROL,
     RAW_BOUNDARY_REFERENCE_AUXILIARY,
     RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION,
+    ZERO_CHANNEL_ORDINARY_CONTROL,
+    ZERO_CHANNEL_MATCHED_CONTROL,
     assert_resume_training_args,
     boundary_auxiliary_loss,
-    main as train_main,
+    build_model,
     manifest_train_val_test_split,
     parse_args,
     selection_tuple,
     validate_args,
     warmup_cosine_factor,
+)
+from scripts.time_dependent_no.train_pcno_euler2d_residual import (
+    main as train_main,
 )
 from tests.time_dependent_no._pcno_test_support import (
     prepare_boundary_synthetic_shards as _prepare_boundary_synthetic_shards,
@@ -42,6 +49,10 @@ from utility.time_dependent_no.pcno_artifacts import (
     write_source_snapshot,
 )
 from utility.time_dependent_no.pcno_euler2d import (
+    NODE_TYPE_FEATURE_CONSTANT_ZERO,
+    NODE_TYPE_FEATURE_OMITTED,
+    NODE_TYPE_FEATURE_ONE_HOT,
+    Euler2DNormalization,
     PCNOEuler2DResidual,
     PCNOEuler2DShardStore,
     apply_admissible_primitive_noise,
@@ -53,6 +64,7 @@ from utility.time_dependent_no.pcno_euler2d import (
     build_graph_minimum_change_boundary_policy,
     conservative_admissibility,
     conservative_to_primitive_torch,
+    copy_no_type_initialization_to_zero_channels,
     directional_highpass_stability,
     fit_normalization,
     full_coverage_presentations,
@@ -110,6 +122,160 @@ def test_all_normal_training_input_does_not_mutate_physical_type_tensor() -> Non
     assert torch.equal(sample["node_type"], physical_type)
 
 
+def test_no_type_channels_do_not_change_the_frozen_physical_boundary_policy() -> None:
+    common = [
+        "--data-dir",
+        "unused",
+        "--output-dir",
+        "unused",
+        "--amp",
+        "none",
+        "--boundary-mode",
+        "causal_nodal_physical",
+    ]
+    no_type = parse_args(
+        [*common, "--node-type-channel-control", NO_TYPE_CHANNEL_CONTROL]
+    )
+    validate_args(no_type, torch.device("cpu"))
+
+    constant_zero = parse_args(
+        [*common, "--node-type-channel-control", ZERO_CHANNEL_ORDINARY_CONTROL]
+    )
+    with pytest.raises(ValueError, match="constant-zero-channel controls"):
+        validate_args(constant_zero, torch.device("cpu"))
+
+
+def _unit_normalization() -> Euler2DNormalization:
+    return Euler2DNormalization(
+        state_mean=np.zeros(4),
+        state_scale=np.ones(4),
+        residual_scale=np.ones(4),
+        mach_mean=0.0,
+        mach_scale=1.0,
+    )
+
+
+def test_node_type_channel_controls_have_exact_input_layouts() -> None:
+    common = {
+        "normalization": _unit_normalization(),
+        "k_max": 1,
+        "domain_lengths": (1.0, 1.0),
+        "layers": (8, 8),
+        "fc_dim": 8,
+    }
+    one_hot = PCNOEuler2DResidual(
+        **common, node_type_feature_mode=NODE_TYPE_FEATURE_ONE_HOT
+    )
+    zero_four = PCNOEuler2DResidual(
+        **common, node_type_feature_mode=NODE_TYPE_FEATURE_CONSTANT_ZERO
+    )
+    no_type = PCNOEuler2DResidual(
+        **common, node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED
+    )
+    current = torch.tensor(
+        [[[1.0, 0.2, 0.1, 2.6], [0.9, 0.3, -0.1, 2.4]]]
+    )
+    nodes = torch.tensor([[[0.25, 0.25], [0.75, 0.75]]])
+    node_rhos = torch.full((1, 2, 1), 0.5)
+    node_type = torch.tensor([[0, 3]], dtype=torch.int64)
+    mach = torch.tensor([1.1])
+
+    def model_input(model: PCNOEuler2DResidual) -> torch.Tensor:
+        return model.normalized_input(
+            current,
+            nodes=nodes,
+            node_rhos=node_rhos,
+            node_type=node_type,
+            mach=mach,
+        )
+
+    one_hot_input = model_input(one_hot)
+    zero_input = model_input(zero_four)
+    no_type_input = model_input(no_type)
+    assert one_hot_input.shape[-1] == 12
+    assert zero_input.shape[-1] == 12
+    assert no_type_input.shape[-1] == 8
+    torch.testing.assert_close(
+        one_hot_input[..., 7:11],
+        torch.tensor([[[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]]),
+    )
+    assert torch.count_nonzero(zero_input[..., 7:11]).item() == 0
+    torch.testing.assert_close(no_type_input[..., :7], zero_input[..., :7])
+    torch.testing.assert_close(no_type_input[..., 7], zero_input[..., 11])
+
+
+def test_matched_zero_channel_initialization_copies_no_type_lift_exactly() -> None:
+    common = {
+        "normalization": _unit_normalization(),
+        "k_max": 1,
+        "domain_lengths": (1.0, 1.0),
+        "layers": (8, 8),
+        "fc_dim": 8,
+        "zero_initialize": False,
+    }
+    torch.manual_seed(31)
+    no_type = PCNOEuler2DResidual(
+        **common, node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED
+    )
+    torch.manual_seed(97)
+    zero_four = PCNOEuler2DResidual(
+        **common, node_type_feature_mode=NODE_TYPE_FEATURE_CONSTANT_ZERO
+    )
+    audit = copy_no_type_initialization_to_zero_channels(no_type, zero_four)
+    assert audit["mathematical_initial_function_match"] is True
+    assert audit["active_weight_rescale_factor"] == 1.0
+
+    active = torch.linspace(-0.7, 0.8, 48).reshape(2, 3, 8)
+    expanded = torch.cat(
+        (active[..., :7], torch.zeros(2, 3, 4), active[..., 7:8]), dim=-1
+    )
+    assert torch.equal(
+        no_type.backbone.fc0(active), zero_four.backbone.fc0(expanded)
+    )
+    source_state = no_type.state_dict()
+    target_state = zero_four.state_dict()
+    for name in source_state:
+        if name != "backbone.fc0.weight":
+            assert torch.equal(source_state[name], target_state[name]), name
+
+
+def test_trainer_matched_control_restores_no_type_rng_and_parameters() -> None:
+    common = {
+        "k_max": 1,
+        "domain_lengths": (1.0, 1.0),
+        "layers": (8, 8),
+        "fc_dim": 8,
+        "model_node_type_input": "physical",
+    }
+    torch.manual_seed(211)
+    no_type = build_model(
+        SimpleNamespace(
+            **common, node_type_channel_control=NO_TYPE_CHANNEL_CONTROL
+        ),
+        _unit_normalization(),
+        zero_initialize=False,
+    )
+    rng_after_no_type = torch.get_rng_state().clone()
+    assert no_type.initialization_control["ordinary_initialization"] is True
+
+    torch.manual_seed(211)
+    matched = build_model(
+        SimpleNamespace(
+            **common, node_type_channel_control=ZERO_CHANNEL_MATCHED_CONTROL
+        ),
+        _unit_normalization(),
+        zero_initialize=False,
+    )
+    assert torch.equal(torch.get_rng_state(), rng_after_no_type)
+    assert matched.initialization_control["cpu_rng_state_matches_no_type_arm"] is True
+    assert matched.initialization_control["mathematical_initial_function_match"] is True
+    source_state = no_type.state_dict()
+    target_state = matched.state_dict()
+    for name in source_state:
+        if name != "backbone.fc0.weight":
+            assert torch.equal(source_state[name], target_state[name]), name
+
+
 def _write_raw_trajectory(group: h5py.Group, trajectory_index: int) -> None:
     num_steps = 4
     nodes = np.asarray(
@@ -156,6 +322,60 @@ def _prepare_synthetic_shards(tmp_path: Path) -> Path:
         ]
     )
     return output
+
+
+def test_bump_shards_publish_manifest_bound_semantic_collars(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw_boundary_fields.h5"
+    with h5py.File(source, "w") as handle:
+        _write_raw_trajectory(handle.create_group("0"), 0)
+    output = tmp_path / "boundary_field_shards"
+    prepare_main(
+        [
+            "--source-h5",
+            str(source),
+            "--output-dir",
+            str(output),
+            "--static-check",
+            "all",
+            "--boundary-collar-width",
+            "0.25",
+        ]
+    )
+
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    contract = manifest["boundary_field_contract"]
+    assert contract["continuum_object"] == "bounded_volume_descriptor"
+    assert contract["surface_measure_scaling"] is False
+    assert contract["physical_width"] == pytest.approx(0.25)
+    assert contract["channel_names"] == ["wall", "outflow", "inflow"]
+    store = PCNOEuler2DShardStore(output)
+    assert store.boundary_field_names == ("wall", "outflow", "inflow")
+    features = np.asarray(store.array("0", "boundary_features"))
+    assert features.shape == (4, 3)
+    assert np.all((0.0 <= features) & (features <= 1.0))
+    sample = store.tensor_batch(
+        "0", [0], step_stride=1, device=torch.device("cpu")
+    )
+    assert sample["boundary_features"].shape == (1, 4, 3)
+    model = build_model(
+        SimpleNamespace(
+            k_max=1,
+            domain_lengths=(1.0, 1.0),
+            layers=(8, 8),
+            fc_dim=8,
+            model_node_type_input="physical",
+            node_type_channel_control=NO_TYPE_CHANNEL_CONTROL,
+            boundary_field_mode="semantic_collar",
+            boundary_field_names=list(store.boundary_field_names),
+        ),
+        _unit_normalization(),
+        zero_initialize=False,
+    )
+    prediction = forward_sample(model, sample, sample["current"])
+    assert prediction.shape == sample["current"].shape
+    assert torch.isfinite(prediction).all()
 
 
 def _prepare_manifest_synthetic_shards(tmp_path: Path) -> Path:
@@ -999,6 +1219,33 @@ def test_manifest_split_is_exact_and_rejects_incomplete_family(tmp_path: Path) -
     incomplete_store.close()
 
 
+def test_manifest_split_accepts_an_explicit_open_only_population(
+    tmp_path: Path,
+) -> None:
+    data_dir = _prepare_manifest_synthetic_shards(tmp_path)
+    manifest_path = data_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["requested_splits"] = ["train", "validation"]
+    manifest["trajectories"] = manifest["trajectories"][:2]
+    manifest["splits"]["test"] = []
+    manifest["prepared_split_counts"]["test"] = 0
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    store = PCNOEuler2DShardStore(data_dir)
+    train_keys, val_keys, test_keys = manifest_train_val_test_split(store)
+    assert train_keys == ["0"]
+    assert val_keys == ["1"]
+    assert test_keys == []
+    store.close()
+
+    manifest["splits"]["test"] = ["2"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    inconsistent_store = PCNOEuler2DShardStore(data_dir)
+    with pytest.raises(ValueError, match="outside requested_splits"):
+        manifest_train_val_test_split(inconsistent_store)
+    inconsistent_store.close()
+
+
 def test_cpu_training_manifest_split_records_sealed_test_partition(
     tmp_path: Path,
 ) -> None:
@@ -1139,6 +1386,16 @@ def test_cpu_training_smoke_uses_requested_stride_and_writes_strict_json(
     assert summary["step_stride"] == 2
     assert summary["boundary_mode"] == "model_all_nodes"
     assert summary["raw_recurrence"] is True
+    assert (
+        summary["boundary_contract"]["training_objective"][
+            "primary_node_population"
+        ]
+        == "all_valid_nodes"
+    )
+    assert (
+        summary["boundary_contract"]["training_objective"]["primary_prediction"]
+        == "raw_model_proposal_equal_to_deployed_proposal"
+    )
     assert summary["batch_size"] == 4
     assert summary["optimizer"]["scheduler"] == "constant"
     assert len(summary["config_digest"]) == 64

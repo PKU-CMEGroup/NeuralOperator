@@ -12,6 +12,7 @@ import numpy as np
 import torch
 
 from utility.time_dependent_no.pcno_euler2d import (
+    NODE_TYPE_FEATURE_ONE_HOT,
     Euler2DNormalization,
     PCNOEuler2DResidual,
 )
@@ -114,6 +115,11 @@ def build_checkpoint_model(
         fc_dim=int(config["fc_dim"]),
         nmeasures=int(config["nmeasures"]),
         zero_initialize=False,
+        node_type_feature_mode=str(
+            config.get("node_type_feature_mode", NODE_TYPE_FEATURE_ONE_HOT)
+        ),
+        boundary_field_mode=str(config.get("boundary_field_mode", "none")),
+        boundary_field_names=tuple(config.get("boundary_field_names", ())),
     ).to(device)
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model.model_node_type_input = model_node_type_input
@@ -141,6 +147,7 @@ def forward_sample(
         edge_gradient_weights=sample["edge_gradient_weights"],
         node_type=node_type,
         mach=sample["mach"],
+        boundary_features=sample.get("boundary_features"),
     )
 
 

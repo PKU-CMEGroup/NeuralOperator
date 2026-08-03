@@ -20,6 +20,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from utility.time_dependent_no.pcno_euler2d import SCHEMA_VERSION  # noqa: E402
+from utility.time_dependent_no.pcno_boundary_fields import (  # noqa: E402
+    BoundaryFieldData,
+    factorized_rectangle_boundary_fields,
+)
 from utility.time_dependent_no.pcno_fv_geometry import (  # noqa: E402
     PCNOFiniteVolumeGeometry,
     build_pcno_finite_volume_geometry,
@@ -56,6 +60,7 @@ SHARD_ARRAY_NAMES = (
     "mesh_cell_to_graph_node",
     "face_to_directed_edge",
 )
+SPLIT_NAMES = ("train", "validation", "test")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -63,7 +68,26 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--family-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--scope", choices=("smoke", "complete"), required=True)
+    parser.add_argument(
+        "--splits",
+        choices=SPLIT_NAMES,
+        nargs="+",
+        default=SPLIT_NAMES,
+        help=(
+            "Publish only these manifest-declared populations. Use "
+            "'--splits train validation' when the test population is sealed."
+        ),
+    )
     parser.add_argument("--gradient-rcond", type=float, default=1.0e-12)
+    parser.add_argument(
+        "--boundary-collar-width",
+        type=float,
+        default=None,
+        help=(
+            "Optionally publish fixed-physical-width y-symmetry and "
+            "x-extrapolation collars as two overlapping descriptors."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -135,6 +159,35 @@ def _audit_rows_by_case(audit: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     if len(rows) != len(audit.get("rows", [])):
         raise ValueError("source audit contains duplicate case rows")
     return rows
+
+
+def _case_ids_for_splits(
+    case_ids: Sequence[str],
+    manifest: Mapping[str, Any],
+    splits: Sequence[str],
+) -> list[str]:
+    """Filter audited case IDs without changing their manifest order."""
+
+    selected_splits = tuple(str(split) for split in splits)
+    if not selected_splits or len(set(selected_splits)) != len(selected_splits):
+        raise ValueError("--splits must contain distinct split names")
+    unknown_splits = sorted(set(selected_splits) - set(SPLIT_NAMES))
+    if unknown_splits:
+        raise ValueError(f"unknown split names: {unknown_splits}")
+    split_by_case = {
+        str(case["case_id"]): str(case["split"]) for case in manifest["cases"]
+    }
+    unknown_cases = sorted(set(case_ids) - set(split_by_case))
+    if unknown_cases:
+        raise ValueError(f"source audit contains unknown family cases: {unknown_cases}")
+    selected = [
+        str(case_id)
+        for case_id in case_ids
+        if split_by_case[str(case_id)] in selected_splits
+    ]
+    if not selected:
+        raise ValueError("the requested splits contain no cases in this scope")
+    return selected
 
 
 def _serialization_metrics(states: np.ndarray) -> dict[str, float]:
@@ -228,7 +281,8 @@ def _publish_case(
     case_id: str,
     gradient_rcond: float,
     expected_geometry_digest: str | None,
-) -> tuple[dict[str, Any], str]:
+    boundary_collar_width: float | None,
+) -> tuple[dict[str, Any], str, dict[str, Any] | None]:
     case = family_case_by_id(manifest, case_id)
     expected_provenance = family_case_provenance(manifest, case_id)
     source_dir = family_root / case_id
@@ -268,10 +322,26 @@ def _publish_case(
         if not _serialization_passes(serialization):
             raise ValueError(f"float32 serialization gate failed: {case_id}")
         config = json.loads(artifact["config_json"].item())
+        boundary_field_data: BoundaryFieldData | None = None
+        if boundary_collar_width is not None:
+            boundary_field_data = factorized_rectangle_boundary_fields(
+                geometry.nodes,
+                x_min=float(config["x_min"]),
+                x_max=float(config["x_max"]),
+                y_min=float(config["y_min"]),
+                y_max=float(config["y_max"]),
+                physical_width=float(boundary_collar_width),
+            )
 
     folder_name = _folder_name(case_id)
     final_folder = output_root / folder_name
     state_digest = _sha256_arrays(states.astype(np.float32))
+    boundary_field_contract = (
+        None if boundary_field_data is None else boundary_field_data.contract
+    )
+    published_array_names = SHARD_ARRAY_NAMES + (
+        ("boundary_features",) if boundary_field_data is not None else ()
+    )
     if final_folder.exists():
         metadata_path = final_folder / "metadata.json"
         if not metadata_path.is_file():
@@ -288,20 +358,21 @@ def _publish_case(
             or not isinstance(entry, Mapping)
             or entry.get("geometry_digest") != geometry_digest
             or entry.get("state_digest") != state_digest
+            or existing.get("boundary_field_contract") != boundary_field_contract
         ):
             raise FileExistsError(f"existing shard contract differs: {case_id}")
         array_sha256 = entry.get("array_sha256")
         if not isinstance(array_sha256, Mapping) or set(array_sha256) != set(
-            SHARD_ARRAY_NAMES
+            published_array_names
         ):
             raise FileExistsError(
                 f"existing shard lacks exact array digests: {case_id}"
             )
-        for name in SHARD_ARRAY_NAMES:
+        for name in published_array_names:
             array_path = final_folder / f"{name}.npy"
             if not array_path.is_file() or _sha256(array_path) != array_sha256[name]:
                 raise FileExistsError(f"existing shard array differs: {case_id}/{name}")
-        return dict(entry), geometry_digest
+        return dict(entry), geometry_digest, boundary_field_contract
 
     temporary = Path(tempfile.mkdtemp(prefix=f".{folder_name}.tmp-", dir=output_root))
     try:
@@ -311,6 +382,13 @@ def _publish_case(
         _save_array(temporary, "nodes", geometry.nodes, np.float32)
         _save_array(temporary, "edges", geometry.edges, np.int64)
         _save_array(temporary, "node_type", geometry.node_type, np.int64)
+        if boundary_field_data is not None:
+            _save_array(
+                temporary,
+                "boundary_features",
+                boundary_field_data.values,
+                np.float32,
+            )
         _save_array(temporary, "node_measures", geometry.node_measures, np.float32)
         _save_array(temporary, "node_weights", geometry.node_weights, np.float32)
         _save_array(temporary, "node_rhos", geometry.node_rhos, np.float32)
@@ -334,7 +412,8 @@ def _publish_case(
             np.int64,
         )
         array_sha256 = {
-            name: _sha256(temporary / f"{name}.npy") for name in SHARD_ARRAY_NAMES
+            name: _sha256(temporary / f"{name}.npy")
+            for name in published_array_names
         }
         entry = {
             "key": case_id,
@@ -357,6 +436,10 @@ def _publish_case(
                 np.count_nonzero(geometry.node_weights[:, 0] == 0.0)
             ),
         }
+        if boundary_field_data is not None:
+            entry["boundary_features_digest"] = _sha256_arrays(
+                boundary_field_data.values
+            )
         metadata = {
             "schema_version": SCHEMA_VERSION,
             "source_key": case_id,
@@ -393,6 +476,8 @@ def _publish_case(
             },
             "manifest_entry": entry,
         }
+        if boundary_field_data is not None:
+            metadata["boundary_field_contract"] = boundary_field_data.contract
         (temporary / "metadata.json").write_text(
             json.dumps(metadata, indent=2, sort_keys=True, allow_nan=False) + "\n",
             encoding="utf-8",
@@ -403,7 +488,7 @@ def _publish_case(
             child.unlink(missing_ok=True)
         temporary.rmdir()
         raise
-    return entry, geometry_digest
+    return entry, geometry_digest, boundary_field_contract
 
 
 def _write_manifest(
@@ -412,6 +497,8 @@ def _write_manifest(
     family_manifest: Mapping[str, Any],
     gradient_rcond: float,
     entries: Sequence[Mapping[str, Any]],
+    boundary_field_contract: Mapping[str, Any] | None,
+    requested_splits: Sequence[str],
 ) -> Path:
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists():
@@ -423,6 +510,12 @@ def _write_manifest(
             or payload.get("source_family_manifest_digest")
             != family_manifest["manifest_digest_sha256"]
             or float(payload.get("gradient_rcond", -1.0)) != float(gradient_rcond)
+            or payload.get("boundary_field_contract")
+            != boundary_field_contract
+            or (
+                payload.get("requested_splits") is not None
+                and payload.get("requested_splits") != list(requested_splits)
+            )
         ):
             raise ValueError("cannot merge shards with a different adapter contract")
     else:
@@ -441,6 +534,8 @@ def _write_manifest(
             "reference_face_impulses": "retained_in_source_reference_artifacts",
             "array_digest_contract": "sha256_of_each_published_npy_file",
             "gradient_rcond": float(gradient_rcond),
+            "boundary_field_contract": boundary_field_contract,
+            "requested_splits": list(requested_splits),
             "declared_split_counts": family_manifest["split_contract"]["split_counts"],
             "trajectories": [],
         }
@@ -457,6 +552,19 @@ def _write_manifest(
     if unknown_keys:
         raise ValueError(
             f"shard manifest contains unknown family cases: {unknown_keys}"
+        )
+    requested_split_set = set(requested_splits)
+    outside_requested_splits = sorted(
+        {
+            str(entry["split"])
+            for entry in merged.values()
+            if str(entry["split"]) not in requested_split_set
+        }
+    )
+    if outside_requested_splits:
+        raise ValueError(
+            "shard manifest contains populations outside --splits: "
+            f"{outside_requested_splits}"
         )
     ordered = sorted(merged.values(), key=lambda entry: case_order[str(entry["key"])])
     payload["trajectories"] = ordered
@@ -481,21 +589,35 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     if not np.isfinite(args.gradient_rcond) or args.gradient_rcond <= 0.0:
         raise ValueError("--gradient-rcond must be positive and finite")
+    if args.boundary_collar_width is not None and (
+        not np.isfinite(args.boundary_collar_width)
+        or args.boundary_collar_width <= 0.0
+    ):
+        raise ValueError("--boundary-collar-width must be positive and finite")
     family_manifest_path = args.family_root / "family_manifest.json"
     family_manifest = load_shock_vortex_family_manifest(family_manifest_path)
-    source_audit, case_ids = _load_source_audit(
+    source_audit, audited_case_ids = _load_source_audit(
         args.family_root,
         scope=args.scope,
         manifest=family_manifest,
     )
     rows = _audit_rows_by_case(source_audit)
-    if set(rows) != set(case_ids):
+    if set(rows) != set(audited_case_ids):
         raise ValueError("source audit rows do not exactly match the requested cases")
+    case_ids = _case_ids_for_splits(
+        audited_case_ids,
+        family_manifest,
+        args.splits,
+    )
+    requested_splits = tuple(
+        split_name for split_name in SPLIT_NAMES if split_name in set(args.splits)
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     entries: list[dict[str, Any]] = []
     geometry_digest: str | None = None
+    boundary_field_contract: dict[str, Any] | None = None
     for case_id in case_ids:
-        entry, candidate_digest = _publish_case(
+        entry, candidate_digest, candidate_field_contract = _publish_case(
             family_root=args.family_root,
             output_root=args.output_dir,
             manifest=family_manifest,
@@ -503,8 +625,15 @@ def main(argv: Sequence[str] | None = None) -> None:
             case_id=case_id,
             gradient_rcond=args.gradient_rcond,
             expected_geometry_digest=geometry_digest,
+            boundary_collar_width=args.boundary_collar_width,
         )
+        if (
+            boundary_field_contract is not None
+            and candidate_field_contract != boundary_field_contract
+        ):
+            raise ValueError("boundary-field contracts differ between family cases")
         geometry_digest = candidate_digest
+        boundary_field_contract = candidate_field_contract
         entries.append(entry)
         print(
             f"prepared {case_id}: split={entry['split']} "
@@ -515,12 +644,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         family_manifest=family_manifest,
         gradient_rcond=args.gradient_rcond,
         entries=entries,
+        boundary_field_contract=boundary_field_contract,
+        requested_splits=requested_splits,
     )
     print(
         json.dumps(
             {
                 "manifest": str(manifest_path),
                 "scope": args.scope,
+                "requested_splits": list(requested_splits),
                 "prepared_trajectories": len(entries),
                 "geometry_digest": geometry_digest,
             },

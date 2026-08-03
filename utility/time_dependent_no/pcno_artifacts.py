@@ -20,13 +20,15 @@ import numpy as np
 import torch
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PCNO_SOURCE_SNAPSHOT_SCHEMA = "pcno_euler2d_source_snapshot_v3"
+PCNO_SOURCE_SNAPSHOT_SCHEMA = "pcno_euler2d_source_snapshot_v5"
+PCNO_SOURCE_SNAPSHOT_V4_SCHEMA = "pcno_euler2d_source_snapshot_v4"
+PCNO_SOURCE_SNAPSHOT_V3_SCHEMA = "pcno_euler2d_source_snapshot_v3"
 PCNO_SOURCE_SNAPSHOT_V2_SCHEMA = "pcno_euler2d_source_snapshot_v2"
 PCNO_SOURCE_PROVENANCE_FILES = (
     "docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md",
     "docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md",
 )
-PCNO_SOURCE_SNAPSHOT_FILES = (
+PCNO_SOURCE_SNAPSHOT_V3_FILES = (
     "scripts/time_dependent_no/train_pcno_euler2d_residual.py",
     "scripts/time_dependent_no/evaluate_pcno_euler2d_residual.py",
     "utility/time_dependent_no/pcno_artifacts.py",
@@ -38,9 +40,25 @@ PCNO_SOURCE_SNAPSHOT_FILES = (
     "utility/time_dependent_no/cpg_mesh_contract.py",
     "pcno/pcno.py",
 )
+PCNO_SOURCE_SNAPSHOT_V4_FILES = (
+    *PCNO_SOURCE_SNAPSHOT_V3_FILES,
+    "pcno/__init__.py",
+    "pcno/geo_utility.py",
+    "utility/__init__.py",
+    "utility/adam.py",
+    "utility/losses.py",
+    "utility/normalizer.py",
+    "utility/time_dependent_no/__init__.py",
+    "utility/time_dependent_no/euler2d.py",
+    "utility/time_dependent_no/errors.py",
+)
+PCNO_SOURCE_SNAPSHOT_FILES = (
+    *PCNO_SOURCE_SNAPSHOT_V4_FILES,
+    "utility/time_dependent_no/pcno_boundary_fields.py",
+)
 PCNO_SOURCE_SNAPSHOT_V2_FILES = (
     *PCNO_SOURCE_PROVENANCE_FILES,
-    *PCNO_SOURCE_SNAPSHOT_FILES,
+    *PCNO_SOURCE_SNAPSHOT_V3_FILES,
 )
 
 
@@ -179,15 +197,25 @@ def verify_source_snapshot(snapshot: Mapping[str, Any]) -> None:
     """Reject continuation unless the schema-specific bound source still matches."""
 
     schema = snapshot.get("schema")
-    expected_files = (
-        PCNO_SOURCE_SNAPSHOT_V2_FILES
-        if schema == PCNO_SOURCE_SNAPSHOT_V2_SCHEMA
-        else PCNO_SOURCE_SNAPSHOT_FILES
-    )
-    if schema not in {PCNO_SOURCE_SNAPSHOT_V2_SCHEMA, PCNO_SOURCE_SNAPSHOT_SCHEMA}:
+    if schema == PCNO_SOURCE_SNAPSHOT_V2_SCHEMA:
+        expected_files = PCNO_SOURCE_SNAPSHOT_V2_FILES
+    elif schema == PCNO_SOURCE_SNAPSHOT_V3_SCHEMA:
+        expected_files = PCNO_SOURCE_SNAPSHOT_V3_FILES
+    elif schema == PCNO_SOURCE_SNAPSHOT_V4_SCHEMA:
+        expected_files = PCNO_SOURCE_SNAPSHOT_V4_FILES
+    else:
+        expected_files = PCNO_SOURCE_SNAPSHOT_FILES
+    if schema not in {
+        PCNO_SOURCE_SNAPSHOT_V2_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_V3_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_V4_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_SCHEMA,
+    }:
         raise ValueError(
             "unsupported PCNO source snapshot schema: "
-            f"{schema!r}; expected {PCNO_SOURCE_SNAPSHOT_V2_SCHEMA!r} or "
+            f"{schema!r}; expected {PCNO_SOURCE_SNAPSHOT_V2_SCHEMA!r}, "
+            f"{PCNO_SOURCE_SNAPSHOT_V3_SCHEMA!r}, "
+            f"{PCNO_SOURCE_SNAPSHOT_V4_SCHEMA!r}, or "
             f"{PCNO_SOURCE_SNAPSHOT_SCHEMA!r}"
         )
     files = snapshot.get("files")

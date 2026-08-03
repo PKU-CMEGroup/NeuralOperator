@@ -10,6 +10,7 @@ import scripts.time_dependent_no.evaluate_pcno_euler2d_residual as bump_evaluato
 import scripts.time_dependent_no.evaluate_pcno_shock_vortex_baseline as dynamic_evaluator
 import scripts.time_dependent_no.train_pcno_euler2d_residual as trainer
 from utility.time_dependent_no.pcno_euler2d import (
+    NODE_TYPE_FEATURE_CONSTANT_ZERO,
     Euler2DNormalization,
     PCNOEuler2DResidual,
 )
@@ -60,7 +61,9 @@ def _normalization() -> Euler2DNormalization:
     )
 
 
-def _deterministic_model() -> PCNOEuler2DResidual:
+def _deterministic_model(
+    *, node_type_feature_mode: str = "one_hot"
+) -> PCNOEuler2DResidual:
     model = PCNOEuler2DResidual(
         normalization=_normalization(),
         k_max=1,
@@ -69,6 +72,7 @@ def _deterministic_model() -> PCNOEuler2DResidual:
         fc_dim=8,
         nmeasures=1,
         zero_initialize=False,
+        node_type_feature_mode=node_type_feature_mode,
     )
     with torch.no_grad():
         for parameter_index, parameter in enumerate(model.parameters(), start=1):
@@ -83,8 +87,9 @@ def _deterministic_model() -> PCNOEuler2DResidual:
 def _synthetic_checkpoint(
     *,
     node_type_mode: str = "physical",
+    node_type_feature_mode: str = "one_hot",
 ) -> dict[str, object]:
-    model = _deterministic_model()
+    model = _deterministic_model(node_type_feature_mode=node_type_feature_mode)
     return {
         "checkpoint_schema_version": 4,
         "model_state": model.state_dict(),
@@ -111,6 +116,23 @@ def _synthetic_checkpoint(
             "model_node_type_input": node_type_mode,
         },
     }
+
+
+def test_runtime_reconstructs_literal_zero_type_channels() -> None:
+    checkpoint = _synthetic_checkpoint(
+        node_type_feature_mode=NODE_TYPE_FEATURE_CONSTANT_ZERO
+    )
+    model, _ = build_checkpoint_model(
+        checkpoint,
+        torch.device("cpu"),
+        model_node_type_input="physical",
+    )
+    sample, current = _synthetic_sample()
+    baseline = forward_sample(model, sample, current)
+    changed = dict(sample)
+    changed["node_type"] = (sample["node_type"] + 1).remainder(4)
+    assert model.node_type_feature_mode == NODE_TYPE_FEATURE_CONSTANT_ZERO
+    assert torch.equal(baseline, forward_sample(model, changed, current))
 
 
 def _synthetic_sample() -> tuple[dict[str, torch.Tensor], torch.Tensor]:

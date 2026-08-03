@@ -47,6 +47,24 @@ SCHEMA_VERSION = 1
 NUM_EULER_COMPONENTS = 4
 NUM_NODE_TYPES = 4
 DEFAULT_MAX_CACHED_GEOMETRY_BYTES = 256 * 1024 * 1024
+NODE_TYPE_FEATURE_ONE_HOT = "one_hot"
+NODE_TYPE_FEATURE_CONSTANT_ZERO = "constant_zero"
+NODE_TYPE_FEATURE_OMITTED = "omitted"
+NODE_TYPE_FEATURE_MODES = (
+    NODE_TYPE_FEATURE_ONE_HOT,
+    NODE_TYPE_FEATURE_CONSTANT_ZERO,
+    NODE_TYPE_FEATURE_OMITTED,
+)
+BOUNDARY_FIELD_NONE = "none"
+BOUNDARY_FIELD_GEOMETRY_COLLAR = "geometry_collar"
+BOUNDARY_FIELD_SEMANTIC_COLLAR = "semantic_collar"
+BOUNDARY_FIELD_MODES = (
+    BOUNDARY_FIELD_NONE,
+    BOUNDARY_FIELD_GEOMETRY_COLLAR,
+    BOUNDARY_FIELD_SEMANTIC_COLLAR,
+)
+TYPE_FEATURE_START = 2 + 1 + NUM_EULER_COMPONENTS
+TYPE_FEATURE_STOP = TYPE_FEATURE_START + NUM_NODE_TYPES
 
 
 def _component_array(value: Sequence[float] | np.ndarray, name: str) -> np.ndarray:
@@ -970,6 +988,9 @@ class PCNOEuler2DResidual(nn.Module):
         nmeasures: int = 1,
         act: str = "gelu",
         zero_initialize: bool = True,
+        node_type_feature_mode: str = NODE_TYPE_FEATURE_ONE_HOT,
+        boundary_field_mode: str = BOUNDARY_FIELD_NONE,
+        boundary_field_names: Sequence[str] = (),
     ) -> None:
         super().__init__()
         if k_max < 1:
@@ -984,6 +1005,33 @@ class PCNOEuler2DResidual(nn.Module):
             raise ValueError(
                 "the current Euler artifact contract uses exactly one measure"
             )
+        if node_type_feature_mode not in NODE_TYPE_FEATURE_MODES:
+            raise ValueError(
+                "node_type_feature_mode must be one of "
+                f"{NODE_TYPE_FEATURE_MODES}, got {node_type_feature_mode!r}"
+            )
+        if boundary_field_mode not in BOUNDARY_FIELD_MODES:
+            raise ValueError(
+                f"boundary_field_mode must be one of {BOUNDARY_FIELD_MODES}, "
+                f"got {boundary_field_mode!r}"
+            )
+        field_names = tuple(str(name) for name in boundary_field_names)
+        if any(not name for name in field_names) or len(set(field_names)) != len(
+            field_names
+        ):
+            raise ValueError("boundary_field_names must be nonempty and unique")
+        if boundary_field_mode == BOUNDARY_FIELD_NONE and field_names:
+            raise ValueError("the none boundary-field mode cannot declare field names")
+        if boundary_field_mode != BOUNDARY_FIELD_NONE and not field_names:
+            raise ValueError("an active boundary-field mode requires field names")
+        if (
+            boundary_field_mode != BOUNDARY_FIELD_NONE
+            and node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED
+        ):
+            raise ValueError(
+                "continuous boundary fields and categorical node-type features "
+                "are separate model inputs"
+            )
 
         modes = compute_Fourier_modes(
             2,
@@ -992,8 +1040,25 @@ class PCNOEuler2DResidual(nn.Module):
         )
         modes_tensor = torch.as_tensor(modes, dtype=torch.float32)
         # coordinates (2), quadrature density (1), normalized conservative
-        # state (4), one-hot node type (4), normalized Mach (1)
-        in_dim = 2 + nmeasures + NUM_EULER_COMPONENTS + NUM_NODE_TYPES + 1
+        # state (4), one selected boundary representation, normalized Mach (1)
+        type_feature_count = (
+            0
+            if node_type_feature_mode == NODE_TYPE_FEATURE_OMITTED
+            else NUM_NODE_TYPES
+        )
+        boundary_feature_count = 0
+        if boundary_field_mode == BOUNDARY_FIELD_GEOMETRY_COLLAR:
+            boundary_feature_count = 1
+        elif boundary_field_mode == BOUNDARY_FIELD_SEMANTIC_COLLAR:
+            boundary_feature_count = len(field_names)
+        in_dim = (
+            2
+            + nmeasures
+            + NUM_EULER_COMPONENTS
+            + type_feature_count
+            + boundary_feature_count
+            + 1
+        )
         self.backbone = PCNO(
             2,
             modes_tensor,
@@ -1035,6 +1100,10 @@ class PCNOEuler2DResidual(nn.Module):
         self.domain_lengths = tuple(float(value) for value in domain_lengths)
         self.layer_widths = tuple(int(value) for value in layers)
         self.projection_width = int(fc_dim)
+        self.node_type_feature_mode = str(node_type_feature_mode)
+        self.boundary_field_mode = str(boundary_field_mode)
+        self.boundary_field_names = field_names
+        self.boundary_field_input_count = int(boundary_feature_count)
         if zero_initialize:
             self.zero_initialize_update_head()
 
@@ -1054,7 +1123,81 @@ class PCNOEuler2DResidual(nn.Module):
             "in_dim": self.backbone.in_dim,
             "out_dim": self.backbone.out_dim,
             "nmeasures": self.backbone.nmeasures,
+            "node_type_feature_mode": self.node_type_feature_mode,
+            "boundary_field_mode": self.boundary_field_mode,
+            "boundary_field_names": list(self.boundary_field_names),
+            "boundary_field_input_count": self.boundary_field_input_count,
+            "input_feature_names": self.input_feature_names(),
         }
+
+    def input_feature_names(self) -> list[str]:
+        """Return the exact lifting-column layout in model-input order."""
+
+        names = [
+            "coordinate_x",
+            "coordinate_y",
+            "quadrature_density",
+            "normalized_conservative_rho",
+            "normalized_conservative_rho_u",
+            "normalized_conservative_rho_v",
+            "normalized_conservative_energy",
+        ]
+        if self.node_type_feature_mode == NODE_TYPE_FEATURE_ONE_HOT:
+            names.extend(f"node_type_one_hot_{index}" for index in range(4))
+        elif self.node_type_feature_mode == NODE_TYPE_FEATURE_CONSTANT_ZERO:
+            names.extend(f"constant_zero_type_slot_{index}" for index in range(4))
+        if self.boundary_field_mode == BOUNDARY_FIELD_GEOMETRY_COLLAR:
+            names.append("boundary_geometry_collar")
+        elif self.boundary_field_mode == BOUNDARY_FIELD_SEMANTIC_COLLAR:
+            names.extend(
+                f"boundary_semantic_collar_{name}"
+                for name in self.boundary_field_names
+            )
+        names.append("normalized_mach")
+        if len(names) != self.backbone.in_dim:
+            raise AssertionError("input feature names do not match the lifting width")
+        return names
+
+    def _selected_boundary_fields(
+        self, boundary_features: torch.Tensor
+    ) -> torch.Tensor:
+        fields = boundary_features.to(dtype=self.backbone.fc0.weight.dtype)
+        if self.boundary_field_mode == BOUNDARY_FIELD_GEOMETRY_COLLAR:
+            return fields.amax(dim=-1, keepdim=True)
+        if self.boundary_field_mode == BOUNDARY_FIELD_SEMANTIC_COLLAR:
+            return fields
+        raise ValueError("the model has no active continuous boundary field")
+
+    def boundary_lift_contribution(
+        self, boundary_features: torch.Tensor
+    ) -> torch.Tensor:
+        """Return the exact additive pre-activation lift W_B B(x).
+
+        This is an algebraic decomposition of the linear lifting layer. It is
+        useful for diagnostics but is not by itself a causal claim about later
+        nonlinear PCNO blocks or rollout behavior.
+        """
+
+        if boundary_features.ndim != 3 or boundary_features.shape[-1] != len(
+            self.boundary_field_names
+        ):
+            raise ValueError(
+                "boundary_features must have shape [B, N, raw_boundary_fields]"
+            )
+        if (
+            not bool(torch.isfinite(boundary_features).all())
+            or bool((boundary_features < 0.0).any())
+            or bool((boundary_features > 1.0).any())
+        ):
+            raise ValueError("boundary_features must be finite and lie in [0,1]")
+        selected = self._selected_boundary_fields(boundary_features)
+        first = TYPE_FEATURE_START
+        last = first + self.boundary_field_input_count
+        return F.linear(
+            selected,
+            self.backbone.fc0.weight[:, first:last],
+            bias=None,
+        )
 
     @staticmethod
     def _expanded_mach(mach: torch.Tensor, current: torch.Tensor) -> torch.Tensor:
@@ -1081,6 +1224,7 @@ class PCNOEuler2DResidual(nn.Module):
         node_rhos: torch.Tensor,
         node_type: torch.Tensor,
         mach: torch.Tensor,
+        boundary_features: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if current_conservative.ndim != 3 or current_conservative.shape[-1] != 4:
             raise ValueError("current state must have shape [B, N, 4]")
@@ -1094,17 +1238,44 @@ class PCNOEuler2DResidual(nn.Module):
             raise ValueError("node_type must have shape [B, N] or [B, N, 1]")
         if bool(((node_type < 0) | (node_type >= NUM_NODE_TYPES)).any()):
             raise ValueError("node_type contains an unsupported code")
-        node_type_one_hot = F.one_hot(
-            node_type.to(torch.int64),
-            num_classes=NUM_NODE_TYPES,
-        ).to(dtype=current_conservative.dtype)
         mach_nodes = self._expanded_mach(mach, current_conservative)
         normalized_mach = (mach_nodes - self.mach_mean) / self.mach_scale
         normalized_state = (current_conservative - self.state_mean) / self.state_scale
-        return torch.cat(
-            (nodes, node_rhos, normalized_state, node_type_one_hot, normalized_mach),
-            dim=-1,
-        )
+        features = [nodes, node_rhos, normalized_state]
+        if self.node_type_feature_mode == NODE_TYPE_FEATURE_ONE_HOT:
+            features.append(
+                F.one_hot(
+                    node_type.to(torch.int64),
+                    num_classes=NUM_NODE_TYPES,
+                ).to(dtype=current_conservative.dtype)
+            )
+        elif self.node_type_feature_mode == NODE_TYPE_FEATURE_CONSTANT_ZERO:
+            features.append(
+                current_conservative.new_zeros(
+                    current_conservative.shape[:2] + (NUM_NODE_TYPES,)
+                )
+            )
+        if self.boundary_field_mode != BOUNDARY_FIELD_NONE:
+            if boundary_features is None:
+                raise ValueError("the model requires boundary_features")
+            expected = current_conservative.shape[:2] + (
+                len(self.boundary_field_names),
+            )
+            if boundary_features.shape != expected:
+                raise ValueError(
+                    f"boundary_features must have shape {expected}, got "
+                    f"{tuple(boundary_features.shape)}"
+                )
+            if (
+                not bool(torch.isfinite(boundary_features).all())
+                or bool((boundary_features < 0.0).any())
+                or bool((boundary_features > 1.0).any())
+            ):
+                raise ValueError("boundary_features must be finite and lie in [0,1]")
+            selected_fields = self._selected_boundary_fields(boundary_features)
+            features.append(selected_fields.to(dtype=current_conservative.dtype))
+        features.append(normalized_mach)
+        return torch.cat(features, dim=-1)
 
     def forward(
         self,
@@ -1118,6 +1289,7 @@ class PCNOEuler2DResidual(nn.Module):
         edge_gradient_weights: torch.Tensor,
         node_type: torch.Tensor,
         mach: torch.Tensor,
+        boundary_features: torch.Tensor | None = None,
     ) -> torch.Tensor:
         model_input = self.normalized_input(
             current_conservative,
@@ -1125,6 +1297,7 @@ class PCNOEuler2DResidual(nn.Module):
             node_rhos=node_rhos,
             node_type=node_type,
             mach=mach,
+            boundary_features=boundary_features,
         )
         normalized_residual = self.backbone(
             model_input,
@@ -1132,6 +1305,161 @@ class PCNOEuler2DResidual(nn.Module):
         )
         prediction = current_conservative + normalized_residual * self.residual_scale
         return prediction * node_mask
+
+
+def copy_no_boundary_initialization_to_boundary_field_model(
+    no_boundary_model: PCNOEuler2DResidual,
+    boundary_field_model: PCNOEuler2DResidual,
+) -> dict[str, Any]:
+    """Make a boundary-field model exactly match an eight-input model initially.
+
+    The seven coordinate, quadrature-density, and state columns are copied in
+    place; normalized Mach is moved to the final lifting column.  All inserted
+    boundary-field columns start at zero, while every non-lifting parameter is
+    copied exactly.  The new fields can still learn immediately through their
+    lifting-weight gradients.
+    """
+
+    if no_boundary_model.node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED:
+        raise ValueError("source model must omit categorical node-type features")
+    if no_boundary_model.boundary_field_mode != BOUNDARY_FIELD_NONE:
+        raise ValueError("source model must omit continuous boundary fields")
+    if boundary_field_model.node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED:
+        raise ValueError("target model must omit categorical node-type features")
+    if boundary_field_model.boundary_field_mode == BOUNDARY_FIELD_NONE:
+        raise ValueError("target model must use a continuous boundary field")
+
+    source = no_boundary_model.state_dict()
+    target = boundary_field_model.state_dict()
+    if set(source) != set(target):
+        raise ValueError("source and target state dictionaries have different keys")
+    if no_boundary_model.backbone.in_dim != TYPE_FEATURE_START + 1:
+        raise ValueError("source lifting layer does not have eight inputs")
+    target_field_count = boundary_field_model.backbone.in_dim - (
+        TYPE_FEATURE_START + 1
+    )
+    if target_field_count < 1:
+        raise ValueError("target lifting layer has no inserted boundary columns")
+
+    copied: dict[str, torch.Tensor] = {}
+    for name, target_value in target.items():
+        source_value = source[name]
+        if name == "backbone.fc0.weight":
+            mapped = torch.zeros_like(target_value)
+            mapped[:, :TYPE_FEATURE_START] = source_value[:, :TYPE_FEATURE_START]
+            mapped[:, -1] = source_value[:, -1]
+            copied[name] = mapped
+        else:
+            if source_value.shape != target_value.shape:
+                raise ValueError(f"non-lifting parameter shape differs: {name}")
+            copied[name] = source_value.detach().clone()
+    boundary_field_model.load_state_dict(copied, strict=True)
+
+    target_lift = boundary_field_model.backbone.fc0.weight.detach()
+    source_lift = no_boundary_model.backbone.fc0.weight.detach()
+    exact = bool(
+        torch.equal(
+            target_lift[:, :TYPE_FEATURE_START],
+            source_lift[:, :TYPE_FEATURE_START],
+        )
+        and torch.equal(target_lift[:, -1], source_lift[:, -1])
+        and torch.count_nonzero(
+            target_lift[:, TYPE_FEATURE_START:-1]
+        ).item()
+        == 0
+    )
+    if not exact:
+        raise RuntimeError("matched boundary-field lifting copy is not exact")
+    return {
+        "schema": "pcno_boundary_field_initialization_v1",
+        "kind": "copied_from_no_boundary_model",
+        "source_input_dim": int(no_boundary_model.backbone.in_dim),
+        "target_input_dim": int(boundary_field_model.backbone.in_dim),
+        "inserted_boundary_columns": list(
+            range(TYPE_FEATURE_START, boundary_field_model.backbone.in_dim - 1)
+        ),
+        "lifting_copy_exact": True,
+        "all_non_lifting_state_copied": True,
+        "active_weight_rescale_factor": 1.0,
+        "mathematical_initial_function_match": True,
+    }
+
+
+def copy_no_type_initialization_to_zero_channels(
+    no_type_model: PCNOEuler2DResidual,
+    zero_channel_model: PCNOEuler2DResidual,
+) -> dict[str, Any]:
+    """Copy an 8-input initialization into the corresponding 12-input model.
+
+    The first seven active features keep their columns, while normalized Mach
+    moves from column 7 to column 11.  Columns 7:11 of the target are set to
+    zero and always receive literal-zero inputs.  The resulting mathematical
+    function exactly matches ``no_type_model`` at initialization.
+    """
+
+    if no_type_model.node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED:
+        raise ValueError("source model must omit node-type features")
+    if zero_channel_model.node_type_feature_mode != NODE_TYPE_FEATURE_CONSTANT_ZERO:
+        raise ValueError("target model must use four constant-zero features")
+
+    source = no_type_model.state_dict()
+    target = zero_channel_model.state_dict()
+    if set(source) != set(target):
+        raise ValueError("source and target state dictionaries have different keys")
+
+    copied: dict[str, torch.Tensor] = {}
+    for name, target_value in target.items():
+        source_value = source[name]
+        if name == "backbone.fc0.weight":
+            if source_value.shape[1] != TYPE_FEATURE_START + 1:
+                raise ValueError("no-type lifting layer does not have eight inputs")
+            if target_value.shape[1] != TYPE_FEATURE_STOP + 1:
+                raise ValueError("zero-channel lifting layer does not have twelve inputs")
+            mapped = torch.zeros_like(target_value)
+            mapped[:, :TYPE_FEATURE_START] = source_value[:, :TYPE_FEATURE_START]
+            mapped[:, TYPE_FEATURE_STOP] = source_value[:, TYPE_FEATURE_START]
+            copied[name] = mapped
+        else:
+            if source_value.shape != target_value.shape:
+                raise ValueError(f"non-lifting parameter shape differs: {name}")
+            copied[name] = source_value.detach().clone()
+    zero_channel_model.load_state_dict(copied, strict=True)
+
+    target_lift = zero_channel_model.backbone.fc0.weight.detach()
+    source_lift = no_type_model.backbone.fc0.weight.detach()
+    exact = bool(
+        torch.equal(
+            target_lift[:, :TYPE_FEATURE_START],
+            source_lift[:, :TYPE_FEATURE_START],
+        )
+        and torch.equal(
+            target_lift[:, TYPE_FEATURE_STOP],
+            source_lift[:, TYPE_FEATURE_START],
+        )
+        and torch.count_nonzero(
+            target_lift[:, TYPE_FEATURE_START:TYPE_FEATURE_STOP]
+        ).item()
+        == 0
+    )
+    if not exact:
+        raise RuntimeError("matched zero-channel lifting copy is not exact")
+    return {
+        "schema": "pcno_zero_channel_initialization_v1",
+        "kind": "copied_from_no_type_model",
+        "source_input_dim": int(no_type_model.backbone.in_dim),
+        "target_input_dim": int(zero_channel_model.backbone.in_dim),
+        "active_column_mapping": [
+            *[[index, index] for index in range(TYPE_FEATURE_START)],
+            [TYPE_FEATURE_START, TYPE_FEATURE_STOP],
+        ],
+        "constant_zero_target_columns": list(
+            range(TYPE_FEATURE_START, TYPE_FEATURE_STOP)
+        ),
+        "lifting_copy_exact": True,
+        "all_non_lifting_state_copied": True,
+        "active_weight_rescale_factor": 1.0,
+        "mathematical_initial_function_match": True,
+    }
 
 
 class PCNOEuler2DShardStore:
@@ -1186,6 +1514,46 @@ class PCNOEuler2DShardStore:
     @property
     def manifest_digest(self) -> str:
         return hashlib.sha256(self.manifest_path.read_bytes()).hexdigest()
+
+    @property
+    def boundary_field_contract(self) -> dict[str, Any] | None:
+        """Return the validated optional semantic-field artifact contract."""
+
+        raw = self.manifest.get("boundary_field_contract")
+        if raw is None:
+            return None
+        if not isinstance(raw, Mapping):
+            raise ValueError("boundary_field_contract must be a mapping")
+        contract = dict(raw)
+        if contract.get("schema") != "pcno_bounded_semantic_collar_v1":
+            raise ValueError("unsupported boundary-field contract schema")
+        names = contract.get("channel_names")
+        if (
+            not isinstance(names, list)
+            or not names
+            or not all(isinstance(name, str) and name for name in names)
+            or len(set(names)) != len(names)
+        ):
+            raise ValueError("boundary-field channel names are invalid")
+        width = contract.get("physical_width")
+        if (
+            not isinstance(width, (int, float))
+            or not math.isfinite(float(width))
+            or float(width) <= 0.0
+        ):
+            raise ValueError("boundary-field physical width is invalid")
+        if contract.get("continuum_object") != "bounded_volume_descriptor":
+            raise ValueError("boundary fields must be bounded volume descriptors")
+        if contract.get("surface_measure_scaling") is not False:
+            raise ValueError("surface-measure-scaled fields are not model channels")
+        return contract
+
+    @property
+    def boundary_field_names(self) -> tuple[str, ...]:
+        contract = self.boundary_field_contract
+        if contract is None:
+            return ()
+        return tuple(str(name) for name in contract["channel_names"])
 
     def entry(self, key: str) -> dict[str, Any]:
         try:
@@ -1262,7 +1630,7 @@ class PCNOEuler2DShardStore:
         return states
 
     def geometry_numpy(self, key: str) -> dict[str, np.ndarray | float]:
-        return {
+        geometry: dict[str, np.ndarray | float] = {
             "nodes": self.array(key, "nodes"),
             "node_measures": self.array(key, "node_measures"),
             "node_weights": self.array(key, "node_weights"),
@@ -1272,6 +1640,25 @@ class PCNOEuler2DShardStore:
             "node_type": self.array(key, "node_type"),
             "mach": float(self.entry(key)["mach"]),
         }
+        if self.boundary_field_contract is not None:
+            boundary_features = self.array(key, "boundary_features")
+            expected = (
+                int(np.asarray(geometry["nodes"]).shape[0]),
+                len(self.boundary_field_names),
+            )
+            if boundary_features.shape != expected:
+                raise ValueError(
+                    f"invalid boundary feature shape for trajectory {key}: "
+                    f"{boundary_features.shape}, expected {expected}"
+                )
+            if (
+                not np.all(np.isfinite(boundary_features))
+                or np.any(boundary_features < 0.0)
+                or np.any(boundary_features > 1.0)
+            ):
+                raise ValueError("boundary features must be finite and lie in [0,1]")
+            geometry["boundary_features"] = boundary_features
+        return geometry
 
     def tensor_sample(
         self,
@@ -1325,7 +1712,7 @@ class PCNOEuler2DShardStore:
             return tensor.unsqueeze(0).expand(batch_size, *tensor.shape)
 
         nodes = expanded_geometry("nodes")
-        return {
+        sample = {
             "current": current,
             "target": target,
             "node_mask": expanded_geometry("node_mask"),
@@ -1343,6 +1730,9 @@ class PCNOEuler2DShardStore:
                 device=canonical_device,
             ),
         }
+        if "boundary_features" in geometry_tensors:
+            sample["boundary_features"] = expanded_geometry("boundary_features")
+        return sample
 
     def _tensor_geometry(
         self,
@@ -1381,6 +1771,10 @@ class PCNOEuler2DShardStore:
                 device=device,
             ),
         }
+        if "boundary_features" in geometry:
+            tensors["boundary_features"] = _copy_tensor(
+                geometry["boundary_features"], torch.float32, device
+            )
         entry_bytes = sum(
             tensor.numel() * tensor.element_size() for tensor in tensors.values()
         )

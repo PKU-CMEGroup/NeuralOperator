@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-01
+Updated: 2026-08-03
 
 This directory is the onboarding and maintained-code inventory for the summer
 2026 time-dependent neural-operator work on branch time-dependent-no. It is not
@@ -15,7 +15,11 @@ Read the compact active context in this order:
 2. [HANDOFF.md](HANDOFF.md) for the current workspace and next human review.
 3. [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md) for
    experiment-ID and topic routing.
-4. One bounded section of the
+4. [BOUNDARY_FIELD_DERIVATION_PACKAGE.md](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
+   and [BOUNDARY_FIELD_PRIOR_ART_AUDIT.md](BOUNDARY_FIELD_PRIOR_ART_AUDIT.md)
+   for D072's branch scaling, continuum contract, proof obligations, and
+   claim-overlap audit.
+5. One bounded section of the
    [historical evidence ledger](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md)
    when exact contracts, metrics, hashes, or prior outcomes are needed.
 
@@ -53,6 +57,48 @@ boundary accounting, and cumulative accepted-substep impulses. Those fields
 support physical outcome diagnostics only on that frozen solver and data
 contract. State-residual PCNO recurrence is not conservative by construction.
 
+Its family-local cell types are `0=interior`, `1=touches y-symmetry`,
+`2=touches x-extrapolation`, and `3=touches both`, with the combined corner
+category taking precedence. These meanings are not interchangeable with the
+bump vertex labels.
+
+D068--D069 close the current node-type mechanism question. Frozen replacements
+show that the maintained dynamic and bump checkpoints use their own family-local
+semantics, with wall labels decisive in the tested native bump geometries.
+A matched three-seed dynamic study does not support a training benefit from four
+permanently zero channels. This is a boundary-representation diagnosis under a
+frozen physical boundary policy, not a boundary-condition improvement or an
+optimal-encoding claim. See the compact tracker for exact artifact pointers.
+
+The later owner-authorized D072 line now tests bounded semantic boundary
+collars of fixed physical width. Its first ladder is no field, a geometry-only
+union collar, and separate semantic collars under exact no-boundary matched
+initialization. Dynamic FV uses overlapping symmetry/extrapolation fields;
+bump uses wall/outflow/inflow fields from a mesh-derived boundary polyline
+proxy. This remains a time-dependent representation study under a frozen
+physical boundary policy, with geometry variation and rotation treated as
+stress tests rather than a broad geometric-generalization claim.
+Boundary-to-domain extensions and bounded geometry masks are established prior
+art; D072's plausible contribution is the narrower PCNO branch-scaling and
+long-rollout mechanism study, not invention of the primitive representation.
+
+D070C and D073-A separately narrow the dynamic resolution defect to the
+differential-geometry pathway. Under same-hidden inputs, replacing the
+mesh-local layer-3 graph-ball radius by the training-grid physical width reduces
+every registered adjacent-pair stratum and passes native relevance. The newer
+D074 direction makes native `250x100` persistent residual correction the first
+practical target and freezes transfer-to-native, rollout, and transfer-back as
+the comparator for direct off-grid methods. D071's local filter is not retained
+because it worsens native residual and local-band error. D073-B remains useful
+only after it is compared against the best raw or corrected transfer-native
+pipeline. This is not yet a corrected-rollout, resolution-invariance, or bump-
+transfer claim; exact contracts and metrics live in the compact tracker.
+The D074-A evaluator is now CPU-qualified and independently reviewed for a
+contract-only dynamic H2 smoke; no D074 checkpoint inference has run. The
+maintained entry point is
+`scripts/time_dependent_no/evaluate_pcno_native_residual_correction.py`. Full
+dynamic H30 and bump execution remain behind the tracker gates.
+
 ## Maintained Code Inventory
 
 Presence here records a maintained implementation or reproducibility surface.
@@ -83,12 +129,18 @@ CPG/bump contracts and diagnostics:
 Residual-PCNO and dynamic finite-volume support:
 
 - utility/time_dependent_no/pcno_artifacts.py
+- utility/time_dependent_no/pcno_boundary_fields.py
+- utility/time_dependent_no/pcno_defect_corrections.py
 - utility/time_dependent_no/pcno_euler2d.py
 - utility/time_dependent_no/pcno_rollout.py
 - utility/time_dependent_no/pcno_runtime.py
 - utility/time_dependent_no/pcno_fv_geometry.py
 - utility/time_dependent_no/pcno_ripple_diagnostics.py
 - utility/time_dependent_no/pcno_resolution_transfer.py
+- utility/time_dependent_no/pcno_node_type_interpretability.py
+- utility/time_dependent_no/pcno_residual_structure.py
+- utility/time_dependent_no/pcno_resolution_pathways.py
+- utility/time_dependent_no/pcno_scale_separated_drift.py
 - utility/time_dependent_no/shock_vortex_fv.py
 - utility/time_dependent_no/shock_vortex_coarse_cfd.py
 - utility/time_dependent_no/shock_vortex_metrics.py
@@ -130,6 +182,11 @@ Bump residual-PCNO preparation, evaluation, and diagnostics:
 - scripts/time_dependent_no/decompose_pcno_euler2d_rollout_error.py
 - scripts/time_dependent_no/rollout_pcno_preprocessed.py
 
+Frozen node-type intervention, instrumentation, and visualization:
+
+- scripts/time_dependent_no/evaluate_pcno_node_type_interventions.py
+- scripts/time_dependent_no/visualize_pcno_node_type_interventions.py
+
 Dynamic shock-vortex reference, family, PCNO, and resolution tools:
 
 - scripts/time_dependent_no/generate_euler2d_shock_vortex_reference.py
@@ -144,6 +201,17 @@ Dynamic shock-vortex reference, family, PCNO, and resolution tools:
 - scripts/time_dependent_no/evaluate_pcno_resolution_transfer.py
 - scripts/time_dependent_no/evaluate_pcno_resolution_rollout.py
 - scripts/time_dependent_no/visualize_pcno_resolution_rollout.py
+- scripts/time_dependent_no/analyze_pcno_residual_structure.py
+- scripts/time_dependent_no/analyze_pcno_resolution_pathways.py
+- scripts/time_dependent_no/analyze_pcno_fine_grained_pathways.py
+- scripts/time_dependent_no/analyze_pcno_scale_separated_drift.py
+- scripts/time_dependent_no/compare_pcno_structural_replicates.py
+- scripts/time_dependent_no/evaluate_pcno_defect_corrections.py
+- scripts/time_dependent_no/visualize_pcno_residual_structure.py
+- scripts/time_dependent_no/visualize_pcno_resolution_pathways.py
+- scripts/time_dependent_no/visualize_pcno_scale_separated_drift.py
+- scripts/time_dependent_no/visualize_pcno_defect_corrections.py
+- scripts/time_dependent_no/visualize_pcno_fine_grained_pathways.py
 
 ### Tests
 
@@ -174,10 +242,14 @@ Generic 2D/PCNO:
 - tests/time_dependent_no/test_euler_metrics.py
 - tests/time_dependent_no/test_fv_impulse_diagnostics.py
 - tests/time_dependent_no/test_pcno_artifacts.py
+- tests/time_dependent_no/test_pcno_boundary_fields.py
 - tests/time_dependent_no/test_pcno_euler2d_residual.py
 - tests/time_dependent_no/test_pcno_euler2d_boundary_splice.py
 - tests/time_dependent_no/test_pcno_euler2d_multistep_training.py
+- tests/time_dependent_no/test_pcno_defect_correction_evaluator.py
+- tests/time_dependent_no/test_pcno_defect_corrections.py
 - tests/time_dependent_no/test_pcno_fv_geometry.py
+- tests/time_dependent_no/test_pcno_node_type_interpretability.py
 - tests/time_dependent_no/test_pcno_ripple_diagnostics.py
 - tests/time_dependent_no/test_pcno_rollout.py
 - tests/time_dependent_no/test_pcno_rollout_error_decomposition.py
@@ -187,6 +259,13 @@ Dynamic shock-vortex:
 
 - tests/time_dependent_no/test_pcno_shock_vortex_baseline.py
 - tests/time_dependent_no/test_pcno_resolution_transfer.py
+- tests/time_dependent_no/test_pcno_fine_grained_pathways.py
+- tests/time_dependent_no/test_pcno_residual_structure.py
+- tests/time_dependent_no/test_pcno_resolution_pathways.py
+- tests/time_dependent_no/test_pcno_scale_separated_drift.py
+- tests/time_dependent_no/test_pcno_structural_repeatability.py
+- tests/time_dependent_no/test_visualize_pcno_defect_corrections.py
+- tests/time_dependent_no/test_visualize_pcno_fine_grained_pathways.py
 - tests/time_dependent_no/test_shock_vortex_coarse_cfd.py
 - tests/time_dependent_no/test_shock_vortex_family.py
 - tests/time_dependent_no/test_shock_vortex_fv.py
@@ -214,5 +293,9 @@ Key recovery anchors:
 - 31e5765: earlier expanded documentation provenance.
 
 The compact index records experiment-specific source and artifact pointers.
+Its post-archive D064--D069 section is the source of truth for the accepted
+residual-structure, node-type intervention, and zero-channel training summaries,
+repeatability qualifications, and final visual bundles; generated arrays and
+media remain under ignored artifact storage.
 Core pcno/, baselines/, and unrelated examples remain outside this
 branch-specific inventory.

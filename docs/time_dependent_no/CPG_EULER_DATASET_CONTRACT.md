@@ -65,12 +65,17 @@ recovered mesh weights are used, their source and validation must be recorded.
 
 | Code | Meaning |
 | --- | --- |
-| `0` | normal interior node |
+| `0` | normal |
 | `1` | wall |
 | `2` | outflow |
 | `3` | inflow |
 
 Boundary diagnostics must distinguish clamped-boundary reproduction from free or prescribed-boundary rollout.
+
+These meanings are family-local physical semantics. Integer labels are never
+interpolated. Regenerate them from the transformed physical boundary sets and
+preserve the declared boundary-condition semantics; any family-specific channel
+permutation must be explicit.
 
 ## Reference Graph Frame
 
@@ -83,6 +88,9 @@ pos = pos_t
 edges = edges_t
 future_primitives = primitive states from t+1 through t+num_steps
 ```
+
+This is the raw reference-reader convention, not the maintained residual-PCNO
+input-channel ordering.
 
 ## Inspection Convention
 

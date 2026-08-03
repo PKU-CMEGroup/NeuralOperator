@@ -13,11 +13,12 @@ Do not treat this as a generic cleanup branch. Keep unrelated NeuralOperator exa
 At the start of a coding session in this branch:
 
 1. Read this file.
-2. Read `docs/time_dependent_no/README.md`.
-3. Read `docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md`.
-4. Read `docs/time_dependent_no/HANDOFF.md`.
-5. Read the compact `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md`
+2. Read `docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md`.
+3. Read `docs/time_dependent_no/HANDOFF.md`.
+4. Read the compact `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md`
    only when the task needs experiment history or diagnostic routing.
+5. Read `docs/time_dependent_no/README.md` for onboarding and maintained-code
+   navigation.
 6. When exact historical evidence is needed, search by run ID and read only the
    matching bounded section of
    `docs/time_dependent_no/history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md`.

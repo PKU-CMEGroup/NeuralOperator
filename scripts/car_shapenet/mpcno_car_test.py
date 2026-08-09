@@ -51,7 +51,7 @@ layer_selection = {'grad': args.grad.lower() == "true", 'geo': args.geo.lower() 
 
 k_max = args.k_max
 ndim = 3
-Ls = [2.0,2.0,5.0]
+Ls = [4.0,4.0,12.0]
 layers = [int(size) for size in args.layer_sizes.split(",")]
 act = args.act
 geo_act = args.geo_act
@@ -182,5 +182,5 @@ config = {"train" : {"base_lr": base_lr, "weight_decay": weight_decay, "epochs":
 
 train_rel_l2_losses, test_rel_l2_losses, test_l2_losses = MPCNO_train(
     x_train, aux_train, y_train, x_test, aux_test, y_test, config, model,
-    save_model_name = None,
+    save_model_name = "model/mpcno",
 )

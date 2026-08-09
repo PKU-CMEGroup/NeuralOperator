@@ -10,5 +10,4 @@
 
 source ~/.bashrc
 conda activate myconda
-
-python pcno_car_test.py > PCNO_car.log
+python freq_analy_singlelayer.py > PCNO_freq.txt

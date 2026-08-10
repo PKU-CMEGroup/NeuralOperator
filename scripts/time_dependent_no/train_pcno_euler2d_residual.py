@@ -36,6 +36,10 @@ from utility.time_dependent_no.pcno_artifacts import (
 from utility.time_dependent_no.pcno_euler2d import (
     BOUNDARY_FIELD_MODES,
     BOUNDARY_FIELD_NONE,
+    BOUNDARY_FIELD_SEMANTIC_COLLAR,
+    BOUNDARY_RESIDUAL_MODES,
+    BOUNDARY_RESIDUAL_NONE,
+    BOUNDARY_RESIDUAL_SEMANTIC_COLLAR_POINTWISE,
     NODE_TYPE_FEATURE_CONSTANT_ZERO,
     NODE_TYPE_FEATURE_OMITTED,
     NODE_TYPE_FEATURE_ONE_HOT,
@@ -50,6 +54,7 @@ from utility.time_dependent_no.pcno_euler2d import (
     conservative_admissibility,
     conservative_to_primitive_torch,
     copy_no_boundary_initialization_to_boundary_field_model,
+    copy_no_boundary_initialization_to_boundary_residual_model,
     copy_no_type_initialization_to_zero_channels,
     digest_mapping,
     fit_normalization,
@@ -219,6 +224,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "--node-type-channel-control no_type_channels."
         ),
     )
+    parser.add_argument(
+        "--boundary-residual-mode",
+        choices=BOUNDARY_RESIDUAL_MODES,
+        default=BOUNDARY_RESIDUAL_NONE,
+        help=(
+            "Keep the shared PCNO input unchanged and route manifest-declared "
+            "semantic collars through a separately gated pointwise residual path."
+        ),
+    )
+    parser.add_argument("--boundary-residual-width", type=int, default=64)
     parser.add_argument(
         "--layers", type=int, nargs="+", default=(128, 128, 128, 128, 128)
     )
@@ -409,6 +424,17 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
             "continuous boundary fields require "
             "--node-type-channel-control no_type_channels"
         )
+    if args.boundary_residual_mode != BOUNDARY_RESIDUAL_NONE:
+        if args.boundary_field_mode != BOUNDARY_FIELD_NONE:
+            raise ValueError(
+                "lifted boundary fields and the boundary-residual side path are "
+                "separate representation studies"
+            )
+        if args.node_type_channel_control != NO_TYPE_CHANNEL_CONTROL:
+            raise ValueError(
+                "the boundary-residual side path requires "
+                "--node-type-channel-control no_type_channels"
+            )
     if args.node_type_channel_control != STANDARD_NODE_TYPE_CHANNEL_CONTROL:
         if args.model_node_type_input != "physical":
             raise ValueError(
@@ -435,6 +461,7 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         "gradient_accumulation_steps": args.gradient_accumulation_steps,
         "step_stride": args.step_stride,
         "stats_time_stride": args.stats_time_stride,
+        "boundary_residual_width": args.boundary_residual_width,
         "rollout_every": args.rollout_every,
         "rollout_val_count": args.rollout_val_count,
         "rollout_steps": args.rollout_steps,
@@ -666,6 +693,9 @@ def assert_resume_training_args(
     )
     saved.setdefault("boundary_field_mode", BOUNDARY_FIELD_NONE)
     saved.setdefault("boundary_field_names", [])
+    saved.setdefault("boundary_residual_mode", BOUNDARY_RESIDUAL_NONE)
+    saved.setdefault("boundary_residual_names", [])
+    saved.setdefault("boundary_residual_width", 64)
     current = jsonable_args(args)
     missing = sorted(set(current) - set(saved) - RESUME_MUTABLE_ARGS)
     differences = {
@@ -1043,6 +1073,15 @@ def assert_checkpoint_contract(
         "boundary_field_names": list(
             getattr(args, "boundary_field_names", ())
         ),
+        "boundary_residual_mode": getattr(
+            args, "boundary_residual_mode", BOUNDARY_RESIDUAL_NONE
+        ),
+        "boundary_residual_names": list(
+            getattr(args, "boundary_residual_names", ())
+        ),
+        "boundary_residual_width": int(
+            getattr(args, "boundary_residual_width", 64)
+        ),
     }
     for key, value in expected.items():
         if key == "node_type_feature_mode":
@@ -1051,6 +1090,12 @@ def assert_checkpoint_contract(
             actual_value = actual.get(key, BOUNDARY_FIELD_NONE)
         elif key == "boundary_field_names":
             actual_value = actual.get(key, [])
+        elif key == "boundary_residual_mode":
+            actual_value = actual.get(key, BOUNDARY_RESIDUAL_NONE)
+        elif key == "boundary_residual_names":
+            actual_value = actual.get(key, [])
+        elif key == "boundary_residual_width":
+            actual_value = actual.get(key, 64)
         else:
             actual_value = actual[key]
         if actual_value != value:
@@ -1106,7 +1151,41 @@ def build_model(
         args, "boundary_field_mode", BOUNDARY_FIELD_NONE
     )
     boundary_field_names = tuple(getattr(args, "boundary_field_names", ()))
-    if boundary_field_mode != BOUNDARY_FIELD_NONE:
+    boundary_residual_mode = getattr(
+        args, "boundary_residual_mode", BOUNDARY_RESIDUAL_NONE
+    )
+    boundary_residual_names = tuple(getattr(args, "boundary_residual_names", ()))
+    boundary_residual_width = int(getattr(args, "boundary_residual_width", 64))
+    if boundary_residual_mode != BOUNDARY_RESIDUAL_NONE:
+        if boundary_field_mode != BOUNDARY_FIELD_NONE:
+            raise ValueError(
+                "lifted boundary fields and the boundary-residual side path are "
+                "separate representation studies"
+            )
+        if control != NO_TYPE_CHANNEL_CONTROL:
+            raise ValueError(
+                "the boundary-residual side path requires the no-type-channel control"
+            )
+        no_boundary_model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED,
+        )
+        no_boundary_rng_state = torch.get_rng_state().clone()
+        model = PCNOEuler2DResidual(
+            **common,
+            node_type_feature_mode=NODE_TYPE_FEATURE_OMITTED,
+            boundary_residual_mode=boundary_residual_mode,
+            boundary_residual_names=boundary_residual_names,
+            boundary_residual_width=boundary_residual_width,
+        )
+        initialization_control = (
+            copy_no_boundary_initialization_to_boundary_residual_model(
+                no_boundary_model, model
+            )
+        )
+        torch.set_rng_state(no_boundary_rng_state)
+        initialization_control["cpu_rng_state_matches_no_boundary_arm"] = True
+    elif boundary_field_mode != BOUNDARY_FIELD_NONE:
         if control != NO_TYPE_CHANNEL_CONTROL:
             raise ValueError(
                 "continuous boundary fields require the no-type-channel control"
@@ -1165,6 +1244,9 @@ def build_model(
     initialization_control["training_control"] = control
     initialization_control["boundary_field_mode"] = boundary_field_mode
     initialization_control["boundary_field_names"] = list(boundary_field_names)
+    initialization_control["boundary_residual_mode"] = boundary_residual_mode
+    initialization_control["boundary_residual_names"] = list(boundary_residual_names)
+    initialization_control["boundary_residual_width"] = boundary_residual_width
     model.initialization_control = initialization_control
     model.model_node_type_input = args.model_node_type_input
     return model
@@ -2463,6 +2545,17 @@ def main(argv: Sequence[str] | None = None) -> None:
     args.boundary_field_names = list(
         boundary_field_names_for_store(store, args.boundary_field_mode)
     )
+    args.boundary_residual_names = list(
+        boundary_field_names_for_store(
+            store,
+            (
+                BOUNDARY_FIELD_SEMANTIC_COLLAR
+                if args.boundary_residual_mode
+                == BOUNDARY_RESIDUAL_SEMANTIC_COLLAR_POINTWISE
+                else BOUNDARY_FIELD_NONE
+            ),
+        )
+    )
     checkpoint_path = args.resume_checkpoint or args.init_checkpoint
     checkpoint = load_checkpoint(checkpoint_path) if checkpoint_path else None
     if args.resume_checkpoint is not None:
@@ -3247,6 +3340,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         "node_type_channel_control": args.node_type_channel_control,
         "boundary_field_mode": args.boundary_field_mode,
         "boundary_field_names": list(args.boundary_field_names),
+        "boundary_residual_mode": args.boundary_residual_mode,
+        "boundary_residual_names": list(args.boundary_residual_names),
+        "boundary_residual_width": args.boundary_residual_width,
         "initialization_control": dict(model.initialization_control),
         "normalization": normalization.to_dict(),
         "normalization_digest": data_contract["normalization_digest"],

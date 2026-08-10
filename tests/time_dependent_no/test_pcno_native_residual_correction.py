@@ -62,6 +62,146 @@ def test_candidate_inventory_has_one_zero_and_sixteen_unique_nonzero_arms() -> N
     )
 
 
+def test_d075_inventory_is_zero_plus_matched_rank8_policy_matrix() -> None:
+    candidates = candidate_inventory(experiment_contract="d075_integral_neutral")
+    assert len(candidates) == 13
+    assert candidates[0] == Candidate(key="zero", rank=0, gain=0.0)
+    positive = candidates[1:]
+    assert {candidate.rank for candidate in positive} == {8}
+    assert {candidate.gain for candidate in positive} == {0.125, 0.25, 0.5, 1.0}
+    assert {candidate.correction_policy for candidate in positive} == set(
+        d074.CORRECTION_POLICIES
+    )
+    assert len({candidate.key for candidate in candidates}) == len(candidates)
+
+    smoke = candidate_inventory(
+        smoke=True,
+        experiment_contract="d075_integral_neutral",
+    )
+    assert len(smoke) == 4
+    assert smoke[0].is_zero
+    assert {candidate.gain for candidate in smoke[1:]} == {0.5}
+    assert {candidate.correction_policy for candidate in smoke[1:]} == set(
+        d074.CORRECTION_POLICIES
+    )
+
+
+def test_integral_policies_close_on_type0_support_and_are_idempotent() -> None:
+    case = SimpleNamespace(
+        family="dynamic_fv",
+        nodes=np.zeros((4, 2)),
+        weights=np.asarray([1.0, 2.0, 3.0, 4.0]),
+        physical_node_type=np.asarray([0, 0, 0, 1]),
+        residual_scale=np.asarray([2.0, 3.0, 4.0, 5.0]),
+    )
+    sequence = np.arange(2 * 4 * 4, dtype=np.float64).reshape(2, 4, 4)
+    sequence[:, 3] = 0.0
+
+    raw = d074._apply_integral_policy(
+        sequence,
+        case,
+        correction_policy="raw",
+    )
+    assert raw is sequence
+
+    energy = d074._apply_integral_policy(
+        sequence,
+        case,
+        correction_policy="energy_integral_neutral",
+    )
+    np.testing.assert_array_equal(energy[:, :, :3], sequence[:, :, :3])
+    np.testing.assert_array_equal(energy[:, 3], 0.0)
+    energy_integral = np.einsum("n,tn->t", case.weights, energy[:, :, 3])
+    np.testing.assert_allclose(energy_integral, 0.0, atol=1.0e-13)
+    energy_repeat = d074._apply_integral_policy(
+        energy,
+        case,
+        correction_policy="energy_integral_neutral",
+    )
+    np.testing.assert_allclose(energy_repeat, energy, atol=1.0e-13)
+
+    all_neutral = d074._apply_integral_policy(
+        sequence,
+        case,
+        correction_policy="all_integrals_neutral",
+    )
+    np.testing.assert_array_equal(all_neutral[:, 3], 0.0)
+    all_integrals = np.einsum("n,tnc->tc", case.weights, all_neutral)
+    np.testing.assert_allclose(all_integrals, 0.0, atol=1.0e-13)
+    all_repeat = d074._apply_integral_policy(
+        all_neutral,
+        case,
+        correction_policy="all_integrals_neutral",
+    )
+    np.testing.assert_allclose(all_repeat, all_neutral, atol=1.0e-13)
+
+
+def test_candidate_bias_adjusts_constant_coefficients_and_reconstructs() -> None:
+    case = SimpleNamespace(
+        family="dynamic_fv",
+        nodes=np.asarray([[0.25, 0.25], [0.75, 0.25], [1.25, 0.75], [1.75, 0.75]]),
+        weights=np.asarray([1.0, 2.0, 3.0, 4.0]),
+        physical_node_type=np.asarray([0, 0, 0, 1]),
+        residual_scale=np.asarray([2.0, 3.0, 4.0, 5.0]),
+    )
+    coefficients = np.arange(2 * 2 * 4, dtype=np.float64).reshape(2, 2, 4) / 10.0
+    candidate = Candidate(
+        key="rank2_gain0p5_all_integrals_neutral",
+        rank=2,
+        gain=0.5,
+        correction_policy="all_integrals_neutral",
+    )
+    basis, bias, adjusted = d074._candidate_bias_sequence(
+        case,
+        coefficients,
+        candidate,
+    )
+    reconstructed = d074.reconstruct_coefficient_sequence(
+        adjusted,
+        basis,
+        component_scale=case.residual_scale,
+    )
+    reconstructed[:, case.physical_node_type != 0] = 0.0
+    np.testing.assert_allclose(reconstructed, bias, atol=1.0e-13)
+    np.testing.assert_allclose(
+        np.einsum("n,tnc->tc", case.weights, bias),
+        0.0,
+        atol=1.0e-13,
+    )
+
+
+def test_selector_fail_closes_projected_candidate_without_integral_audit() -> None:
+    zero = Candidate(key="zero", rank=0, gain=0.0)
+    projected = Candidate(
+        key="rank8_gain0p5_all_integrals_neutral",
+        rank=8,
+        gain=0.5,
+        correction_policy="all_integrals_neutral",
+    )
+    baseline = _result(zero, state_error=10.0, residual_rms=5.0, control=2.0)
+    corrected = _result(projected, state_error=9.0, residual_rms=4.0, control=2.0)
+    selected, rows, _, _ = select_candidate(
+        (zero, projected),
+        ("case",),
+        {"zero": {"case": baseline}, projected.key: {"case": corrected}},
+    )
+    assert selected is zero
+    projected_row = next(row for row in rows if row["candidate"] == projected.key)
+    assert not projected_row["correction_integral_contract_pass"]
+    assert not projected_row["eligible"]
+
+    corrected.summary["correction_integral_audit"] = {
+        "maximum_required_integral_closure": 1.0e-15,
+        "passed": True,
+    }
+    selected, _, _, _ = select_candidate(
+        (zero, projected),
+        ("case",),
+        {"zero": {"case": baseline}, projected.key: {"case": corrected}},
+    )
+    assert selected is projected
+
+
 def test_selector_uses_complete_case_matrix_and_deterministic_complexity_tie() -> None:
     zero = Candidate(key="zero", rank=0, gain=0.0)
     rank2 = Candidate(key="rank2_gain1", rank=2, gain=1.0)
@@ -150,6 +290,64 @@ def test_selector_lower_gain_key_ties_and_input_order_are_deterministic() -> Non
     assert reversed_selected is key_a
 
 
+def test_compact_selector_summaries_are_exactly_selection_equivalent() -> None:
+    zero = Candidate(key="zero", rank=0, gain=0.0)
+    corrected = Candidate(key="rank2_gain1", rank=2, gain=1.0)
+    incomplete = Candidate(key="rank4_gain1", rank=4, gain=1.0)
+    candidates = (zero, corrected, incomplete)
+    cases = ("a", "b")
+    full = {
+        "zero": {
+            case_id: _result(
+                zero,
+                state_error=10.0,
+                residual_rms=5.0,
+                control=2.0,
+            )
+            for case_id in cases
+        },
+        "rank2_gain1": {
+            "a": _result(
+                corrected,
+                state_error=9.0,
+                residual_rms=4.5,
+                control=2.0,
+            ),
+            "b": _result(
+                corrected,
+                state_error=9.2,
+                residual_rms=4.6,
+                control=2.0,
+            ),
+        },
+        "rank4_gain1": {
+            "a": _result(
+                incomplete,
+                state_error=8.0,
+                residual_rms=4.0,
+                control=2.0,
+            ),
+            "b": _result(
+                incomplete,
+                state_error=8.0,
+                residual_rms=4.0,
+                control=2.0,
+                complete=False,
+            ),
+        },
+    }
+    compact = {
+        candidate: {
+            case_id: d074._selector_rollout_summary(result)
+            for case_id, result in by_case.items()
+        }
+        for candidate, by_case in full.items()
+    }
+    assert select_candidate(candidates, cases, compact) == select_candidate(
+        candidates, cases, full
+    )
+
+
 def test_crossfit_excludes_each_held_out_case_from_its_bias(monkeypatch) -> None:
     zero = Candidate(key="zero", rank=0, gain=0.0)
     corrected = Candidate(key="rank8_gain1", rank=8, gain=1.0)
@@ -218,6 +416,77 @@ def test_crossfit_excludes_each_held_out_case_from_its_bias(monkeypatch) -> None
     }
 
 
+def test_crossfit_retains_only_compact_selector_summaries(monkeypatch) -> None:
+    zero = Candidate(key="zero", rank=0, gain=0.0)
+    corrected = Candidate(key="rank8_gain1", rank=8, gain=1.0)
+    cases = [
+        SimpleNamespace(case_id=value, family="dynamic_fv") for value in ("a", "b")
+    ]
+
+    def fake_fit(model, case, ranks):
+        del model, case
+        assert tuple(ranks) == (8,)
+        return {8: np.ones((1, 8, 4))}
+
+    def fake_bias(case, coefficients, *, rank):
+        del case
+        assert rank == 8
+        return np.empty((0, 0)), coefficients
+
+    def fake_rollout(
+        model,
+        case,
+        candidate,
+        *,
+        bias_sequence,
+        shock_quantile,
+    ):
+        del model, bias_sequence, shock_quantile
+        return _result(
+            candidate,
+            state_error=10.0 if candidate.is_zero else 9.0,
+            residual_rms=5.0 if candidate.is_zero else 4.0,
+            control=2.0,
+            family=case.family,
+        )
+
+    def fake_select(candidates, case_ids, rollouts, *, family):
+        assert tuple(case_ids) == ("a", "b")
+        assert family == "dynamic_fv"
+        assert set(rollouts) == {"zero", "rank8_gain1"}
+        assert all(
+            isinstance(result, d074.SelectorRolloutSummary)
+            and set(result.summary)
+            == {
+                "final_state_error",
+                "residual_rms",
+                "controls",
+                "correction_integral_audit",
+            }
+            and not hasattr(result, "states")
+            for by_case in rollouts.values()
+            for result in by_case.values()
+        )
+        return candidates[0], [], [], []
+
+    monkeypatch.setattr(d074, "_fit_case_coefficients", fake_fit)
+    monkeypatch.setattr(d074, "_bias_sequence", fake_bias)
+    monkeypatch.setattr(d074, "_rollout_candidate", fake_rollout)
+    monkeypatch.setattr(d074, "select_candidate", fake_select)
+    selected, coefficients, rows, summaries, metric_rows = d074._crossfit_calibration(
+        object(),
+        cases,
+        (zero, corrected),
+        shock_quantile=0.9,
+        smoke=False,
+    )
+    assert selected is zero
+    assert set(coefficients) == {"a", "b"}
+    assert rows == []
+    assert summaries == []
+    assert metric_rows == []
+
+
 def test_rollout_uses_reference_increments_and_closes_recurrence(monkeypatch) -> None:
     reference_states = np.asarray(
         [
@@ -226,7 +495,12 @@ def test_rollout_uses_reference_increments_and_closes_recurrence(monkeypatch) ->
             np.full((1, 4), 3.0),
         ]
     )
-    case = SimpleNamespace(reference_states=reference_states, gamma=1.4)
+    case = SimpleNamespace(
+        reference_states=reference_states,
+        gamma=1.4,
+        weights=np.ones(1),
+        residual_scale=np.ones(4),
+    )
     increments = (1.2, 2.4)
     call = 0
 
@@ -420,6 +694,7 @@ def test_visual_payload_replays_cumulative_and_signed_growth(tmp_path) -> None:
     assert record["calls"] == 2
     with np.load(path, allow_pickle=False) as payload:
         assert payload["selected_candidate"].item() == "rank2_gain0p5"
+        assert payload["selected_correction_policy"].item() == "raw"
         assert payload["expected_calls"].item() == 2
         assert payload["weight_semantics"].item() == "physical_cell_volume"
         cumulative = payload["cumulative_error"].astype(np.float64)

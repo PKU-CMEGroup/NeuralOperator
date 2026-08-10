@@ -85,10 +85,17 @@ REQUIRED_TABLES = {
     "evaluation_ratios.csv",
     "lag_correlations.csv",
     "pod_summaries.csv",
+    "selector_rows.csv",
     "selector_summary.csv",
     "sequence_time_metrics.csv",
     "signed_component_budgets.csv",
     "visual_payload_inventory.csv",
+}
+D075_REQUIRED_TABLES = {"correction_integral_audit.csv"}
+CORRECTION_POLICIES = {
+    "raw",
+    "energy_integral_neutral",
+    "all_integrals_neutral",
 }
 
 
@@ -158,6 +165,13 @@ def _verify_results(results_dir: Path) -> tuple[dict[str, Any], list[Path]]:
         raise ValueError("complete D074 results are not interpretable")
 
     required = set(REQUIRED_TABLES)
+    experiment_contract = str(summary.get("experiment_contract", "d074_raw"))
+    if experiment_contract not in {"d074_raw", "d075_integral_neutral"}:
+        raise ValueError(
+            f"unsupported native-correction experiment contract: {experiment_contract}"
+        )
+    if experiment_contract == "d075_integral_neutral":
+        required.update(D075_REQUIRED_TABLES)
     selected = summary.get("selector", {}).get("selected", {})
     if int(selected.get("rank", 0)) > 0:
         required.update({"projection_metrics.csv", "projection_component_metrics.csv"})
@@ -203,8 +217,25 @@ def _load_payload(path: Path, summary: Mapping[str, Any]) -> dict[str, np.ndarra
     if family != summary.get("family"):
         raise ValueError("D074 payload family differs from summary")
     selected = str(_scalar(payload["selected_candidate"]))
-    if selected != summary.get("selector", {}).get("selected", {}).get("key"):
+    frozen = summary.get("selector", {}).get("selected", {})
+    if selected != frozen.get("key"):
         raise ValueError("D074 payload candidate differs from frozen selector")
+    selected_rank = int(_scalar(payload["selected_rank"]))
+    if selected_rank != int(frozen.get("rank", -1)):
+        raise ValueError("D074 payload rank differs from frozen selector")
+    selected_gain = float(_scalar(payload["selected_gain"]))
+    if not np.isclose(selected_gain, float(frozen.get("gain", np.nan))):
+        raise ValueError("D074 payload gain differs from frozen selector")
+    selected_policy = (
+        str(_scalar(payload["selected_correction_policy"]))
+        if "selected_correction_policy" in payload
+        else "raw"
+    )
+    frozen_policy = str(frozen.get("correction_policy", "raw"))
+    if selected_policy not in CORRECTION_POLICIES:
+        raise ValueError("D075 payload correction policy is unsupported")
+    if selected_policy != frozen_policy:
+        raise ValueError("D075 payload correction policy differs from frozen selector")
     if tuple(payload["component_names"].tolist()) != COMPONENTS:
         raise ValueError("D074 payload component inventory changed")
     calls = int(_scalar(payload["expected_calls"]))
@@ -424,7 +455,7 @@ def _time_joined_sequence_rows(results_dir: Path) -> list[dict[str, Any]]:
 
 
 def plot_trajectory_metrics(
-    results_dir: Path, output_dir: Path, *, smoke: bool
+    results_dir: Path, output_dir: Path, *, selected_zero: bool, smoke: bool
 ) -> list[Path]:
     call_rows: list[dict[str, Any]] = _read_rows(
         results_dir / "evaluation_call_metrics.csv"
@@ -450,6 +481,15 @@ def plot_trajectory_metrics(
         filters={"arm": "selected"},
     )
     axes[0, 0].set_title("state-scale rollout error")
+    if selected_zero:
+        axes[0, 0].text(
+            0.03,
+            0.95,
+            "selected zero: curves overlap",
+            transform=axes[0, 0].transAxes,
+            va="top",
+            fontsize=8,
+        )
     metrics = (
         ("instant_defect_rms", "instantaneous defect RMS"),
         ("instant_relative", "defect / true increment"),
@@ -478,7 +518,7 @@ def plot_trajectory_metrics(
 
 
 def plot_signed_growth_alignment(
-    results_dir: Path, output_dir: Path, *, smoke: bool
+    results_dir: Path, output_dir: Path, *, selected_zero: bool, smoke: bool
 ) -> list[Path]:
     rows: list[dict[str, Any]] = _read_rows(results_dir / "evaluation_call_metrics.csv")
     figure, axes = plt.subplots(2, 3, figsize=(12.8, 7.2), constrained_layout=True)
@@ -499,15 +539,26 @@ def plot_signed_growth_alignment(
             )
         axis.set_title(title)
         _style_axis(axis, zero_line=True)
-    _draw_case_aggregate(
-        axes[1, 0],
-        rows,
-        x_key="physical_time",
-        y_key="correction_base_cosine",
-        label="cos(C,b)",
-        color=COLORS["selected"],
-        filters={"arm": "selected"},
-    )
+    if selected_zero:
+        axes[1, 0].text(
+            0.5,
+            0.5,
+            "N/A: C=0\ncosine undefined",
+            transform=axes[1, 0].transAxes,
+            ha="center",
+            va="center",
+            fontsize=10,
+        )
+    else:
+        _draw_case_aggregate(
+            axes[1, 0],
+            rows,
+            x_key="physical_time",
+            y_key="correction_base_cosine",
+            label="cos(C,b)",
+            color=COLORS["selected"],
+            filters={"arm": "selected"},
+        )
     axes[1, 0].set_title("same-input correction alignment")
     for metric, label, color, linestyle in (
         ("twice_correction_base_inner", "2<C,b>", "#D55E00", "-"),
@@ -537,7 +588,9 @@ def plot_signed_growth_alignment(
     for axis in axes[1]:
         _style_axis(axis, zero_line=True)
     for axis in axes.flat:
-        axis.legend(fontsize=8)
+        handles, labels = axis.get_legend_handles_labels()
+        if handles:
+            axis.legend(handles, labels, fontsize=8)
     return _save_figure(figure, output_dir, "signed_growth_alignment", smoke=smoke)
 
 
@@ -692,6 +745,48 @@ def plot_subspace_component_budgets(
     return _save_figure(figure, output_dir, "subspace_component_budgets", smoke=smoke)
 
 
+def _selector_display_medians(
+    results_dir: Path, selector: Sequence[Mapping[str, Any]]
+) -> dict[str, tuple[float, float] | None]:
+    """Return raw per-case medians even when a candidate is ineligible."""
+
+    values: dict[str, list[tuple[float, float] | None]] = {}
+    for row in _read_rows(results_dir / "selector_rows.csv"):
+        endpoint = _number(row.get("endpoint_state_ratio"))
+        residual = _number(row.get("residual_rms_ratio"))
+        value = (
+            (endpoint, residual)
+            if row.get("complete") == "True"
+            and endpoint is not None
+            and residual is not None
+            else None
+        )
+        values.setdefault(row["candidate"], []).append(value)
+    medians: dict[str, tuple[float, float] | None] = {}
+    for row in selector:
+        candidate = row["candidate"]
+        candidate_values = values.get(candidate, [])
+        expected_count = int(row.get("case_count", len(candidate_values)))
+        if (
+            len(candidate_values) != expected_count
+            or not candidate_values
+            or any(value is None for value in candidate_values)
+        ):
+            medians[candidate] = None
+            continue
+        array = np.asarray(candidate_values, dtype=np.float64)
+        medians[candidate] = tuple(np.median(array, axis=0))
+        official = (
+            _number(row.get("median_endpoint_state_ratio")),
+            _number(row.get("median_residual_rms_ratio")),
+        )
+        if all(value is not None for value in official) and not np.allclose(
+            medians[candidate], official, rtol=1e-12, atol=1e-12
+        ):
+            raise ValueError(f"selector display median disagrees for {candidate}")
+    return medians
+
+
 def plot_selection_no_harm(
     results_dir: Path,
     output_dir: Path,
@@ -705,11 +800,14 @@ def plot_selection_no_harm(
         raise ValueError("D074 evaluation ratios are empty")
     figure, axes = plt.subplots(1, 3, figsize=(15.4, 4.8), constrained_layout=True)
     selected_key = summary["selector"]["selected"]["key"]
+    display_medians = _selector_display_medians(results_dir, selector)
+    omitted = []
     for row in selector:
-        x = _number(row.get("median_endpoint_state_ratio"))
-        y = _number(row.get("median_residual_rms_ratio"))
-        if x is None or y is None:
-            raise ValueError("selector summary contains an undefined score")
+        display = display_medians[row["candidate"]]
+        if display is None:
+            omitted.append(row["candidate"])
+            continue
+        x, y = display
         selected = row["candidate"] == selected_key
         eligible = row.get("eligible") == "True"
         axes[0].scatter(
@@ -730,9 +828,22 @@ def plot_selection_no_harm(
         )
     axes[0].axvline(1.0, color="#777777", linestyle="--", linewidth=0.8)
     axes[0].axhline(1.0, color="#777777", linestyle="--", linewidth=0.8)
-    axes[0].set_xlabel("median endpoint-state ratio")
-    axes[0].set_ylabel("median residual-RMS ratio")
-    axes[0].set_title("calibration selector")
+    axes[0].scatter([], [], color="#0072B2", label="eligible selector score")
+    axes[0].scatter(
+        [], [], color="#999999", label="ineligible: raw display median only"
+    )
+    axes[0].set_xlabel("raw median endpoint-state ratio")
+    axes[0].set_ylabel("raw median residual-RMS ratio")
+    axes[0].set_title("calibration raw medians")
+    axes[0].legend(fontsize=7)
+    if omitted:
+        axes[0].text(
+            0.02,
+            0.02,
+            f"omitted incomplete candidates: {len(omitted)}",
+            transform=axes[0].transAxes,
+            fontsize=7,
+        )
     axes[0].grid(True, color="#d0d0d0", linewidth=0.5, alpha=0.65)
 
     case_ids = [row["case_id"] for row in ratios]
@@ -811,9 +922,41 @@ def _sequence_label(arm: str, defect_kind: str) -> str:
     return "selected delta"
 
 
+def _minimum_case_calls(results_dir: Path) -> int:
+    calls = [
+        int(row["calls"]) for row in _read_rows(results_dir / "case_contracts.csv")
+    ]
+    if not calls or min(calls) < 1:
+        raise ValueError("D074 case contracts contain no positive call count")
+    return min(calls)
+
+
 def plot_temporal_rank_structure(
     results_dir: Path, output_dir: Path, *, smoke: bool
 ) -> list[Path]:
+    calls = _minimum_case_calls(results_dir)
+    if calls < 3:
+        figure, axis = plt.subplots(figsize=(8.4, 3.4), constrained_layout=True)
+        axis.axis("off")
+        axis.text(
+            0.5,
+            0.56,
+            f"N/A: only {calls} rollout calls are available.",
+            ha="center",
+            va="center",
+            fontsize=13,
+            weight="bold",
+        )
+        axis.text(
+            0.5,
+            0.39,
+            "Lag correlation and centered POD are algebraically underresolved at H2; "
+            "interpret them only after H30.",
+            ha="center",
+            va="center",
+            fontsize=10,
+        )
+        return _save_figure(figure, output_dir, "temporal_rank_structure", smoke=smoke)
     lag: list[dict[str, Any]] = _read_rows(results_dir / "lag_correlations.csv")
     pod = _read_rows(results_dir / "pod_summaries.csv")
     figure, axes = plt.subplots(1, 3, figsize=(13.2, 4.4), constrained_layout=True)
@@ -1059,17 +1202,28 @@ def animate_payload_component(
 def run(args: argparse.Namespace) -> dict[str, Any]:
     summary, payload_paths = _verify_results(args.results_dir)
     smoke = summary["status"] == "smoke_complete"
+    selected_rank = int(summary["selector"]["selected"]["rank"])
+    selected_zero = selected_rank == 0
     args.output_dir.mkdir(parents=True)
     generated: list[Path] = []
     if args.command in {"plots", "all"}:
         figure_dir = args.output_dir / "figures"
         generated.extend(
-            plot_trajectory_metrics(args.results_dir, figure_dir, smoke=smoke)
+            plot_trajectory_metrics(
+                args.results_dir,
+                figure_dir,
+                selected_zero=selected_zero,
+                smoke=smoke,
+            )
         )
         generated.extend(
-            plot_signed_growth_alignment(args.results_dir, figure_dir, smoke=smoke)
+            plot_signed_growth_alignment(
+                args.results_dir,
+                figure_dir,
+                selected_zero=selected_zero,
+                smoke=smoke,
+            )
         )
-        selected_rank = int(summary["selector"]["selected"]["rank"])
         if selected_rank > 0:
             generated.extend(
                 plot_subspace_component_budgets(
@@ -1152,7 +1306,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "per_frame_normalization": False,
         },
         "animation_payloads": [
-            path.relative_to(args.results_dir).as_posix()
+            path.relative_to(args.results_dir.resolve()).as_posix()
             for path in selected_payload_paths
         ],
         "saturation_row_count": len(saturation_rows),

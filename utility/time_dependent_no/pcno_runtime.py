@@ -120,6 +120,9 @@ def build_checkpoint_model(
         ),
         boundary_field_mode=str(config.get("boundary_field_mode", "none")),
         boundary_field_names=tuple(config.get("boundary_field_names", ())),
+        boundary_residual_mode=str(config.get("boundary_residual_mode", "none")),
+        boundary_residual_names=tuple(config.get("boundary_residual_names", ())),
+        boundary_residual_width=int(config.get("boundary_residual_width", 64)),
     ).to(device)
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model.model_node_type_input = model_node_type_input

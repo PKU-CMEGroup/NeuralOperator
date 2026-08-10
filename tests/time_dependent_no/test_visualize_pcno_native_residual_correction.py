@@ -11,14 +11,31 @@ import pytest
 import scripts.time_dependent_no.visualize_pcno_native_residual_correction as visual
 
 
-def _summary(*, candidate: str = "rank8_gain1", rank: int = 8) -> dict[str, object]:
+def _summary(
+    *,
+    candidate: str = "rank8_gain1",
+    rank: int = 8,
+    gain: float | None = None,
+    correction_policy: str = "raw",
+    experiment_contract: str = "d074_raw",
+) -> dict[str, object]:
+    if gain is None:
+        gain = 0.0 if rank == 0 else 1.0
     return {
         "schema": visual.RESULT_SCHEMA,
+        "experiment_contract": experiment_contract,
         "family": "dynamic_fv",
         "status": "smoke_complete",
         "contract_checks_passed": True,
         "scientific_interpretation_allowed": False,
-        "selector": {"selected": {"key": candidate, "rank": rank}},
+        "selector": {
+            "selected": {
+                "key": candidate,
+                "rank": rank,
+                "gain": gain,
+                "correction_policy": correction_policy,
+            }
+        },
     }
 
 
@@ -27,9 +44,16 @@ def _write_payload(
     *,
     case_id: str = "case_a",
     candidate: str = "rank8_gain1",
+    selected_rank: int | None = None,
+    selected_gain: float | None = None,
+    selected_policy: str = "raw",
     multiplier: float = 1.0,
     corrupt: str | None = None,
 ) -> Path:
+    if selected_rank is None:
+        selected_rank = 0 if candidate == "zero" else 8
+    if selected_gain is None:
+        selected_gain = 0.0 if selected_rank == 0 else 1.0
     calls, node_count, components = 3, 6, len(visual.COMPONENTS)
     xx, yy = np.meshgrid(np.arange(3), np.arange(2))
     nodes = np.column_stack((xx.ravel(), yy.ravel())).astype(np.float64)
@@ -64,8 +88,9 @@ def _write_payload(
         case_id=np.asarray(case_id),
         resolution=np.asarray("3x2"),
         selected_candidate=np.asarray(candidate),
-        selected_rank=np.asarray(8),
-        selected_gain=np.asarray(1.0),
+        selected_rank=np.asarray(selected_rank),
+        selected_gain=np.asarray(selected_gain),
+        selected_correction_policy=np.asarray(selected_policy),
         expected_calls=np.asarray(calls),
         baseline_complete=np.asarray(True),
         selected_complete=np.asarray(True),
@@ -133,6 +158,42 @@ def test_payload_replay_rejects_corruption(tmp_path: Path, corrupt: str) -> None
         visual._load_payload(path, _summary())
 
 
+@pytest.mark.parametrize(
+    ("selected_rank", "selected_gain", "match"),
+    ((8, 0.0, "rank differs"), (0, 1.0, "gain differs")),
+)
+def test_zero_payload_binds_frozen_rank_and_gain(
+    tmp_path: Path, selected_rank: int, selected_gain: float, match: str
+) -> None:
+    path = _write_payload(
+        tmp_path / "zero_mismatch.npz",
+        candidate="zero",
+        selected_rank=selected_rank,
+        selected_gain=selected_gain,
+    )
+    with pytest.raises(ValueError, match=match):
+        visual._load_payload(path, _summary(candidate="zero", rank=0))
+
+
+def test_payload_binds_frozen_correction_policy(tmp_path: Path) -> None:
+    path = _write_payload(
+        tmp_path / "policy_mismatch.npz",
+        candidate="rank8_gain0p5_all_integrals_neutral",
+        selected_gain=0.5,
+        selected_policy="all_integrals_neutral",
+    )
+    with pytest.raises(ValueError, match="correction policy differs"):
+        visual._load_payload(
+            path,
+            _summary(
+                candidate="rank8_gain0p5_all_integrals_neutral",
+                gain=0.5,
+                correction_policy="energy_integral_neutral",
+                experiment_contract="d075_integral_neutral",
+            ),
+        )
+
+
 def test_population_limits_are_fixed_across_cases_and_field_groups(
     tmp_path: Path,
 ) -> None:
@@ -157,13 +218,14 @@ def test_population_limits_are_fixed_across_cases_and_field_groups(
 def test_time_join_uses_each_case_physical_clock(tmp_path: Path) -> None:
     _write_csv(
         tmp_path / "case_contracts.csv",
-        ["family", "case_id", "resolution", "time_step"],
+        ["family", "case_id", "resolution", "time_step", "calls"],
         [
             {
                 "family": "dynamic_fv",
                 "case_id": "a",
                 "resolution": "3x2",
                 "time_step": 0.025,
+                "calls": 2,
             }
         ],
     )
@@ -181,6 +243,60 @@ def test_time_join_uses_each_case_physical_clock(tmp_path: Path) -> None:
     )
     rows = visual._time_joined_sequence_rows(tmp_path)
     assert rows[0]["physical_time"] == pytest.approx(0.1)
+    assert visual._minimum_case_calls(tmp_path) == 2
+
+
+def test_selector_display_medians_include_ineligible_candidates(tmp_path: Path) -> None:
+    selector = [
+        {
+            "candidate": "zero",
+            "median_endpoint_state_ratio": "1.0",
+            "median_residual_rms_ratio": "1.0",
+        },
+        {
+            "candidate": "rank8_gain0p25",
+            "median_endpoint_state_ratio": "",
+            "median_residual_rms_ratio": "",
+        },
+    ]
+    _write_csv(
+        tmp_path / "selector_rows.csv",
+        [
+            "candidate",
+            "complete",
+            "endpoint_state_ratio",
+            "residual_rms_ratio",
+        ],
+        [
+            {
+                "candidate": "zero",
+                "complete": True,
+                "endpoint_state_ratio": 1.0,
+                "residual_rms_ratio": 1.0,
+            },
+            {
+                "candidate": "zero",
+                "complete": True,
+                "endpoint_state_ratio": 1.0,
+                "residual_rms_ratio": 1.0,
+            },
+            {
+                "candidate": "rank8_gain0p25",
+                "complete": True,
+                "endpoint_state_ratio": 0.9,
+                "residual_rms_ratio": 0.98,
+            },
+            {
+                "candidate": "rank8_gain0p25",
+                "complete": True,
+                "endpoint_state_ratio": 0.8,
+                "residual_rms_ratio": 1.02,
+            },
+        ],
+    )
+    medians = visual._selector_display_medians(tmp_path, selector)
+    assert medians["zero"] == pytest.approx((1.0, 1.0))
+    assert medians["rank8_gain0p25"] == pytest.approx((0.85, 1.0))
 
 
 def test_result_verifier_requires_exact_hashed_inventory(tmp_path: Path) -> None:
@@ -213,6 +329,16 @@ def test_result_verifier_requires_exact_hashed_inventory(tmp_path: Path) -> None
     verified, paths = visual._verify_results(results)
     assert verified["selector"]["selected"]["key"] == "zero"
     assert paths == [payload.resolve()]
+    assert paths[0].relative_to(results.resolve()).as_posix() == (
+        "visual_payloads/dynamic_fv_case_a_3x2.npz"
+    )
+
+    summary["experiment_contract"] = "d075_integral_neutral"
+    (results / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(ValueError, match="omit required tables"):
+        visual._verify_results(results)
+    summary["experiment_contract"] = "d074_raw"
+    (results / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
 
     (results / "selector_summary.csv").write_text("corrupt\n", encoding="utf-8")
     with pytest.raises(ValueError, match="digest mismatch"):

@@ -333,6 +333,76 @@ def _unique_undirected_edges(edges: np.ndarray, node_count: int) -> np.ndarray:
     return np.unique(ordered, axis=0)
 
 
+def _validated_unique_undirected_edges(
+    edges: np.ndarray, node_count: int
+) -> np.ndarray:
+    """Validate an already canonical, lexicographically ordered edge array."""
+
+    edge_index = np.asarray(edges, dtype=np.int64)
+    if edge_index.ndim != 2 or edge_index.shape[1] != 2:
+        raise ValueError("edges must have shape [E,2]")
+    if edge_index.size and (np.any(edge_index < 0) or np.any(edge_index >= node_count)):
+        raise ValueError("edge endpoint lies outside the graph")
+    if edge_index.shape[0] and np.any(edge_index[:, 0] >= edge_index[:, 1]):
+        raise ValueError("unique undirected edges must satisfy first < second")
+    if edge_index.shape[0] > 1:
+        increasing = (edge_index[1:, 0] > edge_index[:-1, 0]) | (
+            (edge_index[1:, 0] == edge_index[:-1, 0])
+            & (edge_index[1:, 1] > edge_index[:-1, 1])
+        )
+        if not np.all(increasing):
+            raise ValueError(
+                "unique undirected edges must be lexicographically ordered"
+            )
+    return edge_index
+
+
+def _unique_undirected_edge_multipliers(
+    edges: np.ndarray,
+    node_count: int,
+    edge_multiplier: np.ndarray | None,
+    *,
+    edges_are_unique_undirected: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Canonicalize edges and one optional duplicate-consistent multiplier."""
+
+    edge_index = np.asarray(edges, dtype=np.int64)
+    unique_edges = (
+        _validated_unique_undirected_edges(edge_index, node_count)
+        if edges_are_unique_undirected
+        else _unique_undirected_edges(edge_index, node_count)
+    )
+    if edge_multiplier is None:
+        return unique_edges, np.ones(unique_edges.shape[0], dtype=np.float64)
+    multiplier = np.asarray(edge_multiplier, dtype=np.float64).reshape(-1)
+    if multiplier.shape != (edge_index.shape[0],):
+        raise ValueError("edge_multiplier must contain one value per input edge")
+    if (
+        not np.isfinite(multiplier).all()
+        or np.any(multiplier < 0.0)
+        or np.any(multiplier > 1.0)
+    ):
+        raise ValueError("edge_multiplier must be finite and lie in [0,1]")
+    if edges_are_unique_undirected:
+        return unique_edges, multiplier
+    ordered = np.sort(edge_index, axis=1)
+    nonself = ordered[:, 0] != ordered[:, 1]
+    ordered = ordered[nonself]
+    multiplier = multiplier[nonself]
+    if ordered.shape[0] == 0:
+        return unique_edges, np.empty(0, dtype=np.float64)
+    canonical, inverse = np.unique(ordered, axis=0, return_inverse=True)
+    minimum = np.full(canonical.shape[0], np.inf, dtype=np.float64)
+    maximum = np.full(canonical.shape[0], -np.inf, dtype=np.float64)
+    np.minimum.at(minimum, inverse, multiplier)
+    np.maximum.at(maximum, inverse, multiplier)
+    if np.any(maximum - minimum > 1.0e-12):
+        raise ValueError("duplicate directed edges have inconsistent multipliers")
+    if not np.array_equal(canonical, unique_edges):
+        raise AssertionError("edge canonicalization is inconsistent")
+    return unique_edges, 0.5 * (minimum + maximum)
+
+
 def _weighted_rms(field: np.ndarray, weights: np.ndarray) -> float:
     values = np.asarray(field, dtype=np.float64)
     return float(
@@ -352,14 +422,19 @@ def controlled_graph_dissipation(
     component_scale: Sequence[float] | np.ndarray,
     sensor_quantile: float = 0.8,
     norm_cap: float = 0.02,
+    node_gate: np.ndarray | None = None,
+    edge_multiplier: np.ndarray | None = None,
+    edges_are_unique_undirected: bool = False,
 ) -> DissipationResult:
     """Smooth proposal-local graph variation with a symmetric capped update.
 
     Conductance on an eligible undirected edge ``(i,j)`` is bounded by both
-    ``w_i/degree_i`` and ``w_j/degree_j``.  The pair receives equal and opposite
-    weighted flux, so the added correction has zero weighted mean for every
-    component.  Only the interpretation of ``weights`` determines whether
-    that identity is physical (dynamic FV) or a diagnostic proxy (bump).
+    ``w_i/degree_i`` and ``w_j/degree_j``. Optional node gates and edge
+    multipliers lie in ``[0,1]`` and modulate conductance without changing the
+    pairwise flux identity. The pair receives equal and opposite weighted flux,
+    so the added correction has zero weighted mean for every component. Only
+    the interpretation of ``weights`` determines whether that identity is
+    physical (dynamic FV) or a diagnostic proxy (bump).
     """
 
     values = np.asarray(update, dtype=np.float64)
@@ -375,13 +450,46 @@ def controlled_graph_dissipation(
     if not 0.0 < norm_cap <= 1.0:
         raise ValueError("norm_cap must lie in (0,1]")
 
-    unique_edges = _unique_undirected_edges(edges, values.shape[0])
+    gate = (
+        np.ones(values.shape[0], dtype=np.float64)
+        if node_gate is None
+        else np.asarray(node_gate, dtype=np.float64).reshape(-1)
+    )
+    if gate.shape != (values.shape[0],):
+        raise ValueError("node_gate must contain one value per node")
+    if not np.isfinite(gate).all() or np.any(gate < 0.0) or np.any(gate > 1.0):
+        raise ValueError("node_gate must be finite and lie in [0,1]")
+    gate = np.where(normal, gate, 0.0)
+    sensor_support = normal & (gate > 0.0)
+    if not np.any(sensor_support):
+        zero = np.zeros_like(values)
+        return DissipationResult(
+            correction=zero,
+            sensor=np.zeros(values.shape[0], dtype=np.float64),
+            uncapped_relative_norm=0.0,
+            applied_relative_norm=0.0,
+            applied_scale=0.0,
+            weighted_mean_closure=np.zeros(values.shape[1], dtype=np.float64),
+            eligible_edge_count=0,
+        )
+
+    unique_edges, unique_multiplier = _unique_undirected_edge_multipliers(
+        edges,
+        values.shape[0],
+        edge_multiplier,
+        edges_are_unique_undirected=edges_are_unique_undirected,
+    )
     eligible = (
-        normal[unique_edges[:, 0]] & normal[unique_edges[:, 1]]
+        normal[unique_edges[:, 0]]
+        & normal[unique_edges[:, 1]]
+        & (gate[unique_edges[:, 0]] > 0.0)
+        & (gate[unique_edges[:, 1]] > 0.0)
+        & (unique_multiplier > 0.0)
         if unique_edges.shape[0]
         else np.zeros(0, dtype=bool)
     )
     eligible_edges = unique_edges[eligible]
+    eligible_multiplier = unique_multiplier[eligible]
     scaled = values / scale[None, :]
     all_degree = np.ones(values.shape[0], dtype=np.float64)
     all_average = np.array(scaled, copy=True)
@@ -393,13 +501,13 @@ def controlled_graph_dissipation(
         np.add.at(all_average, right, scaled[left])
     highpass = scaled - all_average / all_degree[:, None]
     amplitude = np.linalg.norm(highpass, axis=1)
-    selected_amplitude = amplitude[normal]
+    selected_amplitude = amplitude[sensor_support]
     lower = float(np.quantile(selected_amplitude, sensor_quantile))
     upper_quantile = min(0.95, 0.5 * (1.0 + sensor_quantile))
     upper = float(np.quantile(selected_amplitude, upper_quantile))
     denominator = max(upper - lower, np.finfo(np.float64).eps)
     sensor = np.clip((amplitude - lower) / denominator, 0.0, 1.0)
-    sensor[~normal] = 0.0
+    sensor[~sensor_support] = 0.0
 
     raw_scaled = np.zeros_like(scaled)
     if eligible_edges.shape[0]:
@@ -411,6 +519,8 @@ def controlled_graph_dissipation(
             0.5
             * (sensor[left] + sensor[right])
             * np.minimum(mass[left] / degree[left], mass[right] / degree[right])
+            * np.sqrt(gate[left] * gate[right])
+            * eligible_multiplier
         )
         flux = conductance[:, None] * (scaled[right] - scaled[left])
         np.add.at(raw_scaled, left, flux / mass[left, None])

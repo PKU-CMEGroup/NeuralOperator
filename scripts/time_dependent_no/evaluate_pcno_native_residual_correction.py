@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""D074-A: select and evaluate a native-resolution persistent correction."""
+"""D074-A/D075: select and evaluate native persistent corrections."""
 
 from __future__ import annotations
 
@@ -78,6 +78,19 @@ from utility.time_dependent_no.shock_vortex_fv import ShockVortexFVConfig
 SCHEMA = "pcno_native_residual_correction_diagnostic_v1"
 RANKS = (2, 4, 8, 16)
 GAINS = (0.25, 0.5, 0.75, 1.0)
+D075_GAINS = (0.125, 0.25, 0.5, 1.0)
+EXPERIMENT_CONTRACTS = ("d074_raw", "d075_integral_neutral")
+CORRECTION_POLICIES = (
+    "raw",
+    "energy_integral_neutral",
+    "all_integrals_neutral",
+)
+CORRECTION_POLICY_COMPLEXITY = {
+    "raw": 0,
+    "energy_integral_neutral": 1,
+    "all_integrals_neutral": 2,
+}
+INTEGRAL_CLOSURE_LIMIT = 1.0e-12
 COMPONENTS = ("rho", "rho_u", "rho_v", "energy")
 DYNAMIC_CALIBRATION_CASES = tuple(
     f"sv_e{energy:02d}_{offset}"
@@ -196,6 +209,7 @@ class Candidate:
     key: str
     rank: int
     gain: float
+    correction_policy: str = "raw"
 
     @property
     def is_zero(self) -> bool:
@@ -218,21 +232,68 @@ class RolloutResult:
     summary: dict[str, Any]
 
 
-def candidate_inventory(*, smoke: bool = False) -> tuple[Candidate, ...]:
+@dataclass(frozen=True)
+class SelectorRolloutSummary:
+    """Compact calibration payload retained until candidate selection."""
+
+    complete: bool
+    summary: dict[str, Any]
+
+
+def _selector_rollout_summary(result: RolloutResult) -> SelectorRolloutSummary:
+    """Drop all recurrent fields after extracting selector-required scalars."""
+
+    return SelectorRolloutSummary(
+        complete=bool(result.complete),
+        summary={
+            "final_state_error": result.summary.get("final_state_error"),
+            "residual_rms": result.summary.get("residual_rms"),
+            "controls": dict(result.summary.get("controls", {})),
+            "correction_integral_audit": dict(
+                result.summary.get("correction_integral_audit", {})
+            ),
+        },
+    )
+
+
+def _gain_key(gain: float) -> str:
+    return str(float(gain)).replace(".", "p")
+
+
+def candidate_inventory(
+    *,
+    smoke: bool = False,
+    experiment_contract: str = "d074_raw",
+) -> tuple[Candidate, ...]:
     """Return the canonical zero plus unique positive-gain candidates."""
 
     zero = Candidate(key="zero", rank=0, gain=0.0)
-    if smoke:
-        return (zero, Candidate(key="rank8_gain1", rank=8, gain=1.0))
-    positive = tuple(
-        Candidate(
-            key=f"rank{rank}_gain{str(gain).replace('.', 'p')}",
-            rank=rank,
-            gain=gain,
+    if experiment_contract == "d074_raw":
+        if smoke:
+            return (zero, Candidate(key="rank8_gain1", rank=8, gain=1.0))
+        positive = tuple(
+            Candidate(
+                key=f"rank{rank}_gain{str(gain).replace('.', 'p')}",
+                rank=rank,
+                gain=gain,
+            )
+            for rank in RANKS
+            for gain in GAINS
         )
-        for rank in RANKS
-        for gain in GAINS
-    )
+    elif experiment_contract == "d075_integral_neutral":
+        active_gains = (0.5,) if smoke else D075_GAINS
+        positive = tuple(
+            Candidate(
+                key=f"rank8_gain{_gain_key(gain)}_{policy}",
+                rank=8,
+                gain=gain,
+                correction_policy=policy,
+            )
+            for policy in CORRECTION_POLICIES
+            for gain in active_gains
+        )
+    else:
+        raise ValueError(f"unsupported experiment contract: {experiment_contract}")
     candidates = (zero, *positive)
     if len({candidate.key for candidate in candidates}) != len(candidates):
         raise AssertionError("candidate keys are not unique")
@@ -249,6 +310,11 @@ def _family_cases(family: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--experiment-contract",
+        choices=EXPERIMENT_CONTRACTS,
+        default="d074_raw",
+    )
     parser.add_argument("--family", choices=("dynamic_fv", "bump"), required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--normalization-json", type=Path, required=True)
@@ -290,6 +356,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         raise ValueError("D074 source base must be one 40-digit hexadecimal commit")
     if args.smoke and args.family != "dynamic_fv":
         raise ValueError("the registered D074 smoke is dynamic-FV only")
+    if args.experiment_contract == "d075_integral_neutral" and args.family != "dynamic_fv":
+        raise ValueError("D075 is dynamic-FV only")
     contract = REQUIRED_ARTIFACTS[args.family]
     observed = {
         "checkpoint": args.expected_checkpoint_sha256.lower(),
@@ -583,6 +651,240 @@ def _bias_sequence(
     return basis, bias
 
 
+def _neutralized_component_indices(correction_policy: str) -> tuple[int, ...]:
+    if correction_policy == "raw":
+        return ()
+    if correction_policy == "energy_integral_neutral":
+        return (COMPONENTS.index("energy"),)
+    if correction_policy == "all_integrals_neutral":
+        return tuple(range(len(COMPONENTS)))
+    raise ValueError(f"unsupported correction policy: {correction_policy}")
+
+
+def _apply_integral_policy(
+    sequence: np.ndarray,
+    case: CaseData,
+    *,
+    correction_policy: str,
+) -> np.ndarray:
+    """Remove selected physical-volume means on type-0 support."""
+
+    values = np.asarray(sequence, dtype=np.float64)
+    if (
+        values.ndim != 3
+        or values.shape[1:] != (case.nodes.shape[0], len(COMPONENTS))
+        or not np.isfinite(values).all()
+    ):
+        raise ValueError("correction sequence must be finite [calls,N,4]")
+    components = _neutralized_component_indices(correction_policy)
+    if not components:
+        return values
+    if case.family != "dynamic_fv":
+        raise ValueError("physical-volume integral policies are dynamic-FV only")
+    interior = np.asarray(case.physical_node_type == 0, dtype=bool)
+    if not np.any(interior):
+        raise ValueError("integral policy requires nonempty type-0 support")
+    if np.max(np.abs(values[:, ~interior])) > 1.0e-12:
+        raise ValueError("integral policy input is nonzero outside type-0 support")
+    weights = np.asarray(case.weights, dtype=np.float64)
+    interior_mass = float(weights[interior].sum())
+    if not np.isfinite(interior_mass) or interior_mass <= 0.0:
+        raise ValueError("integral policy has invalid type-0 physical volume")
+    means = (
+        np.einsum(
+            "n,tnc->tc",
+            weights[interior],
+            values[:, interior],
+            optimize=True,
+        )
+        / interior_mass
+    )
+    projected = np.array(values, copy=True)
+    interior_indices = np.flatnonzero(interior)
+    for component in components:
+        projected[:, interior_indices, component] -= means[:, component, None]
+    projected[:, ~interior] = 0.0
+    return projected
+
+
+def _candidate_bias_sequence(
+    case: CaseData,
+    coefficients: np.ndarray,
+    candidate: Candidate,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return basis, policy-adjusted physical bias, and adjusted coefficients."""
+
+    basis, raw_bias = _bias_sequence(case, coefficients, rank=candidate.rank)
+    components = _neutralized_component_indices(candidate.correction_policy)
+    adjusted_coefficients = np.asarray(coefficients, dtype=np.float64)
+    if not components:
+        return basis, raw_bias, adjusted_coefficients
+    projected = _apply_integral_policy(
+        raw_bias,
+        case,
+        correction_policy=candidate.correction_policy,
+    )
+    adjusted_coefficients = np.array(adjusted_coefficients, copy=True)
+    interior = case.physical_node_type == 0
+    interior_mass = float(case.weights[interior].sum())
+    raw_means = (
+        np.einsum(
+            "n,tnc->tc",
+            case.weights[interior],
+            raw_bias[:, interior],
+            optimize=True,
+        )
+        / interior_mass
+    )
+    for component in components:
+        adjusted_coefficients[:, 0, component] -= (
+            raw_means[:, component] / case.residual_scale[component]
+        )
+    reconstructed = reconstruct_coefficient_sequence(
+        adjusted_coefficients,
+        basis,
+        component_scale=case.residual_scale,
+    )
+    reconstructed[:, ~interior] = 0.0
+    if np.max(np.abs(reconstructed - projected)) > 1.0e-10:
+        raise ValueError("integral-neutral coefficient reconstruction failed")
+    repeated = _apply_integral_policy(
+        projected,
+        case,
+        correction_policy=candidate.correction_policy,
+    )
+    if np.max(np.abs(repeated - projected)) > INTEGRAL_CLOSURE_LIMIT:
+        raise ValueError("integral-neutral projection is not idempotent")
+    if candidate.correction_policy == "energy_integral_neutral" and not np.array_equal(
+        projected[:, :, :3], raw_bias[:, :, :3]
+    ):
+        raise ValueError("energy-only policy changed another conservative component")
+    return basis, projected, adjusted_coefficients
+
+
+def _correction_integral_audit(
+    correction_sequence: np.ndarray,
+    case: CaseData,
+    candidate: Candidate,
+) -> dict[str, Any]:
+    values = np.asarray(correction_sequence, dtype=np.float64)
+    required = _neutralized_component_indices(candidate.correction_policy)
+    if values.ndim != 3 or values.shape[0] < 1:
+        maxima = {name: None for name in COMPONENTS}
+        required_maximum = None if required else 0.0
+        passed = not required
+    else:
+        normalized_mean = (
+            np.einsum("n,tnc->tc", case.weights, values, optimize=True)
+            / float(case.weights.sum())
+            / case.residual_scale[None, :]
+        )
+        maxima = {
+            name: float(np.max(np.abs(normalized_mean[:, component])))
+            for component, name in enumerate(COMPONENTS)
+        }
+        required_maximum = (
+            max(maxima[COMPONENTS[component]] for component in required)
+            if required
+            else 0.0
+        )
+        passed = bool(
+            not required
+            or (
+                np.isfinite(required_maximum)
+                and required_maximum <= INTEGRAL_CLOSURE_LIMIT
+            )
+        )
+    return {
+        "correction_policy": candidate.correction_policy,
+        "neutralized_components": [COMPONENTS[index] for index in required],
+        "maximum_normalized_physical_volume_mean_by_component": maxima,
+        "maximum_required_integral_closure": required_maximum,
+        "passed": passed,
+    }
+
+
+def _correction_integral_rows(
+    case: CaseData,
+    result: RolloutResult,
+    *,
+    arm: str,
+    policy_adjustment: np.ndarray | None = None,
+) -> list[dict[str, Any]]:
+    corrections = np.asarray(result.corrections, dtype=np.float64)
+    if corrections.shape != result.defects.shape:
+        raise ValueError("correction integral rows require one correction per defect")
+    if policy_adjustment is None:
+        adjustment = np.zeros_like(corrections)
+    else:
+        adjustment = np.asarray(policy_adjustment, dtype=np.float64)
+        if adjustment.shape != corrections.shape or not np.isfinite(adjustment).all():
+            raise ValueError("policy adjustment does not match the correction sequence")
+    neutralized = set(
+        _neutralized_component_indices(result.candidate.correction_policy)
+    )
+    total_volume = float(case.weights.sum())
+    rows = []
+    for call, (correction, removed) in enumerate(
+        zip(corrections, adjustment, strict=True),
+        start=1,
+    ):
+        raw_integral = np.einsum(
+            "n,nc->c", case.weights, correction, optimize=True
+        )
+        normalized_mean = raw_integral / total_volume / case.residual_scale
+        correction_rms = np.sqrt(
+            np.einsum(
+                "n,nc->c",
+                case.weights,
+                np.square(correction / case.residual_scale[None, :]),
+                optimize=True,
+            )
+            / total_volume
+        )
+        adjustment_rms = np.sqrt(
+            np.einsum(
+                "n,nc->c",
+                case.weights,
+                np.square(removed / case.residual_scale[None, :]),
+                optimize=True,
+            )
+            / total_volume
+        )
+        for component, name in enumerate(COMPONENTS):
+            required = component in neutralized
+            rows.append(
+                {
+                    "family": case.family,
+                    "case_id": case.case_id,
+                    "resolution": case.resolution_name,
+                    "arm": arm,
+                    "candidate": result.candidate.key,
+                    "correction_policy": result.candidate.correction_policy,
+                    "call": call,
+                    "physical_time": float(case.physical_times[call]),
+                    "component": name,
+                    "raw_physical_volume_integral": float(raw_integral[component]),
+                    "residual_scaled_physical_volume_mean": float(
+                        normalized_mean[component]
+                    ),
+                    "correction_residual_scaled_rms": float(
+                        correction_rms[component]
+                    ),
+                    "policy_adjustment_residual_scaled_rms": float(
+                        adjustment_rms[component]
+                    ),
+                    "integral_neutralization_required": required,
+                    "integral_closure_pass": bool(
+                        not required
+                        or abs(float(normalized_mean[component]))
+                        <= INTEGRAL_CLOSURE_LIMIT
+                    ),
+                }
+            )
+    return rows
+
+
 def _sequence_component_rms(
     sequence: np.ndarray,
     case: CaseData,
@@ -821,6 +1123,11 @@ def _rollout_candidate(
             shock_quantile=shock_quantile,
         )
         summary["valid_length"] = valid_length
+    summary["correction_integral_audit"] = _correction_integral_audit(
+        correction_array,
+        case,
+        candidate,
+    )
     return RolloutResult(
         candidate=candidate,
         complete=complete,
@@ -848,7 +1155,7 @@ def _required_ratio(numerator: float | None, denominator: float | None) -> float
 def select_candidate(
     candidates: Sequence[Candidate],
     case_ids: Sequence[str],
-    rollouts: Mapping[str, Mapping[str, RolloutResult]],
+    rollouts: Mapping[str, Mapping[str, RolloutResult | SelectorRolloutSummary]],
     *,
     family: str | None = None,
 ) -> tuple[
@@ -857,7 +1164,7 @@ def select_candidate(
     list[dict[str, Any]],
     list[dict[str, Any]],
 ]:
-    """Apply the complete-case lexicographic D074 calibration selector."""
+    """Apply the complete-case lexicographic D074/D075 calibration selector."""
 
     candidate_keys = tuple(candidate.key for candidate in candidates)
     expected_cases = tuple(sorted(str(value) for value in case_ids))
@@ -876,6 +1183,11 @@ def select_candidate(
     metric_rows = []
     eligible_candidates = []
     for candidate in candidates:
+        if candidate.correction_policy not in CORRECTION_POLICY_COMPLEXITY:
+            raise ValueError(
+                f"unsupported candidate correction policy: "
+                f"{candidate.correction_policy}"
+            )
         by_case = rollouts[candidate.key]
         if set(by_case) != set(expected_cases):
             raise ValueError(f"incomplete case inventory for {candidate.key}")
@@ -934,6 +1246,14 @@ def select_candidate(
             maximum_control_ratio = (
                 max(control_ratios.values()) if control_ratios else None
             )
+            correction_audit = result.summary.get("correction_integral_audit", {})
+            correction_contract_pass = bool(
+                candidate.correction_policy == "raw"
+                or correction_audit.get("passed") is True
+            )
+            maximum_integral_closure = correction_audit.get(
+                "maximum_required_integral_closure"
+            )
             row_eligible = bool(
                 complete
                 and endpoint_ratio is not None
@@ -942,6 +1262,7 @@ def select_candidate(
                 and endpoint_ratio <= CALIBRATION_NO_HARM_LIMIT
                 and residual_ratio <= CALIBRATION_NO_HARM_LIMIT
                 and maximum_control_ratio <= CONTROL_NO_HARM_LIMIT
+                and correction_contract_pass
             )
             candidate_eligible = candidate_eligible and row_eligible
             if endpoint_ratio is not None:
@@ -953,6 +1274,7 @@ def select_candidate(
                     "candidate": candidate.key,
                     "rank": candidate.rank,
                     "gain": candidate.gain,
+                    "correction_policy": candidate.correction_policy,
                     "case_id": case_id,
                     "complete": complete,
                     "endpoint_state_numerator": candidate_endpoint,
@@ -962,6 +1284,10 @@ def select_candidate(
                     "residual_rms_denominator": baseline_residual,
                     "residual_rms_ratio": residual_ratio,
                     "maximum_control_ratio": maximum_control_ratio,
+                    "maximum_required_integral_closure": maximum_integral_closure,
+                    "correction_integral_contract_pass": (
+                        correction_contract_pass
+                    ),
                     "control_ratios_json": json.dumps(control_ratios, sort_keys=True),
                     "eligible": row_eligible,
                 }
@@ -998,6 +1324,7 @@ def select_candidate(
                         "candidate": candidate.key,
                         "rank": candidate.rank,
                         "gain": candidate.gain,
+                        "correction_policy": candidate.correction_policy,
                         "case_id": case_id,
                         "metric": metric,
                         "complete_horizon": complete,
@@ -1015,6 +1342,7 @@ def select_candidate(
             "candidate": candidate.key,
             "rank": candidate.rank,
             "gain": candidate.gain,
+            "correction_policy": candidate.correction_policy,
             "case_count": len(expected_cases),
             "median_endpoint_state_ratio": (
                 float(np.median(endpoint_ratios)) if candidate_eligible else None
@@ -1034,6 +1362,7 @@ def select_candidate(
                 summary["median_residual_rms_ratio"],
                 candidate.rank,
                 candidate.gain,
+                CORRECTION_POLICY_COMPLEXITY[candidate.correction_policy],
                 candidate.key,
             ]
         summaries.append(summary)
@@ -1049,6 +1378,7 @@ def select_candidate(
             item[1]["median_residual_rms_ratio"],
             item[0].rank,
             item[0].gain,
+            CORRECTION_POLICY_COMPLEXITY[item[0].correction_policy],
             item[0].key,
         ),
     )
@@ -1081,19 +1411,20 @@ def _crossfit_calibration(
         case_id: _fit_case_coefficients(model, case_by_id[case_id], required_ranks)
         for case_id in all_case_ids
     }
-    rollouts: dict[str, dict[str, RolloutResult]] = {
+    rollouts: dict[str, dict[str, SelectorRolloutSummary]] = {
         candidate.key: {} for candidate in candidates
     }
     for case_id in fold_case_ids:
         case = case_by_id[case_id]
-        baseline = _rollout_candidate(
-            model,
-            case,
-            candidates[0],
-            bias_sequence=None,
-            shock_quantile=shock_quantile,
+        rollouts["zero"][case_id] = _selector_rollout_summary(
+            _rollout_candidate(
+                model,
+                case,
+                candidates[0],
+                bias_sequence=None,
+                shock_quantile=shock_quantile,
+            )
         )
-        rollouts["zero"][case_id] = baseline
         training_ids = [value for value in all_case_ids if value != case_id]
         if not training_ids:
             raise ValueError("cross-fit fold has no remaining calibration case")
@@ -1106,13 +1437,15 @@ def _crossfit_calibration(
                     ]
                 )
             )
-            _, bias = _bias_sequence(case, frozen, rank=candidate.rank)
-            rollouts[candidate.key][case_id] = _rollout_candidate(
-                model,
-                case,
-                candidate,
-                bias_sequence=bias,
-                shock_quantile=shock_quantile,
+            _, bias, _ = _candidate_bias_sequence(case, frozen, candidate)
+            rollouts[candidate.key][case_id] = _selector_rollout_summary(
+                _rollout_candidate(
+                    model,
+                    case,
+                    candidate,
+                    bias_sequence=bias,
+                    shock_quantile=shock_quantile,
+                )
             )
     selected, rows, summaries, metric_rows = select_candidate(
         candidates,
@@ -1714,6 +2047,7 @@ def _evaluation_gate(
                 "family": family,
                 "case_id": case_id,
                 "candidate": selected.key,
+                "correction_policy": selected.correction_policy,
                 "complete": result.complete,
                 "final_state_numerator": selected_state,
                 "final_state_denominator": baseline_state,
@@ -1753,6 +2087,7 @@ def _evaluation_gate(
         {
             "passed": passed,
             "selected_candidate": selected.key,
+            "selected_correction_policy": selected.correction_policy,
             "median_final_state_ratio": float(np.median(state_ratios)),
             "maximum_final_state_ratio": float(np.max(state_ratios)),
             "maximum_residual_rms_ratio": float(np.max(residual_ratios)),
@@ -1834,6 +2169,9 @@ def _save_visual_payload(
         selected_candidate=np.asarray(selected.candidate.key),
         selected_rank=np.asarray(selected.candidate.rank, dtype=np.int64),
         selected_gain=np.asarray(selected.candidate.gain, dtype=np.float64),
+        selected_correction_policy=np.asarray(
+            selected.candidate.correction_policy
+        ),
         expected_calls=np.asarray(calls, dtype=np.int64),
         baseline_complete=np.asarray(baseline.complete),
         selected_complete=np.asarray(selected.complete),
@@ -1865,6 +2203,7 @@ def _save_visual_payload(
         "relative_path": path.name,
         "calls": calls,
         "selected_candidate": selected.candidate.key,
+        "selected_correction_policy": selected.candidate.correction_policy,
         "maximum_cumulative_closure": maximum_cumulative_closure,
         "maximum_signed_growth_replay": maximum_growth_replay,
     }
@@ -1898,6 +2237,7 @@ def _serialize_coefficients(
         candidate=np.asarray(selected.key),
         rank=np.asarray(selected.rank, dtype=np.int64),
         gain=np.asarray(selected.gain, dtype=np.float64),
+        correction_policy=np.asarray(selected.correction_policy),
         coefficients=(
             np.empty((0, 0, 0), dtype=np.float64)
             if coefficients is None
@@ -1916,6 +2256,8 @@ def _case_summary_row(
         "case_id": case.case_id,
         "resolution": case.resolution_name,
         "arm": arm,
+        "candidate": result.candidate.key,
+        "correction_policy": result.candidate.correction_policy,
         "complete": result.complete,
         "valid_length": result.valid_length,
         "final_state_error": result.summary.get("final_state_error"),
@@ -1926,6 +2268,9 @@ def _case_summary_row(
         ),
         "global_budgets_json": json.dumps(
             result.summary.get("global_budgets", {}), sort_keys=True
+        ),
+        "correction_integral_audit_json": json.dumps(
+            result.summary.get("correction_integral_audit", {}), sort_keys=True
         ),
     }
     if result.defects.shape[0]:
@@ -2017,7 +2362,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("D074 calibration/evaluation IDs do not partition validation")
     active_calibration_ids = calibration_ids[:2] if args.smoke else calibration_ids
     active_evaluation_ids = evaluation_ids[:1] if args.smoke else evaluation_ids
-    candidates = candidate_inventory(smoke=args.smoke)
+    candidates = candidate_inventory(
+        smoke=args.smoke,
+        experiment_contract=args.experiment_contract,
+    )
     store = PCNOEuler2DShardStore(args.data_dir, max_cached_trajectories=2)
     if args.family == "dynamic_fv":
         checkpoint = load_resolution_checkpoint(args.checkpoint)
@@ -2080,6 +2428,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         coefficient_payload = {
             "schema": np.asarray(SCHEMA),
             "family": np.asarray(args.family),
+            "experiment_contract": np.asarray(args.experiment_contract),
         }
         for case_id, by_rank in sorted(coefficients_by_case.items()):
             for rank, values in sorted(by_rank.items()):
@@ -2107,6 +2456,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         selector_record = {
             "schema": SCHEMA,
             "family": args.family,
+            "experiment_contract": args.experiment_contract,
             "smoke": args.smoke,
             "candidate_inventory": [candidate.__dict__ for candidate in candidates],
             "fold_case_ids": (
@@ -2123,6 +2473,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "median_residual_rms_ratio",
                 "lower_rank",
                 "lower_gain",
+                "lower_correction_policy_complexity",
                 "candidate_key",
             ],
             "evaluation_targets_loaded_before_freeze": False,
@@ -2191,6 +2542,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         projection_component_rows = []
         projection_status_rows = []
         budget_rows = []
+        correction_integral_rows = []
         sequence_summary_rows = []
         sequence_time_rows = []
         lag_rows = []
@@ -2213,11 +2565,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 f"visualization cases are outside active evaluation: "
                 f"{sorted(unknown_visual_ids)}"
             )
-        applied_coefficients = (
-            None
-            if selected.is_zero
-            else -selected.gain * np.asarray(frozen_coefficients, dtype=np.float64)
-        )
         for index, case in enumerate(evaluation_cases, start=1):
             baseline = _rollout_candidate(
                 model,
@@ -2230,9 +2577,28 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             if selected.is_zero:
                 selected_result = baseline
                 selected_basis = None
+                selected_applied_coefficients = None
+                selected_policy_adjustment = np.zeros_like(baseline.corrections)
             else:
-                selected_basis, selected_bias = _bias_sequence(
-                    case, frozen_coefficients, rank=selected.rank
+                _, raw_selected_bias = _bias_sequence(
+                    case,
+                    frozen_coefficients,
+                    rank=selected.rank,
+                )
+                (
+                    selected_basis,
+                    selected_bias,
+                    selected_policy_coefficients,
+                ) = _candidate_bias_sequence(
+                    case,
+                    frozen_coefficients,
+                    selected,
+                )
+                selected_applied_coefficients = (
+                    -selected.gain * selected_policy_coefficients
+                )
+                selected_policy_adjustment = -selected.gain * (
+                    selected_bias - raw_selected_bias
                 )
                 selected_result = _rollout_candidate(
                     model,
@@ -2242,20 +2608,38 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     shock_quantile=args.shock_quantile,
                 )
             selected_by_case[case.case_id] = selected_result
-            for arm, result, basis in (
-                ("baseline", baseline, None),
-                ("selected", selected_result, selected_basis),
+            for arm, result, basis, arm_coefficients, policy_adjustment in (
+                (
+                    "baseline",
+                    baseline,
+                    None,
+                    None,
+                    np.zeros_like(baseline.corrections),
+                ),
+                (
+                    "selected",
+                    selected_result,
+                    selected_basis,
+                    selected_applied_coefficients,
+                    selected_policy_adjustment,
+                ),
             ):
                 case_summary_rows.append(_case_summary_row(case, arm, result))
+                correction_integral_rows.extend(
+                    _correction_integral_rows(
+                        case,
+                        result,
+                        arm=arm,
+                        policy_adjustment=policy_adjustment,
+                    )
+                )
                 if result.defects.shape[0]:
                     artifacts = _same_input_rows(
                         case,
                         result,
                         arm=arm,
                         basis=basis,
-                        applied_coefficients=(
-                            applied_coefficients if arm == "selected" else None
-                        ),
+                        applied_coefficients=arm_coefficients,
                     )
                     call_rows.extend(artifacts["call_rows"])
                     projection_rows.extend(artifacts["projection_rows"])
@@ -2331,6 +2715,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "lag_correlations.csv": lag_rows,
         "pod_summaries.csv": pod_rows,
         "signed_component_budgets.csv": budget_rows,
+        "correction_integral_audit.csv": correction_integral_rows,
         "projection_status.csv": projection_status_rows,
         "visual_payload_inventory.csv": visual_inventory_rows,
         "completion.csv": completion_rows,
@@ -2368,6 +2753,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     completion_inventory_pass = _row_inventory_exact(
         completion_rows, expected_call_keys, ("case_id", "arm", "call")
     ) and all(bool(row["accepted"]) for row in completion_rows)
+    expected_integral_keys = {
+        (case_id, arm, call, component)
+        for case_id in evaluation_case_ids
+        for arm in arms
+        for call in calls
+        for component in COMPONENTS
+    }
+    correction_integral_inventory_pass = _row_inventory_exact(
+        correction_integral_rows,
+        expected_integral_keys,
+        ("case_id", "arm", "call", "component"),
+    )
     expected_case_summary_keys = {
         (case_id, arm) for case_id in evaluation_case_ids for arm in arms
     }
@@ -2529,6 +2926,25 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         },
         ("candidate", "case_id", "metric"),
     )
+    selector_integral_contract_pass = all(
+        bool(row.get("correction_integral_contract_pass")) for row in selector_rows
+    )
+    required_integral_rows = [
+        row
+        for row in correction_integral_rows
+        if bool(row["integral_neutralization_required"])
+    ]
+    maximum_required_integral_closure = (
+        max(
+            abs(float(row["residual_scaled_physical_volume_mean"]))
+            for row in required_integral_rows
+        )
+        if required_integral_rows
+        else 0.0
+    )
+    correction_integral_contract_pass = all(
+        bool(row["integral_closure_pass"]) for row in correction_integral_rows
+    )
 
     maximum_recurrence_closure = _maximum_absolute(call_rows, "recurrence_closure_rms")
     maximum_growth_closure = _maximum_absolute(call_rows, "growth_closure")
@@ -2619,6 +3035,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     row_inventories_pass = bool(
         call_inventory_pass
         and completion_inventory_pass
+        and correction_integral_inventory_pass
         and case_summary_inventory_pass
         and sequence_inventory_pass
         and sequence_time_inventory_pass
@@ -2632,6 +3049,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and case_contract_inventory_pass
         and selector_matrix_inventory_pass
         and selector_metric_inventory_pass
+        and selector_integral_contract_pass
     )
     core_contract_pass = bool(
         calibration_hook["passed"]
@@ -2658,6 +3076,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         and maximum_correction_projection_leakage <= 1.0e-20
         and maximum_visual_cumulative_closure <= 2.0e-5
         and maximum_visual_growth_replay <= 1.0e-10
+        and correction_integral_contract_pass
+        and maximum_required_integral_closure <= INTEGRAL_CLOSURE_LIMIT
         and all(result.complete for result in baseline_by_case.values())
         and all(result.complete for result in selected_by_case.values())
     )
@@ -2678,6 +3098,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     }
     summary = {
         "schema": SCHEMA,
+        "experiment_contract": args.experiment_contract,
+        "experiment_id": (
+            "D075"
+            if args.experiment_contract == "d075_integral_neutral"
+            else "D074-A"
+        ),
         "status": status,
         "contract_checks_passed": core_contract_pass,
         "scientific_interpretation_allowed": bool(
@@ -2691,6 +3117,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "evaluation_case_ids": list(active_evaluation_ids),
             "sealed_populations_accessed": False,
             "adaptive_reuse_of_d071_evaluation": True,
+            "adaptive_reuse_of_open_validation": True,
         },
         "checkpoint_sha256": sha256_file(args.checkpoint),
         "normalization_digest": checkpoint.get("normalization_digest"),
@@ -2707,8 +3134,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "row_inventories_pass": row_inventories_pass,
             "selector_matrix_inventory_pass": selector_matrix_inventory_pass,
             "selector_metric_inventory_pass": selector_metric_inventory_pass,
+            "selector_integral_contract_pass": selector_integral_contract_pass,
             "evaluation_call_inventory_pass": call_inventory_pass,
             "completion_inventory_pass": completion_inventory_pass,
+            "correction_integral_inventory_pass": (
+                correction_integral_inventory_pass
+            ),
+            "correction_integral_contract_pass": (
+                correction_integral_contract_pass
+            ),
+            "maximum_required_integral_closure": (
+                maximum_required_integral_closure
+            ),
             "case_summary_inventory_pass": case_summary_inventory_pass,
             "sequence_inventory_pass": sequence_inventory_pass,
             "sequence_time_inventory_pass": sequence_time_inventory_pass,
@@ -2757,7 +3194,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "core_contract_pass": core_contract_pass,
         },
         "claim_boundary": {
-            "method": "offline call-indexed low-rank bias; not state feedback",
+            "method": (
+                "offline call-indexed low-rank bias with optional target-free "
+                "correction-integral projection; not state feedback"
+            ),
             "dynamic": "audited physical volumes; base PCNO is not conservative",
             "bump": "native graph and proxy weights only; no resolution claim",
             "assimilation": "not implemented",
@@ -2785,7 +3225,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     summary = run(parse_args(argv))
     print(
-        f"D074-A {summary['family']} status={summary['status']} "
+        f"{summary['experiment_id']} {summary['family']} "
+        f"status={summary['status']} "
         f"selected={summary['selector']['selected']['key']} "
         f"promoted={summary['promotion']['passed']}",
         flush=True,

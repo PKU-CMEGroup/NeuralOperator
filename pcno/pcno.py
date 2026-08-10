@@ -777,7 +777,17 @@ class PCNO(nn.Module):
         self.normal_params = list(self.parameters())  #  group of params which will be trained normally
 
 
-    def forward(self, x, aux):
+    def prepare_fourier_tensors(self, nodes, node_weights):
+        """Precompute Fourier bases for callers with immutable geometry.
+
+        The ordinary :meth:`forward` path remains unchanged. Fixed-geometry
+        applications may prepare these tensors once outside a timed loop and
+        pass them back through ``fourier_tensors``.
+        """
+
+        return _compute_Fourier_bases_and_weights(nodes, node_weights, self.modes)
+
+    def forward(self, x, aux, *, fourier_tensors=None):
         """
         Forward evaluation.
         1. Lift the input to the desire channel dimension by self.fc0 .
@@ -819,6 +829,10 @@ class PCNO(nn.Module):
         # nodes: float[batch_size, nnodes, ndims]
         node_mask, nodes, node_weights, directed_edges, edge_gradient_weights = aux
         # Reuse static Fourier tensors across homogeneous expanded batches.
+        if fourier_tensors is None:
+            fourier_tensors = self.prepare_fourier_tensors(nodes, node_weights)
+        if len(fourier_tensors) != 6:
+            raise ValueError("fourier_tensors must contain six basis tensors")
         (
             bases_c,
             bases_s,
@@ -826,7 +840,7 @@ class PCNO(nn.Module):
             wbases_c,
             wbases_s,
             wbases_0,
-        ) = _compute_Fourier_bases_and_weights(nodes, node_weights, self.modes)
+        ) = fourier_tensors
 
         x = self.fc0(x)
         x = x.permute(0, 2, 1)

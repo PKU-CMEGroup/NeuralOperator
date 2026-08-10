@@ -29,7 +29,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from pcno.pcno import PCNO, compute_Fourier_modes
+from pcno.pcno import PCNO, compute_Fourier_modes, compute_gradient
 from utility.time_dependent_no.cpg_mesh_contract import (
     INFLOW_NODE,
     NORMAL_NODE,
@@ -62,6 +62,12 @@ BOUNDARY_FIELD_MODES = (
     BOUNDARY_FIELD_NONE,
     BOUNDARY_FIELD_GEOMETRY_COLLAR,
     BOUNDARY_FIELD_SEMANTIC_COLLAR,
+)
+BOUNDARY_RESIDUAL_NONE = "none"
+BOUNDARY_RESIDUAL_SEMANTIC_COLLAR_POINTWISE = "semantic_collar_gated_pointwise"
+BOUNDARY_RESIDUAL_MODES = (
+    BOUNDARY_RESIDUAL_NONE,
+    BOUNDARY_RESIDUAL_SEMANTIC_COLLAR_POINTWISE,
 )
 TYPE_FEATURE_START = 2 + 1 + NUM_EULER_COMPONENTS
 TYPE_FEATURE_STOP = TYPE_FEATURE_START + NUM_NODE_TYPES
@@ -991,6 +997,9 @@ class PCNOEuler2DResidual(nn.Module):
         node_type_feature_mode: str = NODE_TYPE_FEATURE_ONE_HOT,
         boundary_field_mode: str = BOUNDARY_FIELD_NONE,
         boundary_field_names: Sequence[str] = (),
+        boundary_residual_mode: str = BOUNDARY_RESIDUAL_NONE,
+        boundary_residual_names: Sequence[str] = (),
+        boundary_residual_width: int = 64,
     ) -> None:
         super().__init__()
         if k_max < 1:
@@ -1015,6 +1024,13 @@ class PCNOEuler2DResidual(nn.Module):
                 f"boundary_field_mode must be one of {BOUNDARY_FIELD_MODES}, "
                 f"got {boundary_field_mode!r}"
             )
+        if boundary_residual_mode not in BOUNDARY_RESIDUAL_MODES:
+            raise ValueError(
+                f"boundary_residual_mode must be one of {BOUNDARY_RESIDUAL_MODES}, "
+                f"got {boundary_residual_mode!r}"
+            )
+        if int(boundary_residual_width) < 1:
+            raise ValueError("boundary_residual_width must be positive")
         field_names = tuple(str(name) for name in boundary_field_names)
         if any(not name for name in field_names) or len(set(field_names)) != len(
             field_names
@@ -1032,6 +1048,25 @@ class PCNOEuler2DResidual(nn.Module):
                 "continuous boundary fields and categorical node-type features "
                 "are separate model inputs"
             )
+        residual_names = tuple(str(name) for name in boundary_residual_names)
+        if any(not name for name in residual_names) or len(set(residual_names)) != len(
+            residual_names
+        ):
+            raise ValueError("boundary_residual_names must be nonempty and unique")
+        if boundary_residual_mode == BOUNDARY_RESIDUAL_NONE and residual_names:
+            raise ValueError("the none boundary-residual mode cannot declare names")
+        if boundary_residual_mode != BOUNDARY_RESIDUAL_NONE and not residual_names:
+            raise ValueError("an active boundary-residual mode requires semantic names")
+        if boundary_residual_mode != BOUNDARY_RESIDUAL_NONE:
+            if boundary_field_mode != BOUNDARY_FIELD_NONE:
+                raise ValueError(
+                    "lifted boundary fields and a boundary-residual side path are "
+                    "separate representation studies"
+                )
+            if node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED:
+                raise ValueError(
+                    "a boundary-residual side path requires the no-type PCNO backbone"
+                )
 
         modes = compute_Fourier_modes(
             2,
@@ -1104,6 +1139,28 @@ class PCNOEuler2DResidual(nn.Module):
         self.boundary_field_mode = str(boundary_field_mode)
         self.boundary_field_names = field_names
         self.boundary_field_input_count = int(boundary_feature_count)
+        self.boundary_residual_mode = str(boundary_residual_mode)
+        self.boundary_residual_names = residual_names
+        self.boundary_residual_width = int(boundary_residual_width)
+        if self.boundary_residual_mode == BOUNDARY_RESIDUAL_NONE:
+            self.boundary_residual_input = None
+            self.boundary_residual_hidden = None
+            self.boundary_residual_output = None
+        else:
+            residual_input_dim = NUM_EULER_COMPONENTS + 1 + 3 * len(
+                self.boundary_residual_names
+            )
+            self.boundary_residual_input = nn.Linear(
+                residual_input_dim, self.boundary_residual_width
+            )
+            self.boundary_residual_hidden = nn.Linear(
+                self.boundary_residual_width, self.boundary_residual_width
+            )
+            self.boundary_residual_output = nn.Linear(
+                self.boundary_residual_width, NUM_EULER_COMPONENTS
+            )
+            nn.init.zeros_(self.boundary_residual_output.weight)
+            nn.init.zeros_(self.boundary_residual_output.bias)
         if zero_initialize:
             self.zero_initialize_update_head()
 
@@ -1127,6 +1184,12 @@ class PCNOEuler2DResidual(nn.Module):
             "boundary_field_mode": self.boundary_field_mode,
             "boundary_field_names": list(self.boundary_field_names),
             "boundary_field_input_count": self.boundary_field_input_count,
+            "boundary_residual_mode": self.boundary_residual_mode,
+            "boundary_residual_names": list(self.boundary_residual_names),
+            "boundary_residual_width": self.boundary_residual_width,
+            "boundary_residual_input_feature_names": (
+                self.boundary_residual_input_feature_names()
+            ),
             "input_feature_names": self.input_feature_names(),
         }
 
@@ -1156,6 +1219,35 @@ class PCNOEuler2DResidual(nn.Module):
         names.append("normalized_mach")
         if len(names) != self.backbone.in_dim:
             raise AssertionError("input feature names do not match the lifting width")
+        return names
+
+    def boundary_residual_input_feature_names(self) -> list[str]:
+        """Return the side-path layout without adding PCNO lifting columns."""
+
+        if self.boundary_residual_mode == BOUNDARY_RESIDUAL_NONE:
+            return []
+        names = [
+            "normalized_conservative_rho",
+            "normalized_conservative_rho_u",
+            "normalized_conservative_rho_v",
+            "normalized_conservative_energy",
+            "normalized_mach",
+        ]
+        names.extend(
+            f"boundary_semantic_collar_{name}"
+            for name in self.boundary_residual_names
+        )
+        for name in self.boundary_residual_names:
+            names.extend(
+                (
+                    f"boundary_semantic_collar_{name}_unit_gradient_x",
+                    f"boundary_semantic_collar_{name}_unit_gradient_y",
+                )
+            )
+        if self.boundary_residual_input is None:
+            raise RuntimeError("active boundary-residual mode lacks its input layer")
+        if len(names) != self.boundary_residual_input.in_features:
+            raise AssertionError("side-path feature names do not match its input width")
         return names
 
     def _selected_boundary_fields(
@@ -1277,6 +1369,79 @@ class PCNOEuler2DResidual(nn.Module):
         features.append(normalized_mach)
         return torch.cat(features, dim=-1)
 
+    def normalized_boundary_residual(
+        self,
+        current_conservative: torch.Tensor,
+        *,
+        mach: torch.Tensor,
+        boundary_features: torch.Tensor | None,
+        directed_edges: torch.Tensor,
+        edge_gradient_weights: torch.Tensor,
+    ) -> torch.Tensor:
+        """Return the gated side-path correction in normalized-residual units.
+
+        Semantic collars never enter the shared PCNO lift or any PCNO block. The
+        pointwise side path is multiplied by the union collar, so it is exactly
+        zero outside the fixed physical support. This is a bounded volume-
+        residual operator, not a surface quadrature or a BNO claim.
+        """
+
+        if self.boundary_residual_mode == BOUNDARY_RESIDUAL_NONE:
+            return torch.zeros_like(current_conservative)
+        if boundary_features is None:
+            raise ValueError("the boundary-residual side path requires boundary_features")
+        expected = current_conservative.shape[:2] + (
+            len(self.boundary_residual_names),
+        )
+        if boundary_features.shape != expected:
+            raise ValueError(
+                f"boundary_features must have shape {expected}, got "
+                f"{tuple(boundary_features.shape)}"
+            )
+        if (
+            not bool(torch.isfinite(boundary_features).all())
+            or bool((boundary_features < 0.0).any())
+            or bool((boundary_features > 1.0).any())
+        ):
+            raise ValueError("boundary_features must be finite and lie in [0,1]")
+        if self.boundary_residual_input is None:
+            raise RuntimeError("active boundary-residual mode lacks its input layer")
+        if self.boundary_residual_hidden is None:
+            raise RuntimeError("active boundary-residual mode lacks its hidden layer")
+        if self.boundary_residual_output is None:
+            raise RuntimeError("active boundary-residual mode lacks its output layer")
+
+        normalized_state = (current_conservative - self.state_mean) / self.state_scale
+        mach_nodes = self._expanded_mach(mach, current_conservative)
+        normalized_mach = (mach_nodes - self.mach_mean) / self.mach_scale
+        fields = boundary_features.to(dtype=current_conservative.dtype)
+        batch_size, node_count, field_count = fields.shape
+        field_gradients = compute_gradient(
+            fields.permute(0, 2, 1),
+            directed_edges,
+            edge_gradient_weights.to(dtype=fields.dtype),
+        ).reshape(batch_size, field_count, 2, node_count)
+        gradient_norm = torch.linalg.vector_norm(
+            field_gradients, dim=2, keepdim=True
+        )
+        unit_gradients = field_gradients / gradient_norm.clamp_min(1.0e-12)
+        unit_gradients = torch.where(
+            gradient_norm > 1.0e-12,
+            unit_gradients,
+            torch.zeros_like(unit_gradients),
+        )
+        unit_gradients = unit_gradients.permute(0, 3, 1, 2).reshape(
+            batch_size, node_count, 2 * field_count
+        )
+        branch_input = torch.cat(
+            (normalized_state, normalized_mach, fields, unit_gradients), dim=-1
+        ).to(dtype=self.boundary_residual_input.weight.dtype)
+        hidden = F.gelu(self.boundary_residual_input(branch_input))
+        hidden = F.gelu(self.boundary_residual_hidden(hidden))
+        correction = self.boundary_residual_output(hidden)
+        union_gate = fields.amax(dim=-1, keepdim=True).to(dtype=correction.dtype)
+        return correction * union_gate
+
     def forward(
         self,
         current_conservative: torch.Tensor,
@@ -1302,6 +1467,13 @@ class PCNOEuler2DResidual(nn.Module):
         normalized_residual = self.backbone(
             model_input,
             (node_mask, nodes, node_weights, directed_edges, edge_gradient_weights),
+        )
+        normalized_residual = normalized_residual + self.normalized_boundary_residual(
+            current_conservative,
+            mach=mach,
+            boundary_features=boundary_features,
+            directed_edges=directed_edges,
+            edge_gradient_weights=edge_gradient_weights,
         )
         prediction = current_conservative + normalized_residual * self.residual_scale
         return prediction * node_mask
@@ -1382,6 +1554,55 @@ def copy_no_boundary_initialization_to_boundary_field_model(
         "all_non_lifting_state_copied": True,
         "active_weight_rescale_factor": 1.0,
         "mathematical_initial_function_match": True,
+    }
+
+
+def copy_no_boundary_initialization_to_boundary_residual_model(
+    no_boundary_model: PCNOEuler2DResidual,
+    boundary_residual_model: PCNOEuler2DResidual,
+) -> dict[str, Any]:
+    """Copy an eight-input PCNO into an exactly dormant residual-side-path model."""
+
+    if no_boundary_model.node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED:
+        raise ValueError("source model must omit categorical node-type features")
+    if no_boundary_model.boundary_field_mode != BOUNDARY_FIELD_NONE:
+        raise ValueError("source model must omit lifted continuous boundary fields")
+    if no_boundary_model.boundary_residual_mode != BOUNDARY_RESIDUAL_NONE:
+        raise ValueError("source model must omit a boundary-residual side path")
+    if boundary_residual_model.node_type_feature_mode != NODE_TYPE_FEATURE_OMITTED:
+        raise ValueError("target model must omit categorical node-type features")
+    if boundary_residual_model.boundary_field_mode != BOUNDARY_FIELD_NONE:
+        raise ValueError("target model must omit lifted continuous boundary fields")
+    if boundary_residual_model.boundary_residual_mode == BOUNDARY_RESIDUAL_NONE:
+        raise ValueError("target model must use a boundary-residual side path")
+
+    source = no_boundary_model.state_dict()
+    target = boundary_residual_model.state_dict()
+    copied = {
+        name: (source[name].detach().clone() if name in source else value)
+        for name, value in target.items()
+    }
+    boundary_residual_model.load_state_dict(copied, strict=True)
+    common_exact = all(torch.equal(source[name], copied[name]) for name in source)
+    output = boundary_residual_model.boundary_residual_output
+    if output is None:
+        raise RuntimeError("target side path lacks its output layer")
+    output_zero = bool(
+        torch.count_nonzero(output.weight.detach()).item() == 0
+        and torch.count_nonzero(output.bias.detach()).item() == 0
+    )
+    if not common_exact or not output_zero:
+        raise RuntimeError("matched boundary-residual initialization is not exact")
+    return {
+        "schema": "pcno_boundary_residual_initialization_v1",
+        "kind": "copied_from_no_boundary_model",
+        "source_input_dim": int(no_boundary_model.backbone.in_dim),
+        "target_input_dim": int(boundary_residual_model.backbone.in_dim),
+        "pcno_backbone_state_copied_exactly": True,
+        "normalization_state_copied_exactly": True,
+        "boundary_residual_output_zero": True,
+        "mathematical_initial_function_match": True,
+        "shared_pcno_lift_receives_boundary_features": False,
     }
 
 

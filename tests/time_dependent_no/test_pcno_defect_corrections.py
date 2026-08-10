@@ -84,6 +84,69 @@ def test_controlled_graph_dissipation_leaves_non_normal_nodes_untouched() -> Non
     np.testing.assert_allclose(result.weighted_mean_closure, 0.0, atol=1.0e-14)
 
 
+def test_controlled_graph_dissipation_respects_node_gate_and_edge_multiplier() -> None:
+    edges = np.asarray([[0, 1], [1, 2], [2, 3], [3, 4]], dtype=np.int64)
+    update = np.asarray([[0.0], [6.0], [0.0], [3.0], [0.0]])
+    result = controlled_graph_dissipation(
+        update,
+        edges,
+        np.asarray([1.0, 2.0, 3.0, 4.0, 5.0]),
+        np.ones(5, dtype=bool),
+        component_scale=(1.0,),
+        sensor_quantile=0.5,
+        norm_cap=0.1,
+        node_gate=np.asarray([1.0, 1.0, 1.0, 1.0, 0.0]),
+        edge_multiplier=np.asarray([1.0, 1.0, 0.0, 1.0]),
+        edges_are_unique_undirected=True,
+    )
+    assert result.eligible_edge_count == 2
+    assert result.correction[0, 0] > 0.0
+    assert result.correction[1, 0] < 0.0
+    assert result.correction[2, 0] > 0.0
+    np.testing.assert_array_equal(result.correction[3:], 0.0)
+    np.testing.assert_allclose(result.weighted_mean_closure, 0.0, atol=1.0e-14)
+    assert result.applied_relative_norm <= 0.1 + 1.0e-12
+
+
+def test_controlled_graph_dissipation_zero_gate_is_exact_zero() -> None:
+    result = controlled_graph_dissipation(
+        np.asarray([[0.0], [4.0], [0.0]]),
+        np.asarray([[0, 1], [1, 2]], dtype=np.int64),
+        np.ones(3),
+        np.ones(3, dtype=bool),
+        component_scale=(1.0,),
+        node_gate=np.zeros(3),
+    )
+    np.testing.assert_array_equal(result.correction, 0.0)
+    np.testing.assert_array_equal(result.sensor, 0.0)
+    np.testing.assert_array_equal(result.weighted_mean_closure, 0.0)
+    assert result.eligible_edge_count == 0
+
+
+def test_controlled_graph_dissipation_rejects_inconsistent_duplicate_weights() -> None:
+    with np.testing.assert_raises_regex(ValueError, "inconsistent multipliers"):
+        controlled_graph_dissipation(
+            np.asarray([[0.0], [4.0]]),
+            np.asarray([[0, 1], [1, 0]], dtype=np.int64),
+            np.ones(2),
+            np.ones(2, dtype=bool),
+            component_scale=(1.0,),
+            edge_multiplier=np.asarray([0.2, 0.3]),
+        )
+
+
+def test_controlled_graph_dissipation_validates_unique_edge_fast_path() -> None:
+    with np.testing.assert_raises_regex(ValueError, "lexicographically ordered"):
+        controlled_graph_dissipation(
+            np.asarray([[0.0], [4.0], [0.0]]),
+            np.asarray([[1, 2], [0, 1]], dtype=np.int64),
+            np.ones(3),
+            np.ones(3, dtype=bool),
+            component_scale=(1.0,),
+            edges_are_unique_undirected=True,
+        )
+
+
 def test_weighted_subspace_decomposition_is_orthogonal_and_keeps_contacts() -> None:
     x = (np.arange(6, dtype=np.float64) + 0.5) / 6.0
     y = (np.arange(4, dtype=np.float64) + 0.5) / 4.0

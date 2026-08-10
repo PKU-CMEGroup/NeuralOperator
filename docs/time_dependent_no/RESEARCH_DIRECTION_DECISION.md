@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-03
+Updated: 2026-08-11
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -41,8 +41,8 @@ geometry-aware neural-operator solver.
 | --- | --- | --- |
 | Line 1: 1D flow maps | Larger learned macro steps can win after fewer recurrent compositions; the preferred stride depends on horizon and metric. | No universal stride, learned CFL limit, timestep transfer, native-solver resolution transfer, or mesh-invariant solver follows. |
 | Line 2: CPGNet | Corrected 1D controls support message reach rather than width alone; causal boundary training improves the local 2D release-bundle result without closing the oracle gap. | No paper-table reproduction, exact DG replay, physical interface trace, conservation, seed robustness, or architecture-transfer claim follows. |
-| Line 3 bump | D041 remains the exact historical comparator. B1 is a replacement miss; attached-K2 improves B1 recurrence, and K2D0 decomposes most of that endpoint difference into a smaller propagated term on an already-better incoming-error path. | No exact same-contract attached-K2 comparison with D041, attached-gradient causality, more-contractive map, fresh-ripple cure, physical conservation, or cross-family transfer is established. |
-| Line 3 dynamic FV | D044 is a useful one-seed baseline. D060 reduces H60 state error but fails the joint front/high-pass promotion field. D063 gives bounded zero-shot coarse/fine transfer for one unchanged D060 checkpoint under one common-source contract. D064--D067 show persistent large-scale mesh drift plus high-rank local structure that mostly cancels or corrects during recurrence. D070C and D073-A narrow the cross-grid pathway to differential geometry and physical support. D071 additionally shows that persistent low-rank correction improves every tested native `250x100` H30 endpoint, while its local filter is harmful there. Owner-prioritized, registered D074 makes native correction and a transfer-native comparator the primary practical track. D068--D069 close the node-type mechanism question. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, independently confirmed correction, general node-type necessity, optimal boundary encoding, boundary-condition improvement, native-solver equivalence, other-PDE transfer, or sealed performance follows. |
+| Line 3 bump | D041 remains the exact historical comparator. B1 is a replacement miss; attached-K2 improves B1 recurrence, and K2D0 decomposes most of that endpoint difference into a smaller propagated term on an already-better incoming-error path. D084 closes the finite-inadmissibility question: all 360 H79 continuations stay finite, exact repairs occur but are not durable, and no registered global explosion occurs. D083 adds negative proxy-mass query-representation evidence and a transported-Fourier analytic rotation control. D085 is terminal negative fixed-world-Fourier transformed-orientation evidence: all 60 rotated proposals fail at call 1 before recurrence, with a material raw same-input defect. | No exact same-contract attached-K2 comparison with D041, attached-gradient causality, more-contractive map, fresh-ripple cure, causal identification of inadmissibility as blow-up, promotable D082 collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer is established. |
+| Line 3 dynamic FV | D044 is a useful one-seed baseline. D060 reduces H60 state error but fails the joint front/high-pass promotion field. D063 gives bounded zero-shot coarse/fine transfer for one unchanged D060 checkpoint under one common-source contract. D064--D067 show persistent large-scale mesh drift plus high-rank local structure that mostly cancels or corrects during recurrence. D070C and D073-A narrow the cross-grid pathway to differential geometry and physical support. D071, D074-A, and D075 show consistent native `250x100` H30 endpoint benefit from persistent low-rank correction, but neither static raw scaling nor correction-integral neutralization satisfies the frozen efficacy-and-safety contract. D076 fails calibration safety at the highest strength. D077 remains `failed_contract` on nondeterministic prefix replay. D078 passes its exact mathematical/controller contract under deterministic CUDA and selectively removes persistent low-rank drift while leaving orthogonal local structure unchanged. D079 independently recomputes the same open-validation process and reproduces all 40 declared scientific payloads byte-for-byte. D080 finds genuine early local shock-filter headroom but no safe H30 always-on local arm; shock benefit reverses late and the vortex signal depends on placement. D081 confirms a small early-window timing effect against always-on, late, and dose-matched controls, but improves the persistent endpoint in only `3/6` cases and does not promote. D068--D069 close the node-type mechanism question. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, correction safety beyond the registered six open cases, independent-data or statistical confirmation, general node-type necessity, optimal boundary encoding, boundary-condition improvement, native-solver equivalence, other-PDE transfer, or sealed performance follows. |
 | Line 4 latent forecast | Discontinuous decoder regularity improves front fidelity, but the tested latent family remains decoder-capacity limited. | No latent transition, autonomous recurrence, geometry transfer, or data-assimilation result exists. |
 
 The supersonic-bump and Mach-1.1 dynamic finite-volume programs remain separate.
@@ -290,6 +290,149 @@ Result-to-claim decision:
   model family. Rotation, new encodings, and boundary-policy changes are not
   prerequisites for this closeout.
 
+### A-05. D072 semantic boundary-field closeout
+
+D072 freezes a fixed-physical-width cubic collar at `ell=0.05` and compares
+no field (N0), one union geometry field (G1), and family-local semantic fields
+(S1) under exact function-matched G1/S1 initialization. The physical boundary
+policy never changes: dynamic FV uses `model_all_nodes`, while bump uses
+`causal_nodal_physical`. Dynamic meanings are overlapping y-symmetry and
+x-extrapolation contacts; bump meanings remain wall, outflow, and inflow from
+the mesh-derived boundary polyline proxy.
+
+All three matched BF16 seeds are complete on both open-validation families.
+Dynamic mean H30 is `0.007602/0.007951/0.007522` for N0/G1/S1, giving
+G1/N0 `1.04590` and S1/N0 `0.98947`. G1 worsens N0; S1 lowers the arm
+mean by 1.05% but misses the registered `0.90` gate, so neither establishes a
+promotable three-seed gain. Bump H79 completion is
+`0.95556/0.94444/0.86667`, and common-case H79 ratios are
+G1/N0 `1.10787` and S1/N0 `1.12396`. Neither bump field arm improves
+completion or common-case rollout error.
+
+One dedicated dynamic seed-20260718 FP32 evaluator establishes causal field
+use, not a multi-seed training gain. Correct-field H30 is
+`0.009003/0.008253/0.008582` for N0/G1/S1; zeroing all learned field inputs
+raises G1/S1 H30 to `0.03377/0.03387`. Effects spread from the collar into
+shock, vortex, smooth, and interior bands. However, both fields worsen at least
+one N0-relative front/high-pass control, S1 is 3.98% worse than G1 in the same
+FP32 endpoint evaluation, and seed-20260718 rankings reverse between BF16 and
+FP32. A stored combined-gate boolean that mixes the three-seed BF16 scalar
+contrast with one-seed FP32 structural controls is therefore not a promotion
+decision.
+
+Result-to-claim decision:
+
+- **Supported, bounded:** the descriptors and exact matched initialization are
+  correctly implemented; one frozen dynamic FP32 seed causally uses G1/S1 under
+  the unchanged physical boundary policy.
+- **Not supported:** either field arm improves N0 across dynamic or bump;
+  causal field use by the D072 bump arms; optimal semantic encoding;
+  boundary-condition improvement;
+  resolution, geometry, or rotation generalization; conservation; or operator
+  convergence.
+- **Closure:** the first D072 ladder is complete and not promoted. D084 later
+  supplies a separate checkpoint-bound intervention/structure/visual package
+  for D082; its mixed/negative result does not retroactively promote D072. Any
+  D072 re-entry requires a new owner-selected claim and same-precision
+  multi-seed evidence. Resolution and rotation remain separate preregistered
+  experiments, not unfinished D072 evidence.
+
+### A-06. D084 finite-inadmissibility and bump-field closeout
+
+D084 freezes exact D082 and N0 checkpoint bytes, the open 30-case bump
+validation population, the checkpoint-native `causal_nodal_physical` boundary
+policy, and six correct/field-zeroing variants for two complete BF16 repeats.
+All source, checkpoint, normalizer, split, and per-case boundary-policy gates
+pass. Every one of the 360 H79 continuations executes all 79 calls with finite
+deployed conservative state; none reaches nonfinite output, 100-times reference
+amplitude, or proxy-scaled relative L2 of 10.
+
+N0 and D082 strict completion are 28/30 and 19/30 in both repeats, while mean
+strict errors are about 0.07059 and 0.02017. Zeroing only the D082 inflow field
+raises completion to 23/30 at nearly unchanged strict error but retains maximum
+local amplitude ratios of 25.94/31.19. Zeroing all fields also reaches 23/30
+while raising error about 23%; zeroing wall leaves completion at 19/30 and also
+raises error about 23%. D082 versus N0 is a trained-model comparison; only the
+within-D082 field-zeroing rows are frozen interventions.
+
+All 98 rows that ever become inadmissible first lose positive internal energy
+inside the fixed semantic collar. Eight model calls and 20 output-policy calls
+exactly recover an invalid input/proposal, but every naturally invalid row is
+invalid again at call 79. Inadmissibility precedes every later local amplitude
+crossing, yet many invalid rows never grow substantially and none reaches a
+registered global explosion. U1 supplies finite recovered negative-pressure
+episodes, while recovered D019 evidence shows velocity/global error growth
+before positive-head underflow to zero. These observations falsify
+“inadmissibility implies blow-up”; they do not identify its independent causal
+effect.
+
+Result-to-claim decision:
+
+- **Supported, bounded:** finite inadmissibility is a checkpoint-local warning
+  for possible later local growth; the frozen model and output policy can
+  sometimes repair it; D082 fields materially affect recurrence.
+- **Not supported:** inadmissibility is sufficient or synonymous with blow-up;
+  field zeroing is a general stabilizer; D082 improves the completion/error
+  conjunction; or this is a boundary-condition, conservation, or general Euler
+  stability result.
+- **Closure:** D084 is terminal, D082 is not promoted, and no D084 queue or
+  implicit repair follow-up remains. Re-entry requires explicit owner
+  authorization and first a deterministic FP32 audit before any matched
+  minimal-admissibility-repair counterfactual.
+
+### A-07. D083 bump representation and rotation-contract correction
+
+D083 is terminal on all 30 open-validation bump cases. Its query graph retains
+about 8.22% of native nodes while preserving only the declared reconstructed
+proxy mass. At call 10, median native/query correct-type state errors are
+`0.01731/0.24088`, and the teacher-forced increment commutator is `0.50443`
+with a material raw numerator. Only three query/correct cases reach H79. This
+is strong negative query-representation evidence under severe compression, not
+PDE resolution transfer, physical conservation, or a general coarse-mesh
+result.
+
+D083's 90-degree arm directly used rotated raw coordinates and momentum plus
+regenerated graph/differential geometry, but it also used `k'=Qk` with a
+transformed phase origin. The Fourier basis was therefore native-equivalent.
+All rotated cases become inadmissible by call 2, but this is a transported-mode
+analytic covariance negative control rather than the owner's intended frozen
+Fourier-lattice deployment test. The distinction is substantive and D083 is
+not relabeled after the fact.
+
+D085 is the separate correction. It freezes the checkpoint's original mode
+tensor, `[6,2]` periods, and ordinary zero phase origin while rotated raw state,
+coordinates, connectivity, and differential weights enter PCNO directly.
+Inverse rotation is postprocessing only. The reference remains an analytic
+transform of retained trajectories rather than an independent rotated PDE
+solve. D085 can test zero-shot consistency on this transformed orientation; it
+cannot by itself establish broad geometry generalization or architectural
+rotation equivariance. The exact-source H2 and 30-case H79 packages pass every
+declared provenance, geometry, direct-input, uniqueness, and algebra gate. All
+`60/60` rotated H79 proposals remain finite but fail admissibility at call 1;
+the state-divergence term is therefore zero and the total defect equals the
+same-input transformed-representation defect. For correct types its call-1
+case-first median is `2.3226` true-residual units with raw physical RMS
+`2.4057` against raw true-residual RMS `1.2343`. D083's transported-basis
+control is smaller (`1.5134`, raw `1.7846`), but still large and itself fails
+by call 2. Fixed-world Fourier representation therefore materially exacerbates
+the transformed-orientation defect without being its sole identified cause.
+This outcome is expected for a checkpoint trained on one orientation with
+absolute coordinate inputs, an axis-fixed Fourier lattice, componentwise state
+normalization, and unconstrained learned mixing of x/y differential channels;
+the architecture enforces no 90-degree covariance. D085 is consequently a
+stress of the complete frozen coordinate representation on an unseen
+orientation of retained cases, not a new-case test or a Fourier-only ablation.
+D086 completes that bounded follow-up on cases `172/58/187`. All twelve
+case/type/repeat continuations are inadmissible at call 1 but remain finite
+through H79. Correct-type repeat-0 median state error grows from `0.172` at
+call 1 to `7.83e5` at call 79, with raw increment-error RMS growing from
+`2.258` to `2.35e6`. Shared-reference-scale animations show broad
+interior/lower-domain residual failure in every conservative component rather
+than a shock-only or boundary-tag-only defect. Ordinary-CUDA repeats agree on
+the initiating rejection but diverge late, so D086 establishes failure
+morphology and recurrent sensitivity only; its frames are not accepted rollout,
+independent-PDE, geometry-generalization, stability, or conservation evidence.
+
 ## Compact Unified Claim Register
 
 The exact RC-01--RC-15 wording through 2026-07-23 is preserved in the historical
@@ -345,8 +488,8 @@ reproducibility. They may be changed by later explicit owner direction.
     boundary-condition family and (ii) the explicitly bound checkpoint/evaluator
     recurrence and boundary-handling policy. Every representation arm uses the
     same pair, and the encoding line may neither select nor modify them. D060
-    uses `model_all_nodes`; a bump comparison declares its policy before
-    evaluation. Changing input descriptors does not authorize boundary
+    and dynamic D072 use `model_all_nodes`; bump D072 uses
+    `causal_nodal_physical`. Changing input descriptors does not authorize boundary
     clamping, splicing, closure corrections, or boundary-objective changes
     owned by the separate boundary-condition workstream.
 12. Animations and spatial visualizations are required evidence for the active
@@ -379,19 +522,23 @@ reproducibility. They may be changed by later explicit owner direction.
 
 ## Current Owner-Selected Research Program
 
-An explicit owner update on 2026-08-03 authorized D072. D072 asks whether
-fixed-physical-width semantic boundary fields give recurrent PCNOs
-resolution-consistent access to boundary meaning. D070--D071 subsequently
-completed under their own frozen contracts and neither promoted; they do not
-pause or broaden D072.
-The completed D068--D069 node-type diagnosis supplies motivation and controls;
-it is not being reopened or reinterpreted as a new-encoding result.
+The owner-authorized D072 first ladder is complete and not promoted. Its
+fixed-physical-width descriptors and matched initialization are verified, and
+one dynamic FP32 seed causally uses the fields, but neither the three-seed
+dynamic BF16 matrix nor the bump matrix establishes a registered N0-relative
+rollout gain. D084 separately closes the D082 bump collar and
+finite-inadmissibility question with checkpoint-bound interventions, structure
+records, and all-frame visual evidence. It exposes a completion/error/local-
+growth tradeoff and rejects “inadmissibility implies blow-up”; it does not
+promote D082 or retroactively promote D072. D068--D069 remain the separate
+categorical node-type mechanism closeout.
 
-The dominant D072 contribution target is representation consistency for
-long-horizon time-dependent operators. Geometry variation and rigid rotation
-are controlled stress tests of the representation, not a claim to solve broad
-geometric generalization. This keeps the project anchored to autonomous Euler
-rollouts while making the geometric input contract mathematically defensible.
+Neither D072 nor D084 establishes resolution consistency, geometry or rotation
+generalization, boundary-condition improvement, conservation, operator
+convergence, or a general Euler stability result. D084 has no active queue.
+Any re-entry requires a new owner-selected claim and a new preregistration. The
+active practical priority remains native-resolution residual correction; data
+assimilation remains reserved.
 
 ### Native correction and resolution generalization
 
@@ -420,6 +567,81 @@ control. D071's current local dissipation is not carried forward: at native
 resolution it worsens both aggregate residual error and local-band error. Bump
 is evaluated separately on native graphs as a portability/safety control and
 may legitimately select zero.
+
+As of 2026-08-04, D074-A is complete only for the dynamic path. Exact canonical
+`250x100` geometry/model tensors and two post-validator H2 repeats pass the
+preregistered integrity and repeatability tolerances. H2 remains explicitly
+non-scientific. The repaired H30 run `d074_dynamic_h30_r2` completes under the
+same open population, immutable source, and frozen physical boundary policy.
+Every one of 288 nonzero candidate/case pairs improves endpoint error, showing
+that the persistent low-rank direction is useful. None is safe under the frozen
+complete-case contract. The closest arm, `rank8_gain0p25`, has median
+endpoint/residual ratios `0.95338/0.99177`; its only failed row is the
+`sv_e10_y00` energy-integral RMS ratio `1.09823` against limit `1.05`. The
+eligibility-first selector therefore retains `zero`, promotion fails, and the
+six evaluation cases provide baseline replay rather than nonzero correction
+evidence. Bump remains closed until its D041 replay population, limits, and
+artifact hashes are bound exactly.
+
+D075, the dynamic-only adaptive integral-neutral follow-up, is complete under
+every frozen D074 safety gate. The H30 selector chooses raw rank 8 at gain
+`0.125`; all six endpoint and residual ratios improve, but the median endpoint
+ratio is `0.974925` against target `0.92`, and two high-energy cases reach final
+energy-integral ratios `1.51847/1.69402`. Promotion therefore fails. Energy-
+only projection is nearly tied with raw at gain `0.125` and materially reduces
+the worst gain-`0.5` control, but it does not make the stronger correction safe.
+All-component projection removes useful density and transverse-momentum
+constant modes and is ineligible even at gain `0.125`. The applied correction
+is exactly case-independent across the two visual payloads while its global-
+energy response is not, identifying recurrent state sensitivity rather than
+instantaneous correction mean as the remaining safety problem. This does not
+change the physical boundary policy or make the base PCNO conservative.
+
+The active near-term direction remains native-resolution residual correction,
+not data assimilation. D076 now closes the exact five-call response-neighbor
+attempt. Its leave-one-case-out controller improves calibration endpoint and
+residual medians to `0.93272/0.98622`, but both highest-strength `e10` choices
+violate a global-energy control, so the frozen gate stops before evaluation
+targets load. The useful response signal is retained as mechanism evidence;
+five-call endpoint response alone is not a late recurrent-energy certificate.
+A post-hoc strength-grouped fold replay passes the old numeric calibration gates
+only by abstaining on both `e10` cases. D077 is now predeclared to exclude each
+complete physical-strength pair from both the correction fit and response-policy
+fit, with upper-strength support as the sole target-free abstention and every
+D076 scientific gate unchanged. D077 is now terminal `failed_contract`. Its
+grouped calibration qualifies and its evaluation values pass every numerical
+promotion inequality, but every H5-prefix/H30 replay misses the unchanged
+floating-point tolerance, including both zero-correction cases. Consequently
+the promising endpoint/cumulative and subspace-energy changes are diagnostic
+mechanism evidence only. D078 reruns this exact contract with PyTorch
+deterministic algorithms enabled and no tolerance or method change; it does not
+retroactively qualify D077. Corrected immutable H2-r2 and H30-r1 pass all
+contracts and every independent prefix is bit-identical. H30 passes the frozen
+adaptive open-validation promotion conjunction with selected/zero endpoint and
+residual medians `0.93441/0.99483`, worst control `1.03811`, and four nonzero
+cases. The accepted scope is this deterministic dynamic-FV open-validation
+result only, not independent confirmation, bump transfer, or sealed evidence.
+D079 is terminal `complete` after freezing the full D078 source, data, physical,
+controller, runtime, and H30 contract in a fresh process and clean output path.
+All 40 declared scientific payloads reproduce by exact SHA-256, all scientific
+summary fields agree exactly, and the six prefix rows remain exactly zero. The
+only summary differences are output path and elapsed time. This establishes
+same-open-population deterministic process repeatability only; it is not a new
+seed, checkpoint, population, benchmark, or statistical confirmation. It
+authorized D080's separate zero-inclusive local shock/vortex contract, not
+post-hoc filter selection. D080 is now terminal `complete`: every source,
+prefix, recurrence, local-support, mean-closure, payload, and output-hash gate
+passes, but no combined arm promotes. Shock filtering has a real early benefit
+and small same-input defect-energy reduction, then reverses after about call 22,
+worsens all six shock endpoints, and leaves the residual slightly more coherent
+and POD-concentrated. The vortex arm improves all three `y08` target regions and
+worsens all three `y00` target regions while violating the global-control limit.
+The next local-correction hypothesis is state/time-conditioned activation or a
+predeclared early-window stop, not a stronger fixed always-on cap.
+Static raw scaling, exact integral projection, and the registered D076 policy
+are not promoted. The physical boundary policy remains frozen. D076 is
+dynamic-only adaptive open-validation evidence; bump needs its own immutable
+D041 replay binding, and sealed populations remain unopened.
 
 The operational cross-resolution comparator is now frozen as query-grid cell
 averages transferred to `250x100`, raw or corrected native rollout, and transfer
@@ -450,9 +672,9 @@ quadrature, tags, targets, and provenance establish a genuine physical
 resolution contract. Nothing in this closeout selects a new boundary
 descriptor or blocks the active resolution-pathway work.
 
-The later explicit D072 authorization now selects one minimal descriptor for a
-new comparison. For each semantic boundary subset Gamma_k, the stored channel
-is the bounded volume field
+The later explicit D072 authorization selected one minimal descriptor for the
+now-complete first comparison. For each semantic boundary subset Gamma_k, the
+stored channel is the bounded volume field
 
     B_k^ell(x) = rho(distance(x, Gamma_k) / ell),
 
@@ -466,7 +688,7 @@ semantic subsets rather than using wall precedence. The bump boundary polyline
 remains a mesh-derived geometry proxy, so node dropping is still not a
 physical resolution experiment.
 
-The first training ladder is deliberately limited to no boundary field, the
+The first training ladder was deliberately limited to no boundary field, the
 union geometry collar, and separate semantic collars. All field models omit
 categorical type channels and start from an exact mathematically matched
 no-boundary initialization: active lift columns and every non-lifting
@@ -481,10 +703,10 @@ ladder.
 ### Shared sequence and visual evidence
 
 The completed D068--D069 boundary diagnosis is now reconciled with the
-resolution program. D072 is the separately authorized boundary-descriptor
-question; it does not authorize a boundary-policy change or opening a sealed
-population. Any method beyond its minimal ladder, or any mixed-resolution
-checkpoint outside its preregistration, still requires human review.
+resolution program. D072 is also complete and not promoted; it did not change
+the physical boundary policy or open a sealed population. Any renewed
+descriptor method, resolution/rotation stress test, or mixed-resolution
+checkpoint requires a separate preregistration and human review.
 
 Every decisive evaluation predeclares the quantitative figures and animations
 applicable to its family and stage. In the resolution stage, teacher-forced mesh

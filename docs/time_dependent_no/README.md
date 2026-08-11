@@ -15,11 +15,15 @@ Read the compact active context in this order:
 2. [HANDOFF.md](HANDOFF.md) for the current workspace and next human review.
 3. [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md) for
    experiment-ID and topic routing.
-4. [BOUNDARY_FIELD_DERIVATION_PACKAGE.md](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
+4. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the current
+   owner-selected research lines, dependencies, and prospective gates.
+5. [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md) for A0-only,
+   ready-to-paste agent kickoff instructions.
+6. [BOUNDARY_FIELD_DERIVATION_PACKAGE.md](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
    and [BOUNDARY_FIELD_PRIOR_ART_AUDIT.md](BOUNDARY_FIELD_PRIOR_ART_AUDIT.md)
    for D072's branch scaling, continuum contract, proof obligations, and
    claim-overlap audit.
-5. One bounded section of the
+7. One bounded section of the
    [historical evidence ledger](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md)
    when exact contracts, metrics, hashes, or prior outcomes are needed.
 
@@ -27,6 +31,9 @@ The byte-preserved prior decision surface is
 [archived here](history/RESEARCH_DIRECTION_DECISION_through_2026-08-01.md).
 Historical forward-looking language records what was proposed at that time; it
 does not constrain a newer explicit owner request.
+
+The root `refine-logs/EXPERIMENT_PLAN.md` and `EXPERIMENT_TRACKER.md` are frozen
+D072 preregistration records, not the current weekly plan or execution queue.
 
 Private paths, remote hosts, credentials, and machine-specific dataset
 locations belong in ignored LOCAL_CONTEXT.md. Generated reports, arrays,
@@ -173,10 +180,13 @@ the registered timing comparisons, but improve the persistent endpoint in only
 ratios are `0.999971/0.993392/0.999677/0.997485`; no arm promotes. Preserve this
 as a small placement-dependent timing signal, not a safe corrected rollout.
 
-## Maintained Code Inventory
+## Curated Maintained-Code Navigation
 
-Presence here records a maintained implementation or reproducibility surface.
-It does not imply that an experiment is selected or currently running.
+This is a curated onboarding map, not an exhaustive file manifest. Use
+`rg --files utility/time_dependent_no scripts/time_dependent_no tests/time_dependent_no`
+when an exact current inventory is required. Presence here records a maintained
+implementation or reproducibility surface; it does not imply that an experiment
+is selected or currently running.
 
 ### Reusable utilities
 
@@ -193,9 +203,7 @@ Shared and 1D finite-volume support:
 CPG/bump contracts and diagnostics:
 
 - utility/time_dependent_no/euler2d.py
-- utility/time_dependent_no/euler2d_synthetic.py
 - utility/time_dependent_no/euler2d_metrics.py
-- utility/time_dependent_no/euler2d_fixture.py
 - utility/time_dependent_no/cpg_release.py
 - utility/time_dependent_no/cpg_mesh_contract.py
 - utility/time_dependent_no/cpg_reach.py
@@ -255,7 +263,6 @@ Bump residual-PCNO preparation, evaluation, and diagnostics:
 - scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_protocol.py
 - scripts/time_dependent_no/evaluate_pcno_euler2d_boundary_splice.py
 - scripts/time_dependent_no/decompose_pcno_euler2d_rollout_error.py
-- scripts/time_dependent_no/rollout_pcno_preprocessed.py
 - scripts/time_dependent_no/evaluate_pcno_bump_geometric_consistency.py
 - scripts/time_dependent_no/visualize_pcno_bump_geometric_consistency.py
 
@@ -294,7 +301,6 @@ Dynamic shock-vortex reference, family, PCNO, and resolution tools:
 - scripts/time_dependent_no/analyze_pcno_resolution_pathways.py
 - scripts/time_dependent_no/analyze_pcno_fine_grained_pathways.py
 - scripts/time_dependent_no/analyze_pcno_scale_separated_drift.py
-- scripts/time_dependent_no/compare_pcno_structural_replicates.py
 - scripts/time_dependent_no/evaluate_pcno_defect_corrections.py
 - scripts/time_dependent_no/evaluate_pcno_native_residual_correction.py
 - scripts/time_dependent_no/evaluate_pcno_response_gain_controller.py
@@ -336,7 +342,6 @@ CPG/release:
 
 Generic 2D/PCNO:
 
-- tests/time_dependent_no/test_euler_fixture.py
 - tests/time_dependent_no/test_euler_metrics.py
 - tests/time_dependent_no/test_fv_impulse_diagnostics.py
 - tests/time_dependent_no/test_pcno_artifacts.py
@@ -365,7 +370,6 @@ Dynamic shock-vortex:
 - tests/time_dependent_no/test_pcno_residual_structure.py
 - tests/time_dependent_no/test_pcno_resolution_pathways.py
 - tests/time_dependent_no/test_pcno_scale_separated_drift.py
-- tests/time_dependent_no/test_pcno_structural_repeatability.py
 - tests/time_dependent_no/test_pcno_native_residual_correction.py
 - tests/time_dependent_no/test_pcno_response_gain_controller.py
 - tests/time_dependent_no/test_pcno_strength_grouped_response_controller.py
@@ -384,14 +388,15 @@ Dynamic shock-vortex:
 
 ## Source-Snapshot And Recovery Notes
 
-New PCNO runs use source-snapshot schema v3. Executable/scientific source bytes
-form the continuation compatibility set. The active decision and experiment
-index are still copied and hashed into each run as provenance, but later
-documentation edits do not invalidate continuation.
+New PCNO runs use source-snapshot schema v5. Schemas v3--v5 each bind their
+schema-specific executable/scientific source inventory for continuation. The
+active decision and experiment index are copied and hashed separately as
+provenance, so later documentation edits do not invalidate continuation.
 
 Historical v2 snapshots retain their original strict equality semantics,
 including the then-current decision and tracker bytes. They are not silently
-reinterpreted as v3.
+reinterpreted as v5. Historical v3 and v4 snapshots likewise retain their
+registered source inventories rather than being expanded to the v5 set.
 
 Key recovery anchors:
 

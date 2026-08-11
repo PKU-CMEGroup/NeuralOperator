@@ -17,9 +17,14 @@ The other documentation roles are:
 - [HANDOFF.md](HANDOFF.md): replaceable operational snapshot;
 - [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md):
   compact experiment index;
+- [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md): current owner-selected
+  research-line coordination, dependencies, and prospective gates;
+- [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md): read-only agent
+  kickoff instructions for the current weekly lines;
 - [historical tracker](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md):
   exact historical contracts, results, hashes, and dated decisions; and
-- [README.md](README.md): onboarding, data pointers, and active-code inventory.
+- [README.md](README.md): onboarding, data pointers, and curated maintained-code
+  navigation.
 
 Historical gates close their exact registered attempts. They do not create a
 permanent prohibition on a method family. A Codex-proposed next step, stop rule,
@@ -522,6 +527,16 @@ reproducibility. They may be changed by later explicit owner direction.
 
 ## Current Owner-Selected Research Program
 
+The 2026-08-11 mentor-derived direction is organized into five coordinated
+weekly lines: long-horizon stability; shock representation and the differential
+pathway; boundary conditions and finite propagation; REALM benchmark and paper
+validation; and cross-resolution correction. The current sequencing, shared
+contracts, claim map, and decision gates are in
+[WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md). Its companion
+[CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md) authorizes read-only
+preflight only. Neither document launches training, checkpoint evaluation,
+remote work, dataset downloads, or sealed-population access.
+
 The owner-authorized D072 first ladder is complete and not promoted. Its
 fixed-physical-width descriptors and matched initialization are verified, and
 one dynamic FP32 seed causally uses the fields, but neither the three-seed
@@ -536,9 +551,9 @@ categorical node-type mechanism closeout.
 Neither D072 nor D084 establishes resolution consistency, geometry or rotation
 generalization, boundary-condition improvement, conservation, operator
 convergence, or a general Euler stability result. D084 has no active queue.
-Any re-entry requires a new owner-selected claim and a new preregistration. The
-active practical priority remains native-resolution residual correction; data
-assimilation remains reserved.
+Any re-entry requires a new owner-selected claim and a new preregistration.
+Native-resolution residual correction is now one component of W26-L5 rather
+than the sole practical queue; data assimilation remains reserved.
 
 ### Native correction and resolution generalization
 
@@ -560,8 +575,8 @@ contraction on `125x50` and expansion on `500x200`. This makes differential
 physical support the leading diagnosed mesh pathway, without uniquely
 attributing the native repeated two-hop kernel.
 
-The later explicit owner direction changes the practical priority. D074 first
-tests systematic correction at the checkpoint's native `250x100` dynamic grid,
+Within the earlier native-correction sequence, D074 first tests systematic
+correction at the checkpoint's native `250x100` dynamic grid,
 starting with the D071-supported persistent low-rank channel and an exact zero
 control. D071's current local dissipation is not carried forward: at native
 resolution it worsens both aggregate residual error and local-band error. Bump

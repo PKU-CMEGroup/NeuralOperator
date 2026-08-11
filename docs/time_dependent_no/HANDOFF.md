@@ -13,11 +13,15 @@ without repeating historical run narratives.
 2. This handoff for the current workspace and active sequencing.
 3. [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md) for
    compact experiment-ID routing.
-4. [README.md](README.md) for navigation and maintained code.
-5. [BOUNDARY_FIELD_DERIVATION_PACKAGE.md](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
+4. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the current
+   owner-selected research lines, dependencies, and prospective gates.
+5. [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md) for read-only agent
+   kickoff instructions after the plan is reviewed.
+6. [README.md](README.md) for navigation and maintained code.
+7. [BOUNDARY_FIELD_DERIVATION_PACKAGE.md](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
    and [BOUNDARY_FIELD_PRIOR_ART_AUDIT.md](BOUNDARY_FIELD_PRIOR_ART_AUDIT.md)
    for D072's mathematical and public-prior-art boundaries.
-6. One bounded section of the
+8. One bounded section of the
    [historical evidence ledger](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md)
    only when exact provenance or prior evidence is needed.
 
@@ -239,6 +243,21 @@ tracker and must be satisfied before claiming a byte-identical rerun.
 
 ## Current Workspace Task
 
+The 2026-08-11 owner-selected weekly program has five coordinated lines:
+long-horizon stability; shock representation and the differential pathway;
+boundary conditions and finite propagation; REALM benchmark and paper
+validation; and cross-resolution correction. The live claim map, experiment
+ladders, gates, dependencies, and weekly run order are in
+[WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md); ready-to-paste A0-only agent
+instructions are in [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md).
+The present planning request does not authorize implementation, checkpoint or
+dataset execution, training, remote work, downloads, or sealed-population
+access.
+
+Cleanup gate: `utility/time_dependent_no/__init__.py` retains one legacy
+`fixture` label because that file is bound by the v4/v5 continuation hashes.
+Remove the label only as part of an explicitly versioned v6 source-set change.
+
 The categorical node-type line is complete through D068--D069, and the
 separate D072 N0/G1/S1 continuous-field ladder is also complete and not
 promoted. D084 separately closes the D082 bump collar and
@@ -247,7 +266,8 @@ D070--D071 completed under their own frozen contracts and neither correction
 promoted. Under the later explicit owner direction, D073-A also
 completed: fixed training-grid physical radius in the layer-3 graph-ball
 family passes every same-hidden dynamic-FV mechanism and native-relevance
-stratum. Native-grid residual correction remains the primary practical track.
+stratum. Native-grid residual correction is retained within W26-L5 rather than
+serving as the sole practical track.
 D073-B is secondary until a direct off-grid rollout can be compared against
 transfer to `250x100`, native rollout, and transfer back. Data assimilation
 remains reserved and is not an active experiment.
@@ -462,6 +482,11 @@ input/runtime, resolution sample builder, trainer, and maintained documentation.
   replace quantitative metrics.
 
 ## Active Sequencing And Decision Gates
+
+The live cross-line sequencing is the milestone order in
+[WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md). The numbered items below
+remain binding evidence-specific gates and nonclaims; they are not, by
+themselves, the current weekly queue.
 
 1. Treat the D067 unified payload and scale/profile analysis as the accepted
    frozen-checkpoint mechanism closeout; do not promote the failed-closure pilot.

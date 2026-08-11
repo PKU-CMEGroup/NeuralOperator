@@ -32,8 +32,9 @@ The byte-preserved prior decision surface is
 Historical forward-looking language records what was proposed at that time; it
 does not constrain a newer explicit owner request.
 
-The root `refine-logs/EXPERIMENT_PLAN.md` and `EXPERIMENT_TRACKER.md` are frozen
-D072 preregistration records, not the current weekly plan or execution queue.
+The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
+and [execution tracker](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_TRACKER.md)
+are historical preregistration records, not the current weekly plan or queue.
 
 Private paths, remote hosts, credentials, and machine-specific dataset
 locations belong in ignored LOCAL_CONTEXT.md. Generated reports, arrays,

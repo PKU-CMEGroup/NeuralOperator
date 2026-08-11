@@ -11,9 +11,10 @@ This plan is subordinate to [RESEARCH_DIRECTION_DECISION.md](RESEARCH_DIRECTION_
 for evidence and claim boundaries. Ready-to-paste agent instructions are in
 [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md).
 
-The root `refine-logs/EXPERIMENT_PLAN.md` and `EXPERIMENT_TRACKER.md` are frozen
-D072 records dated 2026-08-03. Their forward-looking status text is historical;
-they are not the current weekly plan or queue.
+The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
+and [execution tracker](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_TRACKER.md)
+retain their 2026-08-03 forward-looking status text as history; they are not the
+current weekly plan or queue.
 
 ## Problem Anchor And Method Thesis
 

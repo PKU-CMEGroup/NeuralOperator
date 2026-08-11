@@ -21,7 +21,7 @@ At the start of a coding session in this branch:
    navigation.
 6. When exact historical evidence is needed, search by run ID and read only the
    matching bounded section of
-   `docs/time_dependent_no/history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-01.md`.
+   `docs/time_dependent_no/history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md`.
    Do not load the full archive into routine context.
 7. If `LOCAL_CONTEXT.md` exists, read it. It is private local context and must
    not be committed or quoted.

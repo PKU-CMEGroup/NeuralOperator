@@ -1,8 +1,9 @@
 # W26-L4 REALM Benchmark Audit And Experiment Plan
 
-Status: A0 public-source audit complete; A1 implementation, data acquisition,
-training, AutoDL execution, and sealed-test evaluation are not authorized by
-this document.
+Status: A0 and D088 P1a/P1b are complete. The exact IgnitHIT train/validation
+tree and reference replay passed under the recorded restricted-internal-research
+disposition. P1c model implementation/GPU smoke, full training, and sealed-test
+evaluation remain unauthorized by this document.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -438,18 +439,35 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 
 | Stage | Status | Exit product | Next authorization |
 | --- | --- | --- | --- |
-| L4-P0 public audit | `COMPLETE FOR PLANNING; DATA EXECUTION BLOCKED` | this source/data/metric feasibility plan | owner review of license/protocol gaps |
-| L4-P1a contract implementation | `NOT AUTHORIZED` | A1 preregistration, adapter/evaluator, manifest audit, CPU tests | smallest requested A1 |
-| L4-P1b IgnitHIT train/validation acquisition | `NOT AUTHORIZED` | sealed-safe local data manifest and schema replay | explicit 552,023,019-byte acquisition approval |
-| L4-P1c direct FFNO baseline | `BLOCKED ON P1a/P1b` | one-seed reproduction verdict and measured cost | named AutoDL A3 |
+| L4-P0 public audit | `COMPLETE FOR PLANNING` | this source/data/metric feasibility plan | restricted disposition recorded for P1b only |
+| L4-P1a contract implementation | `COMPLETE; D088` | preregistration, adapter/evaluator, manifest audit, CPU tests | none |
+| L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
+| L4-P1c FFNO-M GPU smoke | `NOT AUTHORIZED` | source/runtime/memory manifest and smoke verdict | smallest named AutoDL A3-smoke |
+| L4-P1c full direct FFNO baseline | `BLOCKED ON SMOKE AND SEPARATE AUTHORIZATION` | one-seed reproduction verdict and measured full cost | named AutoDL A3 full run |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named AutoDL A3 matrix |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
 
 ## Smallest Next Authorization Request
 
-Authorize **W26-L4-P1a A1 only**: create the four named local files and run the
-focused synthetic CPU/Ruff/help checks. This request does not authorize copying
-the official repository, downloading any REALM trajectory, inspecting any test
-object, using AutoDL/GPU, training a model, allocating `D088`, or making a
-scientific performance claim.
+Authorize **W26-L4-P1c A3-smoke only**, capped at `0.25` AutoDL GPU-hour. The
+authorized source surface would be exactly:
+
+- update `docs/time_dependent_no/W26_L4_REALM_PREREGISTRATION.md`;
+- add `utility/time_dependent_no/realm_ffno.py` for an independent FFNO-M
+  reconstruction without copying official source;
+- add `scripts/time_dependent_no/smoke_realm_ignithit_ffno.py`; and
+- add `tests/time_dependent_no/test_realm_ffno.py`.
+
+First require CPU shape/gradient/parameter-count tests. Then run one synthetic
+forward/backward memory probe, at most one optimizer step on one registered real
+train batch, and one registered validation-trajectory rollout. Freeze source,
+data, runtime, initialization, precision, step-time, peak-memory, and feasible
+microbatch/accumulation manifests; preserve effective batch 26 unless a later
+explicit review changes it. Stop if the model count is outside 0.5% of 8.9365M
+without a source-exact explanation, any tensor/recurrence/normalizer binding
+fails, any state is nonfinite, or the 0.25-hour cap is reached.
+
+This request does not authorize copying the official implementation, accessing
+test objects, persistent training, checkpoint selection, a full baseline seed,
+the residual arm, or a scientific performance claim.

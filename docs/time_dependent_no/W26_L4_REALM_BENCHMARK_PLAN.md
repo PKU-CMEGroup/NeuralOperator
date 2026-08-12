@@ -475,6 +475,7 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
 | L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
 | L4-P1c paired fresh-map margin audit | `A2 COMPLETE; CHECKPOINT-HISTORY-ASSOCIATED MARGIN REGRESSION` | exact two-call result: lower average normalized error but 327 new `H2O` inverse-domain violations | none |
+| L4-P1d domain-linked direct amendment | `A1 COMPLETE; D089; 109/109 CPU TESTS PASS` | frozen parameter-free link, fail-closed selection, isolated trainer, exact source identities | conditional A3-P0 step-100 request |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -564,3 +565,24 @@ before any real array/checkpoint is opened. Candidate mechanisms must first be
 compared on algebraic guarantees and synthetic gradients; no GPU, real-data
 training, resumed checkpoint, test object, rollout, or residual arm is included
 in this request.
+
+The owner authorized that exact A1 scope on 2026-08-13. It is registered under
+`D089` in
+[D089_W26_L4_REALM_DOMAIN_LINK_PREREGISTRATION.md](D089_W26_L4_REALM_DOMAIN_LINK_PREREGISTRATION.md).
+The selected mechanism is a parameter-free shifted-softplus link on only the
+eight inverse-transformed species channels. It is applied during training and
+recurrence, rejects nonfinite raw proposals, leaves temperature/density/
+velocity channels unchanged, and does not resume D088. Real arrays,
+checkpoints, CUDA, remote hosts, the sealed test population, and the residual
+arm remain outside A1. The smallest conditional next request is a fresh D089
+step-100 GPU gate only after source/test/commit closeout.
+
+That A1 is now complete. The frozen D088 parent trainer remains byte-identical;
+the D089 link adds no trainable parameters, exposes the raw proposal for later
+diagnostics, and rejects raw nonfiniteness. It preserves all non-species
+channels exactly and applies the linked proposal consistently in training and
+recurrence. Ruff and safe CLI help pass, and the complete maintained REALM
+synthetic CPU suite passes `109/109`. No real trajectory/normalizer array,
+checkpoint, CUDA context, remote host, test object, residual arm, or generated
+scientific artifact was used. The next request is the preregistered A3-P0
+step-100 gate only, not full training.

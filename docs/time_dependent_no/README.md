@@ -139,7 +139,9 @@ branch-specific inventory.
 - common-source resolution rollout and pathway analysis;
 - boundary-field, node-type, admissibility, and finite-propagation probes;
 - long-horizon stability event, recurrence-feedback, and fresh/propagated
-  diagnostic evaluation; and
+  diagnostic evaluation;
+- REALM benchmark, IgnitHIT normalization, FFNO, and domain-compatible output
+  contracts; and
 - native residual-correction, response-controller, local-channel, and
   visualization tools retained for reproducibility.
 

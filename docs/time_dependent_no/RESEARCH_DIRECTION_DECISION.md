@@ -193,6 +193,15 @@ baseline, open test, or compare direct and residual models. Re-entry starts
 with a separately authorized domain-compatible direct-baseline contract, not
 an automatic resume or an inference-only clipping repair.
 
+That A1 re-entry is now complete under `D089`. It freezes a parameter-free
+shifted-softplus species-domain link, applies it during training and recurrence,
+and strengthens checkpoint eligibility without changing D088's retained
+history. All 109 maintained REALM synthetic CPU tests pass. No real
+trajectory/normalizer array, checkpoint, GPU, sealed test object, or residual
+arm was used or authorized. The smallest conditional next request is one fresh
+D089 seed-0 GPU run through the registered step-100 gate only; full training
+and the residual comparison remain separate later decisions.
+
 D072, D084, D087, and D088 are complete and terminal at their registered
 scopes. None establishes boundary-condition improvement, resolution
 consistency, geometry/rotation generalization, conservation, operator

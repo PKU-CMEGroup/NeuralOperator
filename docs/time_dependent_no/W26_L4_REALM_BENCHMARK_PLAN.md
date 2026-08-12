@@ -472,7 +472,7 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
 | L4-P1c FFNO-M GPU smoke | `COMPLETE; D088; ALL GATES PASS` | source/runtime/memory manifest and smoke verdict | none |
 | L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
-| L4-P1c step-100 localization | `A1 COMPLETE; 85/85 REALM CPU GATES PASS; GPU REPLAY NOT AUTHORIZED` | exact steps 51--100 source, first decode-failure attribution, and inference-only step-100 checkpoint contract | one short A3 on the owner-selected personal GPU resource |
+| L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -508,10 +508,22 @@ files pass Ruff, and the maintained REALM synthetic CPU suite passes `85/85`
 without opening a real trajectory, scientific checkpoint, CUDA context, or
 remote host.
 
-The smallest next request is one **short A3 diagnostic replay only** on the
-same frozen parent runtime and open population: exact parent step 50, exactly
-steps 51--100, then the five-case frame-0 H29 localization and mandatory stop.
-This is 50 optimizer steps and 1,300 train-pair presentations, or 1% of the
-registered direct baseline budget, with a 30 GPU-minute hard cap. It retains
-only the preregistered compact artifacts. Full training, any retry or
-hyperparameter change, the residual arm, and test access remain unauthorized.
+That A3 replay is now complete and terminal. The exact 51--100 continuation
+reproduced decoded nonfiniteness while all normalized H29 proposals remained
+finite. Every one of the five validation cases first crossed the inverse
+Box--Cox domain in `H2O` on call 1 from frame-0 truth; the frozen global first
+event had inverse-domain margin `-0.0034511089`. Therefore fresh one-step
+physical-domain failure is sufficient, and recurrent input error is not needed
+for the first event. The finite normalized proposal—not the NaN physical
+decode—is the state fed back, so later finite normalized recurrence is not
+physical validity.
+
+The smallest next request is **A1 registration and synthetic CPU work only**
+for a paired step-50/step-100 fresh-map margin audit on the same five open
+validation cases. It should compare one-step per-field inverse-domain margins,
+spatial failure support, normalized prediction error, and matching truth
+margins without training, continuation, clipping, test access, or residual
+execution. Its purpose is to separate checkpoint-history drift in the learned
+fresh map from a static normalizer/data-domain issue. A GPU comparison, a
+domain-safe output parameterization, resumed full training, and the residual
+arm each require separate later authorization.

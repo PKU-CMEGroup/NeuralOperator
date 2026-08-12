@@ -163,7 +163,7 @@ attempt histories, and claim language.
 | D085 | Fixed-Fourier bump orientation stress | Completed; every rotated proposal failed at call 1, before recurrence. |
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
-| D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step A3 direct attempt stopped at its step-100 H29 validation because finite normalized proposals decoded to a nonfinite physical value; exact step-50 recovery checkpoints remain, but no completed baseline or residual comparison exists. Test stayed absent. |
+| D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step direct attempt stopped at step-100 decode. An exact step-50-to-100 replay then reproduced and localized the failure: all normalized H29 proposals stayed finite, but every validation case crossed the `H2O` inverse Box--Cox domain on fresh call 1; later calls also affect `O`. The attempt is terminal without a completed baseline or residual comparison. Test stayed absent. |
 
 ## Evidence And Claim Boundaries
 
@@ -192,8 +192,11 @@ attempt histories, and claim language.
   inference-side diagnostic, not a causal training, representation, boundary,
   or general-stability result. H160/H320 and JVP/spectral branches are not queued.
 - D088 registers the REALM IgnitHIT open-data/reference contract and the failed
-  exact direct-baseline attempt. The latter is an early optimizer-history stop,
-  not a completed baseline, general FFNO/direct-map rejection, or
+  exact direct-baseline attempt. Exact replay establishes a fresh call-1
+  inverse-domain failure in the step-100 deployed map, while normalized
+  recurrence remains finite because physical decoding is outside the recurrent
+  path. This is an early optimizer-history diagnosis, not a completed baseline,
+  general FFNO/direct-map rejection, Box--Cox causal result, or
   direct-versus-residual result. Do not conflate REALM with RealPDE Track 2.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference

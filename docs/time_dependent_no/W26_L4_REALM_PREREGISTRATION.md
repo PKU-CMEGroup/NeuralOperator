@@ -614,8 +614,8 @@ continue this attempt or relax physical validity.
 
 ## P1c Step-100 Decode-Failure Localization
 
-Status: **A1 COMPLETE; ALL SOURCE AND SYNTHETIC CPU GATES PASS; SHORT GPU
-REPLAY NOT AUTHORIZED** on 2026-08-12. This is a diagnostic attempt under D088, not a new
+Status: **A3 COMPLETE; DECODE FAILURE REPRODUCED AND LOCALIZED; MANDATORY STOP
+HONORED** on 2026-08-12. This is a diagnostic attempt under D088, not a new
 stable result ID. Its frozen label is
 `d088_realm_ignithit_p1c_decode_localization_20260812a`.
 
@@ -707,8 +707,80 @@ step-100 checkpoint linkage.
 
 No real trajectory array or scientific checkpoint was opened. No CUDA context,
 network endpoint, remote host, generated scientific artifact, test object, or
-residual model was used. A future successful A3 writes only `contract.json`,
+residual model was used. The registered A3 output contract permits only `contract.json`,
 `parent_identity.json`, `source_manifest.json`, `runtime_manifest.json`,
 `replay_trace.json`, `step100_model.pt`, `localization.json`, `summary.json`,
 and `final_hash_manifest.json` in a new attempt directory. These source-only
 results authorize no stability, accuracy, or failure-mechanism claim.
+
+### Decode-localization A3 terminal result
+
+The owner authorized this exact short A3 replay on 2026-08-12. Preflight
+rehashed all seven parent artifacts and four parent executed sources, the open
+34-object tree, and the P1b normalizer; verified the exact parent runtime, one
+idle visible GPU, output noncollision, and sealed-test absence; and matched the
+committed diagnostic SHA-256. `screen` was unavailable, so the first launch
+request stopped before creating an attempt or GPU process. The unchanged
+scientific command then ran under `nohup` with the registered external
+1,800-second timeout. This supervisor substitution is infrastructure history,
+not a second scientific execution.
+
+Attempt `d088_realm_ignithit_p1c_decode_localization_20260812a` exited zero. It
+ran from `2026-08-12T23:27:21+08:00` through
+`2026-08-12T23:27:54+08:00`; the entry point reports `24.0810` seconds inside
+the replay/localization phase. It restored the exact step-50 parent and executed
+the full ordered step sequence `51..100`, exactly 50 optimizer steps and 1,300
+train-pair presentations. It then evaluated only the registered five open
+validation cases from frame 0 through H29 and stopped without retry,
+continuation, test access, or residual execution.
+
+| Result channel | Verified value |
+| --- | --- |
+| step-100 model | structured state SHA-256 `61df05c24aaf0a0b4b813ca11b69e8a3579e47da17209e827b25100bb2c610fd`; inference-only checkpoint retained |
+| normalized recurrence | all five by 29 normalized proposals finite; direct normalized proposals remained the recurrence state |
+| decoded result | nonfiniteness reproduced; 8,908 nonfinite decoded grid values; affected both `H2O` and `O`, all five cases, and calls 1--19 |
+| first frozen event | case `phi=_t_15_3_t`, call 1, `H2O`, row 19, column 67; normalized `-1.1822803020`; transformed `-10.0345106125`; inverse base/domain margin `-0.0034511089`; decoded class `nan` |
+| first-call breadth | every case first fails on call 1 in `H2O`; the globally first case has 66 nonfinite `H2O` values on that call and a minimum inverse base `-0.0282880068` |
+| safety/stop | exit code 0; stopped after localization; test object unopened; residual arm unexecuted; GPU idle after exit |
+
+Because every case first fails on call 1 from exact frame-0 truth, the
+step-100 physical decode failure is already present in a **fresh one-step
+proposal**. Accumulated recurrent input error is therefore unnecessary for the
+first event. Calls 2--19 add propagation evidence but do not make propagation
+the cause of the call-1 failure. The native recurrent state stays finite because
+the deployed system feeds the finite normalized proposal back; it never feeds
+the NaN decoded physical state into the model. Thus normalized finiteness and
+physical decodability/admissibility are distinct here. Decoded nonfiniteness is
+absent again on calls 20--29, but this is not a repair or a valid physical-state
+recovery: the invalid decoded state was never the recurrent input, and no
+input, output, boundary, clipping, or projection policy intervened.
+
+This establishes the numerical failure stage, not its training cause. It does
+not show that Box--Cox preprocessing, direct prediction, FFNO, REALM, or the
+chosen optimizer generally fails; it does not establish a final 5,000-step
+baseline result; and it gives no direct-versus-residual evidence. The exact
+minimum decisive question left by this attempt is how the fresh normalized
+one-step map crosses the train-fitted inverse-domain boundary by step 100. Any
+comparison with step 50, loss/exposure change, domain-safe parameterization, or
+residual arm requires a new preregistration and authorization.
+
+The locally retrieved ignored result set is anchored by
+`outputs/final_hash_manifest.json`, SHA-256
+`9810e2ecb591bf9b5c45f0069d727e1520f495f2ab1357e39cb26523b1674f7f`:
+
+| Retained artifact | SHA-256 |
+| --- | --- |
+| `contract.json` | `6325f0cb99af2a1fe487a8f880ddc88914015230c28ef1586fb6a1275c1cb90d` |
+| `parent_identity.json` | `26bc558b8070a64533dcf3a4eb208b570e24f107f7973173f6c4a6bdce2d1d6a` |
+| `source_manifest.json` | `5ef9ae44fd047136c071de88833e25aa5d7ea93903d73062c113d618a2e78c67` |
+| `runtime_manifest.json` | `7ea508c45fa1a2a74a9dc5fd0f131686373c3024651fbb2d383ce5f199849f43` |
+| `replay_trace.json` | `7cb90640791614a6596c2a3101f5933547257cc744b328e5ebb6247ee5ca6f26` |
+| `step100_model.pt` | `44b09c34a0db4dce518e71caa0d82fc08056e368b4f33768003fe489c1c0c039` |
+| `localization.json` | `163a7bfc2f6fc5d4e5b3fd45b47bd3453c4be495d565fb9d78e4acd6455a05b0` |
+| `summary.json` | `2be657e0e50f26b36e937d15804dfc7e2bb8699d5b0fb4ed671fc283b1d20cb8` |
+
+Independent remote and post-retrieval local verification passed every manifest
+rehash, structured model/normalizer digest, source/runtime/parent link,
+replay-trace digest, exact step-sequence, terminal-stop, normalized-finiteness,
+sealed-test, and residual-nonexecution check. The runner-log SHA-256 is
+`2be657e0e50f26b36e937d15804dfc7e2bb8699d5b0fb4ed671fc283b1d20cb8`.

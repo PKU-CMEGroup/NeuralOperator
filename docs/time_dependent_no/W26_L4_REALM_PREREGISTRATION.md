@@ -5,9 +5,9 @@ noncollision check. P1a and the restricted-internal-research P1b
 train/validation reference replay are complete and all P1b gates passed. On
 2026-08-12 the owner authorized P1c A3-smoke only and selected an alternate
 personal GPU workstation because AutoDL will be occupied for 48 hours. The
-contract below is frozen before the first P1c model output. Test objects remain
-absent; full training, checkpoint execution, and the direct-versus-residual
-comparison remain unauthorized.
+contract below was frozen before the first P1c model output. P1c completed with
+all gates passing. Test objects remained absent; full training, checkpoint
+execution, and the direct-versus-residual comparison remain unauthorized.
 
 ## Question And Scope
 
@@ -433,3 +433,54 @@ The authorized committed surface is exactly:
 
 The full direct baseline and direct-versus-residual comparison remain later,
 separately named authorizations.
+
+### P1c result and artifact inventory
+
+Run `d088_realm_ignithit_p1c_personalgpu_20260812a` executed once on 2026-08-12
+from pre-execution commit `67b84f1c124cf133776ccbd67ef01336c939ee61`.
+Before transfer, Ruff format/check passed and the three focused REALM CPU files
+passed `64/64` tests. The four executed source files, 34-object open tree, and
+normalizer were independently rehashed after transfer. There were zero test
+paths. A first detached-launch shell command failed during local/SSH quoting
+before creating a session, report, log, or GPU process; it is infrastructure
+history, not a second model execution. The corrected frozen command then exited
+zero with empty stderr and all ten registered gates passing.
+
+| Result channel | Verified value |
+| --- | --- |
+| model/runtime | 8,936,460 trainable parameters; FP32; PyTorch `2.11.0+cu130`; CUDA `13.0`; RTX 5060 Ti; deterministic/TF32/autocast bindings exact |
+| synthetic probe | finite forward/backward; `0.327168` s; peak allocated/reserved `486,580,224 / 595,591,168` bytes |
+| registered train work | exactly one optimizer step; effective batch 26; finite predictions/gradients/parameters; pre-step grouped loss `3.35034162`; `3.321702` s; peak allocated/reserved `522,123,776 / 664,797,184` bytes |
+| H29 validation | 29/29 normalized-finite, decoded-finite, released-state-admissible, and 10-times-envelope-bounded calls; maximum recorded envelope ratio `0.12392933` |
+| engineering accuracy | `realm_npe_mean=8.66303635`; `realm_npe_sum_source=251.22805786`; decoded case-first correlation `0.00706968` |
+| wall time | `6.602508` s end to end, below the 900-second cap |
+| privacy/artifacts | no test object opened; no checkpoint loaded or written; zero checkpoint-like files in the isolated target |
+
+The one-step accuracy is deliberately reported but is not a baseline outcome.
+Its poor error/correlation and simultaneous operational admissibility illustrate
+why accuracy, finiteness, admissibility, and boundedness must remain separate.
+Passing P1c establishes only that the exact open data, reconstructed FFNO map,
+one-step optimizer path, direct recurrence, and H29 evaluator fit and execute on
+this runtime.
+
+The executed-source canonical manifest SHA-256 is
+`a59f3dd1e2500f4cf2f3371e3d6af5d7c104f7513b057da349fafa6e991f2cce`.
+The compact result set is anchored by
+`reports/final_hash_manifest.json`, SHA-256
+`931be66bbbcfbb29012e01895d2a19a9a1e17fdcc09cf34f514989e437d8a209`:
+
+| Retained compact artifact | SHA-256 |
+| --- | --- |
+| `reports/config.json` | `351c92dc0e9a18f9545aaa60678cf2e8984485667c4b22121c9ef0324c124286` |
+| `reports/input_manifest.json` | `28b8ccd8e544e14239a866451b9222a7a4897d6fd115cb5dc959297f29cfaba1` |
+| `reports/source_manifest.json` | `42df6b50664780bd3e1d2fc40396f0f50f845cd73fe2e81fefe64477e86b5a7b` |
+| `reports/runtime_manifest.json` | `abfb9aa8265d06e22ca309f4a634f3b821e1cb71ed3c15f6173a94abae3ba7b8` |
+| `reports/smoke_metrics.json` | `f7994847c3a48cdd1873a4c7990fb187d0adea3357c87cf134d3a3cf5168ee09` |
+| `reports/summary.json` | `3cc33270c5d11c7ade4fbff267be426b9a9391d5b39e019ca5e80fdc8f3ab258` |
+
+Measured train-step time projects to `4.61` raw GPU-hours for 5,000 optimizer
+steps and `18.45` raw GPU-hours for 20,000, before validation, checkpoint, and
+I/O overhead. The first fits the current 12-hour cap; the second does not. These
+are linear engineering projections from one step, not benchmark runtimes. Since
+the selected paper row's iteration count and numerical weight decay are still
+unresolved, P1c does not choose between those histories.

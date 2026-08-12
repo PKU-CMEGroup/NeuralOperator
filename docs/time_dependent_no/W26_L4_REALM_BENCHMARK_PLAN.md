@@ -2,9 +2,9 @@
 
 Status: A0 and D088 P1a/P1b are complete. The exact IgnitHIT train/validation
 tree and reference replay passed under the recorded restricted-internal-research
-disposition. The owner authorized P1c A3-smoke only on 2026-08-12 and selected
-an alternate personal GPU workstation while AutoDL is occupied. Full training,
-residual comparison, and sealed-test evaluation remain unauthorized.
+disposition. The owner-authorized P1c A3-smoke completed on an alternate
+personal GPU workstation with all gates passing. Full training, residual
+comparison, and sealed-test evaluation remain unauthorized.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -354,6 +354,21 @@ If the metric exceeds the gate, debug metric/exposure/config provenance once.
 Do not tune on the residual arm or test split. A second failed exact attempt
 stops P1 and returns a failed-reproduction result rather than beginning a sweep.
 
+P1c smoke result: the exact 8,936,460-parameter map completed one effective-batch
+optimizer step and H29 validation in `6.602508` s total. Peak CUDA allocation was
+`522,123,776` bytes. All 29 validation proposals were finite, decoded-finite,
+released-state-admissible, and bounded by the frozen 10-times train envelope.
+The one-step random model was inaccurate (`realm_npe_mean=8.663036`, source-sum
+`251.228058`, correlation `0.007070`), so these values are engineering outputs,
+not a baseline performance result.
+
+The measured `3.321702` s/effective-batch step implies raw linear projections of
+about `4.61` hours for 5,000 steps and `18.45` hours for 20,000 before evaluation,
+checkpointing, and I/O. Thus memory and recurrence feasibility pass, but the
+checked-in 20,000-step example is incompatible with the current 12-hour cap on
+this measured runtime. The original paper-row step count and numerical weight
+decay remain unresolved; neither is selected post hoc by the smoke.
+
 ### P2 — matched residual comparison (`A3`, conditional)
 
 Run direct and residual arms for seeds `0`, `1`, and `2`, paired as specified.
@@ -452,36 +467,32 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P0 public audit | `COMPLETE FOR PLANNING` | this source/data/metric feasibility plan | restricted disposition recorded for P1b only |
 | L4-P1a contract implementation | `COMPLETE; D088` | preregistration, adapter/evaluator, manifest audit, CPU tests | none |
 | L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
-| L4-P1c FFNO-M GPU smoke | `AUTHORIZED; IMPLEMENTATION IN PROGRESS; D088` | source/runtime/memory manifest and smoke verdict | close this exact capped personal-GPU attempt |
-| L4-P1c full direct FFNO baseline | `BLOCKED ON SMOKE AND SEPARATE AUTHORIZATION` | one-seed reproduction verdict and measured full cost | named A3 full run with explicit resource |
+| L4-P1c FFNO-M GPU smoke | `COMPLETE; D088; ALL GATES PASS` | source/runtime/memory manifest and smoke verdict | none |
+| L4-P1c full direct FFNO baseline | `READY FOR A1 CONTRACT; GPU RUN NOT AUTHORIZED` | one-seed reproduction verdict and measured full cost | source-only training-contract/harness authorization first |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
 
-## Current Authorized Action
+## Smallest Next Authorization Request
 
-The owner has authorized **W26-L4-P1c A3-smoke only**, capped at `0.25` GPU-hour
-on the selected personal GPU workstation. The authorized source surface is
-exactly:
+Authorize **W26-L4-P1c-baseline A1 source work only**. Before another GPU call,
+freeze one declared reconstruction for the unresolved optimizer history: exact
+optimizer/weight decay, OneCycle schedule, optimizer-step and presentation
+budget, time-pair sampling order, validation cadence, best/last selection,
+checkpoint schema, resume semantics, and one seed. The measured runtime makes an
+unspecified 20,000-step launch inadmissible under the current 12-hour cap.
 
-- update `docs/time_dependent_no/W26_L4_REALM_PREREGISTRATION.md`;
-- add `utility/time_dependent_no/realm_ffno.py` for an independent FFNO-M
-  reconstruction without copying official source;
-- add `scripts/time_dependent_no/smoke_realm_ignithit_ffno.py`; and
-- add `tests/time_dependent_no/test_realm_ffno.py`.
+The smallest proposed source surface is:
 
-First require CPU shape/gradient/parameter-count tests. Then run one synthetic
-forward/backward memory probe, at most one optimizer step on one registered real
-train batch, and one registered validation-trajectory rollout. Freeze source,
-data, runtime, initialization, precision, step-time, peak-memory, and feasible
-microbatch/accumulation manifests; preserve effective batch 26 unless a later
-explicit review changes it. Stop if the model count is outside 0.5% of 8.9365M
-without a source-exact explanation, any tensor/recurrence/normalizer binding
-fails, any state is nonfinite, or the 0.25-hour cap is reached.
+- update this plan and the D088 preregistration with the chosen reconstruction;
+- add `scripts/time_dependent_no/train_realm_ignithit_ffno.py`; and
+- add `tests/time_dependent_no/test_train_realm_ignithit_ffno.py`.
 
-This authorization does not include persistent training, a second attempt,
-hyperparameter changes, checkpoint writing, a residual arm, or test access.
-
-This request does not authorize copying the official implementation, accessing
-test objects, persistent training, checkpoint selection, a full baseline seed,
-the residual arm, or a scientific performance claim.
+Focused CPU tests must cover all 29 legal adjacent-frame pairs, deterministic
+case/time ordering, effective batch 26, grouped-loss parity, exact direct
+recurrence, case-first five-validation-trajectory aggregation, test-path
+rejection, best/last checkpoint separation, and deterministic resume. This A1
+request includes no GPU execution, real training, checkpoint production,
+residual arm, test access, or source copying. After it passes, request one named
+A3 direct-baseline seed on an explicitly free resource with a cap consistent
+with the frozen step budget.

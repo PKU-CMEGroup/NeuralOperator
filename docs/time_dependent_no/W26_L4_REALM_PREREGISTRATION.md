@@ -10,7 +10,9 @@ all gates passing. The direct-baseline A1 trainer and synthetic CPU gates are
 also complete. The owner then authorized the exact A3 direct-baseline attempt;
 it stopped at the registered step-100 decoded-nonfinite validation gate. Test
 objects remained absent, no completed direct baseline exists, and the
-direct-versus-residual comparison remains unauthorized.
+direct-versus-residual comparison remains unauthorized. The subsequently
+authorized paired fresh-map margin audit completed on 2026-08-13 and is closed
+at its registered two-forward-call scope.
 
 ## Question And Scope
 
@@ -787,9 +789,9 @@ sealed-test, and residual-nonexecution check. The runner-log SHA-256 is
 
 ## P1c Paired Fresh-Map Margin Audit
 
-Status: **A1 IMPLEMENTED AND SYNTHETIC CPU VERIFIED; A2 REAL-CHECKPOINT
-EXECUTION NOT YET AUTHORIZED** on 2026-08-13. This is a diagnostic attempt
-under D088, not a new stable result ID. Its frozen label is
+Status: **A2 OPEN-VALIDATION INFERENCE COMPLETE; REGISTERED SCOPE TERMINAL** on
+2026-08-13. This is a diagnostic attempt under D088, not a new stable result
+ID. Its frozen label is
 `d088_realm_ignithit_p1c_fresh_margin_audit_20260813a`.
 
 ### Decisive question and exact comparison
@@ -815,10 +817,10 @@ uses exactly one FP32 call per checkpoint with autocast disabled; there is no
 recurrence, training, output repair, clipping, projection, test access, or
 residual arm. The unchanged primary P1b normalizer arrays have SHA-256
 `368d243b5e0f71b6380ee5f49fb9f5cf2724baa94ddece620d3ceae55285ca20`.
-The exact machine runtime used by a future A2 is newly recorded; historical
-runtime remains bound provenance rather than a same-device requirement. Both
-maps must share the same current runtime, and the retained step-100 first event
-must reproduce before the new comparison is scientific.
+The exact machine runtime for A2 was required to be newly recorded; historical
+runtime remained bound provenance rather than a same-device requirement. Both
+maps were required to share the same current runtime, and the retained step-100
+first event had to reproduce before the new comparison was scientific.
 
 ### Frozen metrics and interpretation
 
@@ -848,7 +850,7 @@ loss, direct-target, FFNO, Box--Cox, or REALM-wide cause. A truth violation is
 separately labeled. Continuous margins and errors are primary; there is no
 new tuned threshold.
 
-Before accepting any row, the future A2 must rehash both artifact trees,
+Before accepting any row, A2 was required to rehash both artifact trees,
 structured model states, normalizer, data manifest, all executed sources, and
 runtime; load no test object; verify the same immutable input reaches each map;
 and reproduce the retained step-100 first event exactly in case, channel, row,
@@ -864,7 +866,7 @@ The only new executable surface is:
 
 | Artifact | Bytes | SHA-256 | Owner/invocation |
 | --- | ---: | --- | --- |
-| `scripts/time_dependent_no/audit_realm_ignithit_fresh_map_margin.py` | 46,177 | `a5c84ca46280b562a10f8f477d0efd26d5e6ca560bb4c9f09e0a11e0ec9639ed` | exact future A2 entry point; requires the open manifest/tree, P1b normalizer, exact parent and localization outputs, and a new isolated output |
+| `scripts/time_dependent_no/audit_realm_ignithit_fresh_map_margin.py` | 46,177 | `a5c84ca46280b562a10f8f477d0efd26d5e6ca560bb4c9f09e0a11e0ec9639ed` | exact A2 entry point; requires the open manifest/tree, P1b normalizer, exact parent and localization outputs, and a new isolated output |
 | `tests/time_dependent_no/test_audit_realm_ignithit_fresh_map_margin.py` | 17,290 | `8f790fb280a470e657ff4d2298eb260d095aa272ffde207eb71478fa10bed2cf` | synthetic metric, support, same-input, provenance, guard, and safe-help gates |
 
 No new utility or configuration was added because this audit has one bounded
@@ -875,9 +877,83 @@ including it. No real trajectory array or scientific checkpoint was opened,
 and no CUDA context, remote host, generated scientific artifact, test object,
 training update, recurrence, or residual model was used.
 
-A future accepted output directory is limited to `contract.json`,
+The accepted output directory is limited to `contract.json`,
 `identity.json`, `input_manifest.json`, `source_manifest.json`,
 `runtime_manifest.json`, `stage_manifest.json`, `audit.json`, `summary.json`,
 and `final_hash_manifest.json`. It retains no prediction array or checkpoint.
 The cost is low: two FFNO forward calls over five 128-by-128 cases plus loading
-and hashing. A2 real-checkpoint execution remains a separate authorization.
+and hashing.
+
+### A2 result and claim disposition
+
+The owner authorized this exact A2 open-validation audit. Preflight rehashed
+both checkpoint trees, the normalizer, open-data manifest, six executed source
+files, and the complete runtime contract before either model call. Both maps
+received a byte-identical FP32 frame-0 input on the same deterministic runtime,
+returned finite `[5, 12, 128, 128]` proposals, and left the input unchanged.
+The retained step-100 first event reproduced exactly. Each checkpoint ran once
+and the process then stopped; no recurrence, training, test object, repair,
+clipping, or residual arm was used. The detached launcher was unavailable on
+the selected machine, so no model call was made under that failed preflight;
+the accepted attempt instead used a fresh foreground process with a 300-second
+hard timeout and exited normally after 0.7143 seconds of measured audit work.
+
+| Frozen quantity | step 50 | step 100 | matching truth |
+| --- | ---: | ---: | ---: |
+| case-first one-call `realm_npe_mean` | 0.4941208959 | 0.1957884878 | n/a |
+| inverse-domain violation points | 0 | 327 | 0 |
+| cases with an `H2O` violation | 0/5 | 5/5 | 0/5 |
+| normalized proposal finite | yes | yes | yes |
+
+The step-100 average normalized error is 60.38% lower than step 50. Every case
+improves, by 47.32%--63.56%, and each registered group improves: `T` 42.66%,
+`chem` 53.85%, `rho` 37.99%, and `u` 66.21%. Nevertheless, step 100 creates
+327 new `H2O` violations, 0.3992% of the 81,920 evaluated `H2O` pixels. The
+per-case invalid fractions are 0.1831%--0.6653%; every spatial 1st-percentile
+margin remains positive, while the five minima range from -0.064986 to
+-0.023024. These are sparse lower-tail events; the retained bounding boxes do
+not establish one connected physical structure because no component analysis
+was registered. The other 35 case/transformed-field pairs remain valid at both
+checkpoints.
+
+The global first violation is unchanged from the localization replay:
+`phi=_t_15_3_t`, `H2O`, row 19, column 67, normalized value
+`-1.1822803020`, transformed value `-10.0345106125`, and inverse-domain margin
+`-0.0034511089`. This rejects a static truth or normalizer-domain explanation
+for these five fresh inputs: truth and step 50 remain inside the same frozen
+domain, while the exact step-100 map does not. It supports the preregistered
+classification `checkpoint_history_associated_margin_regression`. In this
+attempt, a better average normalized squared-error channel therefore coexists
+with a worse physical-decoding tail.
+
+The result does **not** identify which update, optimizer property, loss,
+architecture, direct target, or Box--Cox choice caused the change. It is one
+fresh call on the five validation/model-selection cases, not test,
+generalization, rollout, completed-baseline, or direct-versus-residual evidence.
+The broad W26-L4 baseline/residual claim remains unsupported; the narrow paired
+diagnostic claim is supported with high confidence under its exact registered
+contract.
+
+The locally retrieved ignored result set is anchored by
+`outputs/final_hash_manifest.json` under the registered attempt directory,
+SHA-256
+`a6f365903be9905edd26f49993b526d51aee7ee7d2bebd4578c052a9cfe1cdb0`:
+
+| Retained artifact | SHA-256 |
+| --- | --- |
+| `audit.json` | `66e5484e6b6e55053d9cdfc642e5229f9c9ef63813f8bfca31407a77bcd5254e` |
+| `contract.json` | `71910a783b1fbb041f900903aaca974252946a5ae45e090e1ab45737c5968986` |
+| `identity.json` | `63c8433d0fe54bc401b0a28512eff26ac58e413ec4798cd4324b2fbaa0b9c79d` |
+| `input_manifest.json` | `87e212a322790d78de480b4b338fbf5f3c34ae3247b2062d273899e1179758f4` |
+| `runtime_manifest.json` | `7ea508c45fa1a2a74a9dc5fd0f131686373c3024651fbb2d383ce5f199849f43` |
+| `source_manifest.json` | `d9847341d81127772b9464770b093f698a66672185334c990033cc528728400f` |
+| `stage_manifest.json` | `e66ab438c0001a9ccf6c751feefd4d0fc8bc71a79dd9c1373a4c73416d37213b` |
+| `summary.json` | `aa22fa9ccba4eae79604594e27532b8efb75596d9e7d7237b40956651ee46aa9` |
+
+The run signature is
+`5e105886f55f0b941061b8b7ebb2820ac0b2649a091899a26448fcc68ac708ff`.
+Independent post-retrieval verification passed all listed file rehashes,
+canonical contract/identity/input/runtime/source/stage digests, run-signature
+reconstruction, strict JSON serialization, exact-call guards, and sealed-test,
+training, and residual nonexecution assertions. No further D088 checkpoint
+execution is queued.

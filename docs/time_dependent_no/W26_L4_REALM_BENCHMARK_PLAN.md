@@ -7,7 +7,8 @@ personal GPU workstation with all gates passing. The direct-baseline A1 trainer
 and synthetic CPU gates are complete. The subsequently authorized exact A3
 direct-baseline attempt stopped at its step-100 decoded-nonfinite validation
 gate; it is not a completed baseline. Residual comparison and sealed-test
-evaluation remain unauthorized.
+evaluation remain unauthorized. The paired step-50/step-100 fresh-map margin
+audit is also complete and terminal at two open-validation forward calls.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -473,6 +474,7 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1c FFNO-M GPU smoke | `COMPLETE; D088; ALL GATES PASS` | source/runtime/memory manifest and smoke verdict | none |
 | L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
 | L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
+| L4-P1c paired fresh-map margin audit | `A2 COMPLETE; CHECKPOINT-HISTORY-ASSOCIATED MARGIN REGRESSION` | exact two-call result: lower average normalized error but 327 new `H2O` inverse-domain violations | none |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -538,10 +540,27 @@ focused suite passes `12/12`; the maintained REALM synthetic CPU suite passes
 `97/97`. No real checkpoint/data array, CUDA, remote host, training,
 recurrence, test object, or residual arm was used.
 
-The smallest next request is **A2 open-validation inference only** for this
-exact paired audit. It loads the already-retained step-50 parent and step-100
-inference checkpoints, gives each map the same five open validation frame-0
-states exactly once on one available GPU, compares against frame-1 truth, and
-stops. The output is compact JSON only. Any new training, rollout beyond one
-call, test access, clipping/domain-safe parameterization, or residual execution
-remains unauthorized and requires a separate decision.
+That A2 audit is now complete. All provenance and same-input gates passed. The
+step-100 map lowers the case-first one-call `realm_npe_mean` from 0.4941208959
+to 0.1957884878, with improvements for every case and every registered field
+group, but it creates 327 `H2O` inverse-domain violations across all five
+validation cases. Step 50 and matching truth create none. The invalid support
+is only 0.3992% of evaluated `H2O` pixels and each case's 1st-percentile margin
+remains positive, so the mean squared-error improvement hides a sparse adverse
+tail. This supports the exact checkpoint-history-associated diagnosis, not a
+specific optimizer, Box--Cox, FFNO, direct-map, or general REALM cause. Test,
+training, recurrence, repair, and residual execution remained absent.
+
+The failed direct attempt and both registered diagnostic descendants are
+terminal.
+Do not resume the parent, run the residual arm against a nonexistent accepted
+baseline, or treat clipping the decoded output as a baseline fix. The smallest
+next request is **A1 registration and synthetic CPU work only** for one matched
+domain-compatible direct-baseline amendment. It should freeze the minimum
+train-time mechanism that makes the eight inverse-transformed channels remain
+inside their exact domains, preserve the unchanged direct arm as provenance,
+and define accuracy, margin, decoded-admissibility, selection, and stop gates
+before any real array/checkpoint is opened. Candidate mechanisms must first be
+compared on algebraic guarantees and synthetic gradients; no GPU, real-data
+training, resumed checkpoint, test object, rollout, or residual arm is included
+in this request.

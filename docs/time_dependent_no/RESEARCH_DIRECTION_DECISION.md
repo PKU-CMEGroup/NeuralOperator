@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -182,8 +182,19 @@ irregular case only after a separate geometry/feasibility audit. That direction
 does not itself authorize source copying, trajectory download, training, GPU
 execution, or test-population access.
 
-D072, D084, and D087 are complete and terminal at their registered scopes.
-None establishes boundary-condition improvement, resolution
+The D088 IgnitHIT direct-baseline attempt and its registered diagnostics are now
+terminal. The paired fresh-map audit shows that the exact step-100 checkpoint
+reduces the five-case, one-call normalized error by 60.38% relative to step 50
+while creating 327 new `H2O` inverse-domain violations; matching truth and step
+50 create none. This is validation/model-selection evidence that a sparse
+physical-decoding tail can worsen while the global squared-error channel
+improves. It does not identify a particular training cause, complete a direct
+baseline, open test, or compare direct and residual models. Re-entry starts
+with a separately authorized domain-compatible direct-baseline contract, not
+an automatic resume or an inference-only clipping repair.
+
+D072, D084, D087, and D088 are complete and terminal at their registered
+scopes. None establishes boundary-condition improvement, resolution
 consistency, geometry/rotation generalization, conservation, operator
 convergence, or general Euler stability. Re-entry requires a new owner-selected
 claim and preregistration.

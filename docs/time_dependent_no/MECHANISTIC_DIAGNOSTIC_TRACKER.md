@@ -1,6 +1,6 @@
 # Time-Dependent Experiment Index
 
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 Status: compact routing index; not an execution queue
 
@@ -163,7 +163,7 @@ attempt histories, and claim language.
 | D085 | Fixed-Fourier bump orientation stress | Completed; every rotated proposal failed at call 1, before recurrence. |
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
-| D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step direct attempt stopped at step-100 decode. An exact step-50-to-100 replay then reproduced and localized the failure: all normalized H29 proposals stayed finite, but every validation case crossed the `H2O` inverse Box--Cox domain on fresh call 1; later calls also affect `O`. The attempt is terminal without a completed baseline or residual comparison. Test stayed absent. |
+| D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step direct attempt stopped at step-100 decode. Replay localized a fresh-call-1 `H2O` inverse-domain failure in all five validation cases. The paired fresh-map audit then found that step 100 lowers one-call `realm_npe_mean` by 60.38% versus step 50 while creating 327 new `H2O` domain violations; truth and step 50 create none. The attempt and diagnostics are terminal without a completed baseline or residual comparison. Test stayed absent. |
 
 ## Evidence And Claim Boundaries
 
@@ -195,9 +195,13 @@ attempt histories, and claim language.
   exact direct-baseline attempt. Exact replay establishes a fresh call-1
   inverse-domain failure in the step-100 deployed map, while normalized
   recurrence remains finite because physical decoding is outside the recurrent
-  path. This is an early optimizer-history diagnosis, not a completed baseline,
-  general FFNO/direct-map rejection, Box--Cox causal result, or
-  direct-versus-residual result. Do not conflate REALM with RealPDE Track 2.
+  path. The paired fresh-map audit attributes the registered difference to the
+  exact checkpoint history under a common inference contract: average
+  normalized error improves for every case and field group, yet a sparse
+  `H2O` decoding tail crosses the domain in all five cases. This is not a
+  specific optimizer cause, completed baseline, general FFNO/direct-map
+  rejection, Box--Cox causal result, or direct-versus-residual result. Do not
+  conflate REALM with RealPDE Track 2.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.

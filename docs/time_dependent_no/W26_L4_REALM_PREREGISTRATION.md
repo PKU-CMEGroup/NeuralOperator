@@ -784,3 +784,100 @@ rehash, structured model/normalizer digest, source/runtime/parent link,
 replay-trace digest, exact step-sequence, terminal-stop, normalized-finiteness,
 sealed-test, and residual-nonexecution check. The runner-log SHA-256 is
 `2be657e0e50f26b36e937d15804dfc7e2bb8699d5b0fb4ed671fc283b1d20cb8`.
+
+## P1c Paired Fresh-Map Margin Audit
+
+Status: **A1 IMPLEMENTED AND SYNTHETIC CPU VERIFIED; A2 REAL-CHECKPOINT
+EXECUTION NOT YET AUTHORIZED** on 2026-08-13. This is a diagnostic attempt
+under D088, not a new stable result ID. Its frozen label is
+`d088_realm_ignithit_p1c_fresh_margin_audit_20260813a`.
+
+### Decisive question and exact comparison
+
+The audit asks whether the exact step-50 and step-100 learned maps differ in
+their fresh frame-0-to-frame-1 inverse-domain margin on the same inputs. It
+does not ask whether recurrence causes the already-localized call-1 event and
+does not test a repair. The two rows are:
+
+| Binding | step 50 | step 100 |
+| --- | --- | --- |
+| checkpoint | parent `last.pt`, file SHA-256 `437e304b0c280488c08dcb727ea7de0431bee363df805821785bc09f8fe13832` | localization `step100_model.pt`, file SHA-256 `44b09c34a0db4dce518e71caa0d82fc08056e368b4f33768003fe489c1c0c039` |
+| model-state digest | `e75ee39478cceca1a159218d75af8a42d323df5c57de3dae67ffec5d406bbf2b` | `61df05c24aaf0a0b4b813ca11b69e8a3579e47da17209e827b25100bb2c610fd` |
+| history/selection | exact direct parent after optimizer step 50; also the retained best step | exact deterministic continuation through steps 51--100; inference-only state retained before failed decode; no metric-based post-hoc selection |
+| map | same 8,936,460-parameter `RealmFFNO2d`, direct next normalized state | identical architecture and target contract |
+| source provenance | parent config/input/source provenance plus the current hash-bound audit chain | same parent plus the exact localization source/replay/runtime links |
+
+Both maps receive the identical normalized frame-0 truth and static coordinates
+for the ordered validation cases
+`phi=_t_15_3_t`, `phi=c_5_4_c`, `phi=_t_15_1_t`, `phi=c_15_3_c`, and
+`phi=c_5_2_c`. Matching normalized frame-1 truth is the only target. The audit
+uses exactly one FP32 call per checkpoint with autocast disabled; there is no
+recurrence, training, output repair, clipping, projection, test access, or
+residual arm. The unchanged primary P1b normalizer arrays have SHA-256
+`368d243b5e0f71b6380ee5f49fb9f5cf2724baa94ddece620d3ceae55285ca20`.
+The exact machine runtime used by a future A2 is newly recorded; historical
+runtime remains bound provenance rather than a same-device requirement. Both
+maps must share the same current runtime, and the retained step-100 first event
+must reproduce before the new comparison is scientific.
+
+### Frozen metrics and interpretation
+
+For every case and released field, record normalized MSE, RMSE, and maximum
+absolute error against frame-1 truth. Also report the paper-compatible grouped
+one-call `realm_npe_mean` and separately named released-source-sum channel with
+equal case weight. For each of the first eight Box--Cox fields, form the exact
+pre-inverse base
+
+`b = 1 + 0.1 * (normalized * scale + mean)`.
+
+An inverse-domain violation is exactly `b < 0`; `b == 0` is finite and decodes
+to zero under the released implementation. Retain per-case/per-field minimum,
+linearly interpolated spatial 1st percentile, mean, invalid count/fraction,
+lexicographic first row/column, and inclusive bounding box. Paired rows report
+step-100-minus-step-50 base changes, new/removed support, intersection/union,
+and Jaccard; an empty union is `null` with reason `empty_union`. Matching truth
+margins are evaluated with the same frozen normalizer.
+
+The primary operational classification is
+`checkpoint_history_associated_margin_regression` only when truth has no
+inverse-domain violation, step 50 has none, and step 100 has at least one. This
+establishes a difference associated with the exact 51--100 checkpoint history
+under a common deployed inference contract. It does not isolate an optimizer,
+loss, direct-target, FFNO, Box--Cox, or REALM-wide cause. A truth violation is
+`truth_or_normalizer_domain_failure`; mixed/persistent/recovered supports are
+separately labeled. Continuous margins and errors are primary; there is no
+new tuned threshold.
+
+Before accepting any row, the future A2 must rehash both artifact trees,
+structured model states, normalizer, data manifest, all executed sources, and
+runtime; load no test object; verify the same immutable input reaches each map;
+and reproduce the retained step-100 first event exactly in case, channel, row,
+and column, within `1e-5` for normalized value and inverse margin, including
+the retained 66 invalid `H2O` pixels for the first case. Any mismatch,
+normalized nonfiniteness, mutation, wrong shape/dtype/device, missing linkage,
+or failure before both proposals return is an infrastructure/contract stop and
+yields no scientific comparison.
+
+### A1 code and CPU closeout
+
+The only new executable surface is:
+
+| Artifact | Bytes | SHA-256 | Owner/invocation |
+| --- | ---: | --- | --- |
+| `scripts/time_dependent_no/audit_realm_ignithit_fresh_map_margin.py` | 46,177 | `a5c84ca46280b562a10f8f477d0efd26d5e6ca560bb4c9f09e0a11e0ec9639ed` | exact future A2 entry point; requires the open manifest/tree, P1b normalizer, exact parent and localization outputs, and a new isolated output |
+| `tests/time_dependent_no/test_audit_realm_ignithit_fresh_map_margin.py` | 17,290 | `8f790fb280a470e657ff4d2298eb260d095aa272ffde207eb71478fa10bed2cf` | synthetic metric, support, same-input, provenance, guard, and safe-help gates |
+
+No new utility or configuration was added because this audit has one bounded
+caller. The parent trainer, localization entry point, benchmark utility, data
+adapter, and FFNO source remain byte-identical. Ruff format/check pass. The new
+focused suite passes `12/12`; the maintained REALM suite passes `97/97` after
+including it. No real trajectory array or scientific checkpoint was opened,
+and no CUDA context, remote host, generated scientific artifact, test object,
+training update, recurrence, or residual model was used.
+
+A future accepted output directory is limited to `contract.json`,
+`identity.json`, `input_manifest.json`, `source_manifest.json`,
+`runtime_manifest.json`, `stage_manifest.json`, `audit.json`, `summary.json`,
+and `final_hash_manifest.json`. It retains no prediction array or checkpoint.
+The cost is low: two FFNO forward calls over five 128-by-128 cases plus loading
+and hashing. A2 real-checkpoint execution remains a separate authorization.

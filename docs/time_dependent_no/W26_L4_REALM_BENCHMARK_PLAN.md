@@ -527,3 +527,21 @@ execution. Its purpose is to separate checkpoint-history drift in the learned
 fresh map from a static normalizer/data-domain issue. A GPU comparison, a
 domain-safe output parameterization, resumed full training, and the residual
 arm each require separate later authorization.
+
+That A1 is now complete. Attempt label
+`d088_realm_ignithit_p1c_fresh_margin_audit_20260813a` remains under D088. The
+narrow evaluator and synthetic tests freeze the exact step-50 and step-100
+model-state identities, one immutable frame-0 input per map, matching frame-1
+truth, primary P1b normalizer, per-field normalized error, Box--Cox base
+margins, spatial support, and result-equivalence gates. Ruff passes; the new
+focused suite passes `12/12`; the maintained REALM synthetic CPU suite passes
+`97/97`. No real checkpoint/data array, CUDA, remote host, training,
+recurrence, test object, or residual arm was used.
+
+The smallest next request is **A2 open-validation inference only** for this
+exact paired audit. It loads the already-retained step-50 parent and step-100
+inference checkpoints, gives each map the same five open validation frame-0
+states exactly once on one available GPU, compares against frame-1 truth, and
+stops. The output is compact JSON only. Any new training, rollout beyond one
+call, test access, clipping/domain-safe parameterization, or residual execution
+remains unauthorized and requires a separate decision.

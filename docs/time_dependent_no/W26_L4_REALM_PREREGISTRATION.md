@@ -6,8 +6,10 @@ train/validation reference replay are complete and all P1b gates passed. On
 2026-08-12 the owner authorized P1c A3-smoke only and selected an alternate
 personal GPU workstation because AutoDL will be occupied for 48 hours. The
 contract below was frozen before the first P1c model output. P1c completed with
-all gates passing. Test objects remained absent; full training, checkpoint
-execution, and the direct-versus-residual comparison remain unauthorized.
+all gates passing. The direct-baseline A1 trainer and synthetic CPU gates are
+also complete. Test objects remained absent; full training, scientific
+checkpoint production, and the direct-versus-residual comparison remain
+unauthorized.
 
 ## Question And Scope
 
@@ -484,3 +486,79 @@ I/O overhead. The first fits the current 12-hour cap; the second does not. These
 are linear engineering projections from one step, not benchmark runtimes. Since
 the selected paper row's iteration count and numerical weight decay are still
 unresolved, P1c does not choose between those histories.
+
+## P1c Direct-Baseline Declared Reconstruction
+
+Status: frozen on 2026-08-12 before trainer execution or real-data training.
+This section authorizes A1 source and synthetic CPU tests only. The future run
+label is `d088_realm_ignithit_p1c_direct_seed0_5000_20260812a`; it remains an
+attempt under D088 and is not allocated as a new stable result ID.
+
+The primary paper establishes Adam with weight decay, OneCycleLR, batch 26,
+nominal two-step rollout, and selected IgnitHIT `max_lr=1e-3`, but it does not
+numerically disclose weight decay or iteration count. The pinned public source
+defaults to seed 0, 5,000 iterations, Adam weight decay 0, and a 5,001-step
+OneCycleLR. Its nominal two-step loop executes only one learned call and samples
+starts 0--27, omitting the otherwise legal one-call pair 28->29. Therefore the
+system below is a **declared released-source reconstruction with a corrected
+one-call exposure domain**, not a paper-faithful reproduction.
+
+| Field | Frozen reconstruction |
+| --- | --- |
+| model/data/normalizer | exact P1c FFNO-M, open 26-train/5-validation IgnitHIT tree, coordinate transform, and primary P1b normalizer |
+| seed/runtime | seed `0`; one visible CUDA device; FP32; autocast and TF32 off; deterministic algorithms on; cuDNN deterministic on/benchmark off; `CUBLAS_WORKSPACE_CONFIG=:4096:8` |
+| target/map | direct next normalized state; one learned call; group-summed normalized MSE over `chem`, `T`, `rho`, and `u`; no pressure channel exists |
+| presentation budget | 5,000 optimizer steps; 26 trajectory-pair presentations per step; 130,000 total presentations |
+| frame sampling | all 29 adjacent starts `0..28` have positive support; one common start per effective batch; no future truth enters the model |
+| case ordering | begin from the retained ordered 26 train keys each step, shuffle with a dedicated Python MT19937 seeded `0`, then draw the common frame start; save and restore that RNG state |
+| batching | microbatch 1; accumulate the mean of 26 case losses; effective batch 26; one optimizer/scheduler step after all 26 cases |
+| optimizer | PyTorch Adam; `max_lr` argument `1e-3`; betas `(0.9,0.999)`; epsilon `1e-8`; weight decay `0`; AMSGrad/foreach/fused off; no gradient clipping |
+| scheduler | PyTorch OneCycleLR; `total_steps=5001`; `max_lr=1e-3`; `pct_start=0.3`; cosine annealing; cycle momentum on; base/max momentum `0.85/0.95`; div/final-div factors `25/10000`; scheduler steps after each optimizer step |
+| validation schedule | completed steps `1`, `50`, `100`, ..., `5000`; all five open validation trajectories; frame-0 start; H29 direct recurrence; matching released truth only |
+| selection | strict improvement in case-first `realm_npe_mean`; ties retain the earlier checkpoint; source-sum NPE and decoded correlation are reported but not selected |
+| checkpoints | `best.pt` is inference-only and contains the deployable model/normalizer plus exact provenance; `last.pt` is the distinct resumable state with optimizer, scheduler, ordering RNG, Python/NumPy/Torch/CUDA RNG, completed step, best step/score/model digest, and history; `last.pt` is committed first, so an interrupted improved-best write is recoverable only when its exact current-model digest agrees |
+| resume | same output directory and exact config/input/executed-source/runtime digests only; restore all states before the next sample; a partial run cannot be reported as the baseline result |
+
+The trainer must reject a test path anywhere under the closed data root, a
+nonempty new output directory, an output inside the data tree, manifest or
+normalizer drift, a non-CUDA scientific run, more or fewer than one visible GPU,
+nonfinite loss/gradient/parameter/proposal, parameter-count drift, missing or
+duplicated validation keys, and resume-contract drift. It writes compact JSON
+manifests/history/summary plus best and last checkpoints; it does not write
+rollout tensors or media.
+
+A1 synthetic tests must cover all 29 adjacent pairs, deterministic case/time
+ordering, effective-batch-26 loss parity, exact proposal recurrence, case-first
+five-case validation aggregation, test-path rejection, best/last schema
+separation, and uninterrupted-versus-resumed deterministic equality. No A1 test
+may open the real trajectory tree, instantiate a CUDA context, or execute the
+default 8.9M-parameter training loop.
+
+### Direct-baseline A1 implementation closeout
+
+Status: **COMPLETE; ALL SOURCE AND SYNTHETIC CPU GATES PASS; GPU RUN NOT
+AUTHORIZED** on 2026-08-12.
+
+The complete new executable surface is:
+
+| Artifact | SHA-256 | Owner/invocation |
+| --- | --- | --- |
+| `scripts/time_dependent_no/train_realm_ignithit_ffno.py` | `a3fa0c0e831765ce24c6ae3aa11e3d2afcf67cc242de0a508381dc0b25b43f1e` | narrow future A3 entry point; exact manifest, data root, P1b normalizer arrays, and new output directory are mandatory |
+| `tests/time_dependent_no/test_train_realm_ignithit_ffno.py` | `4890a37d857f41b5611a50932efc6aca1c3beda1615c42e1fc071d9693e2dc32` | synthetic CPU contract, checkpoint-integrity, and resume tests |
+
+`ruff format --check` and `ruff check` passed for both files. The focused
+REALM CPU suite passed `74/74`: benchmark metrics, IgnitHIT closed-tree/data
+contracts, FFNO shape/capacity contracts, and the new trainer tests. The new
+tests establish exact 29-pair support, deterministic sampling and resume,
+effective-batch loss/gradient parity, direct recurrence, case-first validation,
+sealed-test/output guards, safe CLI help, and distinct best/last ownership with
+structured-state digests. The write transaction stores authoritative `last.pt`
+before a newly improved `best.pt`; resume may reconstruct a missing or stale
+best only when the last state is itself the registered best and its model digest
+and validation row agree exactly.
+
+No real trajectory array was opened; the new trainer tests did not invoke
+`run_training` or instantiate its default model; and no CUDA context, network
+endpoint, remote host, or scientific checkpoint was used. No new utility,
+configuration, generated report, or artifact directory was added. These results
+authorize no claim about trained accuracy or stability.

@@ -3,8 +3,9 @@
 Status: A0 and D088 P1a/P1b are complete. The exact IgnitHIT train/validation
 tree and reference replay passed under the recorded restricted-internal-research
 disposition. The owner-authorized P1c A3-smoke completed on an alternate
-personal GPU workstation with all gates passing. Full training, residual
-comparison, and sealed-test evaluation remain unauthorized.
+personal GPU workstation with all gates passing. The direct-baseline A1 trainer
+and synthetic CPU gates are complete. Full training, residual comparison, and
+sealed-test evaluation remain unauthorized.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -468,31 +469,27 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1a contract implementation | `COMPLETE; D088` | preregistration, adapter/evaluator, manifest audit, CPU tests | none |
 | L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
 | L4-P1c FFNO-M GPU smoke | `COMPLETE; D088; ALL GATES PASS` | source/runtime/memory manifest and smoke verdict | none |
-| L4-P1c full direct FFNO baseline | `READY FOR A1 CONTRACT; GPU RUN NOT AUTHORIZED` | one-seed reproduction verdict and measured full cost | source-only training-contract/harness authorization first |
+| L4-P1c full direct FFNO baseline | `A1 COMPLETE; ALL SOURCE/CPU GATES PASS; GPU RUN NOT AUTHORIZED` | one-seed reconstruction verdict and measured full cost | one named A3 seed on an explicitly free resource |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
 
 ## Smallest Next Authorization Request
 
-Authorize **W26-L4-P1c-baseline A1 source work only**. Before another GPU call,
-freeze one declared reconstruction for the unresolved optimizer history: exact
-optimizer/weight decay, OneCycle schedule, optimizer-step and presentation
-budget, time-pair sampling order, validation cadence, best/last selection,
-checkpoint schema, resume semantics, and one seed. The measured runtime makes an
-unspecified 20,000-step launch inadmissible under the current 12-hour cap.
+The owner-authorized **W26-L4-P1c-baseline A1** source work completed on
+2026-08-12. The two registered Python files pass formatting/lint and the focused
+REALM synthetic CPU suite (`74/74`); exact hashes and gate outcomes are recorded
+in the D088 preregistration. No real trajectory array, CUDA context, remote host,
+or scientific checkpoint was used.
 
-The smallest proposed source surface is:
-
-- update this plan and the D088 preregistration with the chosen reconstruction;
-- add `scripts/time_dependent_no/train_realm_ignithit_ffno.py`; and
-- add `tests/time_dependent_no/test_train_realm_ignithit_ffno.py`.
-
-Focused CPU tests must cover all 29 legal adjacent-frame pairs, deterministic
-case/time ordering, effective batch 26, grouped-loss parity, exact direct
-recurrence, case-first five-validation-trajectory aggregation, test-path
-rejection, best/last checkpoint separation, and deterministic resume. This A1
-request includes no GPU execution, real training, checkpoint production,
-residual arm, test access, or source copying. After it passes, request one named
-A3 direct-baseline seed on an explicitly free resource with a cap consistent
-with the frozen step budget.
+The smallest next request is **A3 for exactly one direct-baseline run** under
+attempt label `d088_realm_ignithit_p1c_direct_seed0_5000_20260812a` on one
+explicitly named, confirmed-free, single-visible-GPU resource. It uses only the
+frozen 26-train/5-validation open tree and P1b normalizer, seed 0, 5,000 steps,
+130,000 presentations, the registered H29 validation schedule, and a 12
+GPU-hour hard cap. It may write only the compact registered manifests/history,
+`best.pt`, `last.pt`, status, and final hash summary outside the data tree. It
+must stop before model execution on any source/input/runtime mismatch and may
+not access test objects, launch a residual arm, change the optimizer/history, or
+be reported as paper-faithful. This request remains ungranted until the owner
+names or reconfirms the free resource and authorizes that exact A3 run.

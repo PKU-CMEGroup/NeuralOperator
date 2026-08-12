@@ -32,7 +32,7 @@ the current source and artifact manifests before execution or interpretation.
 
 ## Stable ID Rules
 
-- The registered run universe through D087 contains 116 IDs: D001--D087,
+- The registered run universe through D088 contains 117 IDs: D001--D088,
   23 L3R IDs, L4A-001--L4A-004, L1-OOD, and XLINE-001.
 - D043b/D043d are attempts under D043; D053a/D053b are attempts under D053.
 - P/D019 maps to D019 and R/D041 maps to D041.
@@ -163,6 +163,7 @@ attempt histories, and claim language.
 | D085 | Fixed-Fourier bump orientation stress | Completed; every rotated proposal failed at call 1, before recurrence. |
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
+| D088 | W26-L4 REALM IgnitHIT open-data contract replay | P1a/P1b completed. Exact 26-train/5-validation inventory, train-only preprocessing, and validation identity metrics pass on all open trajectories; no model/checkpoint/GPU or sealed test object was used. This is executable reference-contract evidence, not a surrogate result. |
 
 ## Evidence And Claim Boundaries
 
@@ -190,8 +191,9 @@ attempt histories, and claim language.
   common declared bump population. Its exact deployed-map decomposition is an
   inference-side diagnostic, not a causal training, representation, boundary,
   or general-stability result. H160/H320 and JVP/spectral branches are not queued.
-- REALM has no registered D-series result here. Route current audit and baseline
-  planning to the weekly plan, and do not conflate REALM with RealPDE Track 2.
+- D088 is the registered REALM IgnitHIT open-data/reference-contract result.
+  It is not a baseline or direct-versus-residual result. Do not conflate REALM
+  with RealPDE Track 2.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.
@@ -225,15 +227,17 @@ attempt histories, and claim language.
 | Orientation and graph transformation | D083, D085, D086 |
 | Physical-conservation limits | D008, D037, D045--D051, RC-13 in the decision file |
 | Latent forecasting readiness | L4A-001--L4A-004 |
-| REALM benchmark validation | [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
+| REALM benchmark validation | D088, [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
 
 ## Archive And Recovery Anchors
 
 - The through-2026-08-11 archive above is the authoritative detailed ledger for
   D001--D086 and all registered non-D IDs in this index.
-- D087 postdates that archive. Its exact live contract, attempt history, hashes,
-  results, and terminal claim boundary are in
-  [D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md](D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md).
+- D087 and D088 postdate that archive. Their exact live contracts, attempt
+  histories, hashes, results, and claim boundaries are in
+  [D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md](D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md)
+  and [W26_L4_REALM_PREREGISTRATION.md](W26_L4_REALM_PREREGISTRATION.md),
+  respectively.
 - Commit `5646bfb` adds the byte-preserved pre-compaction tracker state; the
   archive, not the commit diff, is the normal retrieval target.
 - The earlier through-2026-08-01 archive has SHA-256

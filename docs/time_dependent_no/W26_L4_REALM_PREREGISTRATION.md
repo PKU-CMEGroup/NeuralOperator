@@ -1,15 +1,17 @@
-# W26-L4-P1a REALM Benchmark Contract Preregistration
+# D088 W26-L4 REALM Benchmark Contract Preregistration
 
-Status: A1 local-contract implementation authorized 2026-08-12; frozen before
-any REALM trajectory, checkpoint, model output, AutoDL host, or GPU is accessed.
-This file has no D-series identity. `D088` remains unallocated.
+Status: D088 allocated to W26-L4 on 2026-08-12 after the P1a source review and
+noncollision check. P1a and the restricted-internal-research P1b
+train/validation reference replay are complete. All P1b gates passed. Test
+objects remained absent; model training, checkpoint execution, and GPU
+experiments remain unauthorized.
 
 ## Question And Scope
 
 This line asks whether predicting a normalized-state increment improves
 long-horizon IgnitHIT validation rollouts over a matched direct-next-state FFNO.
-P1a does **not** answer that question. It independently fixes the contracts that
-must exist before a fair reproduction or comparison can run:
+P1a and P1b do **not** answer that question. They independently fix and replay
+the contracts that must exist before a fair reproduction or comparison can run:
 
 - metadata-only dataset identity and sealed-test exclusion;
 - Box-Cox/z-score preprocessing and exact recurrence algebra;
@@ -36,7 +38,7 @@ allocate a stable result ID, or make a scientific performance claim.
 | paper | `arXiv:2512.18595v2`; retained PDF SHA-256 `148971e6eef3782f1562b0eaa045ce8608ded673ffa13c0bfd99acbc39f5b137` | paper-formula contract |
 | official source | `deepflame-ai/REALM` commit `7d00523dbda7823efa03c20be36692c947a417b5` | historical source behavior only; no code is copied |
 | IgnitHIT release | `realm-bench/realm-bench-IgnitHIT` revision `a0736b4d8c6c58a2688127e32addc30085e824c3` | first staged case |
-| open manifest | SHA-256 `85e8dcdaf4a5f7726ac5a7ad18a1bc131785fc1212acc9318ff69b94be965205`; 552,023,019 bytes | exact metadata plus 26 train and five validation trajectories |
+| open manifest | canonical entry SHA-256 `85e8dcdaf4a5f7726ac5a7ad18a1bc131785fc1212acc9318ff69b94be965205`; normalized JSON file SHA-256 `2a35e6551ba68ed473932f3458e8d5cf54fa046cd768afd42e6af8042e7dc0d3`; canonical JSON payload SHA-256 `0eb711bd3fb170244855271fe250387d17cfa6a9070e436b87130254753cf0cf`; 552,023,019 bytes | exact metadata plus 26 train and five validation trajectories |
 | sealed payload | five test trajectories; 89,545,596 bytes | must remain absent through training and selection |
 
 The public code tree and dataset cards do not provide a verified license grant.
@@ -170,15 +172,15 @@ pool may change cohort membership with horizon.
 These diagnostics remain distinct from accuracy, conservation, and general
 physical validity.
 
-| Diagnostic | Frozen operational definition | P1b value still required |
+| Diagnostic | Frozen operational definition | P1b resolution |
 | --- | --- | --- |
-| admissibility | native finiteness; each released species `>=0`; `T>0`; `rho>0`; `p>0` only when present | whether omitted species permit any stronger composition diagnostic |
-| boundedness | inclusive `abs(channel) <= expansion_factor * train_quantile(abs(channel))` | train-only quantile and expansion factor |
-| boundary band | inclusive distance to any Cartesian domain edge `<= physical band_width`; report decoded boundary/interior MSE and ratio | physical extent, spacing, band width, and channel set |
-| front high/low regions | `field>=high` and `field<=low`; transition band is strictly `low<field<high` | train-derived field choice and thresholds |
-| front area/length | grid-cell area proxy `count*dx*dy`; neighbor high-mask crossings weighted by `dy` across x and `dx` across y | physical spacing and whether released values are cell- or point-centered |
+| admissibility | native finiteness; each released species `>=0`; `T>0`; `rho>0`; `p>0` only when present | all 31 open trajectories pass the released-state check; omitted species and pressure still block a stronger composition/pressure claim |
+| boundedness | inclusive `abs(channel) <= expansion_factor * train_quantile(abs(channel))` | train-only `quantile=1.0`, expansion `10`; exact channel limits are bound in `normalizer_arrays.npz` |
+| boundary band | inclusive distance to any Cartesian domain edge `<= physical band_width`; report decoded boundary/interior MSE and ratio | `dx=dy=0.00039269961416721344` native units; width `0.0015707984566688538`; units and centering unresolved |
+| front high/low regions | `field>=high` and `field<=low`; transition band is strictly `low<field<high` | train-only linear quantiles: `T=[595.7160034179688,2480.06005859375]`, `OH=[1.0604499376705017e-22,0.013010700233280659]` |
+| front area/length | grid-cell area proxy `count*dx*dy`; neighbor high-mask crossings weighted by `dy` across x and `dx` across y | native spacing resolved; physical units and whether released values are cell- or point-centered remain unresolved |
 | front position/thickness/strength | gradient-magnitude centroid; transition area/interface length; high mean minus low mean; missing interfaces/regions reason-coded | train-only thresholds and reporting fields (`T`, `OH`, or both) |
-| spectrum | full 2-D `fft2(norm="ortho")`; radial cycles per physical unit; half-open bands except inclusive last edge; final edge covers the grid maximum; Parseval closure | physical `dx,dy`, demeaning policy, and fixed band edges |
+| spectrum | full 2-D `fft2(norm="ortho")`; radial cycles per physical unit; half-open bands except inclusive last edge; final edge covers the grid maximum; Parseval closure | non-demeaned native-coordinate edges `[0,159.1547272908376,318.3094545816752,636.6189091633504,1273.2378183267008,1800.630190803951]`; physical units unresolved |
 
 The area and interface quantities are operational grid proxies until the actual
 released grid centering/extent contract is verified. Released-species
@@ -190,21 +192,21 @@ regresses.
 
 ## Provenance And Comparison Matrix
 
-| Field | Direct arm | Residual arm | P1a status |
+| Field | Direct arm | Residual arm | Current status |
 | --- | --- | --- | --- |
 | paper/source/dataset identities | exact bindings above | identical | resolved at metadata level |
-| train/validation population | pinned 26/5 split object manifest | identical | object IDs bound by digest; arrays unopened |
+| train/validation population | pinned 26/5 split object manifest | identical | P1b opened all 31 open trajectories; exact inventory passed |
 | sealed test | absent | absent | mandatory |
 | channel/group contract | 12 channels and slices above | identical | resolved |
 | normalizer axes/formula | train-only contract above | identical | resolved |
-| Box-Cox epsilon | explicit runtime argument | identical | unresolved until P1b, before outputs |
+| Box-Cox epsilon | explicit runtime argument | identical | primary `1e-8`; separately named `1e-40` source-statistics sensitivity |
 | architecture/capacity/init | FFNO-M reconstruction | exact paired tensors | unresolved until P1c |
 | optimizer/history/seed/budget | matched reconstructed baseline | identical | original paper values partly unresolved |
 | target parameterization | direct next normalized state | normalized-state increment | registered factor |
 | recurrence/exposure | exact deployed state; named one/two-call mode | identical except addition algebra | resolved synthetically |
-| precision/runtime | exact future runtime manifest | identical | unresolved until AutoDL preflight |
-| evaluator | this independent contract plus future source hashes | identical | synthetic semantics implemented |
-| selection | validation only; test unavailable | identical | registered; not executed |
+| precision/runtime | exact future model runtime manifest | identical | P1b CPU replay bound to Python 3.12.2, NumPy 2.5.0, PyTorch 2.8.0+cu128; model runtime remains unresolved |
+| evaluator | this independent contract plus source hashes | identical | synthetic and real-data reference semantics passed |
+| selection | validation only; test unavailable | identical | five validation trajectories opened only for identity replay; no model selection executed |
 
 The absence of the original IgnitHIT seed, numerical weight decay, presentation
 history, immutable command, checkpoint, and training log blocks an exact paper
@@ -262,13 +264,120 @@ may create one task-specific pytest temporary directory, which is removed after
 verification. P1a has cost class `XS`: CPU synthetic only, no network/storage
 payload and no GPU.
 
-After source review passes, the smallest next authorization is:
+### P1b frozen real-data replay values
 
-1. allocate noncolliding stable ID `D088` to W26-L4; and
-2. separately authorize P1b metadata plus train/validation acquisition of
-   exactly 552,023,019 bytes at the pinned revision, under a recorded license
-   disposition.
+The following choices were frozen after inspecting only the three released
+metadata/statistics objects and one smallest train trajectory, before opening a
+validation trajectory or producing any model output:
 
-That later authorization still would not permit test acquisition, AutoDL/GPU,
-training, or a direct-versus-residual scientific comparison. Those remain P1c
-and P2 decisions after real-data schema/metric replay closes.
+- primary train/runtime Box-Cox clamp: `1e-8`, matching the released runtime
+  default and used consistently for both fitted statistics and encoding;
+- separately named source-statistics sensitivity clamp: `1e-40`; it cannot be
+  pooled with the primary channel or selected from validation performance;
+- boundedness envelope: per-channel train maximum absolute decoded value
+  (`quantile=1.0`) with an inclusive `10x` expansion factor;
+- temperature and OH front bands: pooled train-only decoded `q=0.10` and
+  `q=0.90`, with the numerical values recorded before any model execution;
+- boundary band: four released Cartesian coordinate spacings from every edge,
+  inclusive; it remains a native-coordinate band until coordinate units and
+  point-versus-cell centering are authoritative;
+- coordinate uniformity: median-spacing relative tolerance `3e-4`, frozen to
+  admit observed float32 coordinate jitter while rejecting grid drift;
+- spectra: full non-demeaned FFT energy in native cycles per released
+  coordinate unit, with radial edges at `0`, `1/8`, `1/4`, `1/2`, and `1` times
+  the smaller axis Nyquist, followed by the exact maximum radial grid
+  frequency; and
+- replay closure gates: float64 encode/decode/re-encode maximum normalized
+  error `<=1e-10`, FP32 maximum normalized error `<=1e-4`, exact zero
+  self-prediction grouped MSE, and decoded self-correlation within `1e-6` of
+  one for every observable case/call/channel.
+
+The one-trajectory clamp audit is pilot information only: it showed no negative
+or zero released species in that file, but several species values below
+`1e-8`, so the two historical clamps are materially different. The complete
+train/validation audit remains the registered P1b result. No tolerance may be
+changed after a validation trajectory is opened.
+
+The registered P1b disposition is restricted internal research while public
+source and dataset reuse terms remain unresolved. It permits metadata plus
+train/validation acquisition of exactly 552,023,019 bytes at the pinned
+revision and the schema/statistics/reference-metric replay in this document.
+It does not establish redistribution rights, permit copying official source,
+or authorize any test acquisition.
+
+### P1b result and artifact inventory
+
+Run `d088_realm_ignithit_p1b_20260812a` completed on AutoDL CPU on 2026-08-12.
+The remote host had no outbound route, so the first acquisition attempt stopped
+before completing any file and left no partial object. The identical frozen
+manifest was then acquired locally, transferred as a closed tree, and rechecked
+on AutoDL in idempotent mode: 34/34 files were reused only after their registered
+Git-blob or LFS digest passed; zero bytes were downloaded remotely. This is an
+infrastructure fallback, not a population or source change.
+
+The real-data contract is `[30,12,128,128]` float32 per trajectory, with 26
+train and five validation trajectories. The coordinates have shape
+`[2,128,128]`, order `[y,x]`, and descend on both axes. There are 30 released
+times from `1e-5` through `3e-4` at native cadence `1e-5`. Coordinate/time units
+and grid centering remain unresolved. Train statistics used 12,779,520 samples
+per channel. All 31 trajectories were native-finite and passed the operational
+released-state admissibility check.
+
+| Gate | Result |
+| --- | --- |
+| exact open inventory and sealed-test absence | pass; 34 files, 552,023,019 bytes, zero `data/test` files |
+| metadata/schema and all open native states | pass; exact keys/order/shape/dtype and 31/31 finite/admissible |
+| float64 normalized re-encode | pass; maximum error `2.44249065417534e-15` (`<=1e-10`) |
+| float32 normalized re-encode | pass; maximum error `9.5367431640625e-7` (`<=1e-4`) |
+| validation identity grouped errors | pass; both primary mean and source-sum maxima exactly `0` |
+| validation decoded self-correlation | pass; minimum `1.0` across 1,740 observable entries |
+
+No model or checkpoint was loaded, and the GPU was unused. Therefore D088 P1b
+establishes only that the open data, preprocessing, metric, and diagnostic
+reference contracts are executable. It provides no direct-versus-residual
+performance result, paper reproduction, generalization result, conservation
+result, or evidence about the sealed test population.
+
+Before the final replay, the combined focused CPU suite passed `57/57` and Ruff
+format/check passed on the six REALM Python files. A final review added a
+fail-closed guard preventing the summary output from entering or overwriting the
+input manifest, exact data root, or closed report directory. The corrected
+source passed that guard on AutoDL and reran from a fresh report directory. Its
+schema, statistics, normalizer-array, reference-replay, and runtime artifacts
+are byte-identical to the preserved pre-guard attempt; this is same-data/runtime
+replay evidence, not independent confirmation.
+
+The final executed-source canonical manifest SHA-256 is
+`9c7f9047c1c83342007999942314ea92d63446b48387d79a9f1e84a442fcb48d`.
+Its four files are:
+
+| Executed file | SHA-256 |
+| --- | --- |
+| `utility/time_dependent_no/realm_benchmark.py` | `479c82e05bb668a1e7e94780a977dea3af9387e6440da0a5851f83b3050166b5` |
+| `utility/time_dependent_no/realm_ignithit.py` | `4a50c4901b592ec9363209e87fae03d171078a2ce0663e41ef4ce4b1e772312f` |
+| `scripts/time_dependent_no/audit_realm_benchmark.py` | `463b7dab409f567ca1bd3e62eb7be4a2357b15b79bd48dcc80633c14c963057b` |
+| `scripts/time_dependent_no/acquire_realm_ignithit.py` | `4acf17d44eb4185d8e97df917c129c65da2474721a9f77f7bb3ed1a15441fc5d` |
+
+The compact report set is closed by
+`reports/final_hash_manifest.json`, SHA-256
+`70037f06bc6e04d00a4dcfb954b1a3cef7cbfdd7c0aa6abb8fe2036331341b53`:
+
+| Retained compact artifact | SHA-256 |
+| --- | --- |
+| `reports/schema_report.json` | `d0497b0f3bfa39e7bfc0892062c43a23aa528a8cde168343b8be9462381fc3b3` |
+| `reports/train_statistics.json` | `5b8c82fee3059edaa0ad36e4369db8ba28573cf35c1b12a658248f54191db5b9` |
+| `reports/reference_replay.json` | `e17534d415f614ac3a02c0bc541555bf321cf95fcc6cb896df6c5781ce417538` |
+| `reports/normalizer_arrays.npz` | `368d243b5e0f71b6380ee5f49fb9f5cf2724baa94ddece620d3ceae55285ca20` |
+| `reports/source_manifest.json` | `a983822b45f33af4d63f72f091fac2f1a7dc2e151398a0ccafab59d5cca00f4c` |
+| `reports/runtime_manifest.json` | `1fd14d3f2208ed252d6b5155f61a45f1df59358e1e9f8e915e123d3a795b03de` |
+
+Raw trajectories and compact reports remain ignored artifacts and are not
+committed. Public dataset/source reuse terms, original-run training provenance,
+physical coordinate/time units, grid centering, and a model-runtime contract
+remain unresolved.
+
+After P1b closes, the smallest possible next request is P1c: one AutoDL
+synthetic-shape and one real train-batch/validation-trajectory smoke, capped at
+0.25 GPU-hour. P1c is not authorized by the P1b disposition. A full direct
+baseline and the direct-versus-residual comparison remain later, separately
+named authorizations.

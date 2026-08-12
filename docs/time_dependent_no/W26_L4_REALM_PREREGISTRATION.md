@@ -611,3 +611,104 @@ so cause claims about Box--Cox margin, recurrent amplitude, or a specific field
 remain unsupported. The minimum decisive follow-up is a separately registered
 exact step-50-to-100 replay with failure-state localization; it may not silently
 continue this attempt or relax physical validity.
+
+## P1c Step-100 Decode-Failure Localization
+
+Status: **A1 COMPLETE; ALL SOURCE AND SYNTHETIC CPU GATES PASS; SHORT GPU
+REPLAY NOT AUTHORIZED** on 2026-08-12. This is a diagnostic attempt under D088, not a new
+stable result ID. Its frozen label is
+`d088_realm_ignithit_p1c_decode_localization_20260812a`.
+
+The parent identity is exact: attempt
+`d088_realm_ignithit_p1c_direct_seed0_5000_20260812a`, step-50 `last.pt`
+SHA-256 `437e304b0c280488c08dcb727ea7de0431bee363df805821785bc09f8fe13832`,
+step-50 `best.pt` SHA-256
+`7a94eee88d3ed903b610bdeb3888b144d294cbcc9f90eec807cd005c43480fe4`,
+and run signature
+`2c08721a2b769ca30d25717eea4ee5027e78bc03a73c95f55921d3cf6c25d76f`.
+The registered parent config/input/source/runtime canonical digests are,
+respectively,
+`9949335070d23ecd8719a94c67d327e0aa53ce421ea1dffa27892b7fba599fd7`,
+`08d80fc972ae5ace8f4c3c5392c4fd36b53187f2d2a7655fff820257a2ec0074`,
+`a6f71c1c906ebbe8ab36566a8dcc28dd09d1feb1ac0b887bb548ec66570725ee`,
+and `35e3f3f4bf8098eb73fd6b51fc42828a7ba59cee2c3200b0fea28b0bbd4371aa`.
+
+The replay is deliberately narrow:
+
+- restore the exact step-50 model, Adam, OneCycleLR, case-order RNG, and global
+  RNG states after all parent file, checkpoint-internal, source, open-input,
+  normalizer, runtime, sealed-test, and output-isolation checks pass;
+- execute exactly optimizer steps 51 through 100 with the frozen direct
+  trainer's sampling, one-step objective, effective batch 26, and step order;
+- retain an inference-only step-100 model-state checkpoint and its structured
+  digest before decoding;
+- run only the existing five-case, frame-0, H29 direct recurrence and require
+  every normalized proposal to be finite;
+- decode with the unchanged primary P1b normalizer and
+  `inverse_domain_policy="nan"`; then stop, whether the terminal event is
+  reproduced or not;
+- never resume the parent output in place, continue beyond step 100, retry with
+  changed numerics, load a test object, or execute the residual arm.
+
+The first decoded-nonfinite location is the lexicographic minimum over frozen
+validation-case order, one-based call, released channel index, row, and column.
+The compact localization record binds the case key, call, field, normalized
+value, pre-inverse transformed value and finiteness class, inverse Box--Cox base
+`1 + 0.1 z` and domain margin where applicable, decoded nonfinite class, total
+invalid-point count, affected cases/calls/channels, first event per case, and a
+call-by-call pre-failure trace for the globally first case/channel. Mechanism
+labels are operational only: negative Box--Cox base is an inverse-domain
+violation; finite nonnegative base with nonfinite power is inverse-power
+overflow; a nonfinite pre-inverse value is transformed overflow; and a
+nontransformed channel can only receive a linear-decode overflow label. These
+labels localize numerical decoding; they do not establish why training created
+the normalized trajectory.
+
+If no decoded nonfinite value appears, the result is a reason-coded
+nonreproduction under the exact replay. It is not permission to continue
+training. Any normalized nonfinite proposal, parent/source/runtime mismatch,
+wrong restored step, missing sealed-test guarantee, or failure before a
+returned decoded tensor is an infrastructure/contract stop and yields no
+scientific localization row.
+
+The A1 implementation surface is limited to one entry point,
+`scripts/time_dependent_no/diagnose_realm_ignithit_decode_failure.py`, one
+synthetic CPU test,
+`tests/time_dependent_no/test_diagnose_realm_ignithit_decode_failure.py`, and
+this preregistration plus the maintained W26-L4 plan. The original trainer and
+all reusable REALM utilities remain byte-identical. Focused CPU gates cover the
+fixed parent/replay constants and knob-free CLI, parent hash and output guards,
+exact restore/continuation parity on a tiny model, normalized-finite
+enforcement, lexicographic localization, inverse-domain and inverse-overflow
+classification, untransformed-channel behavior, JSON-finite serialization,
+nonreproduction, step-100 checkpoint linkage, and safe `--help`. No A1 check
+may open the real trajectory tree, load the scientific checkpoint, initialize
+CUDA, or contact a remote host.
+
+### Decode-localization A1 closeout
+
+The complete new executable surface is:
+
+| Artifact | Bytes | SHA-256 | Owner/invocation |
+| --- | ---: | --- | --- |
+| `scripts/time_dependent_no/diagnose_realm_ignithit_decode_failure.py` | 35,259 | `1635164736867bfa40692f4e857ba8af97e96f8dc85486e34d8d072ce82487f4` | exact future short A3 entry point; requires the open manifest/tree, P1b normalizer arrays, exact parent output, and a new isolated output |
+| `tests/time_dependent_no/test_diagnose_realm_ignithit_decode_failure.py` | 16,974 | `cbb4d5b100d58c1a04900bd58722211caea55567f56c29462b3a705445e41063` | synthetic CPU source, guard, replay-parity, localization, and artifact-schema gates |
+
+The parent trainer remains byte-identical at SHA-256
+`a3fa0c0e831765ce24c6ae3aa11e3d2afcf67cc242de0a508381dc0b25b43f1e`.
+`ruff format --check` and `ruff check` pass for both new files. The full
+maintained REALM synthetic CPU suite passes `85/85`: generic benchmark,
+IgnitHIT data-contract, FFNO, direct-trainer, and decode-localization tests.
+The new 11-test subset additionally closes exact current parent config/source
+identity, wrong-step/provenance rejection, output nonoverlap, bounded invalid
+mask reduction, all five lexicographic coordinates, JSON-finite nonfinite
+classes, exact fresh-process step-50 continuation parity, and inference-only
+step-100 checkpoint linkage.
+
+No real trajectory array or scientific checkpoint was opened. No CUDA context,
+network endpoint, remote host, generated scientific artifact, test object, or
+residual model was used. A future successful A3 writes only `contract.json`,
+`parent_identity.json`, `source_manifest.json`, `runtime_manifest.json`,
+`replay_trace.json`, `step100_model.pt`, `localization.json`, `summary.json`,
+and `final_hash_manifest.json` in a new attempt directory. These source-only
+results authorize no stability, accuracy, or failure-mechanism claim.

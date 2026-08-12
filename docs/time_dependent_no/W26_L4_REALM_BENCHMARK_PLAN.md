@@ -471,7 +471,8 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1a contract implementation | `COMPLETE; D088` | preregistration, adapter/evaluator, manifest audit, CPU tests | none |
 | L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
 | L4-P1c FFNO-M GPU smoke | `COMPLETE; D088; ALL GATES PASS` | source/runtime/memory manifest and smoke verdict | none |
-| L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | source-only failure-localization registration first |
+| L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
+| L4-P1c step-100 localization | `A1 COMPLETE; 85/85 REALM CPU GATES PASS; GPU REPLAY NOT AUTHORIZED` | exact steps 51--100 source, first decode-failure attribution, and inference-only step-100 checkpoint contract | one short A3 on the owner-selected personal GPU resource |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -494,11 +495,23 @@ their model/normalizer/provenance digests verify; they are recovery evidence,
 not a completed baseline. No timeout, OOM, source/input mismatch, test access,
 or residual execution occurred. Do not resume this attempt automatically.
 
-The smallest next request is **A1 source and synthetic CPU work only** for a
-failure-localization replay that starts from the exact step-50 recovery state,
-reproduces only steps 51--100, and records the first decoded-nonfinite case,
-call, channel, normalized value, inverse-transform margin, and model-state
-digest before stopping. It must not alter the direct model, optimizer,
-scheduler, sampling order, normalizer, H29 population, or stop semantics. A
-subsequent short A3 replay would require separate authorization; full training,
-the residual arm, and test access remain unauthorized.
+The owner authorized **A1 source and synthetic CPU work only** on 2026-08-12
+for the exact failure-localization replay registered in D088. The implementation
+starts from the exact step-50 recovery identity, reproduces only steps 51--100,
+and records the first decoded-nonfinite case, call, channel, normalized value,
+inverse-transform margin, and model-state digest before stopping. It may not
+alter the direct model, optimizer, scheduler, sampling order, normalizer, H29
+population, or stop semantics.
+
+A1 is now closed: the original parent trainer remains byte-identical, both new
+files pass Ruff, and the maintained REALM synthetic CPU suite passes `85/85`
+without opening a real trajectory, scientific checkpoint, CUDA context, or
+remote host.
+
+The smallest next request is one **short A3 diagnostic replay only** on the
+same frozen parent runtime and open population: exact parent step 50, exactly
+steps 51--100, then the five-case frame-0 H29 localization and mandatory stop.
+This is 50 optimizer steps and 1,300 train-pair presentations, or 1% of the
+registered direct baseline budget, with a 30 GPU-minute hard cap. It retains
+only the preregistered compact artifacts. Full training, any retry or
+hyperparameter change, the residual arm, and test access remain unauthorized.

@@ -76,7 +76,7 @@ coarse solves do not satisfy that contract.
 | --- | --- | --- |
 | 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
-| Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, and orientation probes provide bounded mechanism evidence. | No later arm is an exact-contract D041 replacement; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
+| Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. | No later arm is an exact-contract D041 replacement; D087 is not a causal training/architecture or general-stability result; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |
 
@@ -134,7 +134,9 @@ branch-specific inventory.
   rollout decomposition, and geometry diagnostics;
 - dynamic shock-vortex reference/family generation and baseline evaluation;
 - common-source resolution rollout and pathway analysis;
-- boundary-field, node-type, admissibility, and finite-propagation probes; and
+- boundary-field, node-type, admissibility, and finite-propagation probes;
+- long-horizon stability event, recurrence-feedback, and fresh/propagated
+  diagnostic evaluation; and
 - native residual-correction, response-controller, local-channel, and
   visualization tools retained for reproducibility.
 
@@ -149,7 +151,8 @@ a harmless help probe.
 small CPU fixtures. It covers data and mesh contracts, 1D targets, residual
 rollout, artifact snapshots, boundary fields and interventions, dynamic-FV
 geometry, resolution transfer, structure/pathway diagnostics, correction
-controllers, and visualization payloads.
+controllers, long-horizon event/decomposition contracts, and visualization
+payloads.
 
 Run the narrowest relevant test first. When the environment requires a writable
 pytest temporary directory, place `--basetemp` inside an ignored workspace path

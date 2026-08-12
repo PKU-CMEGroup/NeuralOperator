@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -44,7 +44,7 @@ operator solver.
 | --- | --- | --- |
 | 1D flow maps | Larger learned macro steps can win after fewer recurrent compositions; the preferred stride depends on horizon and metric. | No universal stride, learned CFL limit, timestep transfer, native-solver resolution transfer, or mesh-invariant solver. |
 | CPGNet | Corrected 1D controls support message reach rather than width alone; causal boundary training improves the local 2D release-bundle result without closing the oracle gap. | No paper-table reproduction, exact DG replay, physical interface trace, conservation, seed robustness, or architecture transfer. |
-| Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D083/D085/D086 provide bounded negative query/orientation evidence. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal blow-up mechanism, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
+| Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal training/representation/boundary mechanism, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
 | Dynamic finite-volume shock-vortex | D044 is a useful one-seed baseline; D060 improves state error but fails joint front/high-pass promotion. D063--D081 establish bounded common-source transfer, a composite mesh-defect diagnosis, differential-support evidence, and one deterministic open-validation correction result with exact same-population process reproduction. Node-type and always-on local-filter questions are closed at their registered scopes. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, safety beyond the registered open cases, independent-data/statistical confirmation, general node-type necessity, optimal boundary encoding, native-solver equivalence, other-PDE transfer, or sealed performance. |
 | Latent forecast | Discontinuous decoder regularity improves front fidelity, but the tested family is decoder-capacity limited. | No latent transition, autonomous recurrence, geometry transfer, or data-assimilation result. |
 
@@ -69,6 +69,7 @@ and the [compact tracker](MECHANISTIC_DIAGNOSTIC_TRACKER.md).
 | A-05: D072 semantic fields | Fixed-width union/semantic collars and exact matched initialization are verified. One dynamic FP32 seed causally uses the fields, but neither the three-seed dynamic BF16 matrix nor bump matrix establishes the registered N0-relative rollout gain. | D072 is complete and not promoted. Re-entry needs a new owner claim and same-precision multi-seed evidence. |
 | A-06: D084 inadmissibility | All 360 H79 continuations remain finite. Exact repairs occur but are not durable; inadmissibility precedes some local growth yet neither implies nor equals global blow-up. D082 fields materially affect recurrence without passing the completion/error conjunction. | D084 is terminal; D082 is not promoted; no queue or implicit repair follow-up remains. |
 | A-07: D083/D085/D086 representation | Severe query compression is strongly negative. D083 is a transported-Fourier analytic covariance control; D085's fixed-world Fourier test fails at call 1 through a material same-input transformed-representation defect; D086 shows broad failure morphology and recurrent sensitivity. | No physical conservation, independent rotated PDE solve, Fourier-only causality, accepted rollout, broad geometry/rotation generalization, or general coarse-mesh result. |
+| A-08: D087 stability forensics | On the exact common declared 30-case bump population, B1 has later `T_accurate` on every pair and is admissible/bounded/finite through H79. D019 loses accuracy 29--57 calls before inadmissibility, becomes unbounded 3--5 calls after inadmissibility, and remains finite through H79. Its invalid active-node state is fed back without repair; exact common-coordinate decomposition shows propagated response dominates while fresh defect stays small through H60. | A bounded native-system inference diagnostic only. D019 training membership/provenance is unresolved, and representation, learned map, training, recurrence, and boundary policy differ. No OOD, causal-factor, Lipschitz/JVP, asymptotic-stability, conservation, or cross-family claim. H160/H320 and other mechanism branches are not queued. |
 
 ## Compact Unified Claim Register
 
@@ -173,8 +174,8 @@ The companion [kick-start prompts](CODEX_KICKSTART_PROMPTS.md) authorize
 read-only A0 preflight only; they launch no training, checkpoint evaluation,
 remote work, dataset download, or sealed evaluation.
 
-D072 and D084 are complete, terminal at their registered scopes, and not
-promoted. Neither establishes boundary-condition improvement, resolution
+D072, D084, and D087 are complete and terminal at their registered scopes.
+None establishes boundary-condition improvement, resolution
 consistency, geometry/rotation generalization, conservation, operator
 convergence, or general Euler stability. Re-entry requires a new owner-selected
 claim and preregistration.

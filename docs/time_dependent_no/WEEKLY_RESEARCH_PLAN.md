@@ -1,6 +1,6 @@
 # Weekly Research Plan: Long-Horizon Residual Neural Operators
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
 Status: current owner-selected planning and coordination surface. This document
 does not by itself authorize checkpoint execution, dataset-scale training,
@@ -67,7 +67,7 @@ Anti-claims that must be ruled out or stated explicitly:
 
 | Line | Core question | This-week must-run scope | Conditional continuation |
 | --- | --- | --- | --- |
-| W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | Bind checkpoint identities; define event semantics; design or implement the common evaluator; run only synthetic CPU validation unless a separate launch is approved. | Open-population checkpoint replays, H160/H320 truth-free survival, matched perturbation/JVP study, longer-reference generation. |
+| W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | D087 is complete and terminal at H79: exact identities, four event horizons, feedback attribution, and paired fresh/propagated decomposition passed. | No implicit continuation. H160/H320, spectra/JVPs, policy counterfactuals, and more bump truth require a new owner-selected claim and stable identity. |
 | W26-L2: Shock representation and differential pathway | Are shock-adjacent defects classical spectral retrieval error, finite-grid capacity/phase error, gradient-path inconsistency, or recurrent exposure error? | Analytic moving-step capacity harness; frozen gradient-scaling instrumentation; branch/filter/loss/noise preregistration. | Three-seed no-gradient training, selected intermediate filter, selected loss/noise retraining, D073-B recurrent physical-radius test. |
 | W26-L3: Boundary conditions and finite propagation | Which boundary information and enforcement mechanisms are useful for each boundary class, and does global mixing seed the top-left error outside the physical domain of dependence? | Boundary taxonomy and task audit; information-versus-enforcement matrix; synthetic/local finite-propagation probe. | Multi-seed boundary training on selected classes and recurrent top-left causal test. |
 | W26-L4: Benchmark and paper validation | Does the residual framework survive a strong external benchmark under a fair direct-state baseline? | Verify REALM data/manifests/metadata and boundary availability; define the exact IgnitHIT baseline contract; do not download multi-GB data without approval. | IgnitHIT baseline and residual comparison, PlanarDet, one irregular case, then 3D only after 2D passes. |
@@ -165,10 +165,15 @@ intervention may diagnose a mechanism but cannot establish training robustness.
   is mostly freshly regenerated on the dynamic family.
 - Historical D019-versus-D041 outcome differences are real but causally
   confounded.
+- D087 exactly binds B1 and owner-designated D019 on one common declared
+  30-case bump population. B1 remains admissible, bounded, and finite through
+  H79. D019 loses accuracy first, then becomes inadmissible and unbounded while
+  remaining finite. Its late error is dominated by propagated-input response,
+  not a rising fresh one-step defect.
 
 ### Experiment ladder
 
-**L1-P0: identity and contract audit — MUST**
+**L1-P0: identity and contract audit — COMPLETE**
 
 - Bind the exact B1 checkpoint and its boundary-information training and
   inference protocols.
@@ -179,7 +184,7 @@ intervention may diagnose a mechanism but cannot establish training robustness.
 Gate: no mechanistic old-versus-new claim if the comparison cannot be aligned.
 The line may still produce a bounded descriptive survival comparison.
 
-**L1-P1: common stability evaluator — MUST**
+**L1-P1: common stability evaluator — COMPLETE**
 
 - Reuse the maintained rollout, inadmissibility, boundary, and visualization
   utilities before creating a new evaluator.
@@ -191,13 +196,13 @@ The line may still produce a bounded descriptive survival comparison.
 Gate: event identities, accepted-prefix semantics, and recurrence closure must
 pass before any checkpoint is loaded.
 
-**L1-P2: open-population replay — A2 CONDITIONAL**
+**L1-P2: open-population replay — COMPLETE A2**
 
 - Evaluate matched cases with identical precision and boundary policy.
 - Report survival curves rather than only the longest successful trajectory.
 - Preserve every comparable frame and mark the first excluded invalid proposal.
 
-**L1-P3: amplification diagnosis — A2 CONDITIONAL**
+**L1-P3: amplification diagnosis — COMPLETE AT REGISTERED DECOMPOSITION SCOPE**
 
 - Estimate finite-time response to localized shock, smooth, boundary, and
   spectral-band perturbations.
@@ -205,15 +210,22 @@ pass before any checkpoint is loaded.
   sensitivities, not causal proof.
 - Inspect physical and hidden-branch spectra before failure.
 
-**L1-P4: longer reference — A3 CONDITIONAL**
+D087 completed the fresh/propagated branch with exact H79 replay and algebraic
+closure. Spectra, localized perturbations, and JVPs were not needed for the
+accepted inference-map claim and are not queued. They require a new
+preregistration if a later causal question makes them decisive.
+
+**L1-P4: longer reference — NOT SELECTED**
 
 - Generate or acquire longer truth only after the solver/data contract and cost
   are approved. Never infer accuracy from a truth-free extension.
 
 ### Paper role and decision
 
-Main paper if a matched mechanism or robust stability difference is found;
-otherwise an appendix taxonomy that prevents “stable” from meaning only finite.
+D087 supplies a main-paper-ready event taxonomy and a bounded inference-map
+failure diagnostic. It does not provide a matched causal factor contrast or a
+general stability claim. The line is closed at H79; the next benchmark-facing
+step is W26-L4 REALM rather than truth-free bump continuation.
 
 ## W26-L2: Shock Representation, Ripple, Gradient, Filtering, Loss, And Noise
 
@@ -544,8 +556,10 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 
 | Working ID | Owner surface | Priority | Initial status | Required first deliverable |
 | --- | --- | --- | --- | --- |
-| W26-L1-P0 | stability | MUST | TODO | Checkpoint/provenance and event-semantics matrix |
-| W26-L1-P1 | stability | MUST | TODO | Synthetic-tested evaluator contract |
+| W26-L1-P0 | stability | MUST | COMPLETE | D087 checkpoint/provenance, representation, recurrence, policy, and event-semantics matrix |
+| W26-L1-P1 | stability | MUST | COMPLETE | D087 evaluator contract; 46 focused CPU tests and Ruff checks pass |
+| W26-L1-P2 | stability | A2 | COMPLETE | Paired 30-case H79 event/survival replay with exact feedback attribution |
+| W26-L1-P3 | stability | A2 | COMPLETE AT DECOMPOSITION SCOPE | Paired H79 fresh/propagated result; spectra/JVP branches not selected |
 | W26-L2-P0 | shock representation | MUST | TODO | Analytic moving-front capacity report |
 | W26-L2-P1 | differential path | MUST | TODO | Cross-grid gradient-path instrumentation report |
 | W26-L2-P2 | no-gradient training | CONDITIONAL | BLOCKED ON P0/P1 | Three-arm preregistration and costed launch request |

@@ -1,6 +1,6 @@
 # Time-Dependent Experiment Index
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
 Status: compact routing index; not an execution queue
 
@@ -32,7 +32,7 @@ the current source and artifact manifests before execution or interpretation.
 
 ## Stable ID Rules
 
-- The registered run universe through D086 contains 115 IDs: D001--D086,
+- The registered run universe through D087 contains 116 IDs: D001--D087,
   23 L3R IDs, L4A-001--L4A-004, L1-OOD, and XLINE-001.
 - D043b/D043d are attempts under D043; D053a/D053b are attempts under D053.
 - P/D019 maps to D019 and R/D041 maps to D041.
@@ -162,6 +162,7 @@ attempt histories, and claim language.
 | D084 | Finite-inadmissibility and bump-field continuation | Completed; inadmissibility did not imply global blow-up and field zeroing did not promote D082. |
 | D085 | Fixed-Fourier bump orientation stress | Completed; every rotated proposal failed at call 1, before recurrence. |
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
+| D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
 
 ## Evidence And Claim Boundaries
 
@@ -185,6 +186,10 @@ attempt histories, and claim language.
   confirmation.
 - D084 rejects "inadmissibility implies blow-up" for its exact matrix; it does
   not show inadmissibility is harmless or identify a unique instability cause.
+- D087 separates accurate, admissible, bounded, and finite horizons on one
+  common declared bump population. Its exact deployed-map decomposition is an
+  inference-side diagnostic, not a causal training, representation, boundary,
+  or general-stability result. H160/H320 and JVP/spectral branches are not queued.
 - REALM has no registered D-series result here. Route current audit and baseline
   planning to the weekly plan, and do not conflate REALM with RealPDE Track 2.
 - Populations marked sealed by their contracts remain sealed. In particular,
@@ -207,10 +212,10 @@ attempt histories, and claim language.
 | Question | First IDs or document to inspect |
 | --- | --- |
 | D019 versus D041 provenance | L3R-M0, D019, D041 |
-| Long-horizon stability and admissibility | D019, D041, D084, D086, L3R-U0, L3R-U1, L3R-B1 |
+| Long-horizon stability and admissibility | D019, D041, D084, D086, D087, L3R-U0, L3R-U1, L3R-B1 |
 | Boundary closure and objective history | D040, D041, L3R-BG0, L3R-RB0, L3R-RA0P, L3R-K2D0 |
 | Boundary descriptor/routing use | D063, D068, D069, D072, D082, D084 |
-| Fresh versus propagated error | D053, L3R-K2D0 |
+| Fresh versus propagated error | D053, D087, L3R-K2D0 |
 | Ripple/high-frequency mechanisms | D013, D036, D038, D043, D052--D056, D060 |
 | Front position and shock identity | D006, D035, D060--D062, D080--D081 |
 | Large learned steps | D027--D035, D060--D061 |
@@ -226,6 +231,9 @@ attempt histories, and claim language.
 
 - The through-2026-08-11 archive above is the authoritative detailed ledger for
   D001--D086 and all registered non-D IDs in this index.
+- D087 postdates that archive. Its exact live contract, attempt history, hashes,
+  results, and terminal claim boundary are in
+  [D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md](D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md).
 - Commit `5646bfb` adds the byte-preserved pre-compaction tracker state; the
   archive, not the commit diff, is the normal retrieval target.
 - The earlier through-2026-08-01 archive has SHA-256

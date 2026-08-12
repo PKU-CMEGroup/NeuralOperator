@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Handoff
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
 This is a replaceable operational snapshot. It records the current scientific
 position, workspace boundary, and decisions still owned by the human researcher.
@@ -41,7 +41,7 @@ long-horizon behavior.
 | --- | --- |
 | 1D residual FNO | A useful fixed-family program exists. Larger-step advantages depend on horizon and metric; they are not a universal stability result. |
 | CPGNet reproduction | The released 1D gain depends materially on message reach, and causal boundary training improves the bounded local 2D release-bundle comparison while leaving the oracle gap. Paper-faithful parity and exact DG replay remain unresolved. |
-| Supersonic bump PCNO | D041 remains the historical comparator. Later training and boundary-field variants do not replace it under an exact shared contract. Finite continuation after inadmissibility and severe unseen-orientation failure expose mechanisms, not a general stabilizer or geometry-generalization result. |
+| Supersonic bump PCNO | D041 remains the historical comparator. D087 closes W26-L1 at H79 on exact B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. This is an inference-map diagnostic, not causal factor attribution or general stability. |
 | Dynamic shock-vortex PCNO | D044 is the useful baseline and D060 is a useful one-seed improvement with unresolved structure error. Common-source resolution studies identify persistent large-scale mesh inconsistency plus locally cancelling shock/vortex defect; physical-support and low-rank interventions are bounded mechanism evidence, not resolution invariance or a generally safe corrected rollout. |
 | Latent forecasting and assimilation | The tested latent forecast was not viable. Assimilation ideas remain reserved until an open-loop failure mode and target claim justify them. |
 

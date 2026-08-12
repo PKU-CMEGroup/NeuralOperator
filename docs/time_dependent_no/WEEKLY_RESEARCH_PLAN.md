@@ -428,6 +428,11 @@ rollout-improvement method.
 
 **L4-P0: source/data/metric audit — MUST**
 
+- The public-source A0 audit is complete for planning in
+  [W26_L4_REALM_BENCHMARK_PLAN.md](W26_L4_REALM_BENCHMARK_PLAN.md). It binds the
+  exact paper/code/data revisions, split-safe acquisition sizes, released
+  protocol discrepancies, case order, gates, and costs. Data execution remains
+  blocked on license/protocol review and separate authorization.
 - Bind the exact REALM paper version, official code revision, dataset repository,
   license, file manifests, released splits, dimensions, channels, time cadence,
   mesh, boundary metadata, and preprocessing for IgnitHIT, PlanarDet, and
@@ -568,8 +573,8 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | W26-L3-P0 | boundary taxonomy | MUST | TODO | Family-by-boundary contract table |
 | W26-L3-P1 | boundary 2x2 | MUST-DESIGN | TODO | One controlled-task preregistration |
 | W26-L3-P2 | finite propagation | MUST | TODO | Synthetic cone/leakage pilot |
-| W26-L4-P0 | REALM audit | MUST | TODO | Exact-data and metric feasibility report |
-| W26-L4-P1 | REALM baseline | CONDITIONAL | BLOCKED ON P0 | IgnitHIT smoke/launch request |
+| W26-L4-P0 | REALM audit | MUST | COMPLETE FOR PLANNING; DATA EXECUTION BLOCKED | [Exact-data, protocol, cost, and metric feasibility plan](W26_L4_REALM_BENCHMARK_PLAN.md) |
+| W26-L4-P1 | REALM baseline | CONDITIONAL | BLOCKED ON A1, LICENSE/PROTOCOL REVIEW, AND DOWNLOAD APPROVAL | IgnitHIT smoke/launch request |
 | W26-L4-P2 | residual comparison | CONDITIONAL | BLOCKED ON BASELINE | Matched three-seed contract |
 | W26-L5-P0 | multiresolution | MUST | TODO | Common-source/transfer closure tests |
 | W26-L5-P1 | correlation gate | CONDITIONAL | BLOCKED ON P0 | Cross-fitted teacher-forced preregistration |

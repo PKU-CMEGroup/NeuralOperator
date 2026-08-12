@@ -98,6 +98,15 @@ After the five A0 audits and any approved synthetic M1 checks, the owner must:
 5. keep strength-OOD and test populations sealed until a later named A4
    decision.
 
+D087 now closes W26-L1 at its registered H79 scope. Current owner direction
+selects the bounded [W26-L4 REALM audit and experiment
+plan](W26_L4_REALM_BENCHMARK_PLAN.md) as the next active default. The A0 audit
+selects IgnitHIT first and PlanarDet conditionally, while leaving source/data
+license, historical two-step semantics, and exact baseline history unresolved.
+It authorizes no dataset download, training run, GPU launch, or sealed
+evaluation. The smallest next request is the plan's synthetic/local A1 contract
+implementation only.
+
 Do not convert working labels in the weekly plan into stable D-series IDs until
 scope, source, population, metrics, and noncollision have been reviewed.
 

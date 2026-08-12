@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-11
+Updated: 2026-08-12
 
 This directory is the onboarding surface for the summer 2026 time-dependent
 neural-operator work on branch `time-dependent-no`. It points to authority,
@@ -19,9 +19,12 @@ Read active context in this order:
    compact experiment-ID and topic routing.
 5. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the five coordinated
    research lines and prospective gates.
-6. [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md) for read-only A0
+6. [W26_L4_REALM_BENCHMARK_PLAN.md](W26_L4_REALM_BENCHMARK_PLAN.md) for the
+   current REALM source/data audit, staged benchmark contract, and next
+   authorization boundary.
+7. [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md) for read-only A0
    kickoff prompts.
-7. Read one bounded section of the
+8. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
    when exact historical contracts, results, or hashes are required.

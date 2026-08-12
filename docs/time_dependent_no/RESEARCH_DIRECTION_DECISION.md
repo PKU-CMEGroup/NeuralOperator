@@ -174,6 +174,14 @@ The companion [kick-start prompts](CODEX_KICKSTART_PROMPTS.md) authorize
 read-only A0 preflight only; they launch no training, checkpoint evaluation,
 remote work, dataset download, or sealed evaluation.
 
+On 2026-08-12 the owner selected REALM as the next benchmark-facing direction
+instead of generating additional truth-free bump frames. The bounded
+[W26-L4 audit and experiment plan](W26_L4_REALM_BENCHMARK_PLAN.md) selects
+IgnitHIT first, PlanarDet only after a matched baseline/residual gate, and an
+irregular case only after a separate geometry/feasibility audit. That direction
+does not itself authorize source copying, trajectory download, training, GPU
+execution, or test-population access.
+
 D072, D084, and D087 are complete and terminal at their registered scopes.
 None establishes boundary-condition improvement, resolution
 consistency, geometry/rotation generalization, conservation, operator

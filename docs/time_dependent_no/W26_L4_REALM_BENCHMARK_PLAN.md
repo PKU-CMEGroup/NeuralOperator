@@ -2,8 +2,9 @@
 
 Status: A0 and D088 P1a/P1b are complete. The exact IgnitHIT train/validation
 tree and reference replay passed under the recorded restricted-internal-research
-disposition. P1c model implementation/GPU smoke, full training, and sealed-test
-evaluation remain unauthorized by this document.
+disposition. The owner authorized P1c A3-smoke only on 2026-08-12 and selected
+an alternate personal GPU workstation while AutoDL is occupied. Full training,
+residual comparison, and sealed-test evaluation remain unauthorized.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -327,6 +328,15 @@ and one validation-trajectory real-data smoke. Freeze the measured step time,
 peak memory, feasible microbatch/accumulation policy, and projected full cost.
 Changing effective batch 26 requires explicit review.
 
+The authorized smoke is attempt
+`d088_realm_ignithit_p1c_personalgpu_20260812a`: FP32 on exactly one visible RTX
+5060 Ti, seed `20260812`, microbatch 1 with 26 ordered one-case accumulations,
+exactly one Adam step over train frame 0 to 1, then an H29 rollout from frame 0
+for first validation group `phi=_t_15_3_t`. It has a 900-second hard cap, loads
+no checkpoint, writes no checkpoint, and cannot access a test object. The exact
+architecture, runtime flags, optimizer, gates, and anti-claims live in the D088
+preregistration. The SSH alias remains private.
+
 The faithful direct baseline uses FFNO-M and the frozen reconstructed contract.
 Because the original seed/history are unresolved and the paper outcome is
 visible, this is a reproduction attempt, not an independent confirmatory result.
@@ -395,9 +405,9 @@ cannot be pooled as the same autoregressive factor contrast.
 | P0 | CPU/network metadata only, XS | current plan; no trajectory bytes |
 | P1a | CPU synthetic, XS | four reviewed source/doc files; focused tests only |
 | P1b | network/storage, S | 552,014,385 IgnitHIT train/validation bytes plus 8,634 metadata bytes; ignored manifest/schema reports |
-| P1c smoke | one AutoDL GPU, XS | at most 0.25 GPU-hour; runtime/memory manifest |
-| P1c full baseline | one AutoDL GPU, M | at most 12 GPU-hours for one seed; best/last checkpoints and compact histories |
-| P2 | one AutoDL GPU, L | at most six 12-hour runs, but staged 2 + 2 + 2 with stop review after each paired seed |
+| P1c smoke | one owner-selected personal RTX 5060 Ti, XS | at most 0.25 GPU-hour; runtime/memory manifest |
+| P1c full baseline | resource selected in a later authorization, M | at most 12 GPU-hours for one seed; best/last checkpoints and compact histories |
+| P2 | resource selected in a later authorization, L | at most six 12-hour runs, but staged 2 + 2 + 2 with stop review after each paired seed |
 | PlanarDet | network/storage then GPU, L | at least 2.94 GB train/validation; cost re-estimated from smoke before authorization |
 | irregular | network/storage/GPU, XL | deferred; ObstacleDet train/validation is about 22.3 GB before runtime artifacts |
 
@@ -442,16 +452,17 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P0 public audit | `COMPLETE FOR PLANNING` | this source/data/metric feasibility plan | restricted disposition recorded for P1b only |
 | L4-P1a contract implementation | `COMPLETE; D088` | preregistration, adapter/evaluator, manifest audit, CPU tests | none |
 | L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
-| L4-P1c FFNO-M GPU smoke | `NOT AUTHORIZED` | source/runtime/memory manifest and smoke verdict | smallest named AutoDL A3-smoke |
-| L4-P1c full direct FFNO baseline | `BLOCKED ON SMOKE AND SEPARATE AUTHORIZATION` | one-seed reproduction verdict and measured full cost | named AutoDL A3 full run |
-| L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named AutoDL A3 matrix |
+| L4-P1c FFNO-M GPU smoke | `AUTHORIZED; IMPLEMENTATION IN PROGRESS; D088` | source/runtime/memory manifest and smoke verdict | close this exact capped personal-GPU attempt |
+| L4-P1c full direct FFNO baseline | `BLOCKED ON SMOKE AND SEPARATE AUTHORIZATION` | one-seed reproduction verdict and measured full cost | named A3 full run with explicit resource |
+| L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
 
-## Smallest Next Authorization Request
+## Current Authorized Action
 
-Authorize **W26-L4-P1c A3-smoke only**, capped at `0.25` AutoDL GPU-hour. The
-authorized source surface would be exactly:
+The owner has authorized **W26-L4-P1c A3-smoke only**, capped at `0.25` GPU-hour
+on the selected personal GPU workstation. The authorized source surface is
+exactly:
 
 - update `docs/time_dependent_no/W26_L4_REALM_PREREGISTRATION.md`;
 - add `utility/time_dependent_no/realm_ffno.py` for an independent FFNO-M
@@ -467,6 +478,9 @@ microbatch/accumulation manifests; preserve effective batch 26 unless a later
 explicit review changes it. Stop if the model count is outside 0.5% of 8.9365M
 without a source-exact explanation, any tensor/recurrence/normalizer binding
 fails, any state is nonfinite, or the 0.25-hour cap is reached.
+
+This authorization does not include persistent training, a second attempt,
+hyperparameter changes, checkpoint writing, a residual arm, or test access.
 
 This request does not authorize copying the official implementation, accessing
 test objects, persistent training, checkpoint selection, a full baseline seed,

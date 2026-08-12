@@ -2,9 +2,12 @@
 
 Status: D088 allocated to W26-L4 on 2026-08-12 after the P1a source review and
 noncollision check. P1a and the restricted-internal-research P1b
-train/validation reference replay are complete. All P1b gates passed. Test
-objects remained absent; model training, checkpoint execution, and GPU
-experiments remain unauthorized.
+train/validation reference replay are complete and all P1b gates passed. On
+2026-08-12 the owner authorized P1c A3-smoke only and selected an alternate
+personal GPU workstation because AutoDL will be occupied for 48 hours. The
+contract below is frozen before the first P1c model output. Test objects remain
+absent; full training, checkpoint execution, and the direct-versus-residual
+comparison remain unauthorized.
 
 ## Question And Scope
 
@@ -376,8 +379,57 @@ committed. Public dataset/source reuse terms, original-run training provenance,
 physical coordinate/time units, grid centering, and a model-runtime contract
 remain unresolved.
 
-After P1b closes, the smallest possible next request is P1c: one AutoDL
-synthetic-shape and one real train-batch/validation-trajectory smoke, capped at
-0.25 GPU-hour. P1c is not authorized by the P1b disposition. A full direct
-baseline and the direct-versus-residual comparison remain later, separately
-named authorizations.
+## P1c Frozen Personal-GPU Engineering Smoke
+
+P1c uses attempt label `d088_realm_ignithit_p1c_personalgpu_20260812a` under
+D088. It is an engineering smoke, not a new stable scientific result ID.
+Current explicit owner direction selects an alternate personal GPU workstation
+for this attempt and supersedes the branch's default AutoDL resource only for
+this smoke. Its machine-specific SSH alias remains private.
+
+### Exact execution bindings
+
+| Field | Frozen value |
+| --- | --- |
+| data | the exact P1b 34-object open tree; canonical entry SHA-256 `85e8dcdaf4a5f7726ac5a7ad18a1bc131785fc1212acc9318ff69b94be965205`; 552,023,019 bytes; no test object |
+| normalizer | `normalizer_arrays.npz` SHA-256 `368d243b5e0f71b6380ee5f49fb9f5cf2724baa94ddece620d3ceae55285ca20`; primary Box-Cox/z-score channel contract from P1b |
+| model | independent FFNO-M reconstruction; 12 state plus two static coordinate inputs; width 128; four residual factorized Fourier blocks; 32 modes per axis; factor-four two-layer pointwise MLP with ReLU and final LayerNorm; 128-wide GELU head; 12 outputs |
+| parameter gate | target 8,936,500 within 0.5%; reconstructed exact expectation 8,936,460 |
+| initialization | seed `20260812`; PyTorch linear/LayerNorm defaults and Xavier-normal real/imaginary spectral tensors; no checkpoint loaded |
+| map and recurrence | direct next normalized state; one learned call per released transition; the returned normalized proposal is the next input without clipping, repair, teacher forcing, or future truth |
+| coordinates | subtract each coordinate channel's own minimum and divide both by coordinate-channel-zero range |
+| runtime | exactly one visible RTX 5060 Ti CUDA device on the owner-selected personal workstation; FP32; autocast and TF32 disabled; deterministic algorithms on; cuDNN deterministic on and benchmark off; `CUBLAS_WORKSPACE_CONFIG=:4096:8`; exact Python/PyTorch/CUDA/cuDNN/device properties retained |
+| optimizer smoke | Adam with `lr=1e-3`, betas `(0.9,0.999)`, epsilon `1e-8`, weight decay zero, AMSGrad/foreach/fused off; no scheduler or clipping |
+| real train work | ordered 26 registered train cases, each frame 0 to frame 1; microbatch 1; accumulation 26; effective batch 26; exactly one optimizer step |
+| validation work | first registered validation group `phi=_t_15_3_t`; start at frame 0; autoregressive H29 over all 29 matching-truth transitions; no selection or tuning use |
+| hard cap | 900 end-to-end seconds, equal to 0.25 GPU-hour; external `timeout 900s` is also required |
+
+The run order is fixed: exact source/data/normalizer/runtime preflight, one
+synthetic `[1,12,128,128]` forward/backward memory probe, the one registered
+optimizer step, then the H29 validation rollout. Stop before the next stage on
+any source, data, split, normalizer, coordinate, shape, parameter-count, device,
+precision, finiteness, recurrence, or budget failure. A returned nonfinite
+normalized or decoded validation state is retained as the failure call and is
+not fed back. An infrastructure failure before a returned state is not a
+scientific stability event.
+
+Retain only canonical config, input/source/runtime manifests, per-phase time and
+peak-memory values, compact per-call validation diagnostics, hashes, stdout, and
+stderr. Write no checkpoint. Report the two normalized error conventions,
+decoded correlation, released-state admissibility, and 10-times-training-envelope
+boundedness separately. These are engineering diagnostics from a random model
+after one optimizer step: they cannot support baseline accuracy, convergence,
+selection, stability, conservation, benchmark-superiority, or residual-method
+claims.
+
+The authorized committed surface is exactly:
+
+1. this preregistration;
+2. `docs/time_dependent_no/W26_L4_REALM_BENCHMARK_PLAN.md` for the owner-selected
+   resource/status reconciliation;
+3. `utility/time_dependent_no/realm_ffno.py`;
+4. `scripts/time_dependent_no/smoke_realm_ignithit_ffno.py`; and
+5. `tests/time_dependent_no/test_realm_ffno.py`.
+
+The full direct baseline and direct-versus-residual comparison remain later,
+separately named authorizations.

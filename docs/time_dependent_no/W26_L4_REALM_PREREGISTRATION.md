@@ -7,9 +7,10 @@ train/validation reference replay are complete and all P1b gates passed. On
 personal GPU workstation because AutoDL will be occupied for 48 hours. The
 contract below was frozen before the first P1c model output. P1c completed with
 all gates passing. The direct-baseline A1 trainer and synthetic CPU gates are
-also complete. Test objects remained absent; full training, scientific
-checkpoint production, and the direct-versus-residual comparison remain
-unauthorized.
+also complete. The owner then authorized the exact A3 direct-baseline attempt;
+it stopped at the registered step-100 decoded-nonfinite validation gate. Test
+objects remained absent, no completed direct baseline exists, and the
+direct-versus-residual comparison remains unauthorized.
 
 ## Question And Scope
 
@@ -562,3 +563,51 @@ No real trajectory array was opened; the new trainer tests did not invoke
 endpoint, remote host, or scientific checkpoint was used. No new utility,
 configuration, generated report, or artifact directory was added. These results
 authorize no claim about trained accuracy or stability.
+
+### Direct-baseline A3 terminal result
+
+Attempt `d088_realm_ignithit_p1c_direct_seed0_5000_20260812a` was explicitly
+authorized and launched on 2026-08-12 on the owner-selected personal GPU
+resource. The prelaunch source, open-input, normalizer, split, sealed-test,
+runtime, occupancy, output, and session gates all passed. One GPU was visible;
+the external hard timeout was 43,200 seconds; no `--stop-after-step` override was
+used.
+
+Exact execution identity:
+
+| Field | Frozen observed value |
+| --- | --- |
+| run signature | `2c08721a2b769ca30d25717eea4ee5027e78bc03a73c95f55921d3cf6c25d76f` |
+| config/input/source/runtime digests | `9949335070d23ecd8719a94c67d327e0aa53ce421ea1dffa27892b7fba599fd7`; `08d80fc972ae5ace8f4c3c5392c4fd36b53187f2d2a7655fff820257a2ec0074`; `a6f71c1c906ebbe8ab36566a8dcc28dd09d1feb1ac0b887bb548ec66570725ee`; `35e3f3f4bf8098eb73fd6b51fc42828a7ba59cee2c3200b0fea28b0bbd4371aa` |
+| completed retained state | step 50; best step 50; case-first H29 validation NPE `4.562549114227295` |
+| step-50 structure gates | normalized finite; decoded finite; released-state admissible; bounded below 10x train envelope on all five cases and 29 calls |
+| terminal event | next registered validation at step 100: normalized H29 proposals completed finite, then prediction decode returned a nonfinite physical value |
+| terminal disposition | registered stop; no step-100 history row/checkpoint/status/final manifest; no automatic resume |
+
+The exact retained compact/artifact hashes are:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| captured error log | `5563b18c795982e21c9454185fa143c32adb7f846a204339f74a41bbb15900e5` |
+| `config.json` | `cc40b001c341aa4d9fcd97c686cd3ca0e2b43aa439f4b4f58a7fb8a5f9887dd6` |
+| `input_manifest.json` | `87e212a322790d78de480b4b338fbf5f3c34ae3247b2062d273899e1179758f4` |
+| `source_manifest.json` | `c5f7e4c136115eb59e0d482961ab1a4c363a9515267d1154433fa20562cc47b0` |
+| `runtime_manifest.json` | `7ea508c45fa1a2a74a9dc5fd0f131686373c3024651fbb2d383ce5f199849f43` |
+| `history.json` | `24876f3313fcdc1bfe68d8d86b496fcadd6286a99dfcd2a9283ddc5c87db4641` |
+| `best.pt` | `7a94eee88d3ed903b610bdeb3888b144d294cbcc9f90eec807cd005c43480fe4` |
+| `last.pt` | `437e304b0c280488c08dcb727ea7de0431bee363df805821785bc09f8fe13832` |
+
+Independent post-stop verification recomputed and passed the last-model,
+best-model, best-normalizer, best/last link, provenance-signature, common
+provenance, and step-50 identity checks. The hard cap was not reached, GPU
+memory did not exhaust, and no test object or residual arm was used.
+
+This is a failed completion gate, not evidence that the final 5,000-step model
+would necessarily be inaccurate and not evidence that REALM, FFNO, or direct
+state prediction generally fails. The failure is localized only to the frozen
+optimizer/history and early step-100 H29 decoded rollout. The current failure
+path does not retain the step-100 model or identify the first case/call/channel,
+so cause claims about Box--Cox margin, recurrent amplitude, or a specific field
+remain unsupported. The minimum decisive follow-up is a separately registered
+exact step-50-to-100 replay with failure-state localization; it may not silently
+continue this attempt or relax physical validity.

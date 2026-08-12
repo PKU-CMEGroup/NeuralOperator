@@ -4,8 +4,10 @@ Status: A0 and D088 P1a/P1b are complete. The exact IgnitHIT train/validation
 tree and reference replay passed under the recorded restricted-internal-research
 disposition. The owner-authorized P1c A3-smoke completed on an alternate
 personal GPU workstation with all gates passing. The direct-baseline A1 trainer
-and synthetic CPU gates are complete. Full training, residual comparison, and
-sealed-test evaluation remain unauthorized.
+and synthetic CPU gates are complete. The subsequently authorized exact A3
+direct-baseline attempt stopped at its step-100 decoded-nonfinite validation
+gate; it is not a completed baseline. Residual comparison and sealed-test
+evaluation remain unauthorized.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -469,27 +471,34 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1a contract implementation | `COMPLETE; D088` | preregistration, adapter/evaluator, manifest audit, CPU tests | none |
 | L4-P1b IgnitHIT train/validation acquisition/replay | `COMPLETE; D088; ALL GATES PASS` | exact sealed-safe open tree, train statistics, and reference replay | none |
 | L4-P1c FFNO-M GPU smoke | `COMPLETE; D088; ALL GATES PASS` | source/runtime/memory manifest and smoke verdict | none |
-| L4-P1c full direct FFNO baseline | `A1 COMPLETE; ALL SOURCE/CPU GATES PASS; GPU RUN NOT AUTHORIZED` | one-seed reconstruction verdict and measured full cost | one named A3 seed on an explicitly free resource |
+| L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | source-only failure-localization registration first |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
 
 ## Smallest Next Authorization Request
 
-The owner-authorized **W26-L4-P1c-baseline A1** source work completed on
-2026-08-12. The two registered Python files pass formatting/lint and the focused
-REALM synthetic CPU suite (`74/74`); exact hashes and gate outcomes are recorded
-in the D088 preregistration. No real trajectory array, CUDA context, remote host,
-or scientific checkpoint was used.
+The owner authorized the exact single-seed A3 request on 2026-08-12. Preflight
+closed the four executed-source hashes, one visible idle GPU, the prior smoke's
+Python/PyTorch stack, all 26 train and five validation objects, the P1b
+normalizer, output noncollision, and sealed-test absence. The attempt then
+started under the registered 12 GPU-hour cap without a stop-step override.
 
-The smallest next request is **A3 for exactly one direct-baseline run** under
-attempt label `d088_realm_ignithit_p1c_direct_seed0_5000_20260812a` on one
-explicitly named, confirmed-free, single-visible-GPU resource. It uses only the
-frozen 26-train/5-validation open tree and P1b normalizer, seed 0, 5,000 steps,
-130,000 presentations, the registered H29 validation schedule, and a 12
-GPU-hour hard cap. It may write only the compact registered manifests/history,
-`best.pt`, `last.pt`, status, and final hash summary outside the data tree. It
-must stop before model execution on any source/input/runtime mismatch and may
-not access test objects, launch a residual arm, change the optimizer/history, or
-be reported as paper-faithful. This request remains ungranted until the owner
-names or reconfirms the free resource and authorizes that exact A3 run.
+It did **not** complete 5,000 steps. Step 50 retained a finite, admissible, and
+bounded five-case H29 validation with case-first `realm_npe_mean=4.5625491142`.
+At the next scheduled validation, step 100, all normalized recurrent proposals
+were finite, but decoding the prediction produced a nonfinite physical value.
+The preregistered stop gate terminated the process before a step-100 result or
+checkpoint was written. The exact step-50 `best.pt` and `last.pt` identities and
+their model/normalizer/provenance digests verify; they are recovery evidence,
+not a completed baseline. No timeout, OOM, source/input mismatch, test access,
+or residual execution occurred. Do not resume this attempt automatically.
+
+The smallest next request is **A1 source and synthetic CPU work only** for a
+failure-localization replay that starts from the exact step-50 recovery state,
+reproduces only steps 51--100, and records the first decoded-nonfinite case,
+call, channel, normalized value, inverse-transform margin, and model-state
+digest before stopping. It must not alter the direct model, optimizer,
+scheduler, sampling order, normalizer, H29 population, or stop semantics. A
+subsequent short A3 replay would require separate authorization; full training,
+the residual arm, and test access remain unauthorized.

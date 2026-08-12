@@ -163,7 +163,7 @@ attempt histories, and claim language.
 | D085 | Fixed-Fourier bump orientation stress | Completed; every rotated proposal failed at call 1, before recurrence. |
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
-| D088 | W26-L4 REALM IgnitHIT open-data contract replay | P1a/P1b completed. Exact 26-train/5-validation inventory, train-only preprocessing, and validation identity metrics pass on all open trajectories; no model/checkpoint/GPU or sealed test object was used. This is executable reference-contract evidence, not a surrogate result. |
+| D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step A3 direct attempt stopped at its step-100 H29 validation because finite normalized proposals decoded to a nonfinite physical value; exact step-50 recovery checkpoints remain, but no completed baseline or residual comparison exists. Test stayed absent. |
 
 ## Evidence And Claim Boundaries
 
@@ -191,9 +191,10 @@ attempt histories, and claim language.
   common declared bump population. Its exact deployed-map decomposition is an
   inference-side diagnostic, not a causal training, representation, boundary,
   or general-stability result. H160/H320 and JVP/spectral branches are not queued.
-- D088 is the registered REALM IgnitHIT open-data/reference-contract result.
-  It is not a baseline or direct-versus-residual result. Do not conflate REALM
-  with RealPDE Track 2.
+- D088 registers the REALM IgnitHIT open-data/reference contract and the failed
+  exact direct-baseline attempt. The latter is an early optimizer-history stop,
+  not a completed baseline, general FFNO/direct-map rejection, or
+  direct-versus-residual result. Do not conflate REALM with RealPDE Track 2.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.

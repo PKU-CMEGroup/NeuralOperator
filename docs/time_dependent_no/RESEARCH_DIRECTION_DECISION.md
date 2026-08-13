@@ -202,10 +202,13 @@ step 50 (`4.9248557091`). No resume, retry, raw-output repair, sealed test acces
 full baseline, or residual comparison occurred. The specific step-100 failure
 channel is unobserved, so the result cannot support a mechanism attribution.
 Full D089 continuation, the residual arm, and PlanarDet remain blocked. The
-smallest next request is A1-only registration and CPU testing of a distinct
-nonperturbing failure-capture replay with exact verification of the retained
-step-1 and step-50 identities; any GPU replay needs a later explicit
-authorization and noncolliding stable ID.
+distinct D090 nonperturbing failure-capture replay is now preregistered and its
+synthetic A1 gates pass. It binds the exact retained step-1 and step-50
+identities, reconstructs only steps 51--100, persists the full step-100 H29 row
+before calling D089's unchanged eligibility gate, and stops in every outcome.
+No real array, checkpoint execution, CUDA context, remote host, or test object
+was used. The smallest next request is one explicit A3 D090 diagnostic replay;
+it does not authorize a retry, continuation, selection, or residual execution.
 
 D072, D084, D087, D088, and D089 are complete and terminal at their registered
 scopes. None establishes boundary-condition improvement, resolution

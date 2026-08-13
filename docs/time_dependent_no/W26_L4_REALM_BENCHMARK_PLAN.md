@@ -475,7 +475,8 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
 | L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
 | L4-P1c paired fresh-map margin audit | `A2 COMPLETE; CHECKPOINT-HISTORY-ASSOCIATED MARGIN REGRESSION` | exact two-call result: lower average normalized error but 327 new `H2O` inverse-domain violations | none |
-| L4-P1d domain-linked direct amendment | `TERMINAL A3-P0 FAILURE; D089` | steps 1 and 50 eligible; step-100 eligibility conjunction failed before row serialization | A1-only failure-capture preregistration and CPU tests |
+| L4-P1d domain-linked direct amendment | `TERMINAL A3-P0 FAILURE; D089` | steps 1 and 50 eligible; step-100 eligibility conjunction failed before row serialization | none |
+| L4-P1d step-100 failure capture | `A1 COMPLETE; D090 NOT EXECUTED` | exact replay/capture contract and synthetic CPU gates | one explicit A3 diagnostic replay |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -597,9 +598,13 @@ unobserved. The best checkpoint is step 1 and the last checkpoint is step 50.
 No resume, retry, raw-output repair, sealed-test access, full baseline, or
 residual execution occurred.
 
-Full D089 continuation, the residual arm, and PlanarDet remain blocked. The
-smallest next request is **A1 only**: register and CPU-test a distinct
-nonperturbing failure-capture replay that persists the full failing validation
-row before stopping and requires exact verification of the retained D089
-identities. Any real-checkpoint/GPU replay requires later explicit authorization
-and a noncolliding stable ID.
+Full D089 continuation, the residual arm, and PlanarDet remain blocked. That
+narrow A1 is now complete under `D090`: the isolated source verifies the exact
+retained D089 identities, reconstructs only steps 51--100, persists and
+read-verifies the full H29 validation row before D089's unchanged gate, and
+stops whether the row fails or unexpectedly passes. Synthetic CPU, Ruff, and
+safe-help gates pass; retained provenance metadata was audited read-only, but no
+real array was opened and no checkpoint was loaded into a model or executed;
+no CUDA context, remote host, or test object was used. The smallest next request
+is **one explicit A3 D090 diagnostic replay only**. It authorizes no retry,
+continuation, selection, PlanarDet, or residual arm.

@@ -32,7 +32,7 @@ the current source and artifact manifests before execution or interpretation.
 
 ## Stable ID Rules
 
-- The registered run universe through D089 contains 118 IDs: D001--D089,
+- The registered run universe through D090 contains 119 IDs: D001--D090,
   23 L3R IDs, L4A-001--L4A-004, L1-OOD, and XLINE-001.
 - D043b/D043d are attempts under D043; D053a/D053b are attempts under D053.
 - P/D019 maps to D019 and R/D041 maps to D041.
@@ -70,10 +70,10 @@ the current source and artifact manifests before execution or interpretation.
 
 ## D-Series Index
 
-Every D-series ID is contiguous from D001 through D089. Use the archive for
+Every D-series ID is contiguous from D001 through D090. Use the archive for
 D001--D086 exact populations, contracts, metrics, thresholds, source and
 artifact hashes, attempt histories, and claim language; use the live contracts
-linked below for D087--D089.
+linked below for D087--D090.
 
 | ID | Family and topic | Terminal evidence state |
 | --- | --- | --- |
@@ -166,6 +166,7 @@ linked below for D087--D089.
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
 | D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step direct attempt stopped at step-100 decode. Replay localized a fresh-call-1 `H2O` inverse-domain failure in all five validation cases. The paired fresh-map audit then found that step 100 lowers one-call `realm_npe_mean` by 60.38% versus step 50 while creating 327 new `H2O` domain violations; truth and step 50 create none. The attempt and diagnostics are terminal without a completed baseline or residual comparison. Test stayed absent. |
 | D089 | W26-L4 domain-linked IgnitHIT direct-baseline amendment | A1 passed, but the one authorized seed-0 A3-P0 run is terminal: steps 1 and 50 were finite, decoded-finite, admissible, and bounded; step-100 validation failed at least one registered eligibility flag before its row was serialized. Best is step 1 (`realm_npe_mean=4.5477657318`), last is step 50 (`4.9248557091`). The exact step-100 flag is unobserved, no retry/resume/test access occurred, and no full baseline or residual arm is supported. |
+| D090 | W26-L4 D089 step-100 failure capture | A1 preregistration, isolated capture source, and synthetic CPU gates pass. The exact replay is not executed or authorized: it would restore D089 step 50, replay only steps 51--100, persist the full H29 validation row before the unchanged D089 gate, and stop in every outcome. No D090 scientific result exists. |
 
 ## Evidence And Claim Boundaries
 
@@ -211,6 +212,10 @@ linked below for D087--D089.
   non-species admissibility, or boundedness failed. The result supports neither
   an amended completed baseline nor a residual comparison, and it does not prove
   why D088 or D089 failed.
+- D090 is a registered diagnostic reconstruction, not a D089 continuation or
+  selectable training attempt. Its A1 tests establish source/identity/capture
+  semantics only. Until a separately authorized replay executes, the exact
+  D089 step-100 failing flags and continuous metrics remain unobserved.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.
@@ -244,17 +249,19 @@ linked below for D087--D089.
 | Orientation and graph transformation | D083, D085, D086 |
 | Physical-conservation limits | D008, D037, D045--D051, RC-13 in the decision file |
 | Latent forecasting readiness | L4A-001--L4A-004 |
-| REALM benchmark validation | D088, D089, [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
+| REALM benchmark validation | D088--D090, [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
 
 ## Archive And Recovery Anchors
 
 - The through-2026-08-11 archive above is the authoritative detailed ledger for
   D001--D086 and all registered non-D IDs in this index.
-- D087--D089 postdate that archive. Their exact live contracts, attempt
+- D087--D090 postdate that archive. Their exact live contracts, attempt
   histories, hashes, results, and claim boundaries are in
   [D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md](D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md),
   [W26_L4_REALM_PREREGISTRATION.md](W26_L4_REALM_PREREGISTRATION.md), and
-  [D089_W26_L4_REALM_DOMAIN_LINK_PREREGISTRATION.md](D089_W26_L4_REALM_DOMAIN_LINK_PREREGISTRATION.md).
+  [D089_W26_L4_REALM_DOMAIN_LINK_PREREGISTRATION.md](D089_W26_L4_REALM_DOMAIN_LINK_PREREGISTRATION.md),
+  with D090's exact diagnostic contract in
+  [D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md](D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md).
 - Commit `5646bfb` adds the byte-preserved pre-compaction tracker state; the
   archive, not the commit diff, is the normal retrieval target.
 - The earlier through-2026-08-01 archive has SHA-256

@@ -305,11 +305,10 @@ which state channel failed. This single failure also does not reject all
 domain-compatible maps, direct neural operators, FFNO, or REALM.
 
 The attempt is terminal and full 5,000-step continuation and the residual arm
-remain blocked. The smallest scientifically useful next request is **A1 only**:
-preregister and CPU-test a distinct deterministic diagnostic replay that
-persists the complete failing validation row before terminating, while requiring
-bitwise verification of D089's retained step-1 and step-50 checkpoint/model
-identities.
-That A1 would authorize no real data, checkpoint execution, GPU work, test
-population, PlanarDet, or residual training; any replay would require a later
-explicit authorization and a noncolliding stable ID.
+remain blocked. That smallest A1 is now complete under the distinct `D090`
+contract in
+[D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md](D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md).
+It changed no D089 result: no real data, checkpoint execution, GPU work, test
+population, PlanarDet, or residual training occurred. The smallest subsequent
+request is one explicit A3 D090 diagnostic replay only; it stops after the
+captured step-100 validation in every outcome.

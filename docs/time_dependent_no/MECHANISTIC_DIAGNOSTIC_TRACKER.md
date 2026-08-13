@@ -165,7 +165,7 @@ linked below for D087--D089.
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
 | D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step direct attempt stopped at step-100 decode. Replay localized a fresh-call-1 `H2O` inverse-domain failure in all five validation cases. The paired fresh-map audit then found that step 100 lowers one-call `realm_npe_mean` by 60.38% versus step 50 while creating 327 new `H2O` domain violations; truth and step 50 create none. The attempt and diagnostics are terminal without a completed baseline or residual comparison. Test stayed absent. |
-| D089 | W26-L4 domain-linked IgnitHIT direct-baseline amendment | A1 complete: one parameter-free train-time species-domain link, fail-closed selection eligibility, isolated D088-loop adapter, and all 109 maintained REALM CPU tests pass. No real trajectory/normalizer array, checkpoint, GPU, test, rollout result, or residual arm was used or authorized. |
+| D089 | W26-L4 domain-linked IgnitHIT direct-baseline amendment | A1 passed, but the one authorized seed-0 A3-P0 run is terminal: steps 1 and 50 were finite, decoded-finite, admissible, and bounded; step-100 validation failed at least one registered eligibility flag before its row was serialized. Best is step 1 (`realm_npe_mean=4.5477657318`), last is step 50 (`4.9248557091`). The exact step-100 flag is unobserved, no retry/resume/test access occurred, and no full baseline or residual arm is supported. |
 
 ## Evidence And Claim Boundaries
 
@@ -205,9 +205,12 @@ linked below for D087--D089.
   rejection, Box--Cox causal result, or direct-versus-residual result. Do not
   conflate REALM with RealPDE Track 2.
 - D089 changes the direct model's species output parameterization and therefore
-  cannot be reported as the original raw D088 baseline. A future pass would
-  establish only an amended open-validation baseline under its exact contract;
-  it would not prove why D088 failed or support a residual comparison by itself.
+  cannot be reported as the original raw D088 baseline. Its authorized P0 run
+  is terminal at the step-100 eligibility gate. Because the failing row was not
+  serialized, do not infer whether normalized finiteness, decoded finiteness,
+  non-species admissibility, or boundedness failed. The result supports neither
+  an amended completed baseline nor a residual comparison, and it does not prove
+  why D088 or D089 failed.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.

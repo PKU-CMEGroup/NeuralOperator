@@ -475,7 +475,7 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
 | L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
 | L4-P1c paired fresh-map margin audit | `A2 COMPLETE; CHECKPOINT-HISTORY-ASSOCIATED MARGIN REGRESSION` | exact two-call result: lower average normalized error but 327 new `H2O` inverse-domain violations | none |
-| L4-P1d domain-linked direct amendment | `A1 COMPLETE; D089; 109/109 CPU TESTS PASS` | frozen parameter-free link, fail-closed selection, isolated trainer, exact source identities | conditional A3-P0 step-100 request |
+| L4-P1d domain-linked direct amendment | `TERMINAL A3-P0 FAILURE; D089` | steps 1 and 50 eligible; step-100 eligibility conjunction failed before row serialization | A1-only failure-capture preregistration and CPU tests |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -574,7 +574,7 @@ eight inverse-transformed species channels. It is applied during training and
 recurrence, rejects nonfinite raw proposals, leaves temperature/density/
 velocity channels unchanged, and does not resume D088. Real arrays,
 checkpoints, CUDA, remote hosts, the sealed test population, and the residual
-arm remain outside A1. The smallest conditional next request is a fresh D089
+arm remained outside A1. The then-smallest conditional request was a fresh D089
 step-100 GPU gate only after source/test/commit closeout.
 
 That A1 is now complete. The frozen D088 parent trainer remains byte-identical;
@@ -584,5 +584,22 @@ channels exactly and applies the linked proposal consistently in training and
 recurrence. Ruff and safe CLI help pass, and the complete maintained REALM
 synthetic CPU suite passes `109/109`. No real trajectory/normalizer array,
 checkpoint, CUDA context, remote host, test object, residual arm, or generated
-scientific artifact was used. The next request is the preregistered A3-P0
-step-100 gate only, not full training.
+scientific artifact was used. The preregistered A3-P0 step-100 gate, not full
+training, was subsequently authorized.
+
+That A3-P0 run is now complete and terminal. The fresh seed-0 attempt retained
+eligible steps 1 and 50 with case-first H29 `realm_npe_mean` values
+`4.5477657318` and `4.9248557091`, respectively. At step 100, at least one of
+normalized finiteness, decoded finiteness, released-state admissibility, or
+10x-envelope boundedness failed before the validation row or checkpoint was
+serialized. The exact flag and the prospective accuracy cutoff are therefore
+unobserved. The best checkpoint is step 1 and the last checkpoint is step 50.
+No resume, retry, raw-output repair, sealed-test access, full baseline, or
+residual execution occurred.
+
+Full D089 continuation, the residual arm, and PlanarDet remain blocked. The
+smallest next request is **A1 only**: register and CPU-test a distinct
+nonperturbing failure-capture replay that persists the full failing validation
+row before stopping and requires exact verification of the retained D089
+identities. Any real-checkpoint/GPU replay requires later explicit authorization
+and a noncolliding stable ID.

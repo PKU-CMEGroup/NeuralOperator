@@ -1,7 +1,7 @@
 # D089 W26-L4 REALM Domain-Linked Direct Baseline Preregistration
 
-Status: **A1 complete; all source and synthetic CPU gates pass; no real-data or
-GPU execution authorized**
+Status: **A3-P0 terminal failure at the registered step-100 eligibility gate;
+no continuation or residual arm authorized**
 
 Date: 2026-08-13
 
@@ -35,7 +35,7 @@ D089 asks a narrower prospective question:
 > contract, without hiding a nonfinite raw proposal or relaxing accuracy,
 > decoded-admissibility, or boundedness selection gates?
 
-If a future D089 run passes, the allowed claim is only that this amended direct
+The prospectively allowed pass claim was only that this amended direct
 baseline completed the registered open-validation contract. D089 is not the
 original raw direct baseline; its output parameterization and hypothesis class
 have changed. A pass does not retrospectively repair D088, identify the cause
@@ -173,23 +173,24 @@ A1 passes only if:
 12. Ruff, safe CLI help, the focused D089/D088 suite, and the full maintained
     REALM CPU suite pass.
 
-### A3-P0 — conditional GPU step-100 gate; not authorized here
+### A3-P0 — prospective GPU step-100 gate; executed once and failed
 
-The smallest later GPU request is one fresh seed-0 run through registered
-validation step 100 only, using `--stop-after-step 100`. It may run only after a
-fresh-process preflight verifies the committed source hashes, exact open
+The prospectively authorized GPU request was one fresh seed-0 run through
+registered validation step 100 only, using `--stop-after-step 100`. It could run
+only after a fresh-process preflight verified the committed source hashes, exact open
 manifest/tree, P1b normalizer, test absence, one visible idle GPU, deterministic
-runtime flags, and a new noncolliding output directory. It does not load or
+runtime flags, and a new noncolliding output directory. It did not load or
 resume D088.
 
-Go beyond P0 only if validations at steps 1, 50, and 100 all produce eligible
-rows; the step-100 case-first H29 `realm_npe_mean` is strictly below D088's last
-eligible step-50 value `4.5625491142`; recurrence and model/checkpoint digests
-verify; and no test object, raw-output repair, retry, or runtime drift occurs.
-Any gate failure is terminal for this attempt. A P0 pass is viability evidence,
-not a completed baseline; resumption toward 5,000 steps requires a separate A3
-authorization and must restore D089's exact `last.pt` plus all RNG, optimizer,
-scheduler, source, input, runtime, and run-signature identities.
+The frozen promotion rule required validations at steps 1, 50, and 100 to
+produce eligible rows, the step-100 case-first H29 `realm_npe_mean` to be
+strictly below D088's last eligible step-50 value `4.5625491142`, recurrence and
+model/checkpoint digests to verify, and no test object, raw-output repair, retry,
+or runtime drift to occur.
+Any gate failure was terminal for this attempt. A P0 pass would have been
+viability evidence, not a completed baseline; resumption toward 5,000 steps
+would have required a separate A3 authorization and exact restoration of all
+registered identities.
 
 The `4.5625491142` P0 cutoff is explicitly pilot-informed by the already known
 D088 step-50 result. It is a prospective viability rule only for the new D089
@@ -225,7 +226,7 @@ No generated report, array, checkpoint, log, or artifact directory belongs in
 Git. A1 cost is CPU-small. Conditional A3-P0 is one-GPU small relative to the
 full 5,000-step run and stops at step 100.
 
-## A1 Closeout And Next Authorization
+## A1 Closeout
 
 Status: **COMPLETE; ALL A1 GATES PASS** on 2026-08-13.
 
@@ -241,9 +242,9 @@ The frozen D088 parent trainer remains byte-identical at
 `a3fa0c0e831765ce24c6ae3aa11e3d2afcf67cc242de0a508381dc0b25b43f1e`.
 The D089 config digest is
 `9e1edc140c29ec79fbc99e7c65dffa295e045e01c526b077664a4314ccb7a161`.
-The current canonical executed-source manifest digest is
+The canonical executed-source manifest digest is
 `b301cab59e53870f46a5ac2ae0252646e51939e3c567d0ce85f3910b919e31ec`;
-a future A3 preflight must recompute and match it after checkout.
+the executed A3 preflight recomputed and matched it after checkout.
 
 `ruff check` and `ruff format --check` pass for all three D089 Python files.
 The complete maintained REALM synthetic CPU suite passes `109/109`, including
@@ -252,6 +253,63 @@ exits zero. No real trajectory or normalizer array, scientific checkpoint,
 CUDA context, remote host, test object, residual arm, or generated scientific
 artifact was opened or created.
 
-The smallest next authorization is **A3-P0 only**: one fresh seed-0 D089 GPU
-run through registered validation step 100 under the gates above. That request
-does not include full 5,000-step continuation or the residual arm.
+## A3-P0 Result And Claim Decision
+
+The owner authorized exactly one fresh seed-0 D089 run through validation step
+100. The attempt ran once on 2026-08-13 from `09:51:53+08:00` to
+`09:53:00+08:00` and
+terminated with process exit code `2` when the registered validation
+eligibility check raised at step 100. It was not resumed or retried. The sealed
+test object remained absent, no D088 checkpoint was loaded, and no raw-output
+repair was used.
+
+The fresh-process preflight passed before the first model call. It verified all
+34 open-manifest entries totaling 552,023,019 bytes, open-manifest digest
+`85e8dcdaf4a5f7726ac5a7ad18a1bc131785fc1212acc9318ff69b94be965205`,
+the P1b normalizer digest, exact D089 source and config digests, 8,936,460
+trainable parameters, one visible idle GPU, and deterministic FP32 runtime. The
+executed run signature is
+`d5e0acb53973ec9c89ad51aeb718bd91e84a4f192971ff8d47f1235a3efbd5e1`.
+
+The two retained eligible rows are:
+
+| Step | Train grouped loss | Case-first H29 `realm_npe_mean` | Maximum 10x-envelope ratio | Finite / decoded finite / admissible / bounded |
+| ---: | ---: | ---: | ---: | --- |
+| 1 | 6.1849659406 | 4.5477657318 | 0.1403203458 | pass / pass / pass / pass |
+| 50 | 1.3774454662 | 4.9248557091 | 0.2253825963 | pass / pass / pass / pass |
+
+At step 100, at least one of normalized finiteness, decoded finiteness,
+released-state admissibility, or 10x-envelope boundedness failed. The exact
+flag and continuous metrics are unavailable: D089 called the fail-closed
+eligibility check before appending the validation row or writing the checkpoint.
+Consequently, the last checkpoint is the eligible step-50 state, the selected
+best checkpoint is step 1, and the prospective step-100 accuracy cutoff is
+unobserved. Replaying from step 50 to reconstruct the missing row would be a new
+scientific execution and is not permitted under this terminal attempt.
+
+The exact retained identities are:
+
+| Artifact | Step | SHA-256 / structured-state SHA-256 |
+| --- | ---: | --- |
+| `best.pt` | 1 | file `c25f519f294ec8a11b8b863d7d00b8724b18ef67304cfa632ea954344973ef56`; model `efcbdac2e5d85f653ac0bee8452a39435f857f2ba1b5eedd176f12e0e19f8c1f` |
+| `last.pt` | 50 | file `e0dc58273727fb07e5cb698df805e27ea3f43e68a6a259c1c1581649ebd047bf`; model `6bb34b88b082e7e6d5668c651703707949a4a7d8b2ef4334ed903655c0deb7c0` |
+| terminal audit | n/a | canonical payload `d9b00215fd83cfc67a9e3c7448e4e8dd9146468125919ae71ae13afadd3235c7` |
+
+Local result-to-claim verdict, **pending external Codex review**:
+**`claim_supported: no` for P0 viability, confidence high**. The unpublished
+result was not disclosed to an external reviewer. The data support only that
+the domain-linked direct map remains eligible through step 50 under the
+registered open-validation contract. They do not support step-100 viability,
+full-baseline completion, a residual comparison, or a mechanism claim about
+which state channel failed. This single failure also does not reject all
+domain-compatible maps, direct neural operators, FFNO, or REALM.
+
+The attempt is terminal and full 5,000-step continuation and the residual arm
+remain blocked. The smallest scientifically useful next request is **A1 only**:
+preregister and CPU-test a distinct deterministic diagnostic replay that
+persists the complete failing validation row before terminating, while requiring
+bitwise verification of D089's retained step-1 and step-50 checkpoint/model
+identities.
+That A1 would authorize no real data, checkpoint execution, GPU work, test
+population, PlanarDet, or residual training; any replay would require a later
+explicit authorization and a noncolliding stable ID.

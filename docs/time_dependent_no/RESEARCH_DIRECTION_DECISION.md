@@ -47,6 +47,7 @@ operator solver.
 | Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal training/representation/boundary mechanism, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
 | Dynamic finite-volume shock-vortex | D044 is a useful one-seed baseline; D060 improves state error but fails joint front/high-pass promotion. D063--D081 establish bounded common-source transfer, a composite mesh-defect diagnosis, differential-support evidence, and one deterministic open-validation correction result with exact same-population process reproduction. Node-type and always-on local-filter questions are closed at their registered scopes. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, safety beyond the registered open cases, independent-data/statistical confirmation, general node-type necessity, optimal boundary encoding, native-solver equivalence, other-PDE transfer, or sealed performance. |
 | Latent forecast | Discontinuous decoder regularity improves front fidelity, but the tested family is decoder-capacity limited. | No latent transition, autonomous recurrence, geometry transfer, or data-assimilation result. |
+| REALM IgnitHIT | D088 shows that lower mean fresh-map error can hide a sparse inverse-domain tail. D089's species-domain link prevents that registered species-domain failure under its separate history, but D090 shows the H29 map still becomes unbounded while remaining finite and admissible; its sampled-pair training loss and rollout quality move in opposite directions. | No completed direct baseline, residual comparison, sealed test result, PlanarDet result, causal link effect, offending-channel attribution, general FFNO/direct-map rejection, or benchmark-wide claim. |
 
 The supersonic-bump and Mach-1.1 dynamic finite-volume programs remain separate.
 D053b's mostly fresh smooth-high-pass defect is dynamic-family evidence;
@@ -193,25 +194,28 @@ baseline, open test, or compare direct and residual models. Re-entry starts
 with a separately authorized domain-compatible direct-baseline contract, not
 an automatic resume or an inference-only clipping repair.
 
-That re-entry is now terminal under `D089`. Its A1 source and all 109 maintained
-REALM synthetic CPU tests passed. The one authorized fresh seed-0 A3-P0 run
-retained eligible step-1 and step-50 rows, then failed at least one registered
-step-100 validation eligibility flag before that row was serialized. The best
-checkpoint is step 1 (`realm_npe_mean=4.5477657318`) and the last checkpoint is
-step 50 (`4.9248557091`). No resume, retry, raw-output repair, sealed test access,
-full baseline, or residual comparison occurred. The specific step-100 failure
-channel is unobserved, so the result cannot support a mechanism attribution.
-Full D089 continuation, the residual arm, and PlanarDet remain blocked. The
-distinct D090 nonperturbing failure-capture replay is now preregistered and its
-synthetic A1 gates pass. It binds the exact retained step-1 and step-50
-identities, reconstructs only steps 51--100, persists the full step-100 H29 row
-before calling D089's unchanged eligibility gate, and stops in every outcome.
-No real array, checkpoint execution, CUDA context, remote host, or test object
-was used. The smallest next request is one explicit A3 D090 diagnostic replay;
-it does not authorize a retry, continuation, selection, or residual execution.
+That re-entry is terminal under `D089`. Its one authorized fresh seed-0 A3-P0
+run retained eligible step-1 and step-50 rows, then stopped at the step-100
+eligibility gate before serializing the row. Best remains step 1
+(`realm_npe_mean=4.5477657318`) and last remains step 50 (`4.9248557091`).
 
-D072, D084, D087, D088, and D089 are complete and terminal at their registered
-scopes. None establishes boundary-condition improvement, resolution
+The separately authorized `D090` replay now resolves the missing row without
+changing those identities. At step 100 all normalized and decoded proposals are
+finite and all 145 case-calls are admissible, but every validation case contains
+unbounded calls. The maximum registered-envelope ratio is `2.2733771801` and
+H29 `realm_npe_mean=5.7428269386`. From step 50 to 100 the recorded
+sampled-pair one-step train loss falls 81.60% while H29 NPE rises 16.61% and the
+envelope ratio grows 10.09x. The training rows use different registered samples,
+so this motivates rather than proves an objective/exposure-mismatch hypothesis.
+It does establish a boundedness-versus-admissibility separation under the exact
+history, not an offending-channel, fresh-versus-propagated, optimizer,
+output-link, or general instability cause.
+No resume, retry, selection, repair, sealed test access, residual comparison,
+or PlanarDet run occurred. Full D089 continuation, the residual arm, and
+PlanarDet remain blocked.
+
+D072, D084, D087, D088, D089, and D090 are complete and terminal at their
+registered scopes. None establishes boundary-condition improvement, resolution
 consistency, geometry/rotation generalization, conservation, operator
 convergence, or general Euler stability. Re-entry requires a new owner-selected
 claim and preregistration.

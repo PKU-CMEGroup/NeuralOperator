@@ -165,8 +165,8 @@ linked below for D087--D090.
 | D086 | Rotated finite-invalid visualization continuation | Completed; all continuations stayed finite through H79 but were inadmissible from call 1. |
 | D087 | W26-L1 paired bump stability and failure forensics | Completed and terminal at H79. B1 survives all admissibility/boundedness/finite gates; D019 departs in accuracy first, then becomes inadmissible and unbounded while remaining finite. Exact decomposition attributes the realized late error to propagated-input response, not a rising fresh defect; native-system causal factors remain confounded. |
 | D088 | W26-L4 REALM IgnitHIT contract and direct-baseline attempt | P1a/P1b reference replay and P1c smoke passed. The exact seed-0/5,000-step direct attempt stopped at step-100 decode. Replay localized a fresh-call-1 `H2O` inverse-domain failure in all five validation cases. The paired fresh-map audit then found that step 100 lowers one-call `realm_npe_mean` by 60.38% versus step 50 while creating 327 new `H2O` domain violations; truth and step 50 create none. The attempt and diagnostics are terminal without a completed baseline or residual comparison. Test stayed absent. |
-| D089 | W26-L4 domain-linked IgnitHIT direct-baseline amendment | A1 passed, but the one authorized seed-0 A3-P0 run is terminal: steps 1 and 50 were finite, decoded-finite, admissible, and bounded; step-100 validation failed at least one registered eligibility flag before its row was serialized. Best is step 1 (`realm_npe_mean=4.5477657318`), last is step 50 (`4.9248557091`). The exact step-100 flag is unobserved, no retry/resume/test access occurred, and no full baseline or residual arm is supported. |
-| D090 | W26-L4 D089 step-100 failure capture | A1 preregistration, isolated capture source, and synthetic CPU gates pass. The exact replay is not executed or authorized: it would restore D089 step 50, replay only steps 51--100, persist the full H29 validation row before the unchanged D089 gate, and stop in every outcome. No D090 scientific result exists. |
+| D089 | W26-L4 domain-linked IgnitHIT direct-baseline amendment | A1 passed, but the one authorized seed-0 A3-P0 run is terminal: steps 1 and 50 were finite, decoded-finite, admissible, and bounded; step-100 validation failed before its row was serialized. Best remains step 1 (`realm_npe_mean=4.5477657318`) and last remains step 50 (`4.9248557091`). D090 later identifies the missing gate as boundedness only; no retry/resume/test access occurred, and no full baseline or residual arm is supported. |
+| D090 | W26-L4 D089 step-100 failure capture | Completed and terminal. The exact one-replay diagnostic restores D089 step 50, replays only steps 51--100, persists the full H29 row before the unchanged gate, and stops. At step 100 all normalized and decoded states are finite and all 145 case-calls are admissible, but all five cases contain unbounded calls; maximum registered-envelope ratio is `2.2733771801` and H29 `realm_npe_mean=5.7428269386`. No retry, continuation, selection, repair, test, PlanarDet, or residual arm occurred. |
 
 ## Evidence And Claim Boundaries
 
@@ -207,15 +207,18 @@ linked below for D087--D090.
   conflate REALM with RealPDE Track 2.
 - D089 changes the direct model's species output parameterization and therefore
   cannot be reported as the original raw D088 baseline. Its authorized P0 run
-  is terminal at the step-100 eligibility gate. Because the failing row was not
-  serialized, do not infer whether normalized finiteness, decoded finiteness,
-  non-species admissibility, or boundedness failed. The result supports neither
-  an amended completed baseline nor a residual comparison, and it does not prove
-  why D088 or D089 failed.
-- D090 is a registered diagnostic reconstruction, not a D089 continuation or
-  selectable training attempt. Its A1 tests establish source/identity/capture
-  semantics only. Until a separately authorized replay executes, the exact
-  D089 step-100 failing flags and continuous metrics remain unobserved.
+  is terminal at the step-100 eligibility gate. D090 resolves the missing row:
+  boundedness alone fails while normalized finiteness, decoded finiteness, and
+  registered admissibility pass. The result supports neither an amended
+  completed baseline nor a residual comparison, and it does not prove why D088
+  or D089 failed.
+- D090 is a diagnostic reconstruction, not a D089 continuation or selectable
+  training attempt. It shows that registered admissibility does not imply
+  boundedness or H29 accuracy and that a lower recorded sampled-pair one-step
+  training loss can coexist with worse free-rollout metrics. The train rows use
+  different registered samples, and the result does not identify the offending
+  channel, first unbounded call, spatial support, fresh-versus-propagated
+  contribution, or causal training mechanism.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.

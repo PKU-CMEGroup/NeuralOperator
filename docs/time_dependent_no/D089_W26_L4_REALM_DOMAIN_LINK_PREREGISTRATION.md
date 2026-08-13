@@ -279,13 +279,13 @@ The two retained eligible rows are:
 | 50 | 1.3774454662 | 4.9248557091 | 0.2253825963 | pass / pass / pass / pass |
 
 At step 100, at least one of normalized finiteness, decoded finiteness,
-released-state admissibility, or 10x-envelope boundedness failed. The exact
-flag and continuous metrics are unavailable: D089 called the fail-closed
+released-state admissibility, or 10x-envelope boundedness failed. D089 itself
+did not retain the exact flag or continuous metrics: it called the fail-closed
 eligibility check before appending the validation row or writing the checkpoint.
-Consequently, the last checkpoint is the eligible step-50 state, the selected
-best checkpoint is step 1, and the prospective step-100 accuracy cutoff is
-unobserved. Replaying from step 50 to reconstruct the missing row would be a new
-scientific execution and is not permitted under this terminal attempt.
+Consequently, the D089 last checkpoint remains the eligible step-50 state and
+the selected best checkpoint remains step 1. The separately registered and
+authorized D090 diagnostic later reconstructed the missing row without changing
+those D089 identities; its result is summarized below.
 
 The exact retained identities are:
 
@@ -295,20 +295,39 @@ The exact retained identities are:
 | `last.pt` | 50 | file `e0dc58273727fb07e5cb698df805e27ea3f43e68a6a259c1c1581649ebd047bf`; model `6bb34b88b082e7e6d5668c651703707949a4a7d8b2ef4334ed903655c0deb7c0` |
 | terminal audit | n/a | canonical payload `d9b00215fd83cfc67a9e3c7448e4e8dd9146468125919ae71ae13afadd3235c7` |
 
-Local result-to-claim verdict, **pending external Codex review**:
+Local result-to-claim verdict:
 **`claim_supported: no` for P0 viability, confidence high**. The unpublished
-result was not disclosed to an external reviewer. The data support only that
+result was not disclosed to an external reviewer. D089 alone supports only that
 the domain-linked direct map remains eligible through step 50 under the
 registered open-validation contract. They do not support step-100 viability,
 full-baseline completion, a residual comparison, or a mechanism claim about
-which state channel failed. This single failure also does not reject all
+which state channel failed. D090 subsequently resolves the gate as boundedness
+only but still does not identify the responsible state channel. This single
+failure also does not reject all
 domain-compatible maps, direct neural operators, FFNO, or REALM.
 
 The attempt is terminal and full 5,000-step continuation and the residual arm
 remain blocked. That smallest A1 is now complete under the distinct `D090`
 contract in
 [D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md](D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md).
-It changed no D089 result: no real data, checkpoint execution, GPU work, test
-population, PlanarDet, or residual training occurred. The smallest subsequent
-request is one explicit A3 D090 diagnostic replay only; it stops after the
-captured step-100 validation in every outcome.
+At A1 closeout it changed no D089 result and executed no real data, checkpoint,
+GPU, test population, PlanarDet, or residual training. The owner later
+authorized its exact one-replay A3 scope.
+
+## Subsequent D090 Diagnostic Resolution
+
+D090 ran once on 2026-08-13, reconstructed exactly D089 steps 51--100, wrote
+the full pre-gate row, called D089's unchanged gate, and stopped. The D089
+failure is boundedness alone: normalized and decoded finiteness pass,
+released-state admissibility passes for all 145 case-calls, and the maximum
+registered-envelope ratio is `2.2733771801`, while H29
+`realm_npe_mean=5.7428269386` misses the pilot-informed cutoff. Every validation
+case contains at least one unbounded call. D090 did not retry, continue, select,
+open test, repair output, run PlanarDet, or execute a residual arm.
+
+This resolves the missing D089 gate identity without making the diagnostic
+model a D089 checkpoint. It supports a boundedness-versus-admissibility
+separation under the exact D089 checkpoint history, not a causal account of the
+training dynamics or offending state channel. Exact metrics, hashes, per-case
+counts, alternatives, and the next minimum diagnostic are in
+[D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md](D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md).

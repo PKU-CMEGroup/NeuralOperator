@@ -8,7 +8,9 @@ and synthetic CPU gates are complete. The subsequently authorized exact A3
 direct-baseline attempt stopped at its step-100 decoded-nonfinite validation
 gate; it is not a completed baseline. Residual comparison and sealed-test
 evaluation remain unauthorized. The paired step-50/step-100 fresh-map margin
-audit is also complete and terminal at two open-validation forward calls.
+audit is also complete and terminal at two open-validation forward calls. The
+distinct D090 replay has now captured D089's missing step-100 row: boundedness
+alone fails while finiteness and registered admissibility pass.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -475,8 +477,8 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1c full direct FFNO baseline | `TERMINAL A3 STOP; DECODED NONFINITE AT STEP-100 VALIDATION` | no completed baseline; exact step-50 recovery state and failure evidence retained | none |
 | L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
 | L4-P1c paired fresh-map margin audit | `A2 COMPLETE; CHECKPOINT-HISTORY-ASSOCIATED MARGIN REGRESSION` | exact two-call result: lower average normalized error but 327 new `H2O` inverse-domain violations | none |
-| L4-P1d domain-linked direct amendment | `TERMINAL A3-P0 FAILURE; D089` | steps 1 and 50 eligible; step-100 eligibility conjunction failed before row serialization | none |
-| L4-P1d step-100 failure capture | `A1 COMPLETE; D090 NOT EXECUTED` | exact replay/capture contract and synthetic CPU gates | one explicit A3 diagnostic replay |
+| L4-P1d domain-linked direct amendment | `TERMINAL A3-P0 FAILURE; D089` | steps 1 and 50 eligible; D090 later resolves step 100 as boundedness-only failure | none |
+| L4-P1d step-100 failure capture | `A3 COMPLETE; D090; TERMINAL` | exact pre-gate H29 row: finite and admissible, but every case has unbounded calls; NPE `5.7428269386` | optional A1 boundedness-attribution diagnostic only |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -605,6 +607,26 @@ read-verifies the full H29 validation row before D089's unchanged gate, and
 stops whether the row fails or unexpectedly passes. Synthetic CPU, Ruff, and
 safe-help gates pass; retained provenance metadata was audited read-only, but no
 real array was opened and no checkpoint was loaded into a model or executed;
-no CUDA context, remote host, or test object was used. The smallest next request
-is **one explicit A3 D090 diagnostic replay only**. It authorizes no retry,
-continuation, selection, PlanarDet, or residual arm.
+no CUDA context, remote host, or test object was used. At that A1 closeout, the
+smallest next request was one explicit A3 D090 diagnostic replay only; it
+authorized no retry, continuation, selection, PlanarDet, or residual arm.
+
+That one A3 replay is now complete and terminal. It ran exactly steps 51--100
+from the retained D089 state and one H29 validation, persisted the row before
+the unchanged gate, and stopped. Normalized finiteness, decoded finiteness, and
+registered released-state admissibility all pass; boundedness alone fails. All
+five validation cases have at least one unbounded call, the maximum
+registered-envelope ratio is `2.2733771801`, and case-first H29
+`realm_npe_mean=5.7428269386` misses the pilot-informed accuracy cutoff. From
+step 50 to 100, the recorded sampled-pair one-call training loss decreases while
+H29 NPE and envelope growth worsen. The train rows use different registered
+samples, so this motivates but does not prove an objective/exposure mismatch.
+No retry, continuation, selection, repair, test, PlanarDet, or residual
+execution occurred.
+
+The minimum decisive follow-up is a matched step-50/step-100 H29 diagnostic of
+per-case, per-call, per-channel envelope ratios under teacher-forced truth
+inputs and free recurrence. The smallest request is A1 preregistration,
+reusable evaluator code, and synthetic CPU tests only. Proposed, not allocated:
+`D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md`. It includes no
+real array, checkpoint execution, GPU work, continuation, or residual arm.

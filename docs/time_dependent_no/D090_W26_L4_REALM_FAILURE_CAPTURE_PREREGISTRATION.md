@@ -1,6 +1,7 @@
 # D090 W26-L4 REALM Step-100 Failure-Capture Preregistration
 
-Status: **A1 complete; diagnostic replay not executed and not authorized**
+Status: **A3 diagnostic replay complete and terminal; boundedness alone failed;
+no continuation or residual arm authorized**
 
 Date: 2026-08-13
 
@@ -113,7 +114,7 @@ produces no scientific event claim. Released-state admissibility is not full
 composition conservation or complete physical validity. Boundedness is not
 accuracy; H29 `realm_npe_mean` is not admissibility or finiteness.
 
-## Retained Artifact Inventory For A Later Replay
+## Retained Artifact Inventory
 
 Only these outputs are registered:
 
@@ -179,26 +180,129 @@ The canonical D090 executed-source manifest digest is
 
 Focused synthetic CPU checks pass `13/13`; Ruff check and format-check pass and
 safe CLI help exits zero. The complete maintained REALM synthetic CPU suite,
-including D090, passes `122/122`. No scientific result exists under D090 yet.
+including D090, passes `122/122`. No scientific result existed at A1 closeout;
+the separately authorized A3 result is recorded below.
+
+## A3 Result And Claim Decision
+
+The owner authorized exactly one execution of the frozen D090 diagnostic. It
+ran once on 2026-08-13 from `16:14:33+08:00` to `16:15:11+08:00` and exited
+zero. The registered replay and validation took `29.0418032482` seconds. It
+restored only the exact D089 step-50 state, replayed exactly 50 optimizer steps,
+ran one H29 validation, called D089's unchanged gate, and stopped. There was no
+retry, continuation, selection, test access, output repair, PlanarDet, or
+residual execution.
+
+Every parent-file, source, input, model-state, runtime, deterministic-precision,
+device, population, and output-noncollision gate passed before step 51. The
+executed D090 run signature is
+`f9012ab69410f418c9405bce2f69a8f68597241cc44f5374d3021e1d2e5aa04b`.
+The step-100 diagnostic model-state SHA-256 is
+`1af738ece2b2f4167e51905cd67622a052c0fc7b0e96714251130af0745c2f93`;
+it remains nonresumable, nonselectable, and diagnostic only.
+
+The exact three-row trajectory is:
+
+| Step | Sampled-pair one-call train grouped loss | Case-first H29 `realm_npe_mean` | Decoded correlation | Maximum registered-envelope ratio | Accuracy cutoff | Finite / decoded finite / admissible / bounded |
+| ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 1 | 6.1849659406 | 4.5477657318 | 0.0046340427 | 0.1403203458 | pass | pass / pass / pass / pass |
+| 50 | 1.3774454662 | 4.9248557091 | 0.1514645815 | 0.2253825963 | fail | pass / pass / pass / pass |
+| 100 | 0.2534427603 | 5.7428269386 | 0.2060104460 | 2.2733771801 | fail | pass / pass / pass / **fail** |
+
+Here a registered-envelope ratio of one is the inclusive 10x-train-maximum
+limit. The step-100 maximum is therefore 2.2734 times that registered limit,
+or 22.7338 times the underlying per-channel training maximum. The exact D089
+step-100 eligibility failure is **boundedness only**. All normalized and decoded
+proposals are finite; all 145 case-call deployed states pass the registered
+released-state admissibility test. Boundedness and admissibility therefore
+separate in this run, just as boundedness and H29 accuracy do.
+
+The case-first detail is:
+
+| Validation case | H29 NPE | Decoded correlation | Admissible calls / 29 | Bounded calls / 29 |
+| --- | ---: | ---: | ---: | ---: |
+| `phi=_t_15_3_t` | 6.8538017273 | 0.1801303774 | 29 | 23 |
+| `phi=c_5_4_c` | 5.8029475212 | 0.1822502017 | 29 | 15 |
+| `phi=_t_15_1_t` | 5.0817961693 | 0.2397726625 | 29 | 16 |
+| `phi=c_15_3_c` | 6.6732640266 | 0.1673123091 | 29 | 23 |
+| `phi=c_5_2_c` | 4.3023242950 | 0.2605866492 | 29 | 19 |
+
+Thus 96 of 145 returned case-calls are bounded and 49 are unbounded under the
+registered envelope. These are counts, not accepted prefixes: the retained row
+does not identify the first failed call or establish that later calls cannot
+re-enter the envelope. It also does not identify the offending channel or
+spatial support.
+
+The total case-first NPE rises monotonically from `0.2425995320` at call 1 to
+`9.9955949783` at call 29, a 41.20x increase. Temperature, chemistry, and
+density group curves rise monotonically; velocity peaks at call 22 and then
+declines slightly. Every case's H29 mean NPE is worse at step 100 than at step
+50. From step 50 to 100, the recorded sampled-pair one-call training loss falls
+81.60% while H29 NPE rises 16.61%, the maximum envelope ratio grows 10.09x,
+and decoded spatial correlation rises. Because each training row uses its
+registered sampled pair, the loss values are not a same-input learning curve.
+The metrics nevertheless move in opposite directions and expose an objective/
+exposure-versus-rollout tension and an accuracy/correlation tradeoff; none may
+substitute for another.
+
+### Evidence interpretation
+
+**Verified evidence.** The domain-linked direct map eliminates the exact
+registered step-100 inverse-domain/admissibility failure seen in D088's raw
+direct system, but this separate seed-0 D089 history still becomes unbounded on
+all five open validation cases and misses the pilot-informed H29 accuracy
+cutoff. Raw output was not repaired before feedback. The result is exact
+checkpoint-history-associated validation/model-selection evidence.
+
+**Plausible mechanisms.** The 41.20x call-1-to-call-29 NPE growth is compatible
+with recurrent amplification, horizon-dependent fresh defects, or both. The
+lower step-100 sampled-pair training loss alongside worse H29 metrics is
+compatible with exposure/objective mismatch. Since the two train rows use
+different registered samples, it is not proof of even that association. These
+are hypotheses, not causal findings.
+
+**Missing evidence and alternatives.** D090 did not retain prediction arrays or
+per-channel/per-call envelope ratios. A localized fresh one-step excursion, a
+propagated-input response, an unconstrained non-species channel, or a broad
+multi-channel amplitude drift can all produce the observed summary. D088 and
+D089 differ in parameterization and independently trained histories, so their
+different failure modes do not causally isolate the species link.
+
+**Claim implication.** The registered D089 P0 viability claim remains
+unsupported with high confidence. This does not reject domain-compatible maps,
+direct neural operators, FFNO, the REALM benchmark, or a future residual model.
+It does block D089 continuation, model selection, the residual comparison, and
+PlanarDet under the current gates. Released-state admissibility does not imply
+boundedness, accuracy, conservation, or complete physical validity.
+
+### Retained result identities
+
+The verified local ignored artifact inventory contains exactly the 12
+registered output files. Its self-excluding final hash manifest has file
+SHA-256
+`521e9312a8fcb3951beaa5ba6ccb138fd0b7ef2953c0b0cbae0afdfb091e1247`.
+Key payload identities are:
+
+| Artifact | SHA-256 / canonical digest |
+| --- | --- |
+| validation row | file `7c3ceefffa82d4a64df313ba7b0bce4bf366307e13f218004d8e1ff0960d8304` |
+| eligibility result | file `4280ff1f511f896348ab805e9f35abaa5d12385f6bda2b27158ed274d06233f7` |
+| stage manifest | canonical payload `6ccdf8e2f0e99dd2b742718388e1dd7f4340df950ed57388f3a5db81c8d30911` |
+| replay trace | canonical payload `3b5669596472305e65885f13f575401daff069fdab0549e08e084ea01e7fc2f7` |
+| diagnostic model | file `ee6bd1e6dc21897fb602ab0cb024f36190fe2b83dc20854b30727070d5e801b0`; model state `1af738ece2b2f4167e51905cd67622a052c0fc7b0e96714251130af0745c2f93` |
 
 ## Smallest Next Authorization Request
 
-The smallest next request is **one A3 diagnostic replay only** of this exact
-D090 contract on an owner-selected idle GPU with the retained D089 parent
-outputs. It runs exactly steps 51--100 and one H29 validation, then stops. It
-does not authorize a retry, a second seed, continuation past step 100, model
-selection, test access, PlanarDet, output repair, or the residual arm.
+The minimum decisive experiment is a matched step-50/step-100 H29 diagnostic
+that records per-case, per-call, per-channel envelope ratios for both
+teacher-forced truth inputs and free recurrence. It should distinguish a fresh
+map excursion from propagated-input amplification and bind the first event and
+spatial support without training, repair, selection, continuation, test access,
+or residual execution.
 
-Cost class: one GPU, expected under five minutes, with a hard 15-minute
-wall-clock cap. The retained D089 runtime payload must match byte-for-byte
-before step 51; a different software stack or GPU identity is a preflight stop,
-not permission to relax the runtime binding. The registered command form is:
-
-```text
-python scripts/time_dependent_no/capture_realm_ignithit_domain_link_failure.py \
-  --manifest <exact-open-manifest.json> \
-  --data-root <exact-open-IgnitHIT-root> \
-  --normalizer-arrays <exact-P1b-normalizer-arrays.npz> \
-  --parent-output-dir <exact-D089-output-directory> \
-  --output-dir <new-empty-D090-output-directory>
-```
+The smallest request is **A1 preregistration, reusable evaluator code, and
+synthetic CPU tests only** for that diagnostic. Proposed, not allocated:
+stable ID `D091` and filename
+`docs/time_dependent_no/D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md`.
+No real array, checkpoint execution, GPU work, or D-series allocation is
+authorized by this proposal.

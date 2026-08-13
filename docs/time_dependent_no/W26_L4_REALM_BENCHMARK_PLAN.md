@@ -10,7 +10,9 @@ gate; it is not a completed baseline. Residual comparison and sealed-test
 evaluation remain unauthorized. The paired step-50/step-100 fresh-map margin
 audit is also complete and terminal at two open-validation forward calls. The
 distinct D090 replay has now captured D089's missing step-100 row: boundedness
-alone fails while finiteness and registered admissibility pass.
+alone fails while finiteness and registered admissibility pass. D091 A1 has
+since frozen and CPU-validated the minimum matched boundedness-attribution
+diagnostic; its scientific A2 execution remains separately unauthorized.
 
 Owner: the time-dependent neural-operator research line. This file is the
 line-specific execution source of truth for W26-L4. The compact weekly tracker
@@ -478,7 +480,8 @@ checkpoints after a result is manifest-verified and the owner authorizes cleanup
 | L4-P1c step-100 localization | `A3 COMPLETE; CALL-1 DECODE FAILURE REPRODUCED; TERMINAL` | exact steps 51--100 replay, first-event attribution, and inference-only step-100 checkpoint | none |
 | L4-P1c paired fresh-map margin audit | `A2 COMPLETE; CHECKPOINT-HISTORY-ASSOCIATED MARGIN REGRESSION` | exact two-call result: lower average normalized error but 327 new `H2O` inverse-domain violations | none |
 | L4-P1d domain-linked direct amendment | `TERMINAL A3-P0 FAILURE; D089` | steps 1 and 50 eligible; D090 later resolves step 100 as boundedness-only failure | none |
-| L4-P1d step-100 failure capture | `A3 COMPLETE; D090; TERMINAL` | exact pre-gate H29 row: finite and admissible, but every case has unbounded calls; NPE `5.7428269386` | optional A1 boundedness-attribution diagnostic only |
+| L4-P1d step-100 failure capture | `A3 COMPLETE; D090; TERMINAL` | exact pre-gate H29 row: finite and admissible, but every case has unbounded calls; NPE `5.7428269386` | none |
+| L4-P1d boundedness attribution | `A1 COMPLETE; D091; NO SCIENTIFIC EXECUTION` | frozen matched step-50/step-100 teacher-forced/free evaluator and CPU gates | one exact A2 inference-only run |
 | L4-P2 residual comparison | `BLOCKED ON BASELINE` | six-run matched result-to-claim packet | named A3 matrix with explicit resource |
 | L4-P3 PlanarDet | `BLOCKED ON P2 AND NEW AUDIT` | discontinuous-case preregistration | separate download/training approval |
 | L4-P4 irregular | `DEFERRED` | geometry/feasibility decision | separate A0/A1 first |
@@ -624,9 +627,14 @@ samples, so this motivates but does not prove an objective/exposure mismatch.
 No retry, continuation, selection, repair, test, PlanarDet, or residual
 execution occurred.
 
-The minimum decisive follow-up is a matched step-50/step-100 H29 diagnostic of
-per-case, per-call, per-channel envelope ratios under teacher-forced truth
-inputs and free recurrence. The smallest request is A1 preregistration,
-reusable evaluator code, and synthetic CPU tests only. Proposed, not allocated:
-`D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md`. It includes no
-real array, checkpoint execution, GPU work, continuation, or residual arm.
+That A1 follow-up is now allocated and complete under `D091`; see
+[D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md](D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md).
+The frozen diagnostic compares the exact step-50 and step-100 deployed maps on
+the same five open validation trajectories under teacher-forced truth inputs
+and free recurrence, with per-case/call/channel envelope ratios, row-major
+spatial maxima, first-event accepted prefixes, raw re-entry, and exact
+truth-input-reset attribution. The maintained REALM CPU suite passes. No real
+array was opened, no checkpoint was loaded into a model or executed, and no
+CUDA, remote, test, continuation, selection, repair, PlanarDet, or residual
+work occurred. The smallest next evidence-producing request is one exact D091
+A2 inference-only run; it remains separately unauthorized.

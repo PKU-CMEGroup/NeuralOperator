@@ -214,6 +214,15 @@ No resume, retry, selection, repair, sealed test access, residual comparison,
 or PlanarDet run occurred. Full D089 continuation, the residual arm, and
 PlanarDet remain blocked.
 
+`D091` A1 is now complete without new scientific model output. It freezes the
+minimum matched step-50/step-100 teacher-forced/free-recurrence diagnostic,
+including per-channel first events, spatial maxima, decoded-finiteness versus
+normalized-recurrence semantics, exact checkpoint/runtime/source gates, and
+truth-input-reset claim boundaries. Synthetic and maintained REALM CPU tests
+pass. Its one exact A2 inference execution remains separately unauthorized;
+therefore offending-channel and fresh-versus-propagated attribution remain
+missing evidence, not findings.
+
 D072, D084, D087, D088, D089, and D090 are complete and terminal at their
 registered scopes. None establishes boundary-condition improvement, resolution
 consistency, geometry/rotation generalization, conservation, operator

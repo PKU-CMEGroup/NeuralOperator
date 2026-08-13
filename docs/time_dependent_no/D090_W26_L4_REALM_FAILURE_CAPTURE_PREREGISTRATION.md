@@ -300,9 +300,10 @@ map excursion from propagated-input amplification and bind the first event and
 spatial support without training, repair, selection, continuation, test access,
 or residual execution.
 
-The smallest request is **A1 preregistration, reusable evaluator code, and
-synthetic CPU tests only** for that diagnostic. Proposed, not allocated:
-stable ID `D091` and filename
-`docs/time_dependent_no/D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md`.
-No real array, checkpoint execution, GPU work, or D-series allocation is
-authorized by this proposal.
+That smallest request was authorized and is complete under `D091`; see
+[D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md](D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md).
+It added only the frozen contract, reusable evaluator, exact entry point, and
+synthetic CPU gates. No real array was opened, no checkpoint was loaded into a
+model or executed, and no CUDA, remote, test, continuation, or residual work
+occurred. One exact D091 A2 inference-only diagnostic is the next and smallest
+evidence-producing request; it is not authorized by this closeout.

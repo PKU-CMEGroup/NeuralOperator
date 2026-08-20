@@ -55,6 +55,14 @@ documents for current status.
   experiment authorization. Resolve its relative links against the original
   `docs/time_dependent_no/` base directory.
 
+## Retired Coordination Scaffolding
+
+`CODEX_KICKSTART_PROMPTS.md` and `findings.md` were transient coordination
+notes, not claim-bearing evidence or current authorization. They were retired
+on 2026-08-21 after active links were removed. Dated snapshots may still name
+the former prompt file; recover exact historical bytes from Git when needed
+rather than treating that link as a live instruction surface.
+
 ## Retrieval And Link Resolution
 
 Use the compact active [research decision](../RESEARCH_DIRECTION_DECISION.md),

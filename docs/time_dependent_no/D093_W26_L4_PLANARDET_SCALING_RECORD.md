@@ -26,6 +26,16 @@ branch disabled; it is not the REALM paper's vanilla FNO. The D093 `FFNO` also
 uses the common residual target and D093 coordinate/training contract, so its
 numbers are not a paper-faithful REALM reproduction.
 
+The reused D092 anchor is a result-level comparison, not a byte-identical
+source match. Both source manifests use schema
+`realm_planardet_pcno_source_snapshot_v1`, but D092 binds 17 files with payload
+`1c48afecdde31d5998695438a39b19ddb328f91b63e272c26ecaed0c30e6f502`, while
+D093 binds 18 files with payload
+`8cbdc9dad419e236926bca76dfca51689229fe096e0b5d57ff7410650bf7c5b5`.
+In particular, D093's `realm_pcno.py` adds optional gradient-disable support.
+The active-gradient PCNO path is intended to preserve D092 semantics, but the
+six-cell matrix is not source-matched bytewise.
+
 ## Retained Results
 
 All sums below cover the 49 registered target calls. `A/B` gives registered
@@ -49,38 +59,38 @@ matched learned baseline.
 
 ## Evidence And Interpretation
 
-- Seven rather than three unique supervised conditions improves the selected
-  truth-input sum for PCNO, PCFNO, and FFNO.
-- Only FFNO converts the broader condition set into a lower selected free
-  rollout sum. PCNO changes from `85.74666` to `88.13821`, and PCFNO from
-  `67.19994` to `167.42062`; broader exposure is not a generally reliable
-  autoregressive improvement in this matrix.
+- The seven-condition cell has a lower selected truth-input sum than the
+  three-condition cell for PCNO, PCFNO, and FFNO in this matrix.
+- Only FFNO's seven-condition cell also has a lower selected free-rollout sum.
+  PCNO changes from `85.74666` to `88.13821`, and PCFNO from `67.19994` to
+  `167.42062`; the seven-condition cell is not uniformly better under free
+  recurrence in this matrix.
 - FFNO is best in this matrix on the selected truth-input and free sums, but its
   free sum `32.53910` remains 2.59 times the paper's numerical PlanarDet FFNO
   validation value `12.577`. The contracts differ, so this ratio is context,
   not a direct benchmark comparison.
-- The PCNO gradient branch improves truth-input error relative to PCFNO at both
-  exposure levels, while its free-rollout effect changes sign. These data do
-  not establish that the branch prevents smearing or improves long-horizon
-  stability.
+- PCNO has lower selected truth-input error than PCFNO at both condition
+  counts, while their selected free-rollout ordering changes with the condition
+  count. These data do not isolate a gradient-branch cause or establish that
+  the branch prevents smearing or improves long-horizon stability.
 - Late training and validation strongly decouple in every cell. PCFNO-7,
   PCFNO-3, and FFNO-3 stop after later truth-input validation proposals fail
   finite physical decoding. None of the six selected free rollouts is fully
-  admissible. The dominant observed issue is alignment among optimization,
+  admissible. The matrix exposes an alignment problem among optimization,
   truth-input selection, autoregressive reliability, and decoded validity.
 
-This supports only a partial claim: on one seed and one open validation
-condition, broader supervised-condition exposure consistently improves
-truth-input accuracy, while long-horizon benefit is architecture-dependent and
-can reverse. It does not support general data scaling, architecture
-superiority, a conservation claim, a paper-faithful REALM reproduction, or a
-sealed-test claim.
+This supports only a partial descriptive claim: on one seed and one open
+validation condition, each seven-condition cell has lower selected truth-input
+error than its three-condition counterpart, while the selected long-horizon
+ordering is family-dependent and can reverse. It does not support general data
+scaling, architecture superiority, a conservation claim, a paper-faithful
+REALM reproduction, or a sealed-test claim.
 
-Minimum missing evidence is multiple seeds after fixing the selection contract,
-sparse preregistered free-rollout-aware checkpoint selection, a paper-faithful
-direct-state FFNO control, a capacity-controlled gradient ablation, and another
-open validation condition or newly preregistered non-sealed population. This
-record does not authorize those runs.
+Minimum missing evidence includes multiple seeds and sparse free-rollout-aware
+checkpoint selection under a newly preregistered selection contract, a
+paper-faithful direct-state FFNO control, a capacity-controlled gradient
+ablation, and another open validation condition or newly preregistered
+non-sealed population. This record does not authorize those runs.
 
 ## Provenance And Local Replay Boundary
 
@@ -103,13 +113,25 @@ record does not authorize those runs.
   `artifacts/time_dependent_no/d093_planardet_arch_data_scaling_20260817a/result_to_claim_20260820.json`;
   file SHA-256
   `47a8fe9cc1a6fd61773d9b771b48965a6a1f6176770f1a340bcea980ddfe07df`.
+  This immutable record predates the corrected seven-presentations-per-step
+  sampler accounting and binds the older visualization source payload
+  `068d33baf214ba0f153ab1eb906f45c623670977727ea15cd6c6a770be7ab5dc`
+  and bundle
+  `bb222a867bdfd5c5089909eca48fe7ae5ddd6d3266b90359c67592bbf39e44f0`,
+  not the later persistence packet used for the table above.
 
-Only `PCNO-3` and `FFNO-7` have locally complete D093 training summary/final
-packets; the three interrupted cells retain partial histories and selected
-checkpoints. The five evaluation packets self-rehash, but their manifested
-normalized teacher/free prediction arrays are not present locally. The closed
-JSON/CSV summaries support the table above; exact local replay from those
-prediction arrays does not.
+Only `PCNO-3` and `FFNO-7` are marked as reaching the 5,000-step D093 endpoint.
+For each, eight retained files named by its final manifest hash-match, but the
+manifest also names one locally absent `last.pt`; neither is a locally complete
+training packet. The three interrupted cells retain partial histories and
+selected checkpoints. Their retrieved `status.json` files are stale at step 50
+and best step 0; the later histories/evaluator closure reach `PCFNO-7` step
+1,900/best 700, `PCFNO-3` step 2,000/best 700, and `FFNO-3` step 1,950/best 850,
+which are the values used above. Each of the five evaluation metadata closures
+rehashes its three retained files, but its final manifest also names two absent
+normalized teacher/free prediction arrays. The closed JSON/CSV summaries
+support the table above; full packet closure and exact local replay from those
+arrays do not.
 
 The retained visualization packet is authoritative for its figures. A later
 checkout version of the visualizer is not bound by that packet and must not be

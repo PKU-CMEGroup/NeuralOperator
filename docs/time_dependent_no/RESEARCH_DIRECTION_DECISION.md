@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-13
+Updated: 2026-08-21
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -19,8 +19,8 @@ Documentation roles are:
   compact experiment index;
 - [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md): current research lines,
   dependencies, gates, and prospective work;
-- [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md): read-only agent
-  kickoff instructions;
+- [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md):
+  bounded closed evidence for the PlanarDet architecture/exposure comparison;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -45,9 +45,10 @@ operator solver.
 | 1D flow maps | Larger learned macro steps can win after fewer recurrent compositions; the preferred stride depends on horizon and metric. | No universal stride, learned CFL limit, timestep transfer, native-solver resolution transfer, or mesh-invariant solver. |
 | CPGNet | Corrected 1D controls support message reach rather than width alone; causal boundary training improves the local 2D release-bundle result without closing the oracle gap. | No paper-table reproduction, exact DG replay, physical interface trace, conservation, seed robustness, or architecture transfer. |
 | Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal training/representation/boundary mechanism, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
-| Dynamic finite-volume shock-vortex | D044 is a useful one-seed baseline; D060 improves state error but fails joint front/high-pass promotion. D063--D081 establish bounded common-source transfer, a composite mesh-defect diagnosis, differential-support evidence, and one deterministic open-validation correction result with exact same-population process reproduction. Node-type and always-on local-filter questions are closed at their registered scopes. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, safety beyond the registered open cases, independent-data/statistical confirmation, general node-type necessity, optimal boundary encoding, native-solver equivalence, other-PDE transfer, or sealed performance. |
+| Dynamic finite-volume shock-vortex | D044 is a useful one-seed baseline; D060 improves state error but fails joint front/high-pass promotion. D063--D081 establish bounded common-source transfer, a composite mesh-defect diagnosis, differential-support evidence, and one deterministic open-validation correction result with exact same-population process reproduction. W26-L5 A32/A33 show that a target-free raw-shadow tether retains a modest low-rank recurrent gain after transfer to retained 500x200 truth on all six reused D074 cases: full/rank-8 trajectory ratios are `0.98887/0.94507`, all six trajectory/endpoint pairs improve, and the maximum maintained control is `1.00459`. Direct fixed-hop 500x200 loses decisively to corrected transfer (median H30 ratio `2.084`, zero of six wins), while matched-information initialization is nearly neutral. A34--A39 reject a universal vortex/Euler1D coefficient geometry, two simple Euler1D routers, and three prospective phase observers despite strong ordinary same-family fits. A41/A42 instead identify a nearly diagonal accepted-shadow native response on correction-inactive coast (`0.99850/0.99845` E12/E14 skill). A43 freezes that response map, removes the second native call on coast, and qualifies prospectively: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, maximum control is `1.01141`, and candidate cost falls from 604 to 548 logical calls versus optimized A32. A44-R1 then applies A43 unchanged to 14 disjoint correction cases in E00/E11 checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active trajectory/endpoint pairs win, and maximum control is `1.04361`. Large-scale/rank-8 views improve while transition/local views are neutral to slightly harmful. A45 finds stable pooled prediction of logged utility from lagged scalar displacement/response history, but E00 and coast fail the registered transfer gate. Its 32 case-band cells strengthen the broad/rank-8 benefit versus local-harm decomposition without qualifying a router or causal fine-refresh estimate. Node-type and always-on local-filter questions are closed at their registered scopes. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, safety beyond the opened cases, independent checkpoint/test or statistical confirmation, family-independent coefficients or response maps, deployable scalar-history router, causal exact-versus-coast estimate, a deployable Euler1D correction, practical latency advantage for the correction, physical conservation, general node-type necessity, optimal boundary encoding, native-solver equivalence, other-PDE transfer, or sealed performance. |
 | Latent forecast | Discontinuous decoder regularity improves front fidelity, but the tested family is decoder-capacity limited. | No latent transition, autonomous recurrence, geometry transfer, or data-assimilation result. |
 | REALM IgnitHIT | D088 shows that lower mean fresh-map error can hide a sparse inverse-domain tail. D089's species-domain link prevents that registered species-domain failure under its separate history, but D090 shows the H29 map still becomes unbounded while remaining finite and admissible; its sampled-pair training loss and rollout quality move in opposite directions. | No completed direct baseline, residual comparison, sealed test result, PlanarDet result, causal link effect, offending-channel attribution, general FFNO/direct-map rejection, or benchmark-wide claim. |
+| REALM PlanarDet | D092-R1 completed the seed-0 width-96 residual-PCNO run and selected step 950. On the one released validation trajectory, truth-input/free H49 mean NPE is `0.1244744/1.7987391`; the corresponding released-code horizon sums are `6.09925/88.13821`. P0b is near-null on non-`pMax` drift, while G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. D093 reuses this PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique supervised conditions. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum; FFNO-7 is best in the matrix at `1.36466/32.53910` truth-input/free H49 sums. | The D092 paper-value ratio is validation-to-validation context, not a paired reproduction or sealed ranking. D092 and D093 use distinct source inventories, and D093 has one seed and one open validation trajectory; the three-condition arms still use seven-condition normalization and seven presentations per optimizer step. PCFNO is not vanilla FNO and the residual FFNO is not paper-faithful. The results do not establish a physical causal graph, clean data scaling, architecture superiority, gradient-branch stability, seed robustness, conservation, or a REALM-wide claim. |
 
 The supersonic-bump and Mach-1.1 dynamic finite-volume programs remain separate.
 D053b's mostly fresh smooth-high-pass defect is dynamic-family evidence;
@@ -168,20 +169,104 @@ The 2026-08-11 mentor-derived program is defined in
 | W26-L1: long-horizon stability | Why do some PCNO checkpoints remain finite while others fail, and how should accurate, admissible, bounded, and finite horizons be separated? |
 | W26-L2: shock representation and differential pathway | Are shock defects spectral retrieval, finite-grid capacity/phase, gradient-path inconsistency, or recurrent exposure effects? |
 | W26-L3: boundary conditions and finite propagation | Which causal boundary information and enforcement mechanisms improve recurrent interior dynamics, and why does top-left error accumulate? |
-| W26-L4: benchmark and paper validation | Does the residual flow-map framework survive the REALM benchmark under a fair direct-state baseline? |
+| W26-L4: benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrence, held-condition generalization, or decisive structure hidden by aggregate metrics? |
 | W26-L5: cross-resolution correction | Can coarse/native/fine discrepancy predict and safely correct synchronized native updates out of case? |
 
-The companion [kick-start prompts](CODEX_KICKSTART_PROMPTS.md) authorize
-read-only A0 preflight only; they launch no training, checkpoint evaluation,
-remote work, dataset download, or sealed evaluation.
+Agent work begins under repository-root `AGENTS.md` and current explicit human
+direction. No planning document independently launches training, checkpoint
+evaluation, remote work, dataset download, or sealed evaluation.
 
-On 2026-08-12 the owner selected REALM as the next benchmark-facing direction
-instead of generating additional truth-free bump frames. The bounded
-[W26-L4 audit and experiment plan](W26_L4_REALM_BENCHMARK_PLAN.md) selects
-IgnitHIT first, PlanarDet only after a matched baseline/residual gate, and an
-irregular case only after a separate geometry/feasibility audit. That direction
-does not itself authorize source copying, trajectory download, training, GPU
-execution, or test-population access.
+On 2026-08-15 the owner superseded the earlier IgnitHIT-first sequence and
+selected the `W26-L4-PD0` PlanarDet problem-discovery ladder in
+[WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md). The selected system is a
+best-engineered residual PCNO rather than a one-factor architecture comparison.
+The exact seven-train/one-validation open tree, A1 implementation, A2 full-grid
+resource ladder, and seed-0 D092-R1 5,000-step training are complete. Width 128
+OOMs; width 96 passed with 20.58% effective memory headroom. D092-R1 selected
+step 950 under the frozen validation rule. The closed open-validation evaluator
+reports truth-input/free H49 NPE `0.1244744/1.7987391`; all 49 calls in both
+views are finite and bounded, truth inputs are otherwise competent, and free
+recurrence is admissible on 7/49 calls. The only truth-input competence failure
+is nondecreasing cumulative `pMax`, so the original evaluator correctly withheld
+mechanism interpretation.
+
+The first frozen `pMax` projection attempt P0 is retained as a noninterpretable
+implementation failure: GPU-side comparison did not close the exact CPU metric
+decoder. P0b corrects that path under a new source and preregistration, exactly
+replays all 49 raw truth-input calls plus free call 1, changes only `pMax`, and
+passes every evaluator, truth-competence, no-harm, finiteness, and physical-floor
+gate. Baseline free recurrence contains `6,187,272` `pMax` decreases; P0b makes
+`6,201,819` causal corrections on its altered path and leaves zero. Yet the primary
+non-`pMax` grouped-NPE ratio is `0.9925744` and total-NPE ratio is `0.9972079`;
+the former is preregistered near-null. Pressure-group NPE rises by 2.20%, the
+final-call non-`pMax` ratio is `1.01260`, and nonpositive-temperature calls rise
+from 21 to 25. Thus `pMax` monotonicity is not a material causal driver of the
+observed cross-channel recurrence drift on this checkpoint/trajectory, and its
+removal is not a promotable correction. The released test object remains
+physically absent; no sealed evaluation occurred.
+
+The metric comparison is now closed against the public REALM implementation.
+The released evaluator accumulates the five groupwise per-step MSE values over
+all 49 transitions and does not divide by the horizon. D092-R1's comparable free
+validation value is therefore `88.1382141`, not the separately reported mean
+`1.7987391`. The REALM v2 PlanarDet table reports FFNO validation `12.577`, so
+this PCNO checkpoint is 7.01x worse on the same nominal validation horizon and
+released-code aggregation despite having 20.63% more parameters. The paper's
+reported correlations are test-set quantities; D092's validation correlation
+`0.59354` is not a direct ranking statistic. The truth-input sum `6.09925` is an
+oracle-input diagnostic and is likewise not an autoregressive model comparison.
+
+The registered recurrence-localization attempt G0 failed before any learned
+call or output creation because its launcher passed serialized JSON where the
+manifest parser required a mapping. That failure is preserved as infrastructure
+provenance. The corrected G0b attempt uses the same D092-R1 checkpoint and open
+validation trajectory. Each arm scores the raw learned proposal, then replaces
+only one selected group with exact next-frame truth for the next recurrent input.
+All replay, isolation, finiteness, persistence, and metric-identity gates pass.
+The primary untouched non-`pMax` error ratios are chemistry `0.48403`, density
+`0.34435`, temperature `1.13895`, and velocity `1.06437`; the frozen bands label
+the first two materially helpful, temperature materially harmful, and velocity
+small/inconclusive. Chemistry and density feedback improve every raw-scored
+group. Temperature feedback improves its own raw next-temperature error
+(`0.55372` ratio) while worsening every untouched group, which is evidence of a
+compensating or co-adapted multi-field rollout rather than evidence that true
+temperature is physically harmful.
+
+G1 executes the separately selected one-shot directionality study without
+changing the raw proposal at the pulse call. One exact chemistry or density
+group is used only in the next recurrent input at calls 4, 12, or 32; all six
+arms then return to raw recurrence and pass replay, isolation, H49 finiteness,
+persistence, and metric-identity gates. The preregistered common-downstream
+`T+u` post-pulse ratios for chemistry pulses are `0.96534/0.92635/0.83864` and
+for density pulses `0.98336/0.90248/0.86301`. Directional partner ratios are
+chemistry-to-density `0.95009/0.85390/0.67713` versus density-to-chemistry
+`0.99150/0.94230/0.93567`. The frozen rule therefore finds no material partner
+reduction at call 4 and chemistry-to-density-only material reduction at calls
+12 and 32. The response is transient in both directions immediately after a
+pulse; the asymmetry is in persistence, not the existence of a one-step effect.
+
+The strongest bounded interpretation is now an asymmetric, state-dependent
+recurrent persistence signature hidden by the aggregate score. It is not yet an
+intrinsic PCNO bottleneck or a learned physical causal graph. The selected-group
+baseline error also grows sharply from call 4 to 32 (chemistry NPE
+`0.0107 -> 0.2621`; density `0.0800 -> 0.6246`), so phase and intervention dose
+remain confounded. Accuracy gains do not repair physical validity: chemistry
+call 32 reduces all-group mean error to `0.85884` of baseline but lowers
+admissible calls from 7 to 4, while density call 12 leaves only 46/49 bounded
+calls. Do not invent a method from these oracle hybrid states.
+
+D093 subsequently closes the single-seed architecture/exposure matrix on the
+same open validation trajectory. Each seven-condition cell has a lower selected
+truth-input H49 sum than its three-condition counterpart. Only FFNO's
+seven-condition cell also has a lower selected free H49 sum. FFNO-7 is best in
+the matrix at `1.36466/32.53910`; all six free rollouts remain incompletely
+admissible, and three training cells are incomplete after later decoded-
+validation failures. The bounded [D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md)
+contains the exact table and manifests. The next decision is human-owned:
+close this line, or separately choose a paper-faithful direct-state FFNO
+control, free-rollout-aware selection study, or seed/condition replication.
+None is implied or authorized by this record, and the test object remains
+absent.
 
 The D088 IgnitHIT direct-baseline attempt and its registered diagnostics are now
 terminal. The paired fresh-map audit shows that the exact step-100 checkpoint
@@ -211,8 +296,8 @@ It does establish a boundedness-versus-admissibility separation under the exact
 history, not an offending-channel, fresh-versus-propagated, optimizer,
 output-link, or general instability cause.
 No resume, retry, selection, repair, sealed test access, residual comparison,
-or PlanarDet run occurred. Full D089 continuation, the residual arm, and
-PlanarDet remain blocked.
+or PlanarDet run occurred under D090. Full D089 continuation and its residual
+arm remain terminal; they are not resumed or relabeled as the new PD0 line.
 
 `D091` A1 is now complete without new scientific model output. It freezes the
 minimum matched step-50/step-100 teacher-forced/free-recurrence diagnostic,
@@ -223,11 +308,20 @@ pass. Its one exact A2 inference execution remains separately unauthorized;
 therefore offending-channel and fresh-versus-propagated attribution remain
 missing evidence, not findings.
 
-D072, D084, D087, D088, D089, and D090 are complete and terminal at their
-registered scopes. None establishes boundary-condition improvement, resolution
-consistency, geometry/rotation generalization, conservation, operator
-convergence, or general Euler stability. Re-entry requires a new owner-selected
-claim and preregistration.
+D072, D084, D087--D090, and D092 are complete and terminal at their registered
+scopes. D093 is closed and terminal as partial single-seed,
+single-open-validation evidence. None establishes boundary-condition
+improvement, resolution consistency, geometry/rotation generalization,
+conservation, operator convergence, or general Euler stability. Re-entry
+requires a new owner-selected claim and preregistration.
+
+W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
+no compatible independent physical-node-type checkpoint or new-case manifest
+is bound. Its A46-A2-R1 resource-build continuation stopped twice on broad
+isolated-source imports and once on interpreter environment discovery, all
+before data, model construction, training, generation, or outcome opening.
+Those receipts are infrastructure provenance, not same-state branch evidence;
+A43/A44-R1 remain the bounded scientific result.
 
 Native-resolution residual correction is one component of W26-L5, not the sole
 practical queue or standing default. Data assimilation remains reserved pending
@@ -244,6 +338,8 @@ likewise not implied by current evidence.
   byte-preserved state through D063.
 - [Compact diagnostic tracker](MECHANISTIC_DIAGNOSTIC_TRACKER.md): current
   run-ID and topic routing.
+- [D093 PlanarDet scaling record](D093_W26_L4_PLANARDET_SCALING_RECORD.md):
+  closed single-seed/open-validation results and provenance.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.
 - [SECTION_1_2_CORRECTED_BASELINES.md](SECTION_1_2_CORRECTED_BASELINES.md):
   corrected 1D labels and frozen results.

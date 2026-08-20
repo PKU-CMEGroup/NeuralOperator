@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-12
+Updated: 2026-08-21
 
 This directory is the onboarding surface for the summer 2026 time-dependent
 neural-operator work on branch `time-dependent-no`. It points to authority,
@@ -19,15 +19,32 @@ Read active context in this order:
    compact experiment-ID and topic routing.
 5. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the five coordinated
    research lines and prospective gates.
-6. [W26_L4_REALM_BENCHMARK_PLAN.md](W26_L4_REALM_BENCHMARK_PLAN.md) for the
-   current REALM source/data audit, staged benchmark contract, and next
-   authorization boundary.
-7. [CODEX_KICKSTART_PROMPTS.md](CODEX_KICKSTART_PROMPTS.md) for read-only A0
-   kickoff prompts.
+6. The [W26-L4 section of the weekly plan](WEEKLY_RESEARCH_PLAN.md#w26-l4-realm-benchmark-and-paper-level-validation)
+   for the current PlanarDet problem-discovery contract and authorization
+   boundary.
+7. [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md)
+   for the closed PlanarDet architecture/exposure comparison.
 8. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
    when exact historical contracts, results, or hashes are required.
+
+Current W26-L4 execution state: PlanarDet A1--A3, D092-R1 training, open-
+validation evaluation, P0b, corrected G0b, and the G1 one-call chemistry/density
+pulse study are complete. The PCNO's released-code H49 validation sum is
+`88.13821`, 7.01x the REALM paper's FFNO validation value `12.577`. P0b is
+near-null; G0b localizes strong chemistry/density recurrence sensitivity; G1
+shows that the partner response is immediately bidirectional but materially
+persistent only from chemistry to density at calls 12 and 32. D093 then reuses
+  the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique
+  supervised conditions. Each seven-condition cell has lower selected
+  truth-input error than its three-condition counterpart, but only FFNO has a
+  lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`.
+This is one seed and one open trajectory under a shared residual contract, not
+clean data scaling, an architecture cause, paper-faithful FFNO reproduction,
+physical causal graph, correction method, or sealed ranking; the released test
+remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
+and claim boundaries.
 
 The [archive guide](history/README.md) explains snapshot authority and link
 resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
@@ -81,6 +98,7 @@ coarse solves do not satisfy that contract.
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
 | Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. | No later arm is an exact-contract D041 replacement; D087 is not a causal training/architecture or general-stability result; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
+| REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |
 
 Across families, distinguish propagated state error, fresh exact-input defect,
@@ -119,6 +137,8 @@ surface. It does not mean an experiment is selected, authorized, or running.
 - residual-PCNO artifact, runtime, rollout, and Euler-state adapters;
 - boundary-field construction and intervention support;
 - dynamic shock-vortex reference, geometry, family, and metric contracts;
+- REALM PlanarDet open-manifest/data adapters, train-only normalization,
+  residual-PCNO runtime/provenance, and detonation-structure diagnostics;
 - resolution-transfer, ripple, residual-structure, and pathway diagnostics; and
 - bounded defect-correction and local-correctability components.
 
@@ -140,15 +160,19 @@ branch-specific inventory.
 - boundary-field, node-type, admissibility, and finite-propagation probes;
 - long-horizon stability event, recurrence-feedback, and fresh/propagated
   diagnostic evaluation;
-- REALM benchmark, IgnitHIT normalization, FFNO, and domain-compatible output
-  contracts; and
+- REALM benchmark, IgnitHIT normalization, FFNO, regular-grid PCNO, and
+  domain-compatible output contracts;
+- pinned PlanarDet acquisition/audit, full-grid GPU smoke, exact-resume
+  residual-PCNO training, shared fresh/teacher/free evaluation, causal
+  cumulative-`pMax` projection, recurrent group-feedback and one-call pulse
+  diagnosis, and result-bound visualization; and
 - native residual-correction, response-controller, local-channel, and
   visualization tools retained for reproducibility.
 
 Review an entry point's arguments, source binding, population, and output path
-before execution. The ADER generator is configuration-driven: invoking it with
-`--help` starts its default multiprocessing generation job, so do not use it as
-a harmless help probe.
+before execution. The ADER generator is configuration-driven but now fails
+closed: `--help` is side-effect-free, a no-argument invocation is rejected, and
+artifact generation requires explicit `--run` after reviewing its `CONFIG`.
 
 ### Tests
 
@@ -181,10 +205,13 @@ and clean only the exact resolved cache paths afterward.
 
 ## Source-Snapshot Semantics
 
-New PCNO training runs use `pcno_euler2d_source_snapshot_v5`, implemented in
-`utility/time_dependent_no/pcno_artifacts.py`. Continuation compares the current
-checkout against the schema-specific executable/scientific file set recorded by
-the run.
+Euler2D residual-PCNO runs use `pcno_euler2d_source_snapshot_v2` through `v5`,
+implemented in `utility/time_dependent_no/pcno_artifacts.py`; v5 is the latest
+registered schema for that family. REALM PlanarDet instead uses
+`realm_planardet_pcno_source_snapshot_v1`. D092 and D093 share that schema name
+but bind distinct inventories and payload digests. Continuation compares the
+current checkout against the schema-specific executable/scientific file set
+recorded by the run.
 
 | Schema | Historical meaning |
 | --- | --- |

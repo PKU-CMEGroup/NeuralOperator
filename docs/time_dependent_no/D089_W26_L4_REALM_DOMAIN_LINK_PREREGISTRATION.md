@@ -14,8 +14,10 @@ This line-specific registration amends the failed D088 direct baseline with one
 parameter-free train-time model intervention and an explicit claim-validity
 eligibility gate. It does not rewrite D088, resume either
 D088 checkpoint, open the sealed test population, or authorize the residual
-arm. [W26_L4_REALM_BENCHMARK_PLAN.md](W26_L4_REALM_BENCHMARK_PLAN.md) remains
-the W26-L4 source of truth; this file owns only D089's changed contract.
+arm. The archived
+[W26-L4 REALM benchmark plan](history/W26_L4_REALM_BENCHMARK_PLAN_through_D091.md)
+was the W26-L4 source of truth for this attempt; this file owns only D089's
+changed contract.
 
 ## Question, Evidence, And Claim Boundary
 

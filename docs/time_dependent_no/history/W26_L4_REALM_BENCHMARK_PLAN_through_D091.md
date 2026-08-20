@@ -1,3 +1,7 @@
+> Archived 2026-08-21. This preserves the W26-L4 execution plan through D091
+> as evidence, not current authorization. Resolve its relative links against
+> the original `docs/time_dependent_no/` base directory.
+
 # W26-L4 REALM Benchmark Audit And Experiment Plan
 
 Status: A0 and D088 P1a/P1b are complete. The exact IgnitHIT train/validation

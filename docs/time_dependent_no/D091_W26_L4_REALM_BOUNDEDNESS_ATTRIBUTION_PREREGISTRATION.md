@@ -13,8 +13,9 @@ This line-specific registration follows the terminal D089 direct-baseline
 amendment and the terminal D090 step-100 failure capture. It owns one matched
 inference-side diagnostic only. It does not resume training, select a model,
 repair a state, access a test object, run the residual arm, or start PlanarDet.
-[W26_L4_REALM_BENCHMARK_PLAN.md](W26_L4_REALM_BENCHMARK_PLAN.md) remains the
-W26-L4 routing source of truth.
+The archived
+[W26-L4 REALM benchmark plan](history/W26_L4_REALM_BENCHMARK_PLAN_through_D091.md)
+was the routing source of truth for this attempt.
 
 ## Question And Existing Evidence
 

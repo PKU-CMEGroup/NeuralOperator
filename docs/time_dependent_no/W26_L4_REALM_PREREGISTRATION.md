@@ -430,8 +430,8 @@ claims.
 The authorized committed surface is exactly:
 
 1. this preregistration;
-2. `docs/time_dependent_no/W26_L4_REALM_BENCHMARK_PLAN.md` for the owner-selected
-   resource/status reconciliation;
+2. `docs/time_dependent_no/history/W26_L4_REALM_BENCHMARK_PLAN_through_D091.md`
+   for the then-owner-selected resource/status reconciliation;
 3. `utility/time_dependent_no/realm_ffno.py`;
 4. `scripts/time_dependent_no/smoke_realm_ignithit_ffno.py`; and
 5. `tests/time_dependent_no/test_realm_ffno.py`.

@@ -48,6 +48,13 @@ Their text says that D072 was executing or pending because that was true when
 they were frozen. D072 and its D084 follow-up are now closed; use the active
 documents for current status.
 
+## Superseded Line Plans
+
+- `W26_L4_REALM_BENCHMARK_PLAN_through_D091.md` preserves the W26-L4 REALM
+  execution plan through D091. It is historical evidence, not a live queue or
+  experiment authorization. Resolve its relative links against the original
+  `docs/time_dependent_no/` base directory.
+
 ## Retrieval And Link Resolution
 
 Use the compact active [research decision](../RESEARCH_DIRECTION_DECISION.md),

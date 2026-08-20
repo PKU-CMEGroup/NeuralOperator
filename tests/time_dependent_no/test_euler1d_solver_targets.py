@@ -5,6 +5,12 @@ import numpy as np
 import pytest
 import torch
 
+from baselines.fno import SpectralConv1d
+from scripts.time_dependent_no.euler1d_weno_hllc_ader_dataset import (
+    CaseConfig,
+    integrate_case,
+    parse_cli_args,
+)
 from utility.time_dependent_no.euler1d import (
     conservative_to_primitive,
     make_euler1d_batch,
@@ -20,20 +26,15 @@ from utility.time_dependent_no.euler1d_data import (
     collate_euler1d_rollout_windows,
     load_euler1d_npz,
 )
-from baselines.fno import SpectralConv1d
-from scripts.time_dependent_no.euler1d_weno_hllc_ader_dataset import (
-    CaseConfig,
-    integrate_case,
-)
 from utility.time_dependent_no.euler1d_models import (
     CPGNetEuler1D,
     FNOEuler1DHead,
     cell_features,
 )
 from utility.time_dependent_no.euler1d_targets import (
-    CPGNetInterfaceTargetAdapter,
     ConservativeResidualTargetAdapter,
     ConservativeStateTargetAdapter,
+    CPGNetInterfaceTargetAdapter,
     FluxTargetAdapter,
     InterfaceStateTargetAdapter,
     LimitedConservativeResidualTargetAdapter,
@@ -65,6 +66,21 @@ def _batch(num_cells=8):
         left_boundary_primitive=current[:, 0],
         right_initial_primitive=current[:, -1],
     )
+
+
+def test_ader_dataset_cli_requires_explicit_run(capsys):
+    with pytest.raises(SystemExit) as help_request:
+        parse_cli_args(["--help"])
+    assert help_request.value.code == 0
+    assert "--run" in capsys.readouterr().out
+
+    with pytest.raises(SystemExit) as no_args:
+        parse_cli_args([])
+    assert no_args.value.code == 2
+    assert "explicit --run" in capsys.readouterr().err
+
+    args = parse_cli_args(["--run"])
+    assert args.run is True
 
 
 def test_euler1d_primitive_conservative_roundtrip_torch():

@@ -17,7 +17,7 @@ local space-time predictor.
 Usage
 -----
 Edit the CONFIG block below, then run:
-python euler1d_weno_hllc_ader_dataset.py
+python euler1d_weno_hllc_ader_dataset.py --run
 
 Snapshots are saved at fixed times 0, T/n_steps, ..., T. The internal solver
 may use smaller CFL-limited substeps between two saved snapshots.
@@ -25,13 +25,14 @@ may use smaller CFL-limited substeps between two saved snapshots.
 
 from __future__ import annotations
 
+import argparse
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 from typing import Tuple
-import numpy as np
 
+import numpy as np
 
 ARTIFACT_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "time_dependent_no"
 
@@ -1249,5 +1250,21 @@ def main(config: DatasetConfig = CONFIG) -> None:
         )
 
 
+def parse_cli_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate the configured 1D Euler ADER dataset.",
+    )
+    parser.add_argument(
+        "--run",
+        action="store_true",
+        help="confirm that the configured artifact-producing generation should run",
+    )
+    args = parser.parse_args(argv)
+    if not args.run:
+        parser.error("refusing to generate artifacts without explicit --run")
+    return args
+
+
 if __name__ == "__main__":
+    parse_cli_args()
     main()

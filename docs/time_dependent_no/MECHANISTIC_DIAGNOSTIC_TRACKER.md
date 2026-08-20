@@ -1,6 +1,6 @@
 # Time-Dependent Experiment Index
 
-Updated: 2026-08-13
+Updated: 2026-08-21
 
 Status: compact routing index; not an execution queue
 
@@ -32,9 +32,21 @@ the current source and artifact manifests before execution or interpretation.
 
 ## Stable ID Rules
 
-- The registered run universe through D091 contains 120 IDs: D001--D091,
+- The registered run universe through D093 contains 122 IDs: D001--D093,
   23 L3R IDs, L4A-001--L4A-004, L1-OOD, and XLINE-001.
 - D043b/D043d are attempts under D043; D053a/D053b are attempts under D053.
+- D092-R1 is the source-rebound attempt under D092; the failed D092 launch is
+  retained as infrastructure provenance and is not rewritten.
+- D093 reuses D092-R1 as its `PCNO-7` anchor and adds five registered
+  architecture/exposure cells; it is one D-series study, not six new IDs.
+- A46-A2-R1 resource-build stops are infrastructure attempts under A46-A2, not
+  a new scientific run or result.
+- PlanarDet cumulative-`pMax` P0/P0b, group-feedback G0/G0b, and one-call pulse
+  G1 are inference attempts under `W26-L4-PD0`, not new D-series runs. P0 is
+  retained as a metric-decoder closure failure and G0 as a pre-inference
+  manifest-parser launch failure; P0b and G0b have distinct source,
+  preregistration, result, and manifests, and G1 has its own closed
+  source/preregistration/result chain.
 - P/D019 maps to D019 and R/D041 maps to D041.
 - RC-01--RC-15 and historical L3R-C1/L3R-C2 are claim IDs, not run IDs.
 - A failed attempt retains its identity. A revised experiment receives a new
@@ -70,10 +82,10 @@ the current source and artifact manifests before execution or interpretation.
 
 ## D-Series Index
 
-Every D-series ID is contiguous from D001 through D091. Use the archive for
+Every D-series ID is contiguous from D001 through D093. Use the archive for
 D001--D086 exact populations, contracts, metrics, thresholds, source and
 artifact hashes, attempt histories, and claim language; use the live contracts
-linked below for D087--D091.
+linked below for D087--D093.
 
 | ID | Family and topic | Terminal evidence state |
 | --- | --- | --- |
@@ -168,6 +180,9 @@ linked below for D087--D091.
 | D089 | W26-L4 domain-linked IgnitHIT direct-baseline amendment | A1 passed, but the one authorized seed-0 A3-P0 run is terminal: steps 1 and 50 were finite, decoded-finite, admissible, and bounded; step-100 validation failed before its row was serialized. Best remains step 1 (`realm_npe_mean=4.5477657318`) and last remains step 50 (`4.9248557091`). D090 later identifies the missing gate as boundedness only; no retry/resume/test access occurred, and no full baseline or residual arm is supported. |
 | D090 | W26-L4 D089 step-100 failure capture | Completed and terminal. The exact one-replay diagnostic restores D089 step 50, replays only steps 51--100, persists the full H29 row before the unchanged gate, and stops. At step 100 all normalized and decoded states are finite and all 145 case-calls are admissible, but all five cases contain unbounded calls; maximum registered-envelope ratio is `2.2733771801` and H29 `realm_npe_mean=5.7428269386`. No retry, continuation, selection, repair, test, PlanarDet, or residual arm occurred. |
 | D091 | W26-L4 REALM boundedness attribution | A1 complete; no scientific model execution. The exact step-50/step-100, teacher-forced/free-recurrence, per-channel first-event and spatial-support contract is implemented and synthetic/maintained REALM CPU gates pass. One exact A2 inference run remains separately unauthorized, so offending-channel and fresh-versus-propagated attribution are still missing evidence. |
+| D092 | W26-L4 PlanarDet champion residual-PCNO | The original scalar-hash failure remains infrastructure provenance. D092-R1 completed the repaired seed-0 width-96 5,000-step run and selected step 950. On the one open-validation trajectory, truth-input/free H49 mean NPE is `0.1244744/1.7987391`, with released-code horizon sums `6.09925/88.13821`; every call is finite and bounded, free recurrence is admissible on 7/49 calls, and truth competence fails only cumulative-`pMax` monotonicity. The PCNO free validation sum is 7.01x the REALM paper's FFNO validation value `12.577`, but no sealed test or paired baseline reproduction occurred. |
+| D093 | W26-L4 PlanarDet architecture/exposure comparison | Closed as partial single-seed, single-open-validation evidence. Seven rather than three unique supervised trajectories improves selected truth-input error in PCNO, PCFNO, and residual FFNO, but only FFNO improves selected free rollout. FFNO-7 is best in this matrix (`1.36466/32.53910` truth-input/free H49 sums); all free rollouts remain incompletely admissible, and PCFNO-7, PCFNO-3, and FFNO-3 training is incomplete after later decoded-validation failures. The common residual FFNO is not paper-faithful, PCFNO is not vanilla FNO, and test remains absent. See [the bounded D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md). |
+| W26-L4-PD0 | PlanarDet champion execution | A1--A3, the open-validation evaluator, P0b, corrected G0b, and G1 are complete. P0 failed exact CPU metric-decoder closure; P0b removes all `pMax` decreases but is near-null on non-`pMax` drift (`0.9925744`). G0 failed before inference; corrected G0b localizes strong chemistry/density recurrence sensitivity. G1 preserves the pulse-call proposal and injects one exact group only into the next input at calls 4/12/32. Common `T+u` ratios are chemistry `0.965/0.926/0.839` and density `0.983/0.902/0.863`; partner ratios are chemistry-to-density `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`. The frozen classification is chemistry-to-density-only at calls 12/32 and no material partner effect at call 4. Phase and correction dose remain confounded, and error gains can worsen validity counts. This supports checkpoint-local asymmetric recurrent persistence, not a physical causal graph, architecture cause, or promotable oracle correction; test remains absent. |
 
 ## Evidence And Claim Boundaries
 
@@ -226,6 +241,15 @@ linked below for D087--D091.
   optimizer, architecture, representation, or domain-link cause. No D091 real
   array, checkpoint, CUDA, remote, test, continuation, or residual execution
   has occurred.
+- D093 varies model family and unique-condition exposure under a common
+  residual-training contract on one seed and one open validation trajectory.
+  Its three-trajectory arms still use seven-case normalization and seven
+  microbatch presentations per optimizer step, so they are not clean
+  dataset-size or compute-scaling controls. The results support improved
+  truth-input accuracy with broader condition exposure and an
+  architecture-dependent rollout response; they do not support general data
+  scaling, architecture superiority, a gradient-branch stability claim, a
+  paper-faithful REALM result, conservation, or test performance.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.
@@ -240,6 +264,10 @@ linked below for D087--D091.
 | L4A-002 | Frozen 2D autoencoder capacity smoke | Completed; reconstruction/front gates failed. |
 | L4A-003 | Decoder code-reachability oracle | Completed; decoder manifold rejected. |
 | L4A-004 | Conservative local-Haar capacity preflight | Completed; discontinuous regularity helped but remained insufficient. |
+| W26-L5-P6-RFB19 | Dynamic-FV low-rank cross-resolution correction | Active mechanism line. A32 qualifies the target-free affine raw-shadow tether on reused E12/E14; A33-R1 then qualifies it on six reused D074 cases against retained 500x200 truth (`0.98887/0.94507` full/rank-8 trajectory, `0.97770/0.89007` H30, 6/6 wins, maximum control `1.00459`). Direct fixed-hop 500x200 fails versus corrected transfer (median H30 `2.08418`, 0/6 wins, 522 controls). A34--A39 reject universal coefficients, simple Euler1D routers, and three prospective phase observers despite strong ordinary same-family fits. A40 rejects paired-native batching. A41/A42 identify a nearly diagonal correction-inactive accepted-shadow coast response (`0.99850/0.99845` E12/E14 skill). A43 freezes it into a one-native coast replay and qualifies: active full/rank-8/H30 ratios `0.97877/0.93117/0.96249`, 4/4 trajectory/endpoint wins, maximum control `1.01141`, and 548 calls versus optimized A32's 604. A44-R1 confirms the unchanged protocol on disjoint E00/E11 correction cases inside checkpoint training support: `0.98216/0.95586/0.97873`, 4/4 wins, maximum control `1.04361`; large/rank-8 improve while local bands are neutral/slightly harmful. A45 finds pooled full/rank-8 logged-utility skill over zero/phase `0.57844/0.49571` and stable scalar-history coefficients, but fails E00 (`-0.30058` versus phase) and coast (`-3.03163`). Its 32 case-band cells support broad/rank-8 benefit and uniform local harm, not a causal fine-refresh estimate or deployable router. A43/A44-R1 remain frozen; further scalar-history fitting on the eight opened active cases is closed. No independent checkpoint/test, cross-family response, Euler1D replay, conservation, or latency claim is authorized. A decisive continuation needs same-state exact/coast branches and newly generated checkpoint-independent recurrence under a new registration. |
+| W26-L5-P6-RFB19-A46-A1 | Same-state exact/coast refresh counterfactual | Preregistered and synthetic-only. Fifteen closure checks and 18 focused CPU tests pass; one shared shadow call, enforced shadow/native/fine role order, exact/coast input identity, truth separation, signed physical-volume utility, zero/small-denominator behavior, and nonfeedback master bookkeeping close. Artifact SHA-256 `e68aafa58265facd15683fe6675779fa500eaae03195ccc8fa00d686824c0a9a`, payload `3f6787bc35f6cea95edf60e9687784ba89346e863be9ca5324401a3fb574eb44`. No model/data/remote/population/controller execution and no scientific result; A2 remains blocked on a compatible independent-checkpoint and new-case metadata preflight. |
+| W26-L5-P6-RFB19-A46-A2 | Independent-checkpoint/new-case metadata preflight | Completed fail-closed metadata audit. The frozen D060/A28--A45 reference passes 9/9 contract checks and 52 opened case IDs are bound. Ten candidate SHAs were audited: the sole 12-input alternative has literal-zero rather than physical node-type channels; all nine D072 N0/G1/S1 candidates omit node-type channels, with G1/S1 also adding boundary inputs. No checkpoint bytes were locally available to rehash and no new branch-label/recurrence manifest exists, so status is `blocked` on `no_compatible_independent_checkpoint` and `new_case_population_manifest_missing`. Artifact SHA-256 `edbe1f3d17dca7388ea51246dd079b59b9f77f8f41be0a19283e2a229a755801`, payload `9069c3664601beae5843eec2f41e685dfd4594948b2fff97c02f061aca4307c2`; 27 focused CPU tests and Ruff pass. Zero checkpoint-tensor/model/state/truth/outcome/remote/controller activity; no scientific or gradient-layer result. |
+| W26-L5-P6-RFB19-A46-A2-R1 | Matched resource-build attempt | Infrastructure-only and stopped three times before data, training, reference generation, or outcome opening: two isolated-source preflights exposed broad runtime imports, then a run-local interpreter symlink broke environment discovery before model construction. Stop-record SHA-256 values are `e3de829837eda3e6d94670084fd6ee95e855cdf5fa98d017d9163902915968cc`, `6cb61bc9a3b62e5492867fbfe7a0aae661627cf9ac9ef0c868914b7f96cdc16c`, and `93c0bfb115f4bb49a90f600c18c6a73736d47bb390d433ee35ad10abc6cfe6a3`. The latest 18-case plan is frozen before generation (`b0bdf4064b21f0c7915327b32d1ab7edc066882000d9a8ee7e330840876180d1`); every case has `generated=false` and `outcome_opened=false`. It remains non-scientific infrastructure provenance under the A46-A2 block. |
 
 ## Topic Routing
 
@@ -259,13 +287,13 @@ linked below for D087--D091.
 | Orientation and graph transformation | D083, D085, D086 |
 | Physical-conservation limits | D008, D037, D045--D051, RC-13 in the decision file |
 | Latent forecasting readiness | L4A-001--L4A-004 |
-| REALM benchmark validation | D088--D091, [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
+| REALM benchmark validation | D088--D093, [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md), [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
 
 ## Archive And Recovery Anchors
 
 - The through-2026-08-11 archive above is the authoritative detailed ledger for
   D001--D086 and all registered non-D IDs in this index.
-- D087--D091 postdate that archive. Their exact live contracts, attempt
+- D087--D093 postdate that archive. Their exact live contracts, attempt
   histories, hashes, results, and claim boundaries are in
   [D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md](D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md),
   [W26_L4_REALM_PREREGISTRATION.md](W26_L4_REALM_PREREGISTRATION.md), and
@@ -273,7 +301,9 @@ linked below for D087--D091.
   with D090's exact diagnostic contract in
   [D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md](D090_W26_L4_REALM_FAILURE_CAPTURE_PREREGISTRATION.md)
   and D091's inference-attribution contract in
-  [D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md](D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md).
+  [D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md](D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md),
+  with D093's closed comparison in
+  [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md).
 - Commit `5646bfb` adds the byte-preserved pre-compaction tracker state; the
   archive, not the commit diff, is the normal retrieval target.
 - The earlier through-2026-08-01 archive has SHA-256

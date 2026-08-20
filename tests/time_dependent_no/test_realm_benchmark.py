@@ -310,6 +310,40 @@ def test_true_two_call_final_detaches_first_call_and_reuses_static_coordinates()
     assert current.grad is None
 
 
+def test_two_call_autocast_does_not_reuse_detached_parameter_cache() -> None:
+    class ZeroHeadModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.hidden = torch.nn.Linear(4, 4)
+            self.head = torch.nn.Linear(4, 4)
+            torch.nn.init.zeros_(self.head.weight)
+            torch.nn.init.zeros_(self.head.bias)
+
+        def forward(
+            self,
+            state: torch.Tensor,
+            static: torch.Tensor,
+        ) -> torch.Tensor:
+            del static
+            return self.head(torch.nn.functional.gelu(self.hidden(state)))
+
+    model = ZeroHeadModel()
+    current = torch.randn(2, 4)
+    truth = current + 0.01 * torch.randn_like(current)
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        prediction = predict_two_call_final(
+            model,
+            current,
+            torch.empty(0),
+            parameterization="residual",
+        )
+        loss = (prediction - truth).square().mean()
+    loss.backward()
+
+    assert loss.requires_grad
+    assert all(parameter.grad is not None for parameter in model.parameters())
+
+
 def test_recurrence_apis_have_no_future_truth_argument() -> None:
     for function in (predict_one_call, predict_two_call_final):
         names = set(inspect.signature(function).parameters)

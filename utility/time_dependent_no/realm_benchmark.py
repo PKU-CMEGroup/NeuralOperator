@@ -545,7 +545,21 @@ def predict_two_call_final(
 ) -> torch.Tensor:
     """Two learned calls with call one detached and loss intended on call two."""
 
-    with torch.no_grad():
+    device_type = current.device.type
+    autocast_enabled = torch.is_autocast_enabled(device_type)
+    autocast_dtype = (
+        torch.get_autocast_dtype(device_type) if autocast_enabled else None
+    )
+    # An outer autocast context caches parameter casts.  If the detached first
+    # call populates that cache under no_grad, call two can reuse detached
+    # weights and silently lose parameter gradients.  Keep call one's casts
+    # uncached while preserving the caller's autocast dtype and state.
+    with torch.no_grad(), torch.autocast(
+        device_type=device_type,
+        dtype=autocast_dtype,
+        enabled=autocast_enabled,
+        cache_enabled=False,
+    ):
         first = predict_one_call(
             model,
             current,

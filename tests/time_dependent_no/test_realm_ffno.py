@@ -59,6 +59,26 @@ def test_small_ffno_forward_backward_is_finite_and_shape_exact() -> None:
     )
 
 
+def test_bfloat16_autocast_keeps_fft_in_float32_and_backpropagates() -> None:
+    torch.manual_seed(11)
+    model = RealmFFNO2d(_small_config())
+    state = torch.randn(1, 12, 8, 8, requires_grad=True)
+    coordinates = torch.randn(1, 2, 8, 8)
+
+    with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+        prediction = model(state, coordinates)
+        loss = prediction.square().mean()
+    loss.backward()
+
+    assert prediction.dtype == torch.bfloat16
+    assert torch.isfinite(prediction).all()
+    assert state.grad is not None and torch.isfinite(state.grad).all()
+    assert all(
+        parameter.grad is not None and torch.isfinite(parameter.grad).all()
+        for parameter in model.parameters()
+    )
+
+
 def test_coordinate_normalization_preserves_relative_scale_and_batch_broadcast() -> (
     None
 ):

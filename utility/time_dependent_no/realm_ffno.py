@@ -118,25 +118,31 @@ class _FactorizedSpectralBlock2d(nn.Module):
         if self.modes_x > width // 2 + 1 or self.modes_y > height // 2 + 1:
             raise ValueError("registered Fourier modes exceed the input-grid support")
 
-        spectrum_x = torch.fft.rfft(channels_first, dim=-1, norm="ortho")
-        mixed_x = spectrum_x.new_zeros(batch, self.width, height, width // 2 + 1)
-        mixed_x[..., : self.modes_x] = torch.einsum(
-            "bcyk,cok->boyk",
-            spectrum_x[..., : self.modes_x],
-            torch.view_as_complex(self.weight_x),
-        )
-        physical_x = torch.fft.irfft(mixed_x, n=width, dim=-1, norm="ortho")
+        # CUDA and CPU FFT kernels do not accept bfloat16. Keep only the
+        # spectral transform/contraction in the registered float32 parameter
+        # dtype; the surrounding projections and MLP remain under the caller's
+        # autocast policy.
+        with torch.autocast(device_type=channels_first.device.type, enabled=False):
+            fft_values = channels_first.to(dtype=self.weight_x.dtype)
+            spectrum_x = torch.fft.rfft(fft_values, dim=-1, norm="ortho")
+            mixed_x = spectrum_x.new_zeros(batch, self.width, height, width // 2 + 1)
+            mixed_x[..., : self.modes_x] = torch.einsum(
+                "bcyk,cok->boyk",
+                spectrum_x[..., : self.modes_x],
+                torch.view_as_complex(self.weight_x),
+            )
+            physical_x = torch.fft.irfft(mixed_x, n=width, dim=-1, norm="ortho")
 
-        spectrum_y = torch.fft.rfft(channels_first, dim=-2, norm="ortho")
-        mixed_y = spectrum_y.new_zeros(batch, self.width, height // 2 + 1, width)
-        mixed_y[:, :, : self.modes_y] = torch.einsum(
-            "bckx,cok->bokx",
-            spectrum_y[:, :, : self.modes_y],
-            torch.view_as_complex(self.weight_y),
-        )
-        physical_y = torch.fft.irfft(mixed_y, n=height, dim=-2, norm="ortho")
+            spectrum_y = torch.fft.rfft(fft_values, dim=-2, norm="ortho")
+            mixed_y = spectrum_y.new_zeros(batch, self.width, height // 2 + 1, width)
+            mixed_y[:, :, : self.modes_y] = torch.einsum(
+                "bckx,cok->bokx",
+                spectrum_y[:, :, : self.modes_y],
+                torch.view_as_complex(self.weight_y),
+            )
+            physical_y = torch.fft.irfft(mixed_y, n=height, dim=-2, norm="ortho")
 
-        factorized = (physical_x + physical_y).permute(0, 2, 3, 1)
+            factorized = (physical_x + physical_y).permute(0, 2, 3, 1)
         return self.backcast(factorized)
 
 

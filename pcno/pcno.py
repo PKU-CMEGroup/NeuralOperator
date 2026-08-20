@@ -1,12 +1,13 @@
+from timeit import default_timer
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from timeit import default_timer
+
 from utility.adam import Adam
 from utility.losses import LpLoss
 from utility.normalizer import UnitGaussianNormalizer
-
 
 
 def _get_act(act):
@@ -229,7 +230,128 @@ class SpectralConv(nn.Module):
         return x
 
 
-def compute_gradient(f, directed_edges, edge_gradient_weights):
+_GRADIENT_MESSAGE_CHUNK_BYTES = 64 * 1024 * 1024
+
+
+class _FlatGraphGradient(torch.autograd.Function):
+    """Memory-bounded autograd for fixed least-squares edge gradients."""
+
+    @staticmethod
+    def forward(
+        ctx,
+        values,
+        flat_target,
+        flat_source,
+        flat_weights,
+        chunk_size,
+    ):
+        ctx.save_for_backward(flat_target, flat_source, flat_weights)
+        ctx.value_shape = tuple(values.shape)
+        ctx.chunk_size = int(chunk_size)
+        output = values.new_zeros(
+            values.shape[0],
+            values.shape[1],
+            flat_weights.shape[1],
+        )
+        for start in range(0, flat_source.numel(), ctx.chunk_size):
+            end = min(start + ctx.chunk_size, flat_source.numel())
+            source_values = torch.index_select(values, 0, flat_source[start:end])
+            target_values = torch.index_select(values, 0, flat_target[start:end])
+            message = (source_values - target_values).unsqueeze(-1) * flat_weights[
+                start:end
+            ].unsqueeze(1)
+            output.index_add_(0, flat_target[start:end], message)
+        return output
+
+    @staticmethod
+    def backward(ctx, output_gradient):
+        flat_target, flat_source, flat_weights = ctx.saved_tensors
+        value_gradient = output_gradient.new_zeros(ctx.value_shape)
+        for start in range(0, flat_target.numel(), ctx.chunk_size):
+            end = min(start + ctx.chunk_size, flat_target.numel())
+            target_gradient = torch.index_select(
+                output_gradient,
+                0,
+                flat_target[start:end],
+            )
+            contribution = (
+                target_gradient * flat_weights[start:end].unsqueeze(1)
+            ).sum(dim=-1)
+            value_gradient.index_add_(
+                0,
+                flat_source[start:end],
+                contribution,
+            )
+            value_gradient.index_add_(
+                0,
+                flat_target[start:end],
+                -contribution,
+            )
+        return value_gradient, None, None, None, None
+
+
+def _flattened_compute_gradient(
+    f,
+    directed_edges,
+    edge_gradient_weights,
+    flat_edge_indices,
+):
+    batch_size, in_channels, nnodes = f.shape
+    _, max_nedges, ndims = edge_gradient_weights.shape
+    if edge_gradient_weights.requires_grad:
+        raise ValueError("chunked gradients require fixed edge-gradient weights")
+    if edge_gradient_weights.device != f.device:
+        raise ValueError("edge-gradient weights must match the input device")
+
+    flat_target, flat_source = flat_edge_indices
+    expected_edges = batch_size * max_nedges
+    for name, index in (
+        ("flat_target", flat_target),
+        ("flat_source", flat_source),
+    ):
+        if index.ndim != 1 or index.numel() != expected_edges:
+            raise ValueError(f"{name} must contain {expected_edges} flattened edges")
+        if index.device != f.device or index.dtype != directed_edges.dtype:
+            raise ValueError(
+                f"{name} must match the directed-edge device and dtype"
+            )
+
+    values = f.permute(0, 2, 1).reshape(batch_size * nnodes, in_channels)
+    flat_weights = edge_gradient_weights.reshape(expected_edges, ndims).to(
+        dtype=values.dtype
+    )
+    message_bytes_per_edge = max(
+        1,
+        in_channels * ndims * values.element_size(),
+    )
+    chunk_size = max(
+        1,
+        min(
+            expected_edges,
+            _GRADIENT_MESSAGE_CHUNK_BYTES // message_bytes_per_edge,
+        ),
+    )
+    gradients = _FlatGraphGradient.apply(
+        values,
+        flat_target,
+        flat_source,
+        flat_weights,
+        chunk_size,
+    )
+    return gradients.reshape(
+        batch_size,
+        nnodes,
+        in_channels * ndims,
+    ).permute(0, 2, 1)
+
+
+def compute_gradient(
+    f,
+    directed_edges,
+    edge_gradient_weights,
+    *,
+    flat_edge_indices=None,
+):
     '''
     Compute gradient of field f at each node
     The gradient is computed by least square.
@@ -257,11 +379,21 @@ def compute_gradient(f, directed_edges, edge_gradient_weights):
             f : float[batch_size, in_channels, nnodes]
             directed_edges : int[batch_size, max_nedges, 2]
             edge_gradient_weights : float[batch_size, max_nedges, ndims]
+            flat_edge_indices : optional flattened target/source indices for
+                                memory-bounded fixed-geometry autograd
 
         Returns:
             x_gradients : float Tensor[batch_size, in_channels*ndims, max_nnodes]
             * in_channels*ndims dimension is gradient[x_1], gradient[x_2], gradient[x_3]......
     '''
+
+    if flat_edge_indices is not None:
+        return _flattened_compute_gradient(
+            f,
+            directed_edges,
+            edge_gradient_weights,
+            flat_edge_indices,
+        )
 
     f = f.permute(0,2,1)
     batch_size, max_nnodes, in_channels = f.shape
@@ -656,7 +788,12 @@ class GradientLayer(nn.Module):
             self.geo_act(
                 self.gw1
                 * graph_neighbor_average(
-                    compute_gradient(x, directed_edges, edge_gradient_weights),
+                    compute_gradient(
+                        x,
+                        directed_edges,
+                        edge_gradient_weights,
+                        flat_edge_indices=flat_edge_indices,
+                    ),
                     directed_edges,
                     iterations=2,
                     neighbor_degree=neighbor_degree,

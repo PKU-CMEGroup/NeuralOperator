@@ -2,8 +2,17 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
-from pcno.geo_utility import convert_structured_data, compute_node_weights, preprocess_data_mesh, compute_node_measures, compute_edge_gradient_weights, compute_triangle_area_
-from pcno.geo_utility import compute_elem_adjacent_list, compute_node_adjacent_list
+
+from pcno.geo_utility import (
+    compute_edge_gradient_weights,
+    compute_elem_adjacent_list,
+    compute_node_adjacent_list,
+    compute_node_measures,
+    compute_node_weights,
+    compute_triangle_area_,
+    convert_structured_data,
+    preprocess_data_mesh,
+)
 from pcno.pcno import (
     PCNO,
     _compute_Fourier_bases_and_weights,
@@ -12,6 +21,7 @@ from pcno.pcno import (
     compute_neighbor_degree,
     graph_neighbor_average,
 )
+
 #####################################################################
 # PCNO CODE TESTS
 #####################################################################
@@ -81,6 +91,62 @@ def test_compute_gradient_matches_materialized_forward_and_backward() -> None:
     torch.testing.assert_close(
         actual_weights.grad, reference_weights.grad, rtol=0.0, atol=0.0
     )
+
+    chunked_features = features.clone().requires_grad_(True)
+    with patch("pcno.pcno._GRADIENT_MESSAGE_CHUNK_BYTES", 32):
+        chunked = compute_gradient(
+            chunked_features,
+            directed_edges,
+            edge_gradient_weights,
+            flat_edge_indices=compute_flat_edge_indices(
+                directed_edges,
+                features.shape[-1],
+            ),
+        )
+        (chunked * output_gradient).sum().backward()
+
+    torch.testing.assert_close(chunked, reference, rtol=1.0e-15, atol=1.0e-15)
+    torch.testing.assert_close(
+        chunked_features.grad,
+        reference_features.grad,
+        rtol=1.0e-15,
+        atol=1.0e-15,
+    )
+
+
+def test_flat_graph_gradient_passes_first_and_second_derivative_checks() -> None:
+    directed_edges = torch.tensor(
+        [[[0, 1], [0, 2], [1, 0], [2, 3], [3, 1]]],
+        dtype=torch.int64,
+    )
+    edge_gradient_weights = torch.randn(
+        1,
+        directed_edges.shape[1],
+        2,
+        dtype=torch.float64,
+        generator=torch.Generator().manual_seed(20260815),
+    )
+    flat_edge_indices = compute_flat_edge_indices(directed_edges, nnodes=4)
+    values = torch.randn(
+        1,
+        2,
+        4,
+        dtype=torch.float64,
+        generator=torch.Generator().manual_seed(20260816),
+        requires_grad=True,
+    )
+
+    def function(tensor: torch.Tensor) -> torch.Tensor:
+        return compute_gradient(
+            tensor,
+            directed_edges,
+            edge_gradient_weights,
+            flat_edge_indices=flat_edge_indices,
+        )
+
+    with patch("pcno.pcno._GRADIENT_MESSAGE_CHUNK_BYTES", 16):
+        assert torch.autograd.gradcheck(function, (values,))
+        assert torch.autograd.gradgradcheck(function, (values,))
 
 
 def test_homogeneous_fourier_tensors_match_materialized_batch_and_share_storage() -> None:

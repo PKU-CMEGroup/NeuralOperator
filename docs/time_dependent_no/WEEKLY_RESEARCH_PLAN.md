@@ -68,10 +68,10 @@ Anti-claims that must be ruled out or stated explicitly:
 
 | Line | Core question | This-week must-run scope | Conditional continuation |
 | --- | --- | --- | --- |
-| W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | D087 is complete and terminal at H79: exact identities, four event horizons, feedback attribution, and paired fresh/propagated decomposition passed. | No implicit continuation. H160/H320, spectra/JVPs, policy counterfactuals, and more bump truth require a new owner-selected claim and stable identity. |
+| W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | D087 is complete at H79. A separately registered same-population H320 comparison is also closed: active-gradient PCNO reaches reference-free failure events later than PCFNO more often, but H80--H320 has no truth. | No implicit continuation. A separate H160 identity, spectra/JVPs, policy counterfactuals, and more bump truth require a new owner-selected claim and stable identity. |
 | W26-L2: Shock representation and differential pathway | Are shock-adjacent defects spectral-retrieval-like error, finite-grid capacity/phase error, gradient-path inconsistency, or recurrent exposure error? | Review P2-C0/P2-F/P2-W0: necessary spectral transport, robust pointwise cancellation, trained-architecture reorganization, a held-phase recurrent wake, and failed global gradient scaling. | Select at most one justified selective-limiter, loss/exposure, or bump-specific no-gradient A1 preregistration after human review; D073-B remains coordinated with W26-L5. |
 | W26-L3: Boundary conditions and finite propagation | Which boundary information and enforcement mechanisms are useful for each boundary class, and does global mixing seed the top-left error outside the physical domain of dependence? | Boundary taxonomy and task audit; information-versus-enforcement matrix; synthetic/local finite-propagation probe. | Multi-seed boundary training on selected classes and recurrent top-left causal test. |
-| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1 and D093 are closed. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only residual FFNO has a lower selected free-rollout sum; one seed/open trajectory, incomplete cells, distinct D092/D093 source inventories, and contract mismatch bound the result. | Human review may close the line or separately choose a paper-faithful direct-state FFNO control, free-rollout-aware selection study, or seed/condition replication. Do not promote an oracle intervention, infer an architecture cause, or open test implicitly. |
+| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1 and D093 are closed. D094's field-blind bump split, local v6 wiring, and long-schedule contract are verified; its six-cell seed-0 pilot is reported complete remotely, but no packet is retained or rehashed locally. | Retrieve and rehash the reported packets, re-establish bounded CUDA health, and obtain explicit authorization before the D094 long-schedule gate. Do not infer a D093 cause, promote an oracle intervention, or open test implicitly. |
 | W26-L5: Cross-resolution correction | Do coarse/native/fine prediction differences predict native error out of case, and can they improve a synchronized native update safely? | A43/A44-R1 qualify one bounded same-family correction protocol; A45 stops the scalar-history router. A46-A1 closes synthetic plumbing, A46-A2 fails closed on checkpoint/new-case compatibility, and A46-A2-R1 stops before generation or model construction. | No implicit branch inference or resource retry. A decisive continuation needs a compatible independent physical-node-type checkpoint and frozen new branch-label/recurrence manifests under separate authorization. |
 
 These lines may run in parallel through preflight and synthetic CPU checks. They
@@ -171,6 +171,12 @@ intervention may diagnose a mechanism but cannot establish training robustness.
   H79. D019 loses accuracy first, then becomes inadmissible and unbounded while
   remaining finite. Its late error is dominated by propagated-input response,
   not a rising fresh one-step defect.
+- A separately registered H320 continuation reuses the same 30 open cases.
+  All 43 members named by five retained final manifests rehash. PCNO has later
+  first inadmissibility/boundedness events on 27/30 and 28/30 pairs and remains
+  finite through H320 on 30/30 cases versus PCFNO 17/30. Truth ends at H79, so
+  these are descriptive recurrence events rather than later-horizon accuracy
+  or physical-validity results.
 
 ### Experiment ladder
 
@@ -216,6 +222,15 @@ closure. Spectra, localized perturbations, and JVPs were not needed for the
 accepted inference-map claim and are not queued. They require a new
 preregistration if a later causal question makes them decisive.
 
+**W26-L1-H320: separately registered reference-free continuation — COMPLETE**
+
+The matched PCNO/PCFNO packets close at one seed and 30 open cases, with truth
+supported only through H79. The
+[bounded record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md) retains exact
+packet hashes, event summaries, and the two unrecoverable preregistration
+identities. H80--H320 supports no accuracy, conservation, physical-validity,
+asymptotic-stability, causal-gradient, seed-general, or general-operator claim.
+
 **L1-P4: longer reference — NOT SELECTED**
 
 - Generate or acquire longer truth only after the solver/data contract and cost
@@ -224,9 +239,10 @@ preregistration if a later causal question makes them decisive.
 ### Paper role and decision
 
 D087 supplies a main-paper-ready event taxonomy and a bounded inference-map
-failure diagnostic. It does not provide a matched causal factor contrast or a
-general stability claim. The line is closed at H79; the next benchmark-facing
-step is W26-L4 REALM rather than truth-free bump continuation.
+failure diagnostic. The later H320 packet adds only reference-free recurrence
+events. Neither provides a matched causal-factor contrast or general stability
+claim. W26-L1 is closed at these registered scopes; no further bump continuation
+is implicit.
 
 ## W26-L2: Shock Representation, Ripple, Gradient, Filtering, Loss, And Noise
 
@@ -637,6 +653,7 @@ authoritative boundary/source accounting.
 | `PD0-G0/G0b` | Same step-950 checkpoint and open trajectory; independently replace chemistry, temperature, density, or velocity with exact next-frame truth only after scoring the raw proposal and only for recurrent feedback | G0 is a retained pre-inference manifest-parser launch failure. Corrected G0b passes replay/isolation/H49/metric gates. Primary untouched-group ratios are chemistry `0.48403`, density `0.34435`, temperature `1.13895`, and velocity `1.06437`. | Owner-authorized inference complete; coupling diagnosis only; no oracle arm promoted and no automatic continuation |
 | `PD0-G1` | Same checkpoint/trajectory; preserve the raw proposal at calls 4/12/32, use one exact chemistry or density group only in the next input, then return to raw recurrence | All six arms pass replay/isolation/H49/metric gates. Chemistry-to-density partner ratios are `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`; only chemistry-to-density is materially persistent at calls 12/32. Phase and pulse dose remain confounded. | Owner-authorized inference complete; no oracle arm promoted and no automatic continuation |
 | `D093` | Reuse D092-R1 as PCNO-7 and compare PCNO/PCFNO/residual FFNO with three or seven unique supervised trajectories at fixed seven presentations per optimizer step | Closed partial evidence. Each seven-condition cell has a lower selected truth-input sum than its three-condition counterpart; only FFNO has a lower selected free-rollout sum, and FFNO-7 is best at `1.36466/32.53910`. Three cells are incomplete; no free rollout is fully admissible. | Owner-authorized study closed at the available selected-checkpoint scope for one seed/open trajectory; no paper-faithful baseline, automatic replication, or test access |
+| `D094` | Native-mesh bump PCNO/PCFNO scaling at `n={16,64,256}` as the immediate pilot, with a separately qualified hundreds-case PlanarDet population required for the hard-benchmark claim | The local 300-case metadata manifest, 256/44 field-blind split, nested `n=8..256` ladder, v6 extension registry, and long-schedule contract close without opening state arrays or historical test. Six pilot cells are reported complete remotely, but no packet is retained or rehashed locally. | Treat the report only as unverified routing evidence. Retrieve and rehash its packets, re-establish bounded CUDA health, and obtain explicit owner authorization before the long-schedule gate; no implicit launch or test access |
 | `PD0-A4` | One frozen checkpoint/evaluator test opening | One shot after conclusions and hashes are frozen | Separate named sealed-test approval |
 
 Current data/compute budget: the seven-train/one-validation open subset is
@@ -770,6 +787,23 @@ the gradient branch disabled, not vanilla FNO. Three cells stop incomplete
 after later decoded-validation failures, and no selected free rollout is fully
 admissible. The [D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md) binds the
 full table, source manifests, missing-array replay boundary, and claim limits.
+
+### D094 hundreds-trajectory scaling registration
+
+D094 retires the `n<=7` factorial sweep as the main scaling experiment. Its
+[preregistration](D094_BUMP_SCALING_PREREGISTRATION.md) and immutable
+[split](D094_BUMP_SCALING_SPLIT_MANIFEST.json) bind the 300-case bump metadata
+population, a 256/44 field-blind development partition, and nested
+`n=8..256` subsets. The v6 strict source set registers the adapter,
+differential-branch utility, split builder, preregistration, and split. Neither
+state arrays nor the historical test population were opened to construct it.
+
+An isolated metadata preflight, paired PCNO/PCFNO `n={16,256}` smokes, and six
+seed-0 `n={16,64,256}` pilot completions are reported remotely, but their
+packets are not retained locally. This is unverified coordination and routing
+evidence, not a local scientific closeout. The error-first long-schedule gate
+remains unlaunched until packet retrieval/rehash, bounded CUDA health, and
+explicit owner authorization all close.
 
 ### Failure-decision table
 
@@ -984,6 +1018,15 @@ continuation. Any new executable scope must first bind one fresh D060-compatible
 checkpoint and freeze newly generated, disjoint branch-label and recurrence
 case manifests without opening outcomes.
 
+The A46 A1/A2 source records also bind
+`W26_L5_SAME_STATE_REFRESH_COUNTERFACTUAL_PREREGISTRATION.md` at SHA-256
+`3bc057aa3b337ce09ae6c80c36cf23c6d863d15c73ed56d62ce13b802ca2419f`,
+but its bytes are absent from the checkout, Git history, and retained archives.
+This limits exact old-identity replay without retracting the bounded
+synthetic/preflight outcomes. Do not reconstruct it; any future activation needs
+a new preregistration, identity, and source manifest. See the complete
+[HANDOFF gap table](HANDOFF.md#unrecoverable-preregistration-gaps).
+
 ### Paper role and decision
 
 Appendix/diagnostic unless the held-out recurrent correction beats raw native
@@ -1013,6 +1056,7 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | W26-L1-P1 | stability | MUST | COMPLETE | D087 evaluator contract; 46 focused CPU tests and Ruff checks pass |
 | W26-L1-P2 | stability | A2 | COMPLETE | Paired 30-case H79 event/survival replay with exact feedback attribution |
 | W26-L1-P3 | stability | A2 | COMPLETE AT DECOMPOSITION SCOPE | Paired H79 fresh/propagated result; spectra/JVP branches not selected |
+| W26-L1-H320 | stability | SEPARATELY REGISTERED | COMPLETE; REFERENCE-FREE AFTER H79 | Matched 30-case PCNO/PCFNO recurrence through H320; all five retained packets rehash, but no H80--H320 truth or causal-gradient claim |
 | W26-L2-P0 | shock representation | MUST | COMPLETE | Analytic moving-front capacity report and fixed-scale visualizations |
 | W26-L2-P1 | differential path | MUST | COMPLETE | Cross-grid gradient-path instrumentation and frozen 2^3 branch attribution |
 | W26-L2-P2 | no-gradient training | FIRST A3 MATRIX | COMPLETE; PARTIAL RESULT | Three paired seeds passed the primary but failed the strict no-harm gate |
@@ -1029,6 +1073,7 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | W26-L4-P2 | IgnitHIT residual comparison | HISTORICAL | NOT RUN; SUPERSEDED BY CURRENT PD0 DIRECTION | No result and no implicit queue |
 | W26-L4-PD0 | PlanarDet champion PCNO | MUST | A1--A3 + P0b + G0b + G1 COMPLETE; ASYMMETRIC RECURRENT PERSISTENCE LOCALIZED | Exact 2,940,759,467-byte open tree, resource ladder, D092-R1 training, step-950 selection, H49 evaluation, and three causal diagnostics are closed. Truth/free mean NPE is `0.1244744/1.7987391`; the comparable free horizon sum `88.13821` is 7.01x the paper FFNO validation value. P0b is near-null. G0b localizes chemistry/density sensitivity; G1 finds chemistry-to-density-only material partner persistence at calls 12/32, with phase/dose confounded. No intervention is promoted and test remains absent. |
 | D093 | PlanarDet architecture/exposure | REGISTERED FOLLOW-UP | CLOSED; PARTIAL SINGLE-SEED/OPEN-VALIDATION RESULT | PCNO-7 result anchor plus five PCNO/PCFNO/residual-FFNO cells at three/seven unique conditions. Every seven-condition cell has lower selected truth-input error than its three-condition counterpart; only FFNO has a lower selected free-rollout sum. Three cells are incomplete, no free rollout is fully admissible, the normalizer control is transductive, D092/D093 source inventories differ, and test remains absent. |
+| D094 | hundreds-trajectory scaling | REGISTERED; NEXT GATE NOT AUTHORIZED TO LAUNCH | LOCAL SPLIT/V6/SCHEDULE CONTRACT COMPLETE; REMOTE PILOT UNVERIFIED | Bump 300-case metadata population and 256/44 development split are locally verified without state/test opening. Six seed-0 pilot completions are reported remotely, but their packets are absent locally. The long-schedule gate remains unlaunched pending retrieval, bounded CUDA health, and explicit authorization. |
 | W26-L5-P0 | multiresolution | MUST | COMPLETE | Common-source/transfer closure tests and frozen gradient-policy decision |
 | W26-L5-P1 | correlation gate | CONDITIONAL | COMPLETE FOR REUSED OPEN POPULATIONS | Cross-fitted teacher-forced gate plus low-rank residual-error structure analysis |
 | W26-L5-P2 | recurrent fusion | CONDITIONAL | A44-R1 QUALIFIED; A45 STOPPED; A46 BLOCKED BEFORE SCIENTIFIC EXECUTION | A43/A44-R1 remain frozen bounded evidence. A45 fails E00/coast router transfer. A46-A1 closes synthetic same-state plumbing, A46-A2 finds no compatible independent checkpoint/new-case manifest, and three A46-A2-R1 infrastructure attempts stop before generation/model construction. No branch result or automatic resource retry. |
@@ -1060,8 +1105,9 @@ Working labels are coordination identifiers, not stable D-series run IDs.
    preregistered follow-up.
 2. Decide whether to start the still-unexecuted W26-L3 boundary taxonomy and
    synthetic finite-propagation line.
-3. Close W26-L4 at D093 or separately register one bounded baseline,
-   selection, or seed/condition replication study.
+3. Treat D093 and the H320 recurrence as closed at their bounded scopes. Decide
+   whether to authorize D094's long-schedule gate only after the reported pilot
+   packets are retrieved and rehashed and bounded CUDA health is re-established.
 4. Close A46 at the independent-checkpoint/new-case block or separately repair
    and re-register its portable resource build.
 5. Keep sealed and strength-OOD populations closed unless a later named

@@ -21,6 +21,11 @@ Documentation roles are:
   dependencies, gates, and prospective work;
 - [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md):
   bounded closed evidence for the PlanarDet architecture/exposure comparison;
+- [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md):
+  bounded closed evidence for the reference-free H320 bump recurrence;
+- [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md):
+  registered scaling plan with a reported remote pilot but no locally retained
+  or rehashed calibration packet;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -71,7 +76,7 @@ and the [compact tracker](MECHANISTIC_DIAGNOSTIC_TRACKER.md).
 | A-05: D072 semantic fields | Fixed-width union/semantic collars and exact matched initialization are verified. One dynamic FP32 seed causally uses the fields, but neither the three-seed dynamic BF16 matrix nor bump matrix establishes the registered N0-relative rollout gain. | D072 is complete and not promoted. Re-entry needs a new owner claim and same-precision multi-seed evidence. |
 | A-06: D084 inadmissibility | All 360 H79 continuations remain finite. Exact repairs occur but are not durable; inadmissibility precedes some local growth yet neither implies nor equals global blow-up. D082 fields materially affect recurrence without passing the completion/error conjunction. | D084 is terminal; D082 is not promoted; no queue or implicit repair follow-up remains. |
 | A-07: D083/D085/D086 representation | Severe query compression is strongly negative. D083 is a transported-Fourier analytic covariance control; D085's fixed-world Fourier test fails at call 1 through a material same-input transformed-representation defect; D086 shows broad failure morphology and recurrent sensitivity. | No physical conservation, independent rotated PDE solve, Fourier-only causality, accepted rollout, broad geometry/rotation generalization, or general coarse-mesh result. |
-| A-08: D087 stability forensics | On the exact common declared 30-case bump population, B1 has later `T_accurate` on every pair and is admissible/bounded/finite through H79. D019 loses accuracy 29--57 calls before inadmissibility, becomes unbounded 3--5 calls after inadmissibility, and remains finite through H79. Its invalid active-node state is fed back without repair; exact common-coordinate decomposition shows propagated response dominates while fresh defect stays small through H60. | A bounded native-system inference diagnostic only. D019 training membership/provenance is unresolved, and representation, learned map, training, recurrence, and boundary policy differ. No OOD, causal-factor, Lipschitz/JVP, asymptotic-stability, conservation, or cross-family claim. H160/H320 and other mechanism branches are not queued. |
+| A-08: D087 stability forensics and H320 recurrence | On the exact common declared 30-case bump population, B1 has later `T_accurate` on every pair and is admissible/bounded/finite through H79. D019 loses accuracy 29--57 calls before inadmissibility, becomes unbounded 3--5 calls after inadmissibility, and remains finite through H79. Its invalid active-node state is fed back without repair; exact common-coordinate decomposition shows propagated response dominates while fresh defect stays small through H60. A separately registered H320 comparison then records later active-gradient PCNO events than PCFNO more often than the reverse: 27/30 admissibility, 28/30 boundedness, and 13 later plus 17 tied finiteness events. | H80--H320 has no truth and is reference-free recurrence only. D019 training membership/provenance is unresolved, and representation, learned map, training, recurrence, and boundary policy differ. No H320 accuracy, physical validity, OOD, causal gradient factor, Lipschitz/JVP, asymptotic stability, conservation, seed generality, or cross-family claim. See the [bounded H320 record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md); no separate H160 identity, spectra/JVP, or other mechanism branch is queued. |
 
 ## Compact Unified Claim Register
 
@@ -315,6 +320,15 @@ improvement, resolution consistency, geometry/rotation generalization,
 conservation, operator convergence, or general Euler stability. Re-entry
 requires a new owner-selected claim and preregistration.
 
+The separately registered H320 bump study is also closed at its single-seed,
+30-open-case, reference-free scope. D094's six-cell seed-0 pilot is reported
+complete remotely, but no smoke or calibration packet is retained locally and
+the report is not a locally verified scientific result. Its immutable 256/44
+split and long-schedule implementation are locally verified; reported remote
+activity remains unverified until its packets are retrieved and rehashed. D094
+grants no implicit launch, remote, checkpoint, or sealed-population
+authorization.
+
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
 is bound. Its A46-A2-R1 resource-build continuation stopped twice on broad
@@ -322,6 +336,13 @@ isolated-source imports and once on interpreter environment discovery, all
 before data, model construction, training, generation, or outcome opening.
 Those receipts are infrastructure provenance, not same-state branch evidence;
 A43/A44-R1 remain the bounded scientific result.
+
+Historical exact-source replay is additionally limited by nine source-bound
+preregistration documents that are absent from the checkout, Git history, and
+retained archives, including the A46 preregistration. Retained artifacts remain
+bounded outcome evidence, but these old identities must not be reconstructed;
+future reruns require new preregistrations and source manifests. The exact gap
+table is maintained in [HANDOFF.md](HANDOFF.md#unrecoverable-preregistration-gaps).
 
 Native-resolution residual correction is one component of W26-L5, not the sole
 practical queue or standing default. Data assimilation remains reserved pending
@@ -340,6 +361,13 @@ likewise not implied by current evidence.
   run-ID and topic routing.
 - [D093 PlanarDet scaling record](D093_W26_L4_PLANARDET_SCALING_RECORD.md):
   closed single-seed/open-validation results and provenance.
+- [H320 reference-free rollout record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md):
+  closed 30-case descriptive recurrence and exact packet hashes.
+- [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
+  registered, locally split-bound plan with a reported-but-unverified remote
+  pilot and an unlaunched long-schedule gate.
+- [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
+  byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.
 - [SECTION_1_2_CORRECTED_BASELINES.md](SECTION_1_2_CORRECTED_BASELINES.md):
   corrected 1D labels and frozen results.

@@ -24,7 +24,12 @@ Read active context in this order:
    boundary.
 7. [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md)
    for the closed PlanarDet architecture/exposure comparison.
-8. Read one bounded section of the
+8. [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
+   for the closed reference-free H320 bump recurrence result.
+9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
+   for the registered scaling program, reported-but-unretained seed-0 pilot,
+   and unlaunched long-schedule gate.
+10. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
    when exact historical contracts, results, or hashes are required.
@@ -36,10 +41,10 @@ pulse study are complete. The PCNO's released-code H49 validation sum is
 near-null; G0b localizes strong chemistry/density recurrence sensitivity; G1
 shows that the partner response is immediately bidirectional but materially
 persistent only from chemistry to density at calls 12 and 32. D093 then reuses
-  the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique
-  supervised conditions. Each seven-condition cell has lower selected
-  truth-input error than its three-condition counterpart, but only FFNO has a
-  lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`.
+the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique
+supervised conditions. Each seven-condition cell has lower selected truth-input
+error than its three-condition counterpart, but only FFNO has a lower selected
+free-rollout sum; FFNO-7 is best at `1.36466/32.53910`.
 This is one seed and one open trajectory under a shared residual contract, not
 clean data scaling, an architecture cause, paper-faithful FFNO reproduction,
 physical causal graph, correction method, or sealed ranking; the released test
@@ -96,7 +101,7 @@ coarse solves do not satisfy that contract.
 | --- | --- | --- |
 | 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
-| Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. | No later arm is an exact-contract D041 replacement; D087 is not a causal training/architecture or general-stability result; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
+| Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. The separately registered H320 study finds later reference-free failure events for active-gradient PCNO than PCFNO on the 30 open cases. | No later arm is an exact-contract D041 replacement; H80--H320 has no truth and is not accuracy, physical-validity, conservation, asymptotic-stability, or causal gradient evidence; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
 | REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |
@@ -205,8 +210,8 @@ and clean only the exact resolved cache paths afterward.
 
 ## Source-Snapshot Semantics
 
-Euler2D residual-PCNO runs use `pcno_euler2d_source_snapshot_v2` through `v5`,
-implemented in `utility/time_dependent_no/pcno_artifacts.py`; v5 is the latest
+Euler2D residual-PCNO runs use `pcno_euler2d_source_snapshot_v2` through `v6`,
+implemented in `utility/time_dependent_no/pcno_artifacts.py`; v6 is the latest
 registered schema for that family. REALM PlanarDet instead uses
 `realm_planardet_pcno_source_snapshot_v1`. D092 and D093 share that schema name
 but bind distinct inventories and payload digests. Continuation compares the
@@ -219,17 +224,21 @@ recorded by the run.
 | v3 | Uses the original executable/scientific source set and records the decision/tracker separately as provenance. |
 | v4 | Expands the executable set to the package and support modules needed for exact continuation. |
 | v5 | Adds the boundary-field utility while retaining separate provenance-document hashes. |
+| v6 | Retains the v5 base inventory and adds a sorted, unique, run-specific `extra_source_files` registry to the strict source set. |
 
-For v3-v5, later edits to the active decision or tracker do not by themselves
+For v3-v6, later edits to the active decision or tracker do not by themselves
 invalidate executable continuation. Their copied provenance and manifest
 digests remain part of the archived run record. Historical schemas keep their
-registered inventories and must never be silently reinterpreted as v5.
+registered inventories and must never be silently reinterpreted as v6.
 
-Changing a v4/v5-bound executable source during cleanup requires an explicit v6
-design plus v2-v5 compatibility tests. Archived snapshot integrity and
-compatibility with the current checkout are different checks. The legacy
-`fixture` wording in `utility/time_dependent_no/__init__.py` therefore remains
-until the v6 gate is approved.
+V6 closes the governance gap created when a v5-bound core source changed after
+v5 was registered. V5 keeps its frozen inventory; an archived v5 run is
+compatible with the current checkout only when every recorded hash still
+matches. The v2--v6 compatibility tests exercise schema-specific inventory and
+verification branches, not byte equality between historical snapshots and
+current source.
+Archived snapshot integrity and current-checkout continuation compatibility are
+different checks.
 
 ## Recovery
 
@@ -240,6 +249,9 @@ until the v6 gate is approved.
 - [Corrected 1D baselines](SECTION_1_2_CORRECTED_BASELINES.md)
 - [Boundary-field derivation package](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
 - [Boundary-field prior-art audit](BOUNDARY_FIELD_PRIOR_ART_AUDIT.md)
+- [H320 reference-free rollout record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
+- [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md)
+- [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md)
 
 Commit `5646bfb` preserves the full active decision and tracker immediately
 before compaction. Commit `ebf210a` preserves the weekly plan and prompts;

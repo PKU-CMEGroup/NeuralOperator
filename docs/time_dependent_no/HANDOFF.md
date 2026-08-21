@@ -39,7 +39,7 @@ long-horizon behavior.
 | --- | --- |
 | 1D residual FNO | A useful fixed-family program exists. Larger-step advantages depend on horizon and metric; they are not a universal stability result. |
 | CPGNet reproduction | The released 1D gain depends materially on message reach, and causal boundary training improves the bounded local 2D release-bundle comparison while leaving the oracle gap. Paper-faithful parity and exact DG replay remain unresolved. |
-| Supersonic bump PCNO | D041 remains the historical comparator. D087 closes W26-L1 at H79 on exact B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. This is an inference-map diagnostic, not causal factor attribution or general stability. |
+| Supersonic bump PCNO | D041 remains the historical comparator. D087 closes its exact H79 scope on B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. A separately registered H320 comparison on the same 30 open cases records later active-gradient PCNO first events than PCFNO more often than the reverse, but H80--H320 has no truth. These are bounded recurrence diagnostics, not causal factor attribution, physical validity, accuracy past H79, or general stability. |
 | Dynamic shock-vortex PCNO | D044 is the useful baseline and D060 is a useful one-seed improvement with unresolved structure error. Common-source resolution studies identify persistent large-scale mesh inconsistency plus locally cancelling shock/vortex defect. W26-L5 A32/A33 qualify one target-free raw-shadow-tethered affine protocol on reused open populations: on six retained-500x200 D074 cases, corrected versus raw transfer has full/rank-8 trajectory ratios `0.98887/0.94507`, full/rank-8 H30 ratios `0.97770/0.89007`, six of six trajectory/endpoint wins, and maximum control `1.00459`. Direct fixed-hop 500x200 has median H30 ratio `2.08418` versus corrected transfer and zero wins. A34--A39 reject universal coefficients/simple routers despite strong ordinary same-family fits. A41/A42 then identify a nearly diagonal accepted-shadow native response during coast. A43 uses that frozen response to remove 56 accepted-native calls and qualifies on the reused E12/E14 population: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, and maximum control is `1.01141`. A44-R1 confirms the unchanged protocol on 14 new E00/E11 correction cases inside checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active pairs win, maximum control is `1.04361`, and large/rank-8 benefit coexists with neutral-to-slightly-harmful local bands. A45 then finds pooled logged-utility prediction and stable lag-history coefficients, but fails the required E00 and coast transfer cells; it strengthens the broad/rank-8 versus local-harm diagnosis without qualifying a router. This is bounded same-family correction-protocol evidence, not resolution invariance, independent checkpoint/test confirmation, family-independent coefficients/response, causal fine-refresh utility, physical conservation, an Euler1D deployment result, or a measured latency win. |
 | Synthetic shock representation | W26-L2 P0/P1/P2 establish fixed-grid capacity followed by subcell-phase and finite-grid transfer failure. Retrained no-gradient and parameter-matched local arms roughly halve held L2 and reduce extrema/TV, but increase registered step-ripple mass and fail strict transfer/no-harm controls. P2-C0 is complete: zero-output gradient activation slightly lowers train loss but is a held-phase near tie, so it does not rescue the original full-PCNO path. P2-F is descriptive because its `1e-5` replay gate fails while the maintained `1e-4` ceiling passes: spectral transport is necessary, pointwise cancellation passes every seed, and the full model's differential path is acutely essential/cancelling in `3/3`, so the trained no-gradient gain is architecture reorganization rather than acute deletion. P2-W0 then isolates a moving-front wake: no native arm leaves error everywhere the front traveled; full PCNO has a held-pulse-only path-wide/recurrent wake in `2/3` seeds, no-gradient passes no wake stratum, and posthoc `/10` gradient scaling is catastrophic. The first defect is phase-sensitive and recurrence amplifies it. |
 | REALM PlanarDet | D092-R1 completed one seed-0 width-96 residual-PCNO run and selected step 950. Truth-input/free H49 sums are `6.09925/88.13821`; P0b is near-null, and G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. D093 reuses the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique supervised conditions. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`. This is one seed and one open trajectory under a common residual contract but distinct D092/D093 source inventories, not clean data scaling, a paper-faithful baseline, sealed ranking, physical causal graph, architecture cause, or general PlanarDet claim. |
@@ -56,23 +56,33 @@ finite-volume contract with geometry and boundary exchange accounted for.
 
 ## Current Workspace And Authorization
 
-The owner-specified repository cleanup has completed in this order:
+The reviewed source and scaffolding cleanup is committed through `901a839` in
+the following focused stages; the local artifact transaction is recorded
+separately below:
 
-1. isolated disposable scripts and scaffolding were removed, with reusable code
-   retained only where it has real maintained callers;
-2. only artifacts proven disposable by refreshed inventory were removed; and
-3. active documentation was compacted after exact history was preserved in
-   dated archives.
+1. commits `b9bc125` and `180f70c` retire three orphan analyzers and require an
+   explicit ADER dataset-generation flag;
+2. commits `451e8dd` through `05f1989` integrate the v6 PCNO source-snapshot
+   contract and the maintained REALM/D093 infrastructure;
+3. commits `e100286`, `c8a2f21`, `5357694`, and `2504b65` preserve the H320,
+   W26-L2, cross-resolution derivation, and A43--A46 provenance sources before
+   any further pruning;
+4. commit `f44ce92` anchors 28 superseded diagnostic files and `120617e`
+   retires those same paths; and
+5. commits `127f4f0`, `8f674ac`, and `901a839` integrate the stable local D094
+   split, source registry, full-horizon selector, schedule, sentinel, and resume
+   contracts without launching the next scientific gate.
 
-The isolated-code prune and 2026 weekly plan are committed. The selective local
-artifact cleanup removed only manifest-audited scratch, smoke, bytecode, and
-byte-covered transfer archives; canonical evidence and checkpoints remain. Its
-2026-08-11 and 2026-08-21 retention receipts are ignored with the artifact
-tree. The dated
-decision and tracker snapshots preserve the full pre-compaction record, and the
-active documents now serve only their compact authority, routing, handoff, and
-onboarding roles. Use the current checkout, not this prose, as the source of
-truth for file status.
+The audited artifact transaction removed six targets containing 81
+archive-covered files and 21 directories, including nine empty D094 pytest
+directories (`61,459,631` bytes). The ignored append-only receipt is
+`artifacts/time_dependent_no/RETENTION_MANIFEST_20260821b.json`, SHA-256
+`de4d33468b7501188b9bf18cb3cea94dc50b4354455de4d38f935684407598c6`.
+All 40 checkpoint files and canonical evidence packets remain. Ambiguous or
+source-bound artifact material was preserved; the exact replay gaps are
+recorded below.
+Use `git status` and the current checkout, not this prose, as the source of truth
+for file status.
 
 The cleanup authorization did not itself authorize training, dataset-scale or
 checkpoint execution, remote work, downloads, sealed-population access, or new
@@ -98,9 +108,14 @@ phase-separated visual analysis. It adds no training authorization.
 The owner also separately authorized and completed D087's exact H2
 preflight, paired 30-case H79 event/survival evaluation, and paired H79
 fresh/propagated decomposition. The closed packet passes bitwise replay,
-algebraic closure, and retained-manifest rehash gates. W26-L1 is terminal at
-this scope; H160/H320, spectra/JVPs, policy counterfactuals, and new bump truth
-are not an implicit queue.
+algebraic closure, and retained-manifest rehash gates. A separately registered
+follow-up then completed matched PCNO/PCFNO recurrence through H320 on the same
+30 open cases. All 43 members named by its five retained final manifests rehash,
+but truth ends at H79. The [bounded H320 record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
+therefore closes that work as descriptive reference-free recurrence, not
+H80--H320 accuracy, physical validity, conservation, asymptotic stability, or a
+causal gradient result. No separate H160 identity, spectra/JVP, policy
+counterfactual, or new-bump-truth branch is an implicit queue.
 
 Machine paths, hosts, credentials, and private dataset locations stay in ignored
 `LOCAL_CONTEXT.md`. Raw datasets, checkpoints, rollout arrays, media, and large
@@ -122,6 +137,20 @@ promote an oracle intervention or architecture claim. The released test
 trajectory remains physically unfetched until a separately named one-shot
 evaluation decision. See the bounded
 [D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md).
+
+D094 is preregistered. Its six seed-0 `n={16,64,256}` calibration cells are
+reported complete remotely, but no smoke or calibration packet is retained
+locally; the report is therefore neither a local archival closeout nor a
+verified scientific result. Its locally verified, field-blind bump manifest
+freezes 300 source cases into a 256-case train pool, 44 open-validation cases,
+and nested `n=8..256` subsets without opening state arrays or the historical
+test population. The local v6 wiring registers the D094 adapter,
+differential-branch utility, split builder, preregistration, and immutable split
+in the strict source set, and the error-first long-schedule contract is tested.
+Before any further launch, retrieve and rehash the reported packets,
+re-establish bounded CUDA health, and obtain explicit owner authorization. See
+the
+[D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0
 manifest-parser launch failure remain provenance, not scientific evidence. P0b
@@ -307,21 +336,77 @@ or recovery contract binds them. Ambiguous scientific payloads are retained.
 Record what was deleted and whether it can be regenerated; never infer safety
 from age, directory name, or ignore status alone.
 
-Euler2D residual-PCNO runs use source-snapshot schemas v2 through v5, with v5
-the latest registered schema in `pcno_artifacts.py`. Those schemas retain their
-own file inventories and meanings. V2 binds the then-current decision and
-tracker as part of strict source equality; v3 through v5 separate
-executable/scientific sources from provenance-only documents so later
-documentation edits do not invalidate continuation. REALM PlanarDet uses the
+Euler2D residual-PCNO runs use source-snapshot schemas v2 through v6, with v6
+the latest registered schema in `pcno_artifacts.py`. Every schema retains its
+own file inventory and meaning. V2 binds the then-current decision and tracker
+inside strict source equality; v3 through v6 separate executable/scientific
+sources from provenance-only documents so later documentation edits do not by
+themselves invalidate continuation. V5 freezes the boundary-field-era base
+inventory. V6 retains that base and adds a sorted, unique, run-specific
+`extra_source_files` registry to the strict source set. REALM PlanarDet uses the
 separate `realm_planardet_pcno_source_snapshot_v1` schema; D092 and D093 share
 that schema name but bind distinct inventories and payload digests.
 
-Do not silently reinterpret or expand an older schema. Any cleanup or refactor
-that changes a v4/v5-bound executable source requires an explicitly designed v6
-source set, compatibility tests for v2-v5, and a distinction between archived
-snapshot integrity and current-checkout continuation compatibility. In
-particular, the legacy `fixture` label in
-`utility/time_dependent_no/__init__.py` remains until that v6 gate is approved.
+V6 closes the governance gap created when a v5-bound core source changed after
+v5 was registered. Do not reinterpret v2--v5 as v6. An archived run is
+compatible with the current checkout only when its schema-specific recorded
+hashes still match. The compatibility tests exercise each schema's inventory
+and verification branch; they do not assert byte equality between historical
+snapshots and current source. Archived snapshot integrity and current-checkout
+continuation compatibility remain distinct checks.
+
+## Unrecoverable Preregistration Gaps
+
+A scan of the checkout, all Git history, and 51 retained `.tar.gz`, `.tgz`, and
+`.zip` archives found no exact bytes for the nine source-bound preregistration
+documents below. Representative retained records still bind their historical
+identities. Those records remain evidence at their bounded outcome scopes, but
+exact old-identity source replay is unavailable. Do not reconstruct any missing
+document under a historical hash; a future run requires a new preregistration,
+identity, and source manifest.
+
+| Missing document | Bound SHA-256 history | Representative retained binding |
+| --- | --- | --- |
+| `W26_L1_PCFNO_H320_PREREGISTRATION.md` | `db5cc052a470d06fd3360b84f20c569421c949914ace6774bc4dfaf13894eb3b` | `artifacts/time_dependent_no/w26_l1_pcfno_h320_s20260718_20260814a_r1/run_contract.json` |
+| `W26_L1_PCFNO_PCNO_H320_COMPARISON_PREREGISTRATION.md` | `a25aad5a9ce2c35b6b4968ebe0e6f3225a70f1f692fd6fb8abd4dcc42c0480a7` | `artifacts/time_dependent_no/w26_l1_pcno_h320_s20260718_20260814a_r1/run_contract.json` |
+| `W26_L2_PCFNO_INADMISSIBILITY_CONTINUATION_PREREGISTRATION.md` | `d77aebf69a5fc790be906b6934b5af3a8f70454c52cd66f1e078ecbd0746ddfc` | `artifacts/time_dependent_no/w26_l2_pcfno_inadmissibility_continuation_s20260718_20260813a/run_contract.json` |
+| `W26_L5_CROSS_RESOLUTION_PREREGISTRATION.md` | `157f02824b05eb346576fc90845edbd7fcb8b4fe2247b48e53d9168bc13fc2b7` | `artifacts/time_dependent_no/w26_l5_rank8_projected_a2_20260811a/remote/calibration/source_manifest.json` |
+| `W26_L5_FINE_DISCREPANCY_ROLLOUT_PREREGISTRATION.md` | two historical bindings: `1de56f26f9fcb53ec8571e09ea8f3af6a461bf9a5bcaaf79231074554d35b599`; `5f82858aadceeeea680b4ab61f4872323fe868e89bf53c4b6d5ecba669985d6a` | `artifacts/time_dependent_no/a18_preflight_check.json`; `artifacts/time_dependent_no/w26_l5_fine_discrepancy_a2_20260812a/readiness.json` |
+| `W26_L5_PROPAGATED_SENSITIVITY_PREREGISTRATION.md` | `07bc027a33ce320e87c0dca55ec8975df4f6c83556961110e5bdf9ad5514f4f5` | `artifacts/time_dependent_no/w26_l5_p5_psj_a2_20260812b/autodl_runs/preflight.json` |
+| `W26_L5_RANK8_PROJECTED_CORRECTION_PREREGISTRATION.md` | `a4e80a1482b0c650ed3cda679ef5f71eaa0bef96e2d2ade07bf7de981d3a4664` | `artifacts/time_dependent_no/w26_l5_rank8_projected_a2_20260811a/remote/calibration/source_manifest.json` |
+| `W26_L5_RESPONSE_FILTERED_BLOCK_PREREGISTRATION.md` | 38 historical bindings; current frozen constant `a940a2d7fe0f219e97d742e30bbf1d352687f0b63ccbd4cdcb258b3b1028021b` | `artifacts/time_dependent_no/w26_l5_p6_rfb19_a14_shardtruth_20260813c/w26_l5_p6_rfb19_a14_shardtruth_20260813c_runs/a14_shard_native_rollout/source_manifest.json` |
+| `W26_L5_SAME_STATE_REFRESH_COUNTERFACTUAL_PREREGISTRATION.md` | `3bc057aa3b337ce09ae6c80c36cf23c6d863d15c73ed56d62ce13b802ca2419f` | `artifacts/time_dependent_no/w26_l5_p6_rfb19_a46_a2_metadata_preflight_20260814a/source_manifest.json` |
+
+## Additional Exact-Source Replay Gaps
+
+The latest `W26_L2_SHOCK_PATHWAY_PREREGISTRATION.md` bytes were recovered from
+the retained `w26_l2_p2_source_v2.tar.gz` archive, rehashed at
+`e634653e73275a0b7b8f3691010b3dab77229e08af38f3f438b37b213a9805ce`,
+and preserved in commit `c8a2f21`. Four older artifact-bound versions remain
+unrecoverable from the checkout, Git history, and 51 retained archives:
+
+- P0: `a9119beff2c91a4605655c43ca14a46f67b65c7d11b9e69f20433862712d5d6e`;
+- P1: `126170512c6a0a813d007ea8b621797848e4801b848a2e70f5504f47e81f66cc`;
+- P2-C0: `c7836068931dffc2a9455b067330fab32c8a202998ee79ac0f7c9326195e004c`;
+  and
+- P2 frozen cube: `cc2ffa794337dc6d490282cdc86cb5df041641a80ef34f62150e7649685dce7b`.
+
+The historical B1 source verifier reused by W26-L2 and all three H320
+evaluators also binds three exact source versions absent from the checkout, Git
+history, and every retained archive:
+
+| Frozen source path | Expected SHA-256 |
+| --- | --- |
+| `docs/time_dependent_no/MECHANISTIC_DIAGNOSTIC_TRACKER.md` | `c3014df67a4e7d5ed8f1d48b1c76f664b5a7604557d7ce0b783ca77a19cc7ee4` |
+| `docs/time_dependent_no/RESEARCH_DIRECTION_DECISION.md` | `dafa88e4bca3b174ff9711272259e6a449dab9d744dac24d0254e6a61d7c2de3` |
+| `scripts/time_dependent_no/train_pcno_euler2d_residual.py` | `7f7733b421f74411a420d753b51a5c56a798f578462806a37054bee16bc82318` |
+
+Their strongest original binding is
+`artifacts/time_dependent_no/l3r_b1_serious_20260728a/b1_20260727a_serious/source_snapshot/manifest.json`;
+the H320 and W26-L2 run contracts repeat it. Retained output packets remain
+bounded outcome evidence when their own manifests rehash, but exact historical
+source replay against the mutable repository necessarily fails closed. Do not
+replace the missing bytes or relabel a future run under an old identity.
 
 ## Recovery
 
@@ -334,6 +419,9 @@ particular, the legacy `fixture` label in
 - [Bump data audit](BUMP_300_DATASET_AUDIT.md)
 - [CPG dataset contract](CPG_EULER_DATASET_CONTRACT.md)
 - [Public-reference audit](CPGGNSPDES_REFERENCE_AUDIT.md)
+- [H320 reference-free rollout record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
+- [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md)
+- [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md)
 
 Commit `5646bfb` preserves the full active decision and tracker immediately
 before this compaction. Commits `ebf210a` and `3e646ac` preserve the weekly-plan

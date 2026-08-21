@@ -32,13 +32,17 @@ the current source and artifact manifests before execution or interpretation.
 
 ## Stable ID Rules
 
-- The registered run universe through D093 contains 122 IDs: D001--D093,
+- The registered run universe through D094 contains 123 IDs: D001--D094,
   23 L3R IDs, L4A-001--L4A-004, L1-OOD, and XLINE-001.
 - D043b/D043d are attempts under D043; D053a/D053b are attempts under D053.
 - D092-R1 is the source-rebound attempt under D092; the failed D092 launch is
   retained as infrastructure provenance and is not rewritten.
 - D093 reuses D092-R1 as its `PCNO-7` anchor and adds five registered
   architecture/exposure cells; it is one D-series study, not six new IDs.
+- D094 is a preregistered scaling study with a locally verified split and
+  schedule contract. Its six-cell seed-0 pilot is reported complete remotely,
+  but no packet is retained or rehashed locally and the report creates no
+  implicit launch.
 - A46-A2-R1 resource-build stops are infrastructure attempts under A46-A2, not
   a new scientific run or result.
 - PlanarDet cumulative-`pMax` P0/P0b, group-feedback G0/G0b, and one-call pulse
@@ -82,10 +86,10 @@ the current source and artifact manifests before execution or interpretation.
 
 ## D-Series Index
 
-Every D-series ID is contiguous from D001 through D093. Use the archive for
+Every D-series ID is contiguous from D001 through D094. Use the archive for
 D001--D086 exact populations, contracts, metrics, thresholds, source and
 artifact hashes, attempt histories, and claim language; use the live contracts
-linked below for D087--D093.
+linked below for D087--D094.
 
 | ID | Family and topic | Terminal evidence state |
 | --- | --- | --- |
@@ -182,6 +186,7 @@ linked below for D087--D093.
 | D091 | W26-L4 REALM boundedness attribution | A1 complete; no scientific model execution. The exact step-50/step-100, teacher-forced/free-recurrence, per-channel first-event and spatial-support contract is implemented and synthetic/maintained REALM CPU gates pass. One exact A2 inference run remains separately unauthorized, so offending-channel and fresh-versus-propagated attribution are still missing evidence. |
 | D092 | W26-L4 PlanarDet champion residual-PCNO | The original scalar-hash failure remains infrastructure provenance. D092-R1 completed the repaired seed-0 width-96 5,000-step run and selected step 950. On the one open-validation trajectory, truth-input/free H49 mean NPE is `0.1244744/1.7987391`, with released-code horizon sums `6.09925/88.13821`; every call is finite and bounded, free recurrence is admissible on 7/49 calls, and truth competence fails only cumulative-`pMax` monotonicity. The PCNO free validation sum is 7.01x the REALM paper's FFNO validation value `12.577`, but no sealed test or paired baseline reproduction occurred. |
 | D093 | W26-L4 PlanarDet architecture/exposure comparison | Closed as partial single-seed, single-open-validation evidence. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum. FFNO-7 is best in this matrix (`1.36466/32.53910` truth-input/free H49 sums); all free rollouts remain incompletely admissible, and PCFNO-7, PCFNO-3, and FFNO-3 training is incomplete after later decoded-validation failures. D092 and D093 bind distinct source inventories; the common residual FFNO is not paper-faithful, PCFNO is not vanilla FNO, and test remains absent. See [the bounded D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md). |
+| D094 | Hundreds-trajectory bump/PlanarDet scaling plan | Preregistered. The local field-blind bump split closes 300 cases into a 256-trajectory train pool and 44 open-validation trajectories with nested `n=8..256` subsets; state arrays and the historical test population were not opened. The v6 source snapshot registers the adapter, branch utility, split builder, preregistration, and immutable split, and the long-schedule contract is tested. Six seed-0 pilot cells are reported complete remotely, but no packet is retained or rehashed locally; this is unverified routing evidence, not a local scientific closeout or authorization for the next gate. See [the preregistration](D094_BUMP_SCALING_PREREGISTRATION.md). |
 | W26-L4-PD0 | PlanarDet champion execution | A1--A3, the open-validation evaluator, P0b, corrected G0b, and G1 are complete. P0 failed exact CPU metric-decoder closure; P0b removes all `pMax` decreases but is near-null on non-`pMax` drift (`0.9925744`). G0 failed before inference; corrected G0b localizes strong chemistry/density recurrence sensitivity. G1 preserves the pulse-call proposal and injects one exact group only into the next input at calls 4/12/32. Common `T+u` ratios are chemistry `0.965/0.926/0.839` and density `0.983/0.902/0.863`; partner ratios are chemistry-to-density `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`. The frozen classification is chemistry-to-density-only at calls 12/32 and no material partner effect at call 4. Phase and correction dose remain confounded, and error gains can worsen validity counts. This supports checkpoint-local asymmetric recurrent persistence, not a physical causal graph, architecture cause, or promotable oracle correction; test remains absent. |
 
 ## Evidence And Claim Boundaries
@@ -209,7 +214,11 @@ linked below for D087--D093.
 - D087 separates accurate, admissible, bounded, and finite horizons on one
   common declared bump population. Its exact deployed-map decomposition is an
   inference-side diagnostic, not a causal training, representation, boundary,
-  or general-stability result. H160/H320 and JVP/spectral branches are not queued.
+  or general-stability result. The separately registered H320 follow-up is now
+  closed as reference-free recurrence: active-gradient PCNO has later events
+  more often than PCFNO on the same 30 open cases, but H80--H320 has no truth.
+  See the [bounded H320 record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md).
+  No separate H160 identity or JVP/spectral branch is queued.
 - D088 registers the REALM IgnitHIT open-data/reference contract and the failed
   exact direct-baseline attempt. Exact replay establishes a fresh call-1
   inverse-domain failure in the step-100 deployed map, while normalized
@@ -245,11 +254,13 @@ linked below for D087--D093.
   residual-training contract on one seed and one open validation trajectory.
   Its three-trajectory arms still use seven-case normalization and seven
   microbatch presentations per optimizer step, so they are not clean
-  dataset-size or compute-scaling controls. The results support improved
-  truth-input accuracy with broader condition exposure and an
-  architecture-dependent rollout response; they do not support general data
-  scaling, architecture superiority, a gradient-branch stability claim, a
-  paper-faithful REALM result, conservation, or test performance.
+  dataset-size or compute-scaling controls. Each selected seven-condition cell
+  has lower truth-input error than its three-condition counterpart, but only
+  FFNO has a lower selected free-rollout sum; this one-seed/open-validation
+  pattern does not identify an exposure or architecture cause. It does not
+  support general data scaling, architecture superiority, a gradient-branch
+  stability claim, a paper-faithful REALM result, conservation, or test
+  performance.
 - Populations marked sealed by their contracts remain sealed. In particular,
   D064--D086 do not authorize dynamic strength-OOD/test, bump test, new reference
   generation, or the historical L3R-F0 one-time evaluation.
@@ -259,6 +270,7 @@ linked below for D087--D093.
 | ID | Family and topic | Terminal evidence state |
 | --- | --- | --- |
 | L1-OOD | Existing mild-support 1D OOD artifacts | Completed, provenance-limited. |
+| W26-L1-H320 | Bump PCNO/PCFNO reference-free H320 recurrence | Completed at one seed and 30 open cases. PCNO events occur later more often, but H80--H320 has no truth and supports no accuracy, physical-validity, conservation, asymptotic-stability, or causal-gradient claim. See [the record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md). |
 | XLINE-001 | Cross-line rollout-instability attribution | Not run; historical mixed plan closed. |
 | L4A-001 | Zero-training latent representation/closure preflight | Completed; route stopped before learned forecast. |
 | L4A-002 | Frozen 2D autoencoder capacity smoke | Completed; reconstruction/front gates failed. |
@@ -269,12 +281,20 @@ linked below for D087--D093.
 | W26-L5-P6-RFB19-A46-A2 | Independent-checkpoint/new-case metadata preflight | Completed fail-closed metadata audit. The frozen D060/A28--A45 reference passes 9/9 contract checks and 52 opened case IDs are bound. Ten candidate SHAs were audited: the sole 12-input alternative has literal-zero rather than physical node-type channels; all nine D072 N0/G1/S1 candidates omit node-type channels, with G1/S1 also adding boundary inputs. No checkpoint bytes were locally available to rehash and no new branch-label/recurrence manifest exists, so status is `blocked` on `no_compatible_independent_checkpoint` and `new_case_population_manifest_missing`. Artifact SHA-256 `edbe1f3d17dca7388ea51246dd079b59b9f77f8f41be0a19283e2a229a755801`, payload `9069c3664601beae5843eec2f41e685dfd4594948b2fff97c02f061aca4307c2`; 27 focused CPU tests and Ruff pass. Zero checkpoint-tensor/model/state/truth/outcome/remote/controller activity; no scientific or gradient-layer result. |
 | W26-L5-P6-RFB19-A46-A2-R1 | Matched resource-build attempt | Infrastructure-only and stopped three times before data, training, reference generation, or outcome opening: two isolated-source preflights exposed broad runtime imports, then a run-local interpreter symlink broke environment discovery before model construction. Stop-record SHA-256 values are `e3de829837eda3e6d94670084fd6ee95e855cdf5fa98d017d9163902915968cc`, `6cb61bc9a3b62e5492867fbfe7a0aae661627cf9ac9ef0c868914b7f96cdc16c`, and `93c0bfb115f4bb49a90f600c18c6a73736d47bb390d433ee35ad10abc6cfe6a3`. The latest 18-case plan is frozen before generation (`b0bdf4064b21f0c7915327b32d1ab7edc066882000d9a8ee7e330840876180d1`); every case has `generated=false` and `outcome_opened=false`. It remains non-scientific infrastructure provenance under the A46-A2 block. |
 
+The A46 A1/A2 records bind a same-state preregistration at SHA-256
+`3bc057aa3b337ce09ae6c80c36cf23c6d863d15c73ed56d62ce13b802ca2419f`,
+but its exact bytes are absent from the checkout, Git history, and retained
+archives. This limits exact old-identity source replay without retracting the
+bounded synthetic/preflight outcomes. Do not reconstruct the missing document;
+future activation requires a new identity and source manifest. See the complete
+gap table in [HANDOFF.md](HANDOFF.md#unrecoverable-preregistration-gaps).
+
 ## Topic Routing
 
 | Question | First IDs or document to inspect |
 | --- | --- |
 | D019 versus D041 provenance | L3R-M0, D019, D041 |
-| Long-horizon stability and admissibility | D019, D041, D084, D086, D087, L3R-U0, L3R-U1, L3R-B1 |
+| Long-horizon stability and admissibility | D019, D041, D084, D086, D087, [W26-L1 H320 record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md), L3R-U0, L3R-U1, L3R-B1 |
 | Boundary closure and objective history | D040, D041, L3R-BG0, L3R-RB0, L3R-RA0P, L3R-K2D0 |
 | Boundary descriptor/routing use | D063, D068, D069, D072, D082, D084 |
 | Fresh versus propagated error | D053, D087, L3R-K2D0 |
@@ -287,13 +307,13 @@ linked below for D087--D093.
 | Orientation and graph transformation | D083, D085, D086 |
 | Physical-conservation limits | D008, D037, D045--D051, RC-13 in the decision file |
 | Latent forecasting readiness | L4A-001--L4A-004 |
-| REALM benchmark validation | D088--D093, [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md), [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
+| REALM benchmark validation and scaling | D088--D094, [D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md), [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md), [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md), W26-L4 |
 
 ## Archive And Recovery Anchors
 
 - The through-2026-08-11 archive above is the authoritative detailed ledger for
   D001--D086 and all registered non-D IDs in this index.
-- D087--D093 postdate that archive. Their exact live contracts, attempt
+- D087--D094 postdate that archive. Their exact live contracts, attempt
   histories, hashes, results, and claim boundaries are in
   [D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md](D087_W26_L1_PCNO_STABILITY_PREREGISTRATION.md),
   [W26_L4_REALM_PREREGISTRATION.md](W26_L4_REALM_PREREGISTRATION.md), and
@@ -303,7 +323,11 @@ linked below for D087--D093.
   and D091's inference-attribution contract in
   [D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md](D091_W26_L4_REALM_BOUNDEDNESS_ATTRIBUTION_PREREGISTRATION.md),
   with D093's closed comparison in
-  [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md).
+  [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md),
+  the H320 recurrence in
+  [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md),
+  and D094's reported-but-unverified pilot and unlaunched long-schedule plan in
+  [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md).
 - Commit `5646bfb` adds the byte-preserved pre-compaction tracker state; the
   archive, not the commit diff, is the normal retrieval target.
 - The earlier through-2026-08-01 archive has SHA-256

@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: the six-cell seed-0 `n={16,64,256}` calibration pilot is reported complete remotely, but its packets are not retained locally and the report is not a local archival closeout; the error-first `n=256` long-schedule gate below is registered but not authorized to launch; the historical test population remains sealed
+Status: B1-A and the preregistered B1-B outside-selection audit are locally retained and rehashed; B1-B selects the stretched schedule, and its fresh paired seed-0 `n={8,16,32,64,128}` ladder is running on AutoDL while the winning B1-A `n=256` endpoints are reused; the historical test population remains sealed
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -339,6 +339,61 @@ Only a numerically complete B1-B winner routes the seed-0
 `n={8,16,32,64,128}` ladder; the winning n=256 B1-A cell supplies its paired
 n=256 endpoint. The 28 audit cases remain outside checkpoint selection, and
 the 20 historical test trajectories remain unopened.
+
+#### B1-B result and routed ladder (2026-08-21)
+
+B1-B completed on all 28 open-validation trajectories excluded from checkpoint
+selection. All four selected checkpoints completed H79 with zero hard numerical
+failure. The locally retrieved archive has SHA-256
+`0cf1b16b6a91979849a9b6ebba75a5eb353c5d8b2537122568bee4b74a235cbf`;
+all six files in `artifact_manifest.json` and all 23 evaluator source files
+were rehashed successfully. The evaluator source-set digest is
+`21b0bbd0141650bedd73d0e0e20c7e465f8782a22fee6c37d87884fa20ef864d`,
+the checkpoint source-set digest remains
+`6c510fbdca8f50d2bfacd40239574e7ac4496bdb0ba575c5ce69bb744568fca5`,
+and the partition digest remains the registered value above.
+
+| Architecture | Schedule | Audit all-call mean | Audit H79 | Final normal | Final boundary | Completion | Hard failures | Physical admissibility |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| PCNO | prefix-tail | 0.0963097 | 0.148372 | 0.147696 | 0.188805 | 1.000 | 0 | 1.000 |
+| PCNO | stretched | 0.0466426 | 0.0710526 | 0.0702815 | 0.110686 | 1.000 | 0 | 0.9643 |
+| PCFNO | prefix-tail | 0.0972293 | 0.164575 | 0.163669 | 0.215982 | 1.000 | 0 | 0.9643 |
+| PCFNO | stretched | 0.0878169 | 0.126438 | 0.125700 | 0.169155 | 1.000 | 0 | 1.000 |
+
+The preregistered geometric-mean all-call score is `0.0967684` for
+prefix-tail and `0.0640001` for stretched; the corresponding H79 scores are
+`0.156264` and `0.0947825`. Stretched/prefix all-call ratios are `0.4843` for
+PCNO and `0.9032` for PCFNO. Therefore stretched is the registered winner and
+authorizes only that schedule for the fresh seed-0 ladder.
+
+The result is not a uniform structure win. Relative to prefix-tail, stretched
+improves front-centroid distance, front IoU, symmetric Chamfer distance,
+smooth-region high-pass error, and the reconstructed-weight proxy-total error
+for both architectures. PCNO shock-thickness log error is slightly worse
+(`0.17692` versus `0.16593`), and PCFNO shock-strength log error is materially
+worse (`0.17944` versus `0.10007`). These diagnostics do not override the
+registered rollout-error ranking and the proxy total is not physical
+conservation.
+
+The fresh paired `n={8,16,32,64,128}` ladder was then launched serially from
+commit `066238b` using the stretched schedule, 20,480 optimizer steps per cell,
+and the same seed, split, normalization, recurrence, finite-only rollout, and
+error-first checkpoint selection contracts. The deployed Git archive has
+SHA-256 `2a6793e5db81cbd372135a742ecc67d6b91b3e4064f0fd05e076b1144d09b2b8`,
+the deployed v6 source-set digest is
+`c9ecfd93f75f61a69a1333f2f25b0778f4436a33660b40bd3dbc38fc862a8e61`,
+and the runner SHA-256 is
+`43674d288e1a91fdbe05a6dfd9f574e75638b576e433fe9766a6b6e4307a2491`.
+The B1-A and ladder source digests differ, but the bounded diff audit closes
+that difference to line-ending materialization, fail-closed schedule and resume
+guards, the selected-versus-terminal metric receipt, evaluator-only structure
+diagnostics, and provenance text; it does not change fresh forward, objective,
+optimizer, sampler, or base rollout-error semantics. This is why the
+preregistered B1-A `n=256` reuse remains the paired endpoint.
+Both architecture preflights passed. Initial PCNO `n=8` health closed through
+step 1,280 with finite online-train, fixed-seen, fixed-validation, and
+autonomous-rollout metrics, complete H79 rollout, and zero hard failures. This
+is an operational health receipt, not a completed ladder result.
 
 ### B2: Official PlanarDet generator reproduction
 

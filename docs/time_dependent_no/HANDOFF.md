@@ -40,6 +40,7 @@ long-horizon behavior.
 | 1D residual FNO | A useful fixed-family program exists. Larger-step advantages depend on horizon and metric; they are not a universal stability result. |
 | CPGNet reproduction | The released 1D gain depends materially on message reach, and causal boundary training improves the bounded local 2D release-bundle comparison while leaving the oracle gap. Paper-faithful parity and exact DG replay remain unresolved. |
 | Supersonic bump PCNO | D041 remains the historical comparator. D087 closes its exact H79 scope on B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. A separately registered H320 comparison on the same 30 open cases records later active-gradient PCNO first events than PCFNO more often than the reverse, but H80--H320 has no truth. These are bounded recurrence diagnostics, not causal factor attribution, physical validity, accuracy past H79, or general stability. |
+| Bump data--architecture--optimization scaling | D094 B1-A and B1-B are locally retained and rehashed. On the 28 open-validation trajectories excluded from selection, the preregistered paired geometric-mean all-call score is `0.0640001` for stretched versus `0.0967684` for prefix-tail; all four selected checkpoints complete H79 with zero hard failures. Stretched/prefix all-call ratios are `0.4843` for PCNO and `0.9032` for PCFNO. A fresh paired stretched-schedule seed-0 `n={8,16,32,64,128}` ladder is running and will reuse the B1-A `n=256` endpoints. This is schedule-selection evidence at one seed, not a completed data-scaling curve, architecture law, or conservation result. |
 | Dynamic shock-vortex PCNO | D044 is the useful baseline and D060 is a useful one-seed improvement with unresolved structure error. Common-source resolution studies identify persistent large-scale mesh inconsistency plus locally cancelling shock/vortex defect. W26-L5 A32/A33 qualify one target-free raw-shadow-tethered affine protocol on reused open populations: on six retained-500x200 D074 cases, corrected versus raw transfer has full/rank-8 trajectory ratios `0.98887/0.94507`, full/rank-8 H30 ratios `0.97770/0.89007`, six of six trajectory/endpoint wins, and maximum control `1.00459`. Direct fixed-hop 500x200 has median H30 ratio `2.08418` versus corrected transfer and zero wins. A34--A39 reject universal coefficients/simple routers despite strong ordinary same-family fits. A41/A42 then identify a nearly diagonal accepted-shadow native response during coast. A43 uses that frozen response to remove 56 accepted-native calls and qualifies on the reused E12/E14 population: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, and maximum control is `1.01141`. A44-R1 confirms the unchanged protocol on 14 new E00/E11 correction cases inside checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active pairs win, maximum control is `1.04361`, and large/rank-8 benefit coexists with neutral-to-slightly-harmful local bands. A45 then finds pooled logged-utility prediction and stable lag-history coefficients, but fails the required E00 and coast transfer cells; it strengthens the broad/rank-8 versus local-harm diagnosis without qualifying a router. This is bounded same-family correction-protocol evidence, not resolution invariance, independent checkpoint/test confirmation, family-independent coefficients/response, causal fine-refresh utility, physical conservation, an Euler1D deployment result, or a measured latency win. |
 | Synthetic shock representation | W26-L2 P0/P1/P2 establish fixed-grid capacity followed by subcell-phase and finite-grid transfer failure. Retrained no-gradient and parameter-matched local arms roughly halve held L2 and reduce extrema/TV, but increase registered step-ripple mass and fail strict transfer/no-harm controls. P2-C0 is complete: zero-output gradient activation slightly lowers train loss but is a held-phase near tie, so it does not rescue the original full-PCNO path. P2-F is descriptive because its `1e-5` replay gate fails while the maintained `1e-4` ceiling passes: spectral transport is necessary, pointwise cancellation passes every seed, and the full model's differential path is acutely essential/cancelling in `3/3`, so the trained no-gradient gain is architecture reorganization rather than acute deletion. P2-W0 then isolates a moving-front wake: no native arm leaves error everywhere the front traveled; full PCNO has a held-pulse-only path-wide/recurrent wake in `2/3` seeds, no-gradient passes no wake stratum, and posthoc `/10` gradient scaling is catastrophic. The first defect is phase-sensitive and recurrence amplifies it. |
 | REALM PlanarDet | D092-R1 completed one seed-0 width-96 residual-PCNO run and selected step 950. Truth-input/free H49 sums are `6.09925/88.13821`; P0b is near-null, and G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. D093 reuses the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique supervised conditions. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`. This is one seed and one open trajectory under a common residual contract but distinct D092/D093 source inventories, not clean data scaling, a paper-faithful baseline, sealed ranking, physical causal graph, architecture cause, or general PlanarDet claim. |
@@ -71,7 +72,11 @@ separately below:
    retires those same paths; and
 5. commits `127f4f0`, `8f674ac`, and `901a839` integrate the stable local D094
    split, source registry, full-horizon selector, schedule, sentinel, and resume
-   contracts without launching the next scientific gate.
+   contracts without launching the next scientific gate; and
+6. commit `066238b` adds the B1-A analyzer, explicit selected-versus-terminal
+   metric receipt, B1-B outside-selection evaluator, finite-only structure
+   diagnostics, focused tests, and the preregistered route to the full seed-0
+   ladder.
 
 The audited artifact transaction removed six targets containing 81
 archive-covered files and 21 directories, including nine empty D094 pytest
@@ -138,18 +143,17 @@ trajectory remains physically unfetched until a separately named one-shot
 evaluation decision. See the bounded
 [D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md).
 
-D094 is preregistered. Its six seed-0 `n={16,64,256}` calibration cells are
-reported complete remotely, but no smoke or calibration packet is retained
-locally; the report is therefore neither a local archival closeout nor a
-verified scientific result. Its locally verified, field-blind bump manifest
-freezes 300 source cases into a 256-case train pool, 44 open-validation cases,
-and nested `n=8..256` subsets without opening state arrays or the historical
-test population. The local v6 wiring registers the D094 adapter,
-differential-branch utility, split builder, preregistration, and immutable split
-in the strict source set, and the error-first long-schedule contract is tested.
-Before any further launch, retrieve and rehash the reported packets,
-re-establish bounded CUDA health, and obtain explicit owner authorization. See
-the
+D094 B1-A and B1-B are now locally retained and rehashed. B1-B used the 28
+open-validation trajectories excluded from checkpoint selection, completed all
+four selected checkpoints through H79 with zero hard failures, and selected the
+stretched schedule under the frozen paired rule. The fresh paired seed-0
+`n={8,16,32,64,128}` ladder is running serially on AutoDL from commit
+`066238b`; both architecture preflights passed, and the initial PCNO `n=8`
+checkpoint has finite online-train, fixed-seen, fixed-validation, and recurrent
+rollout metrics with no hard failure. The winning B1-A `n=256` endpoints are
+reused rather than retrained. Do not monitor continuously; retrieve and rehash
+the completed metadata/source packets before interpretation. The historical
+test population remains sealed. See the
 [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0

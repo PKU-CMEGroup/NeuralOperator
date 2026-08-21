@@ -40,9 +40,10 @@ the current source and artifact manifests before execution or interpretation.
 - D093 reuses D092-R1 as its `PCNO-7` anchor and adds five registered
   architecture/exposure cells; it is one D-series study, not six new IDs.
 - D094 is a preregistered scaling study with a locally verified split and
-  schedule contract. Its six-cell seed-0 pilot is reported complete remotely,
-  but no packet is retained or rehashed locally and the report creates no
-  implicit launch.
+  schedule contract. B1-A and the 28-trajectory B1-B outside-selection audit
+  are locally retained and rehashed; B1-B selects stretched, and the explicitly
+  authorized fresh paired seed-0 `n={8,16,32,64,128}` ladder is running. The
+  historical test population remains sealed.
 - A46-A2-R1 resource-build stops are infrastructure attempts under A46-A2, not
   a new scientific run or result.
 - PlanarDet cumulative-`pMax` P0/P0b, group-feedback G0/G0b, and one-call pulse
@@ -186,7 +187,7 @@ linked below for D087--D094.
 | D091 | W26-L4 REALM boundedness attribution | A1 complete; no scientific model execution. The exact step-50/step-100, teacher-forced/free-recurrence, per-channel first-event and spatial-support contract is implemented and synthetic/maintained REALM CPU gates pass. One exact A2 inference run remains separately unauthorized, so offending-channel and fresh-versus-propagated attribution are still missing evidence. |
 | D092 | W26-L4 PlanarDet champion residual-PCNO | The original scalar-hash failure remains infrastructure provenance. D092-R1 completed the repaired seed-0 width-96 5,000-step run and selected step 950. On the one open-validation trajectory, truth-input/free H49 mean NPE is `0.1244744/1.7987391`, with released-code horizon sums `6.09925/88.13821`; every call is finite and bounded, free recurrence is admissible on 7/49 calls, and truth competence fails only cumulative-`pMax` monotonicity. The PCNO free validation sum is 7.01x the REALM paper's FFNO validation value `12.577`, but no sealed test or paired baseline reproduction occurred. |
 | D093 | W26-L4 PlanarDet architecture/exposure comparison | Closed as partial single-seed, single-open-validation evidence. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum. FFNO-7 is best in this matrix (`1.36466/32.53910` truth-input/free H49 sums); all free rollouts remain incompletely admissible, and PCFNO-7, PCFNO-3, and FFNO-3 training is incomplete after later decoded-validation failures. D092 and D093 bind distinct source inventories; the common residual FFNO is not paper-faithful, PCFNO is not vanilla FNO, and test remains absent. See [the bounded D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md). |
-| D094 | Hundreds-trajectory bump/PlanarDet scaling plan | Preregistered. The local field-blind bump split closes 300 cases into a 256-trajectory train pool and 44 open-validation trajectories with nested `n=8..256` subsets; state arrays and the historical test population were not opened. The v6 source snapshot registers the adapter, branch utility, split builder, preregistration, and immutable split, and the long-schedule contract is tested. Six seed-0 pilot cells are reported complete remotely, but no packet is retained or rehashed locally; this is unverified routing evidence, not a local scientific closeout or authorization for the next gate. See [the preregistration](D094_BUMP_SCALING_PREREGISTRATION.md). |
+| D094 | Hundreds-trajectory bump/PlanarDet scaling plan | B1-A and B1-B are locally retained and rehashed. On the 28 open-validation trajectories excluded from checkpoint selection, all four selected checkpoints complete H79 with zero hard failures. The frozen paired score selects stretched: geometric-mean all-call error `0.0640001` versus prefix-tail `0.0967684`, with PCNO/PCFNO stretched-over-prefix ratios `0.4843/0.9032`. The fresh paired stretched-schedule seed-0 `n={8,16,32,64,128}` ladder is running and reuses the B1-A `n=256` endpoints. This is one-seed schedule-selection evidence, not a completed scaling, architecture, conservation, or test claim. See [the preregistration](D094_BUMP_SCALING_PREREGISTRATION.md). |
 | W26-L4-PD0 | PlanarDet champion execution | A1--A3, the open-validation evaluator, P0b, corrected G0b, and G1 are complete. P0 failed exact CPU metric-decoder closure; P0b removes all `pMax` decreases but is near-null on non-`pMax` drift (`0.9925744`). G0 failed before inference; corrected G0b localizes strong chemistry/density recurrence sensitivity. G1 preserves the pulse-call proposal and injects one exact group only into the next input at calls 4/12/32. Common `T+u` ratios are chemistry `0.965/0.926/0.839` and density `0.983/0.902/0.863`; partner ratios are chemistry-to-density `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`. The frozen classification is chemistry-to-density-only at calls 12/32 and no material partner effect at call 4. Phase and correction dose remain confounded, and error gains can worsen validity counts. This supports checkpoint-local asymmetric recurrent persistence, not a physical causal graph, architecture cause, or promotable oracle correction; test remains absent. |
 
 ## Evidence And Claim Boundaries
@@ -326,7 +327,7 @@ gap table in [HANDOFF.md](HANDOFF.md#unrecoverable-preregistration-gaps).
   [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md),
   the H320 recurrence in
   [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md),
-  and D094's reported-but-unverified pilot and unlaunched long-schedule plan in
+  and D094's retained B1-A/B1-B schedule audit and running seed-0 ladder in
   [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md).
 - Commit `5646bfb` adds the byte-preserved pre-compaction tracker state; the
   archive, not the commit diff, is the normal retrieval target.

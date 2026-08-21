@@ -27,8 +27,8 @@ Read active context in this order:
 8. [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
    for the closed reference-free H320 bump recurrence result.
 9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
-   for the registered scaling program, reported-but-unretained seed-0 pilot,
-   and unlaunched long-schedule gate.
+   for the retained B1-A/B1-B schedule audit and running stretched-schedule
+   seed-0 trajectory ladder.
 10. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
@@ -50,6 +50,14 @@ clean data scaling, an architecture cause, paper-faithful FFNO reproduction,
 physical causal graph, correction method, or sealed ranking; the released test
 remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
 and claim boundaries.
+
+Current D094 execution state: B1-A and the preregistered 28-trajectory B1-B
+outside-selection audit are locally retained and rehashed. B1-B selects the
+stretched schedule under its paired error-first rule. The fresh paired seed-0
+`n={8,16,32,64,128}` PCNO/PCFNO ladder is running serially on AutoDL; the
+winning B1-A `n=256` endpoints will be reused. Initial health is verified, but
+the ladder has no completed result yet and should not be interpreted from
+partial checkpoints. The historical test population remains sealed.
 
 The [archive guide](history/README.md) explains snapshot authority and link
 resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
@@ -239,6 +247,13 @@ verification branches, not byte equality between historical snapshots and
 current source.
 Archived snapshot integrity and current-checkout continuation compatibility are
 different checks.
+
+Source-set digests are byte-level identities. A Git archive can materialize LF
+bytes while a clean Windows worktree materializes selected files with CRLF, so
+their source-set digests may differ even when both derive from the same commit.
+For a remote run, bind and verify the exact deployment-archive hash first, then
+use the source-set digest generated inside that deployed tree; never substitute
+a digest recomputed from a byte-distinct local materialization.
 
 ## Recovery
 

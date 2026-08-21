@@ -321,13 +321,18 @@ conservation, operator convergence, or general Euler stability. Re-entry
 requires a new owner-selected claim and preregistration.
 
 The separately registered H320 bump study is also closed at its single-seed,
-30-open-case, reference-free scope. D094's six-cell seed-0 pilot is reported
-complete remotely, but no smoke or calibration packet is retained locally and
-the report is not a locally verified scientific result. Its immutable 256/44
-split and long-schedule implementation are locally verified; reported remote
-activity remains unverified until its packets are retrieved and rehashed. D094
-grants no implicit launch, remote, checkpoint, or sealed-population
-authorization.
+30-open-case, reference-free scope. D094 B1-A is locally retained and rehashed.
+Its preregistered B1-B audit evaluated the four already-selected `n=256`
+checkpoints on the other 28 open-validation trajectories and selected the
+stretched schedule: paired geometric-mean all-call error is `0.0640001` versus
+`0.0967684` for prefix-tail, with zero hard failures in all four cells. The
+stretched/prefix all-call ratios are `0.4843` for PCNO and `0.9032` for PCFNO.
+This is one-seed schedule--architecture interaction and schedule-selection
+evidence, not a completed scaling curve, seed-robust architecture ranking, or
+conservation result. The authorized fresh paired seed-0
+`n={8,16,32,64,128}` stretched-schedule ladder is now running; its B1-A
+`n=256` endpoints will be reused. The 20 historical test trajectories remain
+sealed.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
@@ -364,8 +369,8 @@ likewise not implied by current evidence.
 - [H320 reference-free rollout record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md):
   closed 30-case descriptive recurrence and exact packet hashes.
 - [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
-  registered, locally split-bound plan with a reported-but-unverified remote
-  pilot and an unlaunched long-schedule gate.
+  locally retained B1-A/B1-B schedule audit, exact routed-ladder provenance,
+  and the running fresh seed-0 `n={8,16,32,64,128}` paired sweep.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

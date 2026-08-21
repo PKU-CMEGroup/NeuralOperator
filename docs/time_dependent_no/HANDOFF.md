@@ -152,8 +152,11 @@ stretched schedule under the frozen paired rule. The fresh paired seed-0
 checkpoint has finite online-train, fixed-seen, fixed-validation, and recurrent
 rollout metrics with no hard failure. The winning B1-A `n=256` endpoints are
 reused rather than retrained. Do not monitor continuously; retrieve and rehash
-the completed metadata/source packets before interpretation. The historical
-test population remains sealed. See the
+the completed metadata/source packets before interpretation. The exact
+post-completion evaluator is implemented and tested; it scores all 12 selected
+endpoints on the 28 trajectories outside selection while retaining separate
+selected and terminal metric scopes. The historical test population remains
+sealed. See the
 [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0

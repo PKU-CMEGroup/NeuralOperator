@@ -286,6 +286,8 @@ def _evaluate_cell(
     store: PCNOEuler2DShardStore,
     outside_keys: Sequence[str],
     policies: Mapping[str, Mapping[str, Any]],
+    policy_metadata: Mapping[str, Mapping[str, Any]],
+    expected_checkpoint_source_set_digest: str,
     device: torch.device,
     amp: str,
     shock_quantile: float,
@@ -297,13 +299,22 @@ def _evaluate_cell(
     if (
         not isinstance(source_snapshot, Mapping)
         or source_snapshot.get("source_set_digest")
-        != EXPECTED_CHECKPOINT_SOURCE_SET_DIGEST
+        != expected_checkpoint_source_set_digest
     ):
         raise ValueError("checkpoint source-set digest changed")
     if [str(key) for key in checkpoint["val_keys"]] != [
         str(key) for key in descriptor["split"]["val_keys"]
     ]:
         raise ValueError("checkpoint validation population differs from its run split")
+    boundary_contract = checkpoint.get("boundary_contract")
+    if not isinstance(boundary_contract, Mapping):
+        raise TypeError("checkpoint lacks its causal boundary contract")
+    policy_digests = boundary_contract.get("policy_digests")
+    if not isinstance(policy_digests, Mapping):
+        raise TypeError("checkpoint lacks boundary-policy digests")
+    for key in outside_keys:
+        if str(policy_digests.get(key)) != str(policy_metadata[key]["policy_digest"]):
+            raise ValueError(f"checkpoint boundary-policy digest changed for {key}")
     model = build_bump_checkpoint_model(checkpoint, device)
     start = perf_counter()
     rollout = evaluate_rollouts(
@@ -345,6 +356,8 @@ def _evaluate_cell(
         "outside_selection_h79_structure_means": _endpoint_means(structure, 79),
         "elapsed_seconds": elapsed,
     }
+    if "trajectory_count" in descriptor:
+        result["trajectory_count"] = int(descriptor["trajectory_count"])
     del model, checkpoint
     if device.type == "cuda":
         torch.cuda.empty_cache()
@@ -495,6 +508,10 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
                 store=store,
                 outside_keys=outside_keys,
                 policies=policies,
+                policy_metadata=policy_metadata,
+                expected_checkpoint_source_set_digest=(
+                    EXPECTED_CHECKPOINT_SOURCE_SET_DIGEST
+                ),
                 device=device,
                 amp=args.amp,
                 shock_quantile=args.shock_quantile,

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import pytest
 
+from scripts.time_dependent_no import evaluate_pcno_bump_scaling_holdout as holdout
 from scripts.time_dependent_no.evaluate_pcno_bump_scaling_holdout import (
     EXPECTED_SPLIT_PARTITION_DIGEST,
     SPLIT_SCHEMA,
@@ -99,3 +101,33 @@ def test_parser_exposes_no_historical_test_input() -> None:
     assert "test" not in destinations
     assert "test_root" not in destinations
     assert {"gate_root", "data_dir", "split_manifest", "output_dir"} <= destinations
+
+
+def test_evaluate_cell_rejects_checkpoint_boundary_policy_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkpoint = {
+        "data_manifest_digest": "manifest",
+        "source_snapshot": {"source_set_digest": "source"},
+        "val_keys": ["trajectory"],
+        "boundary_contract": {"policy_digests": {"trajectory": "stale"}},
+    }
+    monkeypatch.setattr(holdout, "load_bump_checkpoint", lambda _: checkpoint)
+    descriptor = {
+        "checkpoint": tmp_path / "best.pt",
+        "split": {"val_keys": ["trajectory"]},
+    }
+    store = type("Store", (), {"manifest_digest": "manifest"})()
+
+    with pytest.raises(ValueError, match="boundary-policy digest changed"):
+        holdout._evaluate_cell(
+            descriptor,
+            store=store,
+            outside_keys=["trajectory"],
+            policies={},
+            policy_metadata={"trajectory": {"policy_digest": "current"}},
+            expected_checkpoint_source_set_digest="source",
+            device=holdout.torch.device("cpu"),
+            amp="none",
+            shock_quantile=0.9,
+        )

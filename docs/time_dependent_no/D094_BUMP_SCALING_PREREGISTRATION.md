@@ -395,6 +395,15 @@ step 1,280 with finite online-train, fixed-seen, fixed-validation, and
 autonomous-rollout metrics, complete H79 rollout, and zero hard failures. This
 is an operational health receipt, not a completed ladder result.
 
+`evaluate_pcno_bump_scaling_ladder.py` is the registered post-completion
+evaluator. It requires the exact ten fresh cells plus the two reused stretched
+`n=256` endpoints, zero ladder/gate exit receipts, exact checkpoint/source/split
+and nested-subset bindings, and matching boundary-policy digests. It records
+selected and terminal training metrics separately, then evaluates every fixed
+selected checkpoint on the same 28 outside-selection trajectories under the
+finite-only H79 and structure contracts above. It cannot accept a historical
+test input and does not reselect checkpoints.
+
 ### B2: Official PlanarDet generator reproduction
 
 Purpose: establish that newly generated trajectories belong to the same benchmark.

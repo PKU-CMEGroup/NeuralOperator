@@ -167,7 +167,8 @@ branch-specific inventory.
 - 1D dataset generation, target-ladder training, evaluation, runtime, and plots;
 - CPG release provenance, mesh/reach audits, legal-boundary training, and plots;
 - bump shard preparation, residual-PCNO training/evaluation, boundary protocols,
-  rollout decomposition, and geometry diagnostics;
+  rollout decomposition, trajectory-scaling analysis, outside-selection audit,
+  and geometry diagnostics;
 - dynamic shock-vortex reference/family generation and baseline evaluation;
 - common-source resolution rollout and pathway analysis;
 - boundary-field, node-type, admissibility, and finite-propagation probes;

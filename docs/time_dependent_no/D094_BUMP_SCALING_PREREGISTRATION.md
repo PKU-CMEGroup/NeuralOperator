@@ -304,12 +304,12 @@ locally. Selected-checkpoint metrics are reconstructed from the unique
 runner-generated scalar receipt because that receipt combines a best-epoch
 label with terminal scalars when best and terminal differ.
 
-| Architecture | Schedule | Selected step | Fixed seen one-step | Fixed validation one-step | Rollout all-call mean | H79 | Physical-admissibility rate |
-|---|---|---:|---:|---:|---:|---:|---:|
-| PCNO | prefix-tail | 20,480 | 0.0124163 | 0.0126211 | 0.0948993 | 0.141995 | 1.000 |
-| PCNO | stretched | 20,480 | 0.0112578 | 0.0114138 | 0.0525120 | 0.0791166 | 1.000 |
-| PCFNO | prefix-tail | 20,480 | 0.0170696 | 0.0174813 | 0.0896706 | 0.129719 | 0.875 |
-| PCFNO | stretched | 15,360 | 0.0151365 | 0.0154052 | 0.0824803 | 0.121960 | 0.875 |
+| Architecture | Schedule | Selected step | Online train one-step | Fixed seen one-step | Fixed validation one-step | Rollout all-call mean | H79 | Physical-admissibility rate |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| PCNO | prefix-tail | 20,480 | 0.0119006 | 0.0124163 | 0.0126211 | 0.0948993 | 0.141995 | 1.000 |
+| PCNO | stretched | 20,480 | 0.0111151 | 0.0112578 | 0.0114138 | 0.0525120 | 0.0791166 | 1.000 |
+| PCFNO | prefix-tail | 20,480 | 0.0142998 | 0.0170696 | 0.0174813 | 0.0896706 | 0.129719 | 0.875 |
+| PCFNO | stretched | 15,360 | 0.0134953 | 0.0151365 | 0.0154052 | 0.0824803 | 0.121960 | 0.875 |
 
 The stretched/prefix selected all-call rollout ratios are `0.5533` for PCNO
 and `0.9198` for PCFNO. PCNO/PCFNO is `1.0583` under prefix-tail but `0.6367`
@@ -317,9 +317,14 @@ under stretched, so this one seed exhibits a large schedule--architecture
 interaction. It is not yet a replicated architecture result. No arm meets the
 registered three-checkpoint one-step over-optimization definition. PCFNO
 stretched instead shows a different event: from its selected step 15,360 to
-the terminal step, fixed seen and validation one-step errors improve while
-all-call rollout error worsens. This is one-step/recurrent-objective divergence,
-not classical train--validation separation and not yet a causal mechanism.
+the terminal step, online train one-step changes `0.0134953 -> 0.0127366`,
+fixed seen changes `0.0151365 -> 0.0134270`, and fixed validation changes
+`0.0154052 -> 0.0137305`, while all-call rollout changes
+`0.0824803 -> 0.100822` and H79 changes `0.121960 -> 0.138182`. Thus both
+fixed one-step metrics improve by about 11% while recurrent error worsens by
+13--22%. This is one-step/recurrent-objective divergence, not classical
+train--validation
+separation and not yet a causal mechanism.
 
 Before the data ladder is expanded, B1-B evaluates the four already-selected
 checkpoints on the same 28 open-validation trajectories excluded from rollout
@@ -375,6 +380,17 @@ worse (`0.17944` versus `0.10007`). These diagnostics do not override the
 registered rollout-error ranking and the proxy total is not physical
 conservation.
 
+A post-hoc 10,000-draw paired trajectory percentile bootstrap, using one shared
+resample stream with seed `20260821` and recorded only as a descriptive
+robustness check, gives PCNO stretched/prefix all-call ratio `0.4843` with 95%
+interval `[0.3775,0.6237]` and 28/28 trajectory wins; PCFNO gives ratio
+`0.9032` with interval `[0.8597,0.9495]` and 21/28 wins. PCNO/PCFNO is
+`0.9905` with interval `[0.7873,1.2146]` under prefix-tail but `0.5311`
+with interval `[0.4585,0.6514]` under stretched, with PCNO winning 27/28
+stretched cases.
+These intervals use trajectories, not nodes or frames, as units. They were not
+part of the preregistered schedule rule and do not replace seed replication.
+
 The fresh paired `n={8,16,32,64,128}` ladder was then launched serially from
 commit `066238b` using the stretched schedule, 20,480 optimizer steps per cell,
 and the same seed, split, normalization, recurrence, finite-only rollout, and
@@ -403,6 +419,65 @@ selected and terminal training metrics separately, then evaluates every fixed
 selected checkpoint on the same 28 outside-selection trajectories under the
 finite-only H79 and structure contracts above. It cannot accept a historical
 test input and does not reselect checkpoints.
+
+#### B1-C: post-ladder analysis and replication route (registered 2026-08-21)
+
+The bump calibration now tests two questions and no broader claim:
+
+1. Does independent trajectory exposure change the full-PCNO versus
+   no-gradient-PCFNO gap under matched native graphs, capacity, target,
+   optimizer compute, and evaluation?
+2. Does late degradation follow classical seen/held-out one-step separation,
+   or do one-step metrics continue to improve while recurrent rollout worsens?
+
+The explicit anti-claims are that one seed establishes an architecture law,
+that a lower online training trace is comparable to fixed validation error,
+that PCFNO is vanilla or paper-faithful FFNO, and that the 28 audit cases remain
+an untouched final holdout after they selected the stretched schedule.
+
+The next stages are:
+
+| Stage | Required work | Decision role |
+|---|---|---|
+| B1-C0: completion audit | Let all ten fresh seed-0 cells finish; retrieve and rehash the exact cell matrix; combine it with the two bound `n=256` endpoints; run the registered 12-checkpoint outside-selection evaluator. | Fail closed on any missing cell, nonzero exit, source/checkpoint/split drift, hard numerical failure, or historical-test access. Do not interpret partial cells. |
+| B1-C1: seed-0 surface | Plot the 80-row histories against optimizer step `s` and corrected exposure `X=s/(79n)`, using fixed seen only at checkpoints where it was actually evaluated; plot the selected fixed-compute outside-audit curve against `n`; retain selected and terminal rows separately. | Screen the shape of the data--architecture--optimization interaction; it remains single-seed development evidence. Do not interpolate a missing fixed-seen or model-state metric. |
+| B1-C2: seed replication | If B1-C0 closes, propose the full six-count PCNO/PCFNO ladder for seeds 1 and 2 under the already selected stretched schedule: 24 new cells. | A positive, null, or reversed seed-0 curve is retained; the purpose is replication, not only confirmation. A material interaction must agree in at least two of three seeds. |
+| B1-C3: compute/exposure control | Use the existing histories for exploratory matched-exposure slices. For future seeds, retain a count-specific model checkpoint at `s_X(n)=64n`, for common `X=64/79`, so fixed seen, fixed validation, rollout, and outside-audit metrics can be recomputed from one exact state. | Do not call interpolation between unmatched checkpoints a fixed-exposure result. A seed-0 replay is proposed only if the missing exact checkpoint would change the claim. |
+| B1-C4: conditional bottleneck test | If high-`n` fixed validation and rollout both improve through the last three checkpoints, propose a cold 40,960-step `n={128,256}` compute extension. If one-step improves while rollout worsens, route to an objective/recurrence diagnostic instead. Only after extra compute plateaus with a small fixed seen--validation gap should small/base/large `n=256` capacity controls be proposed. | Distinguish under-optimization from recurrent-objective divergence and then from capacity. Do not diagnose capacity merely because adding data stops helping at one compute budget. |
+
+Using the observed long-gate rates of about 31 minutes for PCNO and 22 minutes
+for PCFNO, a conservative full 12-cell seed costs about 5.3 serial GPU-hours;
+seeds 1 and 2 together cost about 10.7 GPU-hours before evaluation. At the
+current roughly 1.15 GB per retained cell, 24 new cells can require about 28 GB.
+B1-C2 therefore requires an actual post-ladder byte count, archive/retrieval
+receipt, and free-space preflight before launch. No existing remote output is
+deleted or compacted without a separate explicit decision. A count-specific
+sentinel inventory should retain the required matched-exposure state without
+duplicating unnecessary model-only checkpoints.
+
+For every stage, the primary views are distinct:
+
+- online train one-step is an optimization trace;
+- fixed seen and fixed open-validation one-step use the same statistic and may
+  support a classical generalization-gap statement;
+- selection-cohort rollout traces diagnose checkpoint dynamics but are
+  development metrics;
+- the 28-case audit reports fixed checkpoints without reselection; and
+- selected-checkpoint and terminal-checkpoint rollout are never merged.
+
+Define the paired architecture curve as
+
+    R_arch(n,s) = E_PCNO(n,s) / E_PCFNO(n,s),
+
+where `E` is reported separately for fixed one-step, all-call rollout, and H79.
+Plot raw per-seed and per-trajectory values before medians, bootstrap intervals,
+or any log-data fit. A changing `R_arch` is an interaction signal, not by itself
+a gradient-path mechanism.
+
+Vanilla/paper-faithful FFNO is not inserted into this native-mesh bump matrix.
+The controlled PlanarDet stage retains a matched-objective FFNO for architecture
+attribution and a separate direct-state paper-faithful FFNO for benchmark
+reproduction, only after B2 generator qualification and B3 population audit.
 
 ### B2: Official PlanarDet generator reproduction
 
@@ -514,22 +589,29 @@ The bump cost is measured by a native-graph smoke before queueing because its no
 
 ## 12. Immediate execution order
 
-1. Keep the retired `n<=7` factorial sweep unlaunched.
-2. Treat the B1-A metadata/source packets as locally retrieved and rehashed;
-   keep its single-seed result bounded to schedule routing.
-3. Run the registered B1-B 28-trajectory outside-selection audit without
-   opening the historical test population or changing checkpoints.
-4. If B1-B closes numerically, use its winner for the seed-0
-   `n={8,16,32,64,128}` fixed-compute ladder and reuse the corresponding B1-A
-   n=256 endpoint. Do not infer scaling from the earlier strict-physical
-   5,120-step pilot rollouts because they compare different valid-prefix
-   populations.
-5. Keep exact resume closed; no optimizer/scheduler replay is needed for B1-B
-   or the fresh fixed-compute ladder.
-6. In parallel through human coordination, request the official PlanarDet
+1. Let the isolated seed-0 ladder finish without continuous polling. Do not
+   interpret a partial curve.
+2. Retrieve and rehash every fresh cell, then run the registered B1-C0
+   12-checkpoint evaluator before plotting or making a scaling statement.
+3. Produce B1-C1 fixed-compute and corrected-exposure surfaces with online
+   train, fixed seen, fixed validation, selection rollout, outside-audit
+   rollout, selected checkpoint, and terminal checkpoint kept distinct.
+4. If the completion/provenance gate closes, review and authorize B1-C2 seeds
+   1 and 2. Do not let the seed-0 effect direction decide whether a null or
+   reversal is retained.
+5. Route conditionally to B1-C3/B1-C4 matched-exposure, extra-compute, or
+   capacity controls using the registered curve-shape rules above; do not run
+   all controls indiscriminately.
+6. Keep the retired `n<=7` factorial sweep unlaunched and keep exact resume
+   closed unless a separate replay/resume gate is implemented and tested.
+7. In parallel through human coordination, request the official PlanarDet
    case, additional trajectories, and an HPC cost/allocation answer. Do not
    generate PlanarDet from the paper description alone.
-7. Do not start the full PlanarDet training surface until B2 and B3 close.
+8. Do not start the full PlanarDet architecture surface or its matched and
+   paper-faithful FFNO arms until B2 and B3 close.
+9. Keep the historical test population sealed until the three-seed development
+   claims and final checkpoint-selection rules are frozen and separately
+   authorized.
 
 ## 13. Minimum paper-level evidence
 

@@ -8,6 +8,10 @@ import pytest
 
 from scripts.time_dependent_no.train_pcno_bump_scaling import (
     D094_REGISTERED_SOURCE_FILES,
+    D094_ROLLOUT_SELECTION_COUNT,
+    D094_ROLLOUT_STEPS,
+    D094_SELECTION_MODE,
+    MODEL_ONLY_SENTINEL_PAYLOAD,
     REGISTERED_COUNTS,
     ROOT,
     SCHEMA,
@@ -19,6 +23,7 @@ from scripts.time_dependent_no.train_pcno_bump_scaling import (
     fixed_evaluation_pairs,
     installed_scaling_adapter,
     load_split_manifest,
+    model_only_sentinel_payload,
     presentation_stream_sha256,
 )
 from utility.time_dependent_no.pcno_artifacts import (
@@ -145,6 +150,12 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         multistep_loss_weight=0.0,
         generated_state_exposure_weight=0.0,
         input_noise_std=0.0,
+        epochs=80,
+        rollout_checkpoints=(),
+        rollout_val_count=5,
+        rollout_steps=20,
+        selection_mode="historical_all_node",
+        rollout_failure_policy="strict_physical",
     )
     wrapper = SimpleNamespace(
         split_manifest=(
@@ -156,12 +167,19 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         trajectory_count=64,
         comparable_seen_every_epochs=5,
         sentinel_every_epochs=5,
+        sentinel_steps=(),
+        sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
     )
     configured = configure_parent_args(parent, wrapper, _split_payload())
     assert configured.batch_size == 1
     assert configured.gradient_accumulation_steps == 1
     assert configured.presentations_per_epoch == 256
     assert configured.val_presentations == 176
+    assert configured.rollout_val_count == D094_ROLLOUT_SELECTION_COUNT
+    assert configured.rollout_steps == D094_ROLLOUT_STEPS
+    assert configured.rollout_checkpoints == [D094_ROLLOUT_STEPS]
+    assert configured.selection_mode == D094_SELECTION_MODE
+    assert configured.rollout_failure_policy == "finite_only"
     assert configured.scaling_partition_digest
     assert set(configured.source_snapshot_extra_files) == {
         *D094_REGISTERED_SOURCE_FILES,
@@ -190,6 +208,12 @@ def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
         multistep_loss_weight=0.0,
         generated_state_exposure_weight=0.0,
         input_noise_std=0.0,
+        epochs=80,
+        rollout_checkpoints=(),
+        rollout_val_count=5,
+        rollout_steps=20,
+        selection_mode="historical_all_node",
+        rollout_failure_policy="strict_physical",
     )
     wrapper = SimpleNamespace(
         split_manifest=split,
@@ -199,6 +223,8 @@ def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
         trajectory_count=64,
         comparable_seen_every_epochs=5,
         sentinel_every_epochs=5,
+        sentinel_steps=(),
+        sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
     )
     configured = configure_parent_args(parent, wrapper, _split_payload())
     snapshot = write_source_snapshot(
@@ -216,10 +242,11 @@ def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
 def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> None:
     store = FakeStore({"a": 80, "b": 80, "v": 80})
     saved_paths = []
+    saved_payloads = []
 
     def original_atomic_save(payload, path) -> None:
-        del payload
         saved_paths.append(path)
+        saved_payloads.append(payload)
 
     def original_train_epoch(*values, **keywords):
         del values, keywords
@@ -252,7 +279,9 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
         evaluation_windows_per_trajectory=1,
         differential_branch_mode="full",
         comparable_seen_every_epochs=1,
-        sentinel_every_epochs=1,
+        sentinel_every_epochs=0,
+        sentinel_steps=(2,),
+        sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
     )
     hashes = []
     with installed_scaling_adapter(
@@ -292,12 +321,46 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
         assert len(hashes) == 1
 
         last = tmp_path / "last.pt"
-        trainer.atomic_torch_save({"epoch": 0}, last)
+        trainer.atomic_torch_save(
+            {
+                "epoch": 0,
+                "model_state": {"weight": "model"},
+                "optimizer_state": {"state": "optimizer"},
+                "scheduler_state": {"state": "scheduler"},
+                "checkpoint_role": "training",
+                "resume_supported": True,
+            },
+            last,
+        )
         assert saved_paths == [
             last,
             tmp_path / "sentinels" / "step_000000002.pt",
         ]
+        assert "optimizer_state" in saved_payloads[0]
+        assert "optimizer_state" not in saved_payloads[1]
+        assert "scheduler_state" not in saved_payloads[1]
+        assert saved_payloads[1]["checkpoint_role"] == "model_only_sentinel"
+        assert saved_payloads[1]["resume_supported"] is False
         assert (tmp_path / "sentinels").is_dir()
 
     assert trainer.train_epoch is original_train_epoch
     assert trainer.atomic_torch_save is original_atomic_save
+
+
+def test_model_only_sentinel_retains_evaluation_state_but_not_resume_state() -> None:
+    payload = {
+        "epoch": 7,
+        "model_state": {"weight": "model"},
+        "optimizer_state": {"state": "optimizer"},
+        "scheduler_state": {"state": "scheduler"},
+        "checkpoint_role": "training",
+        "resume_supported": True,
+    }
+    sentinel = model_only_sentinel_payload(payload)
+
+    assert sentinel["model_state"] == payload["model_state"]
+    assert "optimizer_state" not in sentinel
+    assert "scheduler_state" not in sentinel
+    assert sentinel["checkpoint_role"] == "model_only_sentinel"
+    assert sentinel["resume_supported"] is False
+    assert payload["resume_supported"] is True

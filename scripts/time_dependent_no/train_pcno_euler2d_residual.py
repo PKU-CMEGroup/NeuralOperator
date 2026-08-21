@@ -70,10 +70,13 @@ from utility.time_dependent_no.pcno_euler2d import (
 )
 from utility.time_dependent_no.pcno_rollout import (
     CAUSAL_BOUNDARY_MODE,
+    FINITE_ONLY_ROLLOUT_POLICY,
     LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
     MINIMUM_CHANGE_BOUNDARY_MODE,
     NORMAL_CLOSED_PRIMARY_OBJECTIVE,
     RAW_ALL_NODES_PRIMARY_OBJECTIVE,
+    ROLLOUT_FAILURE_POLICIES,
+    STRICT_PHYSICAL_ROLLOUT_POLICY,
     boundary_outflow_normal_mach,
     close_boundary,
     contract_forward_sample,
@@ -102,6 +105,7 @@ RAW_TO_MINIMUM_CHANGE_INIT_BOUNDARY_TRANSITION = (
 )
 HISTORICAL_SELECTION_MODE = "historical_all_node"
 INTERIOR_SELECTION_MODE = "interior_rollout"
+ERROR_FIRST_SELECTION_MODE = "full_horizon_error_first"
 FIXED_HORIZON_BLOCKS_PRESENTATION_MODE = "fixed_horizon_blocks"
 ATTACHED_PREDICTION_MULTISTEP_INPUT = "attached_prediction"
 PROJECTED_TEACHER_MULTISTEP_INPUT = "projected_teacher"
@@ -251,6 +255,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--warmup-fraction", type=float, default=0.02)
     parser.add_argument("--warmup-start-factor", type=float, default=0.1)
     parser.add_argument("--min-learning-rate", type=float, default=2e-5)
+    parser.add_argument(
+        "--warmup-cosine-decay-steps",
+        type=int,
+        default=0,
+        help=(
+            "Resolve warmup and cosine decay over this many optimizer steps, then "
+            "hold the minimum rate. Zero uses the full training budget."
+        ),
+    )
     parser.add_argument("--gradient-clip", type=float, default=1.0)
     parser.add_argument("--input-noise-std", type=float, default=0.0)
     parser.add_argument(
@@ -297,7 +310,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rollout-steps", type=int, default=20)
     parser.add_argument(
         "--selection-mode",
-        choices=(HISTORICAL_SELECTION_MODE, INTERIOR_SELECTION_MODE),
+        choices=(
+            HISTORICAL_SELECTION_MODE,
+            INTERIOR_SELECTION_MODE,
+            ERROR_FIRST_SELECTION_MODE,
+        ),
         default=HISTORICAL_SELECTION_MODE,
         help=(
             "Select checkpoints by the historical all-node rollout hierarchy or "
@@ -316,6 +333,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         nargs="*",
         default=(),
         help="Calls retained for checkpoint selection and horizon reporting.",
+    )
+    parser.add_argument(
+        "--rollout-failure-policy",
+        choices=ROLLOUT_FAILURE_POLICIES,
+        default=STRICT_PHYSICAL_ROLLOUT_POLICY,
+        help=(
+            "Stop at the first physical violation, or continue every finite state "
+            "and reserve termination for hard numerical failure."
+        ),
     )
     parser.add_argument(
         "--parity-rollout-keys",
@@ -496,6 +522,12 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
         or args.min_learning_rate >= args.learning_rate
     ):
         raise ValueError("--min-learning-rate must lie in (0, learning-rate)")
+    if args.warmup_cosine_decay_steps < 0:
+        raise ValueError("--warmup-cosine-decay-steps must be nonnegative")
+    if args.scheduler != "warmup_cosine" and args.warmup_cosine_decay_steps != 0:
+        raise ValueError(
+            "--warmup-cosine-decay-steps requires --scheduler warmup_cosine"
+        )
     if args.input_noise_std < 0.0:
         raise ValueError("--input-noise-std must be nonnegative")
     if (
@@ -597,6 +629,24 @@ def validate_args(args: argparse.Namespace, device: torch.device) -> None:
             raise ValueError(
                 "interior-rollout selection short horizon must be retained"
             )
+    elif args.selection_mode == ERROR_FIRST_SELECTION_MODE:
+        if args.parity_rollout_keys:
+            raise ValueError(
+                "full-horizon error-first selection and the historical parity "
+                "gate are separate contracts"
+            )
+        if args.rollout_failure_policy != FINITE_ONLY_ROLLOUT_POLICY:
+            raise ValueError(
+                "full-horizon error-first selection requires finite-only rollout"
+            )
+        if args.rollout_steps not in args.rollout_checkpoints:
+            raise ValueError(
+                "full-horizon error-first selection must retain its terminal call"
+            )
+    elif args.rollout_failure_policy != STRICT_PHYSICAL_ROLLOUT_POLICY:
+        raise ValueError(
+            "finite-only rollout is reserved for full-horizon error-first selection"
+        )
     if args.boundary_max_source_hops < 1:
         raise ValueError("--boundary-max-source-hops must be positive")
     if args.near_boundary_hops < 1:
@@ -734,6 +784,19 @@ def warmup_cosine_factor(
     progress = (step - warmup_steps) / (decay_steps - 1)
     cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
     return minimum_factor + (1.0 - minimum_factor) * cosine
+
+
+def resolve_warmup_cosine_decay_steps(
+    *, total_steps: int, requested_decay_steps: int
+) -> int:
+    """Resolve an optional cosine prefix while keeping total compute explicit."""
+
+    resolved = total_steps if requested_decay_steps == 0 else requested_decay_steps
+    if total_steps < 2 or resolved < 2 or resolved > total_steps:
+        raise ValueError(
+            "warmup-cosine decay steps must lie in [2, total optimizer steps]"
+        )
+    return int(resolved)
 
 
 def build_data_contract_summary(
@@ -1268,7 +1331,15 @@ def target_contract() -> dict[str, Any]:
 def checkpoint_selection_contract(args: argparse.Namespace) -> dict[str, Any]:
     """Describe checkpoint ranking without conflating boundary trace and dynamics."""
 
-    if args.selection_mode == INTERIOR_SELECTION_MODE:
+    if args.selection_mode == ERROR_FIRST_SELECTION_MODE:
+        ranking = [
+            "all_validation_rollouts_numerically_evaluable",
+            "mean_all_call_all_node_relative_l2",
+            f"H{args.rollout_steps}_all_node_relative_l2",
+            "fixed_pair_primary_relative_l2",
+            "numerical_completion_and_survival_tiebreaks",
+        ]
+    elif args.selection_mode == INTERIOR_SELECTION_MODE:
         ranking = [
             "all_validation_rollouts_complete",
             "completion_rate",
@@ -1300,7 +1371,11 @@ def checkpoint_selection_contract(args: argparse.Namespace) -> dict[str, Any]:
             else 20
         ),
         "boundary_reference_error_is_primary": (
-            False if args.selection_mode == INTERIOR_SELECTION_MODE else True
+            args.selection_mode != INTERIOR_SELECTION_MODE
+        ),
+        "rollout_failure_policy": args.rollout_failure_policy,
+        "physical_violations_affect_ranking": (
+            args.selection_mode != ERROR_FIRST_SELECTION_MODE
         ),
         "front_and_anti_smearing_metrics": "mandatory_post_selection_no_harm_audit",
     }
@@ -1848,6 +1923,7 @@ def selection_tuple(
     *,
     mode: str = HISTORICAL_SELECTION_MODE,
     short_horizon: int = 20,
+    primary_horizon: int | None = None,
     parity_max_rollout_relative_l2: float | None = None,
     parity_max_one_step_relative_l2: float | None = None,
 ) -> tuple[float, ...]:
@@ -1855,11 +1931,43 @@ def selection_tuple(
         resolved = float(value) if value is not None else float("nan")
         return resolved if math.isfinite(resolved) else float(np.finfo(np.float64).max)
 
-    raw_error = rollout["mean_selection_relative_l2"]
+    raw_error = rollout.get("mean_selection_relative_l2")
     error = finite_error(raw_error)
     endpoint = rollout.get("mean_endpoint_relative_l2", {})
     h20 = endpoint.get("20")
     h20_error = finite_error(h20) if h20 is not None else error
+    if mode == ERROR_FIRST_SELECTION_MODE:
+        if rollout.get("parity") is not None:
+            raise ValueError(
+                "full-horizon error-first selection cannot use the parity gate"
+            )
+        if rollout.get("rollout_failure_policy") != FINITE_ONLY_ROLLOUT_POLICY:
+            raise ValueError(
+                "full-horizon error-first selection requires finite-only rollout"
+            )
+        if primary_horizon is None:
+            raise ValueError("full-horizon error-first selection requires its horizon")
+        raw_full_horizon_error = rollout.get("mean_full_horizon_relative_l2")
+        raw_terminal_error = endpoint.get(str(primary_horizon))
+        full_horizon_error = finite_error(raw_full_horizon_error)
+        terminal_error = finite_error(raw_terminal_error)
+        one_step_error = finite_error(one_step.get("relative_l2"))
+        numerically_complete = (
+            float(rollout["completion_rate"]) == 1.0
+            and int(rollout.get("hard_failure_count", 0)) == 0
+            and raw_full_horizon_error is not None
+            and math.isfinite(float(raw_full_horizon_error))
+            and raw_terminal_error is not None
+            and math.isfinite(float(raw_terminal_error))
+        )
+        return (
+            float(numerically_complete),
+            -full_horizon_error,
+            -terminal_error,
+            -one_step_error,
+            float(rollout["completion_rate"]),
+            float(rollout["mean_survival_fraction"]),
+        )
     if mode == INTERIOR_SELECTION_MODE:
         if rollout.get("parity") is not None:
             raise ValueError(
@@ -2848,18 +2956,20 @@ def main(argv: Sequence[str] | None = None) -> None:
             "final_div_factor": args.lr_final_div_factor,
         }
     else:
-        if total_optimizer_steps < 2:
-            raise ValueError("warmup-cosine requires at least two optimizer steps")
+        decay_optimizer_steps = resolve_warmup_cosine_decay_steps(
+            total_steps=total_optimizer_steps,
+            requested_decay_steps=args.warmup_cosine_decay_steps,
+        )
         warmup_steps = min(
-            total_optimizer_steps - 1,
-            max(1, round(args.warmup_fraction * total_optimizer_steps)),
+            decay_optimizer_steps - 1,
+            max(1, round(args.warmup_fraction * decay_optimizer_steps)),
         )
         minimum_factor = args.min_learning_rate / args.learning_rate
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,
             lr_lambda=lambda step: warmup_cosine_factor(
                 step,
-                total_steps=total_optimizer_steps,
+                total_steps=decay_optimizer_steps,
                 warmup_steps=warmup_steps,
                 start_factor=args.warmup_start_factor,
                 minimum_factor=minimum_factor,
@@ -2868,8 +2978,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         scheduler_contract = {
             "name": "warmup_cosine",
             "total_optimizer_steps": total_optimizer_steps,
+            "decay_optimizer_steps": decay_optimizer_steps,
+            "constant_minimum_tail_steps": (
+                total_optimizer_steps - decay_optimizer_steps
+            ),
             "warmup_steps": warmup_steps,
-            "warmup_fraction_resolved": warmup_steps / total_optimizer_steps,
+            "warmup_fraction_resolved": warmup_steps / decay_optimizer_steps,
             "warmup_start_factor": args.warmup_start_factor,
             "peak_learning_rate": args.learning_rate,
             "minimum_learning_rate": args.min_learning_rate,
@@ -3141,12 +3255,14 @@ def main(argv: Sequence[str] | None = None) -> None:
                 rollout_checkpoints=args.rollout_checkpoints,
                 parity_keys=args.parity_rollout_keys,
                 parity_horizon=args.parity_rollout_horizon,
+                failure_policy=args.rollout_failure_policy,
             )
             candidate = selection_tuple(
                 last_rollout_metrics,
                 last_validation_metrics,
                 mode=args.selection_mode,
                 short_horizon=args.selection_short_horizon,
+                primary_horizon=args.rollout_steps,
                 parity_max_rollout_relative_l2=(args.parity_max_rollout_relative_l2),
                 parity_max_one_step_relative_l2=(args.parity_max_one_step_relative_l2),
             )

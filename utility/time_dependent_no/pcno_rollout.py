@@ -50,6 +50,12 @@ MINIMUM_CHANGE_BOUNDARY_MODE = "minimum_change_nodal_physical"
 NORMAL_CLOSED_PRIMARY_OBJECTIVE = "normal_closed"
 RAW_ALL_NODES_PRIMARY_OBJECTIVE = "raw_all_nodes"
 LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE = "learned_dofs_closed"
+STRICT_PHYSICAL_ROLLOUT_POLICY = "strict_physical"
+FINITE_ONLY_ROLLOUT_POLICY = "finite_only"
+ROLLOUT_FAILURE_POLICIES = (
+    STRICT_PHYSICAL_ROLLOUT_POLICY,
+    FINITE_ONLY_ROLLOUT_POLICY,
+)
 
 STRUCTURE_ERROR_FIELDS = (
     "smooth_highpass_energy_reconstructed_weight_proxy",
@@ -512,7 +518,10 @@ def rollout_trajectory(
     amp: str,
     boundary_policy: Mapping[str, Any] | None = None,
     rollout_checkpoints: Sequence[int] = (),
+    failure_policy: str = STRICT_PHYSICAL_ROLLOUT_POLICY,
 ) -> dict[str, Any]:
+    if failure_policy not in ROLLOUT_FAILURE_POLICIES:
+        raise ValueError(f"unsupported rollout failure policy: {failure_policy}")
     states = store.states(key)
     available = (states.shape[0] - 1 - start_frame) // step_stride
     requested = int(num_steps)
@@ -535,14 +544,29 @@ def rollout_trajectory(
         "min_internal_energy": math.inf,
         "min_pressure": math.inf,
     }
-    failure = None
+    termination_cause = None
+    hard_failure_cause = None
+    first_physical_violation: dict[str, Any] | None = None
+    first_physical_violation_by_cause: dict[str, int] = {}
+    physical_violation_counts: dict[str, int] = {}
     endpoint_errors: dict[str, float] = {}
     endpoint_normal_errors: dict[str, float] = {}
     endpoint_boundary_errors: dict[str, float] = {}
     maximum_boundary_correction_rms = 0.0
     minimum_outflow_normal_mach = math.inf
+
+    def record_physical_violation(cause: str, call_number: int) -> None:
+        nonlocal first_physical_violation
+        physical_violation_counts[cause] = (
+            physical_violation_counts.get(cause, 0) + 1
+        )
+        first_physical_violation_by_cause.setdefault(cause, call_number)
+        if first_physical_violation is None:
+            first_physical_violation = {"call": call_number, "cause": cause}
+
     model.eval()
     for call_index in range(requested):
+        call_number = call_index + 1
         with autocast_context(device, amp):
             proposal, raw_proposal, _ = contract_forward_sample(
                 model,
@@ -561,24 +585,36 @@ def rollout_trajectory(
                 maximum_boundary_correction_rms,
                 float(correction_rms.detach().cpu()),
             )
-        failure, current_minimums = failure_cause(proposal, gamma=model.gamma)
+        state_failure, current_minimums = failure_cause(proposal, gamma=model.gamma)
         for name, value in current_minimums.items():
             if value is not None:
                 minimums[name] = min(minimums[name], value)
-        if failure is not None:
+        if state_failure == "nonfinite_state":
+            hard_failure_cause = state_failure
+            termination_cause = state_failure
             break
+        if state_failure is not None:
+            record_physical_violation(state_failure, call_number)
+            if failure_policy == STRICT_PHYSICAL_ROLLOUT_POLICY:
+                termination_cause = state_failure
+                break
         if boundary_policy is not None:
             outflow = boundary_outflow_normal_mach(proposal.float(), boundary_policy)
             if outflow is None or not bool(torch.isfinite(outflow).all()):
-                failure = "nonfinite_outflow_normal_mach"
-                break
-            current_outflow = float(outflow.min().cpu())
-            minimum_outflow_normal_mach = min(
-                minimum_outflow_normal_mach, current_outflow
-            )
-            if current_outflow <= 1.0:
-                failure = "non_supersonic_outflow"
-                break
+                outflow_failure = "nonfinite_outflow_normal_mach"
+            else:
+                current_outflow = float(outflow.min().cpu())
+                minimum_outflow_normal_mach = min(
+                    minimum_outflow_normal_mach, current_outflow
+                )
+                outflow_failure = (
+                    "non_supersonic_outflow" if current_outflow <= 1.0 else None
+                )
+            if outflow_failure is not None:
+                record_physical_violation(outflow_failure, call_number)
+                if failure_policy == STRICT_PHYSICAL_ROLLOUT_POLICY:
+                    termination_cause = outflow_failure
+                    break
         target_index = start_frame + (call_index + 1) * step_stride
         target = torch.as_tensor(
             np.array(states[target_index], copy=True),
@@ -592,18 +628,26 @@ def rollout_trajectory(
             sample["node_mask"],
             model.state_scale,
         )
-        errors.append(float(relative_l2.cpu()))
+        relative_l2_value = float(relative_l2.cpu())
         normal_relative_l2 = optional_region_relative_l2(
             proposal.float(), target, sample, normal_mask, model
         )
         boundary_relative_l2 = optional_region_relative_l2(
             proposal.float(), target, sample, boundary_mask, model
         )
+        regional_errors = (normal_relative_l2, boundary_relative_l2)
+        if not math.isfinite(relative_l2_value) or any(
+            value is not None and not math.isfinite(value)
+            for value in regional_errors
+        ):
+            hard_failure_cause = "nonfinite_error_metric"
+            termination_cause = hard_failure_cause
+            break
+        errors.append(relative_l2_value)
         if normal_relative_l2 is not None:
             normal_errors.append(normal_relative_l2)
         if boundary_relative_l2 is not None:
             boundary_errors.append(boundary_relative_l2)
-        call_number = call_index + 1
         if call_number in rollout_checkpoints:
             endpoint_errors[str(call_number)] = errors[-1]
             if normal_relative_l2 is not None:
@@ -621,7 +665,15 @@ def rollout_trajectory(
         "requested_steps": requested,
         "valid_length": valid_length,
         "completed": valid_length == requested,
-        "failure_cause": "completed" if valid_length == requested else failure,
+        "failure_cause": (
+            "completed" if valid_length == requested else termination_cause
+        ),
+        "hard_failure_cause": hard_failure_cause,
+        "first_physical_violation": first_physical_violation,
+        "first_physical_violation_by_cause": first_physical_violation_by_cause,
+        "physical_violation_counts": physical_violation_counts,
+        "physically_admissible": first_physical_violation is None,
+        "rollout_failure_policy": failure_policy,
         "survival_fraction": valid_length / requested,
         "final_relative_l2": errors[-1] if errors else None,
         "mean_prefix_relative_l2": float(np.mean(errors)) if errors else None,
@@ -665,6 +717,7 @@ def evaluate_rollouts(
     rollout_checkpoints: Sequence[int] = (),
     parity_keys: Sequence[str] = (),
     parity_horizon: int = 20,
+    failure_policy: str = STRICT_PHYSICAL_ROLLOUT_POLICY,
 ) -> dict[str, Any]:
     rows = [
         rollout_trajectory(
@@ -678,6 +731,7 @@ def evaluate_rollouts(
             amp=amp,
             boundary_policy=resolve_boundary_policy(boundary_policies, key),
             rollout_checkpoints=rollout_checkpoints,
+            failure_policy=failure_policy,
         )
         for key in keys
     ]
@@ -694,6 +748,16 @@ def evaluate_rollouts(
         ]
         selection_population = "mixed_valid_prefix"
     mean_error = None if not selection_values else float(np.mean(selection_values))
+    full_horizon_values = [
+        float(row["mean_prefix_relative_l2"])
+        for row in rows
+        if row["completed"] and row["mean_prefix_relative_l2"] is not None
+    ]
+    mean_full_horizon_error = (
+        float(np.mean(full_horizon_values))
+        if len(full_horizon_values) == len(rows)
+        else None
+    )
 
     def mean_available(field: str) -> float | None:
         values = [float(row[field]) for row in rows if row[field] is not None]
@@ -751,6 +815,17 @@ def evaluate_rollouts(
             np.mean([row["survival_fraction"] for row in rows])
         ),
         "mean_selection_relative_l2": mean_error,
+        "mean_full_horizon_relative_l2": mean_full_horizon_error,
+        "mean_final_relative_l2": mean_available("final_relative_l2"),
+        "hard_failure_count": sum(
+            row["hard_failure_cause"] is not None for row in rows
+        ),
+        "physically_admissible_count": sum(
+            bool(row["physically_admissible"]) for row in rows
+        ),
+        "physical_admissibility_rate": float(
+            np.mean([bool(row["physically_admissible"]) for row in rows])
+        ),
         "mean_final_normal_relative_l2": mean_available("final_normal_relative_l2"),
         "mean_final_boundary_relative_l2": mean_available("final_boundary_relative_l2"),
         "mean_endpoint_relative_l2": endpoint_means,
@@ -760,6 +835,7 @@ def evaluate_rollouts(
         "mean_endpoint_boundary_relative_l2": boundary_endpoint_means,
         "boundary_endpoint_population_count": boundary_endpoint_counts,
         "selection_population": selection_population,
+        "rollout_failure_policy": failure_policy,
         "parity": parity,
     }
 

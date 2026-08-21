@@ -18,16 +18,18 @@ from scripts.time_dependent_no.evaluate_pcno_euler2d_residual import (
 )
 from scripts.time_dependent_no.prepare_pcno_euler2d_shards import main as prepare_main
 from scripts.time_dependent_no.train_pcno_euler2d_residual import (
+    ERROR_FIRST_SELECTION_MODE,
     NO_TYPE_CHANNEL_CONTROL,
     RAW_BOUNDARY_REFERENCE_AUXILIARY,
     RAW_TO_CAUSAL_INIT_BOUNDARY_TRANSITION,
-    ZERO_CHANNEL_ORDINARY_CONTROL,
     ZERO_CHANNEL_MATCHED_CONTROL,
+    ZERO_CHANNEL_ORDINARY_CONTROL,
     assert_resume_training_args,
     boundary_auxiliary_loss,
     build_model,
     manifest_train_val_test_split,
     parse_args,
+    resolve_warmup_cosine_decay_steps,
     selection_tuple,
     validate_args,
     warmup_cosine_factor,
@@ -78,6 +80,7 @@ from utility.time_dependent_no.pcno_euler2d import (
     weighted_scaled_mse,
 )
 from utility.time_dependent_no.pcno_rollout import (
+    FINITE_ONLY_ROLLOUT_POLICY,
     LEARNED_DOFS_CLOSED_PRIMARY_OBJECTIVE,
     MINIMUM_CHANGE_BOUNDARY_MODE,
     NORMAL_CLOSED_PRIMARY_OBJECTIVE,
@@ -585,6 +588,32 @@ def test_full_coverage_and_warmup_cosine_have_exact_step_semantics(
     assert all(left <= right for left, right in zip(factors[:2], factors[1:3]))
     assert all(left >= right for left, right in zip(factors[3:-1], factors[4:]))
 
+    decay_steps = resolve_warmup_cosine_decay_steps(
+        total_steps=20_480, requested_decay_steps=5_120
+    )
+    assert decay_steps == 5_120
+    original_warmup = round(0.02 * 5_120)
+    prefix = [
+        warmup_cosine_factor(
+            step,
+            total_steps=decay_steps,
+            warmup_steps=original_warmup,
+            start_factor=0.1,
+            minimum_factor=0.02,
+        )
+        for step in (0, 101, 102, 2_560, 5_119, 20_479)
+    ]
+    assert prefix[0] == pytest.approx(0.1)
+    assert prefix[1] == pytest.approx(1.0)
+    assert prefix[-2:] == pytest.approx([0.02, 0.02])
+    assert resolve_warmup_cosine_decay_steps(
+        total_steps=20_480, requested_decay_steps=0
+    ) == 20_480
+    with pytest.raises(ValueError, match="decay steps"):
+        resolve_warmup_cosine_decay_steps(
+            total_steps=5_120, requested_decay_steps=20_480
+        )
+
 
 def test_parity_selection_uses_historical_all_node_metric() -> None:
     rollout = {
@@ -625,6 +654,60 @@ def test_parity_selection_uses_historical_all_node_metric() -> None:
     assert selection_tuple(rollout_miss, one_step, **thresholds)[0] == 0.0
     one_step_miss = {"relative_l2": 0.004, "all_relative_l2": 0.006}
     assert selection_tuple(parity_rollout, one_step_miss, **thresholds)[0] == 0.0
+
+
+def test_full_horizon_error_selection_ignores_finite_physical_violations() -> None:
+    common = {
+        "completion_rate": 1.0,
+        "mean_survival_fraction": 1.0,
+        "hard_failure_count": 0,
+        "rollout_failure_policy": FINITE_ONLY_ROLLOUT_POLICY,
+        "parity": None,
+    }
+    lower_rollout_error = {
+        **common,
+        "mean_selection_relative_l2": 0.8,
+        "mean_full_horizon_relative_l2": 0.10,
+        "mean_endpoint_relative_l2": {"79": 0.20},
+        "physical_admissibility_rate": 0.0,
+    }
+    higher_rollout_error = {
+        **common,
+        "mean_selection_relative_l2": 0.1,
+        "mean_full_horizon_relative_l2": 0.11,
+        "mean_endpoint_relative_l2": {"79": 0.15},
+        "physical_admissibility_rate": 1.0,
+    }
+    lower = selection_tuple(
+        lower_rollout_error,
+        {"relative_l2": 0.05},
+        mode=ERROR_FIRST_SELECTION_MODE,
+        primary_horizon=79,
+    )
+    higher = selection_tuple(
+        higher_rollout_error,
+        {"relative_l2": 0.01},
+        mode=ERROR_FIRST_SELECTION_MODE,
+        primary_horizon=79,
+    )
+    assert lower > higher
+
+    hard_failure = {
+        **common,
+        "completion_rate": 0.9,
+        "mean_survival_fraction": 0.95,
+        "hard_failure_count": 1,
+        "mean_full_horizon_relative_l2": None,
+        "mean_endpoint_relative_l2": {"79": None},
+    }
+    rejected = selection_tuple(
+        hard_failure,
+        {"relative_l2": 0.001},
+        mode=ERROR_FIRST_SELECTION_MODE,
+        primary_horizon=79,
+    )
+    assert rejected[0] == 0.0
+    assert lower > rejected
 
 
 def test_resume_contract_and_source_snapshot_reject_scientific_drift(

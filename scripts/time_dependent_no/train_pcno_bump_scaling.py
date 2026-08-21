@@ -33,10 +33,17 @@ from utility.time_dependent_no.pcno_differential_branch import (
     DIFFERENTIAL_BRANCH_MODES,
     apply_differential_branch_mode,
 )
+from utility.time_dependent_no.pcno_rollout import FINITE_ONLY_ROLLOUT_POLICY
 
 SCHEMA = "d094_bump_scaling_training_v1"
 SPLIT_SCHEMA = "d094_bump_trajectory_scaling_split_v1"
 REGISTERED_COUNTS = (8, 16, 32, 64, 128, 256)
+D094_SELECTION_MODE = "full_horizon_error_first"
+D094_ROLLOUT_STEPS = 79
+D094_ROLLOUT_SELECTION_COUNT = 16
+FULL_SENTINEL_PAYLOAD = "full"
+MODEL_ONLY_SENTINEL_PAYLOAD = "model_only"
+SENTINEL_PAYLOAD_MODES = (FULL_SENTINEL_PAYLOAD, MODEL_ONLY_SENTINEL_PAYLOAD)
 REGISTERED_SOURCE_MANIFEST_SHA256 = (
     "5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7"
 )
@@ -296,7 +303,13 @@ def parse_wrapper_args(
     parser.add_argument("--optimizer-steps-per-epoch", type=int, default=1024)
     parser.add_argument("--evaluation-windows-per-trajectory", type=int, default=4)
     parser.add_argument("--comparable-seen-every-epochs", type=int, default=5)
-    parser.add_argument("--sentinel-every-epochs", type=int, default=5)
+    parser.add_argument("--sentinel-every-epochs", type=int, default=0)
+    parser.add_argument("--sentinel-steps", type=int, nargs="*", default=())
+    parser.add_argument(
+        "--sentinel-payload",
+        choices=SENTINEL_PAYLOAD_MODES,
+        default=MODEL_ONLY_SENTINEL_PAYLOAD,
+    )
     parser.add_argument("--engineering-smoke", action="store_true")
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--help", action="store_true")
@@ -326,6 +339,13 @@ def configure_parent_args(
         validation_count * int(wrapper.evaluation_windows_per_trajectory)
     )
     args.checkpoint_every = 1
+    args.rollout_val_count = D094_ROLLOUT_SELECTION_COUNT
+    args.rollout_steps = D094_ROLLOUT_STEPS
+    args.rollout_checkpoints = sorted(
+        {int(value) for value in args.rollout_checkpoints} | {D094_ROLLOUT_STEPS}
+    )
+    args.selection_mode = D094_SELECTION_MODE
+    args.rollout_failure_policy = FINITE_ONLY_ROLLOUT_POLICY
     args.differential_branch_mode = str(wrapper.differential_branch_mode)
     args.trajectory_count = int(wrapper.trajectory_count)
     args.scaling_partition_digest = str(split_manifest["partition_digest"])
@@ -335,8 +355,26 @@ def configure_parent_args(
 
     if args.presentations_per_epoch % args.trajectory_count != 0:
         raise ValueError("optimizer steps per epoch must be divisible by trajectory count")
-    if wrapper.comparable_seen_every_epochs < 1 or wrapper.sentinel_every_epochs < 1:
-        raise ValueError("diagnostic and sentinel periods must be positive")
+    if wrapper.comparable_seen_every_epochs < 1:
+        raise ValueError("the comparable-seen diagnostic period must be positive")
+    if wrapper.sentinel_every_epochs < 0:
+        raise ValueError("the sentinel period must be nonnegative")
+    sentinel_steps = tuple(sorted(int(step) for step in wrapper.sentinel_steps))
+    if len(sentinel_steps) != len(set(sentinel_steps)) or any(
+        step < 1 for step in sentinel_steps
+    ):
+        raise ValueError("sentinel steps must be unique positive integers")
+    if sentinel_steps and wrapper.sentinel_every_epochs:
+        raise ValueError("sentinel steps and a periodic sentinel schedule are exclusive")
+    total_optimizer_steps = args.epochs * args.presentations_per_epoch
+    if any(
+        step > total_optimizer_steps or step % args.presentations_per_epoch != 0
+        for step in sentinel_steps
+    ):
+        raise ValueError(
+            "sentinel steps must be epoch boundaries inside the requested run"
+        )
+    wrapper.sentinel_steps = sentinel_steps
     if args.init_checkpoint is not None or args.resume_checkpoint is not None:
         raise ValueError("the D094 engineering adapter does not yet admit init/resume")
     if args.step_stride != 1:
@@ -369,6 +407,42 @@ def _annotate_checkpoint(
     payload["training_args"]["differential_branch_mode"] = branch_contract["mode"]
     payload["config_digest"] = canonical_json_sha256(payload["training_args"])
     return payload
+
+
+def model_only_sentinel_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Strip resume-only state while retaining an evaluation-loadable model."""
+
+    if "model_state" not in payload or "epoch" not in payload:
+        raise ValueError("a model-only sentinel requires model state and epoch")
+    sentinel = dict(payload)
+    sentinel.pop("optimizer_state", None)
+    sentinel.pop("scheduler_state", None)
+    sentinel["checkpoint_role"] = "model_only_sentinel"
+    sentinel["resume_supported"] = False
+    sentinel["sentinel_contract"] = {
+        "schema": "d094_model_only_sentinel_v1",
+        "evaluation_initialization_supported": True,
+        "exact_training_resume_supported": False,
+    }
+    return sentinel
+
+
+def retain_sentinel_at_epoch(
+    *, epoch: int, epochs: int, presentations_per_epoch: int, wrapper: argparse.Namespace
+) -> bool:
+    """Resolve sparse exact-step retention or the legacy periodic fallback."""
+
+    step = (epoch + 1) * presentations_per_epoch
+    if wrapper.sentinel_steps:
+        return step in wrapper.sentinel_steps
+    return (
+        epoch == 0
+        or epoch + 1 == epochs
+        or (
+            wrapper.sentinel_every_epochs > 0
+            and (epoch + 1) % wrapper.sentinel_every_epochs == 0
+        )
+    )
 
 
 @contextmanager
@@ -530,16 +604,22 @@ def installed_scaling_adapter(
         if path.name != "last.pt" or not isinstance(payload, Mapping):
             return
         epoch = int(payload["epoch"])
-        should_retain = (
-            epoch == 0
-            or epoch + 1 == args.epochs
-            or (epoch + 1) % wrapper.sentinel_every_epochs == 0
+        should_retain = retain_sentinel_at_epoch(
+            epoch=epoch,
+            epochs=args.epochs,
+            presentations_per_epoch=args.presentations_per_epoch,
+            wrapper=wrapper,
         )
         if should_retain:
             step = (epoch + 1) * args.presentations_per_epoch
             sentinel = path.parent / "sentinels" / f"step_{step:09d}.pt"
             sentinel.parent.mkdir(parents=True, exist_ok=True)
-            original_atomic_save(payload, sentinel)
+            sentinel_payload = (
+                payload
+                if wrapper.sentinel_payload == FULL_SENTINEL_PAYLOAD
+                else model_only_sentinel_payload(payload)
+            )
+            original_atomic_save(sentinel_payload, sentinel)
 
     replace(trainer, "parse_args", parse_args)
     replace(trainer, "stratified_train_val_split", split)
@@ -652,6 +732,12 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         ),
         "comparable_seen_every_epochs": wrapper.comparable_seen_every_epochs,
         "sentinel_every_epochs": wrapper.sentinel_every_epochs,
+        "sentinel_steps": list(wrapper.sentinel_steps),
+        "sentinel_payload": wrapper.sentinel_payload,
+        "checkpoint_selection_mode": args.selection_mode,
+        "rollout_failure_policy": args.rollout_failure_policy,
+        "rollout_selection_trajectory_count": args.rollout_val_count,
+        "rollout_steps": args.rollout_steps,
         "source_sha256": source_hashes,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)

@@ -71,7 +71,7 @@ Anti-claims that must be ruled out or stated explicitly:
 | W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | D087 is complete at H79. A separately registered same-population H320 comparison is also closed: active-gradient PCNO reaches reference-free failure events later than PCFNO more often, but H80--H320 has no truth. | No implicit continuation. A separate H160 identity, spectra/JVPs, policy counterfactuals, and more bump truth require a new owner-selected claim and stable identity. |
 | W26-L2: Shock representation and differential pathway | Are shock-adjacent defects spectral-retrieval-like error, finite-grid capacity/phase error, gradient-path inconsistency, or recurrent exposure error? | Review P2-C0/P2-F/P2-W0: necessary spectral transport, robust pointwise cancellation, trained-architecture reorganization, a held-phase recurrent wake, and failed global gradient scaling. | Select at most one justified selective-limiter, loss/exposure, or bump-specific no-gradient A1 preregistration after human review; D073-B remains coordinated with W26-L5. |
 | W26-L3: Boundary conditions and finite propagation | Which boundary information and enforcement mechanisms are useful for each boundary class, and does global mixing seed the top-left error outside the physical domain of dependence? | Boundary taxonomy and task audit; information-versus-enforcement matrix; synthetic/local finite-propagation probe. | Multi-seed boundary training on selected classes and recurrent top-left causal test. |
-| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1 and D093 are closed. D094 B1-A and the 28-trajectory B1-B audit are locally retained and rehashed; B1-B selects stretched, and the fresh paired seed-0 `n={8,16,32,64,128}` ladder is running. | Execute D094 B1-C0/B1-C1 only after the isolated ladder finishes: rehash the exact matrix, then compare online train, fixed seen, fixed validation, selected/terminal rollout, and outside-audit scaling against both optimizer steps and corrected exposure. Seeds 1--2, compute/capacity controls, PlanarDet FFNO, and test remain gated. |
+| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1 and D093 are closed. D094 B1-A/B1-B and the B1-C0/B1-C1 seed-0 six-count PCNO/PCFNO ladder are complete, locally retained, and rehashed. The result separates a nearly count-invariant one-step architecture ratio from a strong recurrent architecture--data interaction; exact exposure slices reject a fixed-compute capacity diagnosis. | Review storage/retrieval before authorizing D094 seeds 1--2. Retain an exact common-exposure state in future seeds; route PCNO `n=256` toward conditional extra compute and PCFNO `n=256` toward a recurrence/objective diagnostic. Capacity controls, PlanarDet FFNO, and test remain gated. |
 | W26-L5: Cross-resolution correction | Do coarse/native/fine prediction differences predict native error out of case, and can they improve a synchronized native update safely? | A43/A44-R1 qualify one bounded same-family correction protocol; A45 stops the scalar-history router. A46-A1 closes synthetic plumbing, A46-A2 fails closed on checkpoint/new-case compatibility, and A46-A2-R1 stops before generation or model construction. | No implicit branch inference or resource retry. A decisive continuation needs a compatible independent physical-node-type checkpoint and frozen new branch-label/recurrence manifests under separate authorization. |
 
 These lines may run in parallel through preflight and synthetic CPU checks. They
@@ -653,7 +653,7 @@ authoritative boundary/source accounting.
 | `PD0-G0/G0b` | Same step-950 checkpoint and open trajectory; independently replace chemistry, temperature, density, or velocity with exact next-frame truth only after scoring the raw proposal and only for recurrent feedback | G0 is a retained pre-inference manifest-parser launch failure. Corrected G0b passes replay/isolation/H49/metric gates. Primary untouched-group ratios are chemistry `0.48403`, density `0.34435`, temperature `1.13895`, and velocity `1.06437`. | Owner-authorized inference complete; coupling diagnosis only; no oracle arm promoted and no automatic continuation |
 | `PD0-G1` | Same checkpoint/trajectory; preserve the raw proposal at calls 4/12/32, use one exact chemistry or density group only in the next input, then return to raw recurrence | All six arms pass replay/isolation/H49/metric gates. Chemistry-to-density partner ratios are `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`; only chemistry-to-density is materially persistent at calls 12/32. Phase and pulse dose remain confounded. | Owner-authorized inference complete; no oracle arm promoted and no automatic continuation |
 | `D093` | Reuse D092-R1 as PCNO-7 and compare PCNO/PCFNO/residual FFNO with three or seven unique supervised trajectories at fixed seven presentations per optimizer step | Closed partial evidence. Each seven-condition cell has a lower selected truth-input sum than its three-condition counterpart; only FFNO has a lower selected free-rollout sum, and FFNO-7 is best at `1.36466/32.53910`. Three cells are incomplete; no free rollout is fully admissible. | Owner-authorized study closed at the available selected-checkpoint scope for one seed/open trajectory; no paper-faithful baseline, automatic replication, or test access |
-| `D094` | Native-mesh bump PCNO/PCFNO scaling over the nested `n=8..256` ladder, with a separately qualified hundreds-case PlanarDet population required for the hard-benchmark claim | B1-A and B1-B are locally retained and rehashed. B1-B selects stretched on 28 trajectories outside checkpoint selection; all four selected checkpoints complete H79 with zero hard failures. The fresh paired seed-0 `n={8,16,32,64,128}` ladder is running and reuses the winning B1-A `n=256` endpoints. | Retrieve and rehash the complete ladder before interpretation; distinguish online train, fixed seen, fixed open-validation, selected rollout, and terminal rollout metrics; no implicit test access |
+| `D094` | Native-mesh bump PCNO/PCFNO scaling over the nested `n=8..256` ladder, with a separately qualified hundreds-case PlanarDet population required for the hard-benchmark claim | B1-A/B1-B and B1-C0/B1-C1 are complete and rehashed. All 12 seed-0 selected checkpoints finish the 28-case development audit through H79. Outside-audit PCNO/PCFNO ratios are `1.046/0.794/0.759/0.567/0.529/0.532`; no cell meets the classical one-step over-optimization rule, and exact exposure slices change the fixed-compute interpretation. | Partial one-seed development result. Seeds 1--2 require a storage/retrieval decision; future seeds retain exact matched-exposure states. Extra compute, recurrence diagnostics, capacity controls, and test remain separately gated. |
 | `PD0-A4` | One frozen checkpoint/evaluator test opening | One shot after conclusions and hashes are frozen | Separate named sealed-test approval |
 
 Current data/compute budget: the seven-train/one-validation open subset is
@@ -798,35 +798,37 @@ population, a 256/44 field-blind development partition, and nested
 differential-branch utility, split builder, preregistration, and split. Neither
 state arrays nor the historical test population were opened to construct it.
 
-B1-A and the preregistered B1-B outside-selection audit are locally retained
-and rehashed. B1-B evaluates the four already-selected `n=256` checkpoints on
-the other 28 open-validation trajectories and selects stretched: paired
-geometric-mean all-call error is `0.0640001` versus `0.0967684` for
-prefix-tail, with zero hard failures in all four cells. This is one-seed
-schedule-selection evidence, not an architecture or data-scaling conclusion.
-The fresh paired stretched-schedule seed-0 `n={8,16,32,64,128}` ladder is
-running serially; its B1-A `n=256` endpoints are reused. Initial CUDA and metric
-health passed. The next action is retrieval and rehash after completion, not
-continuous polling or partial-checkpoint interpretation.
-
-B1-B also records a metric-scope warning that governs the scaling analysis.
-For PCFNO stretched, step 15,360 to 20,480 improves fixed seen and fixed
-validation one-step error by about 11% while selection rollout worsens 22% and
-H79 worsens 13%. This is recurrent-objective divergence, not classical
-seen/held-out one-step overfitting. The 28 audit trajectories have now informed
-schedule choice and remain development evidence rather than an untouched final
+B1-A/B1-B and B1-C0/B1-C1 are complete, locally retained, and rehashed. The ten
+fresh stretched-schedule cells supply 80 metric rows plus explicit selected and
+terminal receipts; the B1-A `n=256` endpoints are reused. The registered
+evaluator scores all 12 selected checkpoints on the other 28 open-validation
+trajectories. Every cell completes H79 with zero hard failures. The fixed-
+checkpoint PCNO/PCFNO all-call ratios for `n={8,16,32,64,128,256}` are
+`1.046/0.794/0.759/0.567/0.529/0.532`. These trajectories selected stretched
+in B1-B and remain a development audit cohort rather than an untouched final
 holdout.
 
-The registered B1-C route is staged. B1-C0/B1-C1 finish, rehash, and analyze
-the exact seed-0 six-count PCNO/PCFNO surface. If that gate closes, B1-C2
-proposes the same full ladder for seeds 1 and 2 whether the seed-0 interaction
-is positive, null, or reversed. B1-C3 adds exact matched-exposure checkpoint
-retention for future seeds. B1-C4 routes to extra compute only when high-count
-fixed-validation and rollout curves are still improving together, or to an
-objective/recurrence diagnostic when one-step improves while rollout worsens;
-capacity controls follow only after extra compute plateaus. Native bump PCFNO
-is not relabeled as vanilla FFNO. Matched-objective and paper-faithful FFNO
-remain separate PlanarDet arms after generator/population qualification.
+The one-step and rollout surfaces do not tell the same story. Terminal fixed-
+validation PCNO/PCFNO ratios remain in `0.802--0.835`, whereas terminal rollout
+ratios move from `1.167` at `n=8` to `0.521` at `n=256`. No cell meets the
+registered classical one-step over-optimization event. PCFNO `n=256` instead
+improves fixed seen/validation one-step error by `11.3%/10.9%` after selection
+while rollout worsens 22.2%; this is recurrent-objective divergence. Under the
+common 20,480-step maximum training budget, both selected audit curves worsen
+by about 28% from `n=128` to `256`, but at exact common exposure `X=80/79` the
+corresponding rollout improves 66.0%
+for PCNO and 54.1% for PCFNO. Thus the fixed-compute reversal is insufficient
+to diagnose a capacity bottleneck.
+
+B1-C2 proposes the same full six-count ladder for seeds 1 and 2 whether the
+seed-0 interaction is positive, null, or reversed, but requires a human
+storage/retrieval decision before launch. Future seeds retain an exact
+`s_X(n)=64n` checkpoint. PCNO `n=256` routes conditionally to extra compute
+because its late one-step and rollout curves improve together; PCFNO `n=256`
+routes to a recurrence/objective diagnostic. Capacity controls follow only
+after extra compute plateaus. Native bump PCFNO is not relabeled as vanilla
+FFNO. Matched-objective and paper-faithful FFNO remain separate PlanarDet arms
+after generator/population qualification.
 
 ### Failure-decision table
 
@@ -1096,7 +1098,7 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | W26-L4-P2 | IgnitHIT residual comparison | HISTORICAL | NOT RUN; SUPERSEDED BY CURRENT PD0 DIRECTION | No result and no implicit queue |
 | W26-L4-PD0 | PlanarDet champion PCNO | MUST | A1--A3 + P0b + G0b + G1 COMPLETE; ASYMMETRIC RECURRENT PERSISTENCE LOCALIZED | Exact 2,940,759,467-byte open tree, resource ladder, D092-R1 training, step-950 selection, H49 evaluation, and three causal diagnostics are closed. Truth/free mean NPE is `0.1244744/1.7987391`; the comparable free horizon sum `88.13821` is 7.01x the paper FFNO validation value. P0b is near-null. G0b localizes chemistry/density sensitivity; G1 finds chemistry-to-density-only material partner persistence at calls 12/32, with phase/dose confounded. No intervention is promoted and test remains absent. |
 | D093 | PlanarDet architecture/exposure | REGISTERED FOLLOW-UP | CLOSED; PARTIAL SINGLE-SEED/OPEN-VALIDATION RESULT | PCNO-7 result anchor plus five PCNO/PCFNO/residual-FFNO cells at three/seven unique conditions. Every seven-condition cell has lower selected truth-input error than its three-condition counterpart; only FFNO has a lower selected free-rollout sum. Three cells are incomplete, no free rollout is fully admissible, the normalizer control is transductive, D092/D093 source inventories differ, and test remains absent. |
-| D094 | hundreds-trajectory scaling | REGISTERED; SEED-0 LADDER RUNNING | B1-A/B1-B RETAINED; B1-C ROUTE REGISTERED | Bump 300-case metadata population and 256/44 development split remain bound without historical-test opening. B1-B selects stretched on the 28 trajectories outside checkpoint selection and exposes one-step/recurrent divergence. Fresh paired `n={8,16,32,64,128}` cells run serially and reuse the winning B1-A `n=256` endpoints. Next: exact B1-C0 retrieval/rehash and B1-C1 fixed-compute/exposure analysis; seeds 1--2 and conditional controls require review after that gate. |
+| D094 | hundreds-trajectory scaling | B1-C0/B1-C1 COMPLETE; PARTIAL ONE-SEED RESULT | SEEDS 1--2 REQUIRE STORAGE/RETRIEVAL REVIEW | Bump 300-case metadata population and 256/44 development split remain bound without historical-test opening. The complete six-count seed-0 PCNO/PCFNO matrix separates fixed one-step and recurrent behavior; exact exposure slices show that the fixed-compute `n=256` reversal is not a capacity diagnosis. Seeds 1--2, exact common-exposure states, conditional compute/recurrence controls, and later capacity controls follow the registered staged route. |
 | W26-L5-P0 | multiresolution | MUST | COMPLETE | Common-source/transfer closure tests and frozen gradient-policy decision |
 | W26-L5-P1 | correlation gate | CONDITIONAL | COMPLETE FOR REUSED OPEN POPULATIONS | Cross-fitted teacher-forced gate plus low-rank residual-error structure analysis |
 | W26-L5-P2 | recurrent fusion | CONDITIONAL | A44-R1 QUALIFIED; A45 STOPPED; A46 BLOCKED BEFORE SCIENTIFIC EXECUTION | A43/A44-R1 remain frozen bounded evidence. A45 fails E00/coast router transfer. A46-A1 closes synthetic same-state plumbing, A46-A2 finds no compatible independent checkpoint/new-case manifest, and three A46-A2-R1 infrastructure attempts stop before generation/model construction. No branch result or automatic resource retry. |
@@ -1128,10 +1130,10 @@ Working labels are coordination identifiers, not stable D-series run IDs.
    preregistered follow-up.
 2. Decide whether to start the still-unexecuted W26-L3 boundary taxonomy and
    synthetic finite-propagation line.
-3. Treat D093 and the H320 recurrence as closed at their bounded scopes. Let the
-   authorized D094 seed-0 ladder finish, then execute B1-C0 retrieval/rehash and
-   B1-C1 analysis before interpreting the data--architecture--optimization
-   surface or reviewing the seeds 1--2 proposal.
+3. Treat D093 and the H320 recurrence as closed at their bounded scopes. Review
+   the completed D094 B1-C0/B1-C1 one-seed result, then decide storage/retrieval
+   and explicit authorization for the full seeds 1--2 replication. Do not
+   condition replication on confirming the seed-0 direction.
 4. Close A46 at the independent-checkpoint/new-case block or separately repair
    and re-register its portable resource build.
 5. Keep sealed and strength-OOD populations closed unless a later named

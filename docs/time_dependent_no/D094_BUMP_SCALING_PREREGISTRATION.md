@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: preregistered locally; split, sampler, comparable pair banks, and sentinel adapter implemented; no scientific calibration launched; remote metadata/smoke work is reported but its packets are not locally retained, and a later CUDA-health probe reportedly blocked calibration
+Status: the six-cell seed-0 `n={16,64,256}` calibration pilot is reported complete remotely, but its packets are not retained locally and the report is not a local archival closeout; the error-first `n=256` long-schedule gate below is registered but not authorized to launch; the historical test population remains sealed
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -114,7 +114,7 @@ before failed jobs, queueing, generator validation, or storage/postprocessing ov
 
 The existing bundle has 300 training and 20 historical test trajectories on geometry-dependent unstructured meshes. It was copied from an external Trixi-based campaign; this repository does not contain the original 300-case generator.
 
-The read-only shard audit closed 300 unique manifest entries, 300 unique geometry digests, 300 trajectory directories, and all 3,300 required nonempty files. The frozen source-manifest SHA-256 is `5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`. The field-blind 256/44 development partition and nested ladder are recorded in `D094_BUMP_SCALING_SPLIT_MANIFEST.json`: file SHA-256 `feb404e295c104c2ae9e66d25bbb809737bdd5d7febb0094a9d4aa3146191ccc`, canonical payload `6e22a0bb754df158b7ea8838adda2ac36dd80ed554e300d84ba1c4478314709b`, partition digest `ac8cac650c11b03fe883063d6cf8a93b98554030da3c183bc1af9378e2237adb`, and metadata digest `77188a65b091650e590898691490618229048a02a6e87999aef75ec189f62b72`. Both `state_arrays_opened` and `historical_test_population_opened` are false.
+The read-only shard audit closed 300 unique manifest entries, 300 unique geometry digests, 300 trajectory directories, and all 3,300 required nonempty files. The frozen source-manifest SHA-256 is `5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7`. The field-blind 256/44 development partition and nested ladder are recorded in `D094_BUMP_SCALING_SPLIT_MANIFEST.json`: file SHA-256 `feb404e295c104c2ae9e66d25bbb809737bdd5d7febb0094a9d4aa3146191ccc`, canonical payload `6e22a0bb754df158b7ea8838adda2ac36dd80ed554e300d84ba1c4478314709b`, partition digest `ac8cac650c11b03fe883063d6cf8a93b98554030da3c183bc1af9378e2237adb`, and metadata digest `77188a65c38193c2de0ad775ddbb88c3936c0495fc67fe180f9a4f4e03f62b72`. Both `state_arrays_opened` and `historical_test_population_opened` are false.
 
 It is immediately suitable for native-mesh PCNO versus PCFNO scaling because both models share the same nodes, graph, target, optimizer, and evaluator. It is **not** immediately suitable for a clean comparison with the current regular-grid REALM FFNO. A common-grid remap would introduce a new representation and shock-remapping contract and would no longer be a controlled comparison to the native D041/D044 results.
 
@@ -241,6 +241,54 @@ yet been established for the scaling adapter, so an interrupted cell is
 terminal rather than resumed. A completed seed-0 cell is usable for pilot
 routing, but not for a confirmatory architecture-by-data claim.
 
+#### B1-A: error-first long-schedule amendment (2026-08-21)
+
+The reported remote 5,120-step pilot makes a denser data ladder premature if
+its packets close: both families were reported still improving at the terminal
+budget, `n=256` has seen only about 0.253 window-equivalent passes per
+trajectory, and the historical
+stop-on-physics selector can compare different valid-prefix populations. The
+next gate therefore holds `n=256` fixed and tests schedule sufficiency before
+spending compute on the full ladder.
+
+- Compare full PCNO and functional PCFNO under two fresh, paired 20,480-step
+  schedules. The prefix-tail arm exactly reproduces the original 5,120-step
+  warmup-cosine schedule and then holds the registered minimum learning rate;
+  the stretched arm resolves warmup and cosine decay across all 20,480 steps.
+- Freeze 16 deterministic open-validation trajectories for checkpoint-selection
+  rollouts. The remaining 28 open-validation trajectories stay outside rollout
+  selection and remain available for a post-selection audit. All 44 continue to
+  contribute the fixed one-step validation bank. The 20 historical test
+  trajectories remain unopened.
+- Continue every finite deployed conservative state through all 79 recurrent
+  calls. Record the first call and count for each thermodynamic or outflow
+  violation. Stop only on a nonfinite deployed state or nonfinite error metric.
+  Finite physical violations are diagnostic and do not enter checkpoint rank.
+- Rank numerically complete checkpoints by mean all-node relative L2 over every
+  call and every selection trajectory, then H79 all-node relative L2, then the
+  fixed one-step validation metric. A hard numerical failure is treated as an
+  unevaluable, hence worse-than-finite, full-horizon score.
+- Keep online one-step train error, post-epoch fixed-bank seen-train one-step
+  error, post-epoch open-validation one-step error, and autonomous rollout
+  error as separate metrics. The first diagnoses the optimization path; only
+  the latter three are fixed-population comparisons, and rollout measures a
+  different recurrent object from either one-step metric.
+- Retain one full best checkpoint and one state-complete last checkpoint.
+  These contain optimizer and scheduler state, but the D094 adapter marks them
+  non-resumable until exact-resume exposure accounting is implemented.
+  Retain model-only, non-resumable sentinels at optimizer steps
+  `{256,1280,2560,3840,5120,7680,10240,15360,20480}`. This replaces the
+  storage-infeasible policy of saving optimizer state every 256 steps.
+- Use seed `20260718`, 256 presentations per epoch, 80 epochs, batch size one,
+  the same frozen split, sampler, normalization, initialization, optimizer, and
+  data stream within each architecture. This four-cell schedule gate would
+  still yield unreplicated routing evidence and does not access the historical
+  test set.
+
+The winning schedule, if healthy, becomes the schedule for the later
+`n={8,16,32,64,128,256}` fixed-compute sweep. No data-scaling conclusion is
+drawn from this gate alone.
+
 This block can support a gradient-path-by-data interaction within the bump family. It cannot establish a PCNO--FFNO interaction because no clean common FFNO representation currently exists.
 
 Gate: a material interaction must reproduce in at least two of three seeds and improve free rollout without a structure, boundary, or validity regression.
@@ -356,20 +404,19 @@ The bump cost is measured by a native-graph smoke before queueing because its no
 ## 12. Immediate execution order
 
 1. Keep the retired `n<=7` factorial sweep unlaunched.
-2. Close the v6 source snapshot over the adapter, branch utility, split builder, and immutable split manifest; keep the split separately hash-bound in the D094 contract.
-3. Retrieve and rehash the reported remote metadata preflight and four PCNO/PCFNO `n={16,256}` smoke packets before treating them as verified engineering evidence. No such packet is retained locally.
-4. Re-establish bounded CUDA health and obtain explicit authorization before any seed-0 `n={16,64,256}` calibration. The current record treats B1-P calibration as not launched.
-5. Establish exact-resume replay before resuming an interrupted cell; sentinel retention alone does not close that gate.
+2. Treat the locally tested v6 source registry over the adapter, branch utility, split builder, preregistration, and immutable split manifest as closed; keep the split separately hash-bound in the D094 contract.
+3. Treat the six remotely reported 5,120-step cells as unverified, unreplicated routing evidence until their packets are retrieved and rehashed; do not use them for a confirmatory architecture-by-data claim.
+4. Run the four-cell `n=256` B1-A schedule gate only after packet retrieval, local tests, source-snapshot closure, disk-budget checks, a bounded CUDA smoke pass, and explicit owner authorization.
+5. Do not resume D094 yet: the reported full `last.pt` retains state for a later exact-resume closeout, while reported model-only sentinels support evaluation, but neither artifact is locally retained or currently authorized for optimizer/scheduler replay.
 6. In parallel through human coordination, request the official PlanarDet case, additional trajectories, and an HPC cost/allocation answer. Do not generate PlanarDet from the paper description alone.
 7. Do not start the full PlanarDet training surface until B2 and B3 close.
 
-Remote execution note (reported 2026-08-20, not locally packet-verified): an
-isolated metadata preflight and paired PCNO/PCFNO smokes at `n=16` and `n=256`
-were reported complete without historical-test access. A later CUDA-health
-probe reportedly blocked calibration. These statements are coordination notes,
-not retained scientific or engineering evidence; run IDs, exact configs,
-source/runtime hashes, completed-step and memory receipts, logs, and final
-manifests must be retrieved before the smokes can be called verified.
+Remote execution report (2026-08-21; not locally packet-verified): all six
+PCNO/PCFNO `n={16,64,256}` pilot cells reportedly reached 5,120 optimizer steps
+with finite terminal metrics and no historical-test access, and their source
+and split digests reportedly closed against the registered contracts. The
+packets are not retained in this source tree, so none of those statements is a
+local archival closeout or a confirmatory result.
 
 ## 13. Minimum paper-level evidence
 

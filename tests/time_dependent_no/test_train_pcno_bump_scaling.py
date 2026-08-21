@@ -7,10 +7,12 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.time_dependent_no.train_pcno_bump_scaling import (
+    D094_METRIC_SEMANTICS,
     D094_REGISTERED_SOURCE_FILES,
     D094_ROLLOUT_SELECTION_COUNT,
     D094_ROLLOUT_STEPS,
     D094_SELECTION_MODE,
+    D094_SENTINEL_STEPS,
     MODEL_ONLY_SENTINEL_PAYLOAD,
     REGISTERED_COUNTS,
     ROOT,
@@ -156,6 +158,8 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         rollout_steps=20,
         selection_mode="historical_all_node",
         rollout_failure_policy="strict_physical",
+        scheduler="warmup_cosine",
+        warmup_cosine_decay_steps=5_120,
     )
     wrapper = SimpleNamespace(
         split_manifest=(
@@ -166,9 +170,10 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         differential_branch_mode="full",
         trajectory_count=64,
         comparable_seen_every_epochs=5,
-        sentinel_every_epochs=5,
-        sentinel_steps=(),
+        sentinel_every_epochs=0,
+        sentinel_steps=D094_SENTINEL_STEPS,
         sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
+        engineering_smoke=False,
     )
     configured = configure_parent_args(parent, wrapper, _split_payload())
     assert configured.batch_size == 1
@@ -180,12 +185,29 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
     assert configured.rollout_checkpoints == [D094_ROLLOUT_STEPS]
     assert configured.selection_mode == D094_SELECTION_MODE
     assert configured.rollout_failure_policy == "finite_only"
+    assert configured.d094_schedule_arm == "prefix_tail"
     assert configured.scaling_partition_digest
     assert set(configured.source_snapshot_extra_files) == {
         *D094_REGISTERED_SOURCE_FILES,
         "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json",
     }
     assert SCHEMA.startswith("d094_")
+
+    stretched = copy.deepcopy(parent)
+    stretched.warmup_cosine_decay_steps = 20_480
+    assert (
+        configure_parent_args(stretched, copy.deepcopy(wrapper), _split_payload())
+        .d094_schedule_arm
+        == "stretched"
+    )
+    unregistered = copy.deepcopy(parent)
+    unregistered.warmup_cosine_decay_steps = 0
+    with pytest.raises(ValueError, match="explicit 5,120-step"):
+        configure_parent_args(unregistered, copy.deepcopy(wrapper), _split_payload())
+    bad_sentinels = copy.deepcopy(wrapper)
+    bad_sentinels.sentinel_steps = D094_SENTINEL_STEPS[:-1]
+    with pytest.raises(ValueError, match="sentinel-step inventory"):
+        configure_parent_args(copy.deepcopy(parent), bad_sentinels, _split_payload())
 
 
 def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
@@ -214,6 +236,8 @@ def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
         rollout_steps=20,
         selection_mode="historical_all_node",
         rollout_failure_policy="strict_physical",
+        scheduler="warmup_cosine",
+        warmup_cosine_decay_steps=5_120,
     )
     wrapper = SimpleNamespace(
         split_manifest=split,
@@ -222,9 +246,10 @@ def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
         differential_branch_mode="full",
         trajectory_count=64,
         comparable_seen_every_epochs=5,
-        sentinel_every_epochs=5,
-        sentinel_steps=(),
+        sentinel_every_epochs=0,
+        sentinel_steps=D094_SENTINEL_STEPS,
         sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
+        engineering_smoke=False,
     )
     configured = configure_parent_args(parent, wrapper, _split_payload())
     snapshot = write_source_snapshot(
@@ -259,7 +284,10 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
         balanced_presentations=lambda *args, **kwargs: (args, kwargs),
         build_model=lambda *args, **kwargs: (args, kwargs),
         train_epoch=original_train_epoch,
-        checkpoint_payload=lambda *args, **kwargs: {},
+        checkpoint_payload=lambda *args, **kwargs: {
+            "model_config": {},
+            "training_args": {},
+        },
         atomic_torch_save=original_atomic_save,
         evaluate_pairs=lambda *args, **kwargs: {
             "loss": 1.0,
@@ -320,6 +348,12 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
         assert metrics["comparable_seen"]["presentations"] == 2
         assert len(hashes) == 1
 
+        annotated = trainer.checkpoint_payload(
+            model=SimpleNamespace(differential_branch_contract={"mode": "full"})
+        )
+        assert annotated["resume_supported"] is False
+        assert "exact-resume exposure accounting" in annotated["resume_blocker"]
+
         last = tmp_path / "last.pt"
         trainer.atomic_torch_save(
             {
@@ -364,3 +398,14 @@ def test_model_only_sentinel_retains_evaluation_state_but_not_resume_state() -> 
     assert sentinel["checkpoint_role"] == "model_only_sentinel"
     assert sentinel["resume_supported"] is False
     assert payload["resume_supported"] is True
+
+
+def test_metric_semantics_keep_one_step_and_rollout_objects_distinct() -> None:
+    assert set(D094_METRIC_SEMANTICS) == {
+        "online_train_one_step",
+        "fixed_seen_train_one_step",
+        "fixed_open_validation_one_step",
+        "autonomous_rollout",
+    }
+    assert "parameters change" in D094_METRIC_SEMANTICS["online_train_one_step"]
+    assert "all-call mean and H79" in D094_METRIC_SEMANTICS["autonomous_rollout"]

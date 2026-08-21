@@ -746,6 +746,8 @@ def assert_resume_training_args(
     saved.setdefault("boundary_residual_mode", BOUNDARY_RESIDUAL_NONE)
     saved.setdefault("boundary_residual_names", [])
     saved.setdefault("boundary_residual_width", 64)
+    saved.setdefault("warmup_cosine_decay_steps", 0)
+    saved.setdefault("rollout_failure_policy", STRICT_PHYSICAL_ROLLOUT_POLICY)
     current = jsonable_args(args)
     missing = sorted(set(current) - set(saved) - RESUME_MUTABLE_ARGS)
     differences = {

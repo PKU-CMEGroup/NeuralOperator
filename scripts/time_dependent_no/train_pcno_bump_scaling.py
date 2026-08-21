@@ -41,9 +41,44 @@ REGISTERED_COUNTS = (8, 16, 32, 64, 128, 256)
 D094_SELECTION_MODE = "full_horizon_error_first"
 D094_ROLLOUT_STEPS = 79
 D094_ROLLOUT_SELECTION_COUNT = 16
+D094_EPOCHS = 80
+D094_OPTIMIZER_STEPS_PER_EPOCH = 256
+D094_SCHEDULE_ARMS_BY_DECAY_STEPS = {
+    5_120: "prefix_tail",
+    20_480: "stretched",
+}
+D094_SENTINEL_STEPS = (
+    256,
+    1_280,
+    2_560,
+    3_840,
+    5_120,
+    7_680,
+    10_240,
+    15_360,
+    20_480,
+)
 FULL_SENTINEL_PAYLOAD = "full"
 MODEL_ONLY_SENTINEL_PAYLOAD = "model_only"
 SENTINEL_PAYLOAD_MODES = (FULL_SENTINEL_PAYLOAD, MODEL_ONLY_SENTINEL_PAYLOAD)
+D094_METRIC_SEMANTICS = {
+    "online_train_one_step": (
+        "metrics.jsonl[].train; one-step metrics accumulated while parameters "
+        "change, so they diagnose optimization but are not a fixed-bank estimate"
+    ),
+    "fixed_seen_train_one_step": (
+        "metrics.jsonl[].train.comparable_seen; post-epoch one-step metrics on the "
+        "frozen seen-trajectory pair bank"
+    ),
+    "fixed_open_validation_one_step": (
+        "metrics.jsonl[].validation; post-epoch one-step metrics on the frozen "
+        "44-trajectory open-validation pair bank"
+    ),
+    "autonomous_rollout": (
+        "metrics.jsonl[].rollout; recurrent free rollout on 16 frozen selection "
+        "trajectories, summarized by all-call mean and H79 endpoint error"
+    ),
+}
 REGISTERED_SOURCE_MANIFEST_SHA256 = (
     "5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7"
 )
@@ -300,7 +335,11 @@ def parse_wrapper_args(
         required=True,
         choices=DIFFERENTIAL_BRANCH_MODES,
     )
-    parser.add_argument("--optimizer-steps-per-epoch", type=int, default=1024)
+    parser.add_argument(
+        "--optimizer-steps-per-epoch",
+        type=int,
+        default=D094_OPTIMIZER_STEPS_PER_EPOCH,
+    )
     parser.add_argument("--evaluation-windows-per-trajectory", type=int, default=4)
     parser.add_argument("--comparable-seen-every-epochs", type=int, default=5)
     parser.add_argument("--sentinel-every-epochs", type=int, default=0)
@@ -375,6 +414,35 @@ def configure_parent_args(
             "sentinel steps must be epoch boundaries inside the requested run"
         )
     wrapper.sentinel_steps = sentinel_steps
+    if wrapper.engineering_smoke:
+        args.d094_schedule_arm = "engineering_smoke"
+    else:
+        expected_total = D094_EPOCHS * D094_OPTIMIZER_STEPS_PER_EPOCH
+        if args.epochs != D094_EPOCHS:
+            raise ValueError(f"the registered D094 schedule uses {D094_EPOCHS} epochs")
+        if args.presentations_per_epoch != D094_OPTIMIZER_STEPS_PER_EPOCH:
+            raise ValueError(
+                "the registered D094 schedule uses 256 optimizer steps per epoch"
+            )
+        if total_optimizer_steps != expected_total:
+            raise ValueError("the registered D094 schedule uses 20,480 optimizer steps")
+        if args.scheduler != "warmup_cosine":
+            raise ValueError("the registered D094 schedule uses warmup_cosine")
+        try:
+            args.d094_schedule_arm = D094_SCHEDULE_ARMS_BY_DECAY_STEPS[
+                int(args.warmup_cosine_decay_steps)
+            ]
+        except KeyError as error:
+            raise ValueError(
+                "D094 requires an explicit 5,120-step prefix-tail or 20,480-step "
+                "stretched cosine arm"
+            ) from error
+        if wrapper.sentinel_every_epochs != 0:
+            raise ValueError("the registered D094 sentinel schedule is step-explicit")
+        if sentinel_steps != D094_SENTINEL_STEPS:
+            raise ValueError("the registered D094 sentinel-step inventory is exact")
+        if wrapper.sentinel_payload != MODEL_ONLY_SENTINEL_PAYLOAD:
+            raise ValueError("registered D094 sentinels are model-only")
     if args.init_checkpoint is not None or args.resume_checkpoint is not None:
         raise ValueError("the D094 engineering adapter does not yet admit init/resume")
     if args.step_stride != 1:
@@ -406,6 +474,10 @@ def _annotate_checkpoint(
     payload["training_args"] = dict(payload.get("training_args", {}))
     payload["training_args"]["differential_branch_mode"] = branch_contract["mode"]
     payload["config_digest"] = canonical_json_sha256(payload["training_args"])
+    payload["resume_supported"] = False
+    payload["resume_blocker"] = (
+        "D094 exact-resume exposure accounting is not implemented"
+    )
     return payload
 
 
@@ -711,6 +783,9 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "optimizer_steps_per_epoch": args.presentations_per_epoch,
         "requested_epochs": args.epochs,
         "requested_optimizer_steps": args.epochs * args.presentations_per_epoch,
+        "schedule_arm": args.d094_schedule_arm,
+        "scheduler": args.scheduler,
+        "warmup_cosine_decay_steps": args.warmup_cosine_decay_steps,
         "microbatch_size": 1,
         "gradient_accumulation_steps": 1,
         "within_update_duplicate_pairs": 0,
@@ -738,6 +813,7 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "rollout_failure_policy": args.rollout_failure_policy,
         "rollout_selection_trajectory_count": args.rollout_val_count,
         "rollout_steps": args.rollout_steps,
+        "metric_semantics": dict(D094_METRIC_SEMANTICS),
         "source_sha256": source_hashes,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)

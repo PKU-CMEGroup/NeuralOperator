@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import csv
 import json
 from pathlib import Path
@@ -725,6 +726,10 @@ def test_resume_contract_and_source_snapshot_reject_scientific_drift(
     args.resume_checkpoint = tmp_path / "run" / "last.pt"
     args.max_wall_hours = 23.0
     assert_resume_training_args(checkpoint, args)
+    legacy_checkpoint = copy.deepcopy(checkpoint)
+    legacy_checkpoint["training_args"].pop("warmup_cosine_decay_steps")
+    legacy_checkpoint["training_args"].pop("rollout_failure_policy")
+    assert_resume_training_args(legacy_checkpoint, args)
     args.learning_rate *= 2.0
     with pytest.raises(ValueError, match="frozen training contract"):
         assert_resume_training_args(checkpoint, args)

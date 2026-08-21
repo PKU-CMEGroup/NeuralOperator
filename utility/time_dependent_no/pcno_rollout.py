@@ -600,7 +600,9 @@ def rollout_trajectory(
                 break
         if boundary_policy is not None:
             outflow = boundary_outflow_normal_mach(proposal.float(), boundary_policy)
-            if outflow is None or not bool(torch.isfinite(outflow).all()):
+            if outflow is None:
+                raise ValueError("boundary policy has no outflow support")
+            if not bool(torch.isfinite(outflow).all()):
                 outflow_failure = "nonfinite_outflow_normal_mach"
             else:
                 current_outflow = float(outflow.min().cpu())

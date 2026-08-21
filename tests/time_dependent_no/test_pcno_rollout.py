@@ -7,8 +7,10 @@ import numpy as np
 import pytest
 import torch
 
+from utility.time_dependent_no import pcno_rollout as rollout_module
 from utility.time_dependent_no.pcno_rollout import (
     FINITE_ONLY_ROLLOUT_POLICY,
+    STRICT_PHYSICAL_ROLLOUT_POLICY,
     contract_forward_sample,
     evaluate_rollouts,
     failure_cause,
@@ -81,6 +83,11 @@ class _NonpositiveDensityStep(torch.nn.Module):
 class _NonfiniteStep(_NonpositiveDensityStep):
     def forward(self, current: torch.Tensor, **_kwargs: torch.Tensor) -> torch.Tensor:
         return torch.full_like(current, float("nan"))
+
+
+class _IdentityStep(_NonpositiveDensityStep):
+    def forward(self, current: torch.Tensor, **_kwargs: torch.Tensor) -> torch.Tensor:
+        return current.clone()
 
 
 def test_contract_forward_sample_remains_differentiable() -> None:
@@ -197,6 +204,57 @@ def test_finite_only_rollout_still_stops_on_nonfinite_state() -> None:
     assert row["first_physical_violation"] is None
     assert summary["hard_failure_count"] == 1
     assert summary["mean_full_horizon_relative_l2"] is None
+
+
+def test_nonfinite_outflow_is_physical_but_missing_support_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def direct_forward(model, _sample, current, **_kwargs):
+        proposal = model(current)
+        return proposal, proposal, current
+
+    monkeypatch.setattr(rollout_module, "contract_forward_sample", direct_forward)
+    monkeypatch.setattr(
+        rollout_module,
+        "boundary_outflow_normal_mach",
+        lambda *_args, **_kwargs: torch.tensor([float("nan")]),
+    )
+    common = {
+        "model": _IdentityStep(),
+        "store": _OneNodeStore(),
+        "key": "case",
+        "step_stride": 1,
+        "start_frame": 0,
+        "num_steps": 3,
+        "device": torch.device("cpu"),
+        "amp": "none",
+        "boundary_policy": {},
+        "rollout_checkpoints": (3,),
+    }
+    strict = rollout_trajectory(
+        **common,
+        failure_policy=STRICT_PHYSICAL_ROLLOUT_POLICY,
+    )
+    assert strict["failure_cause"] == "nonfinite_outflow_normal_mach"
+    finite_only = rollout_trajectory(
+        **common,
+        failure_policy=FINITE_ONLY_ROLLOUT_POLICY,
+    )
+    assert finite_only["completed"]
+    assert finite_only["physical_violation_counts"] == {
+        "nonfinite_outflow_normal_mach": 3
+    }
+
+    monkeypatch.setattr(
+        rollout_module,
+        "boundary_outflow_normal_mach",
+        lambda *_args, **_kwargs: None,
+    )
+    with pytest.raises(ValueError, match="no outflow support"):
+        rollout_trajectory(
+            **common,
+            failure_policy=FINITE_ONLY_ROLLOUT_POLICY,
+        )
 
 
 def test_retained_bump_scripts_do_not_import_one_another() -> None:

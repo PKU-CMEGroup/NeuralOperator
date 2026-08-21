@@ -109,6 +109,10 @@ non-sealed population. This record does not authorize those runs.
   Its summary and final-manifest file SHA-256 values are respectively
   `08b59d34224c3d96dc4ea3ae8d6d5cbc8b3ba0264975af800cf387b880d4af1e`
   and `39c85c0715269bb92b9011e796762d04a90a75f2168e4aee81930a89bdf4333c`.
+  Those files now remain as members beneath `visualization_persistence_20260820a/`
+  in `visualization_persistence_deployment_20260820a/visualization_persistence_output_bundle.tar.gz`,
+  archive SHA-256
+  `4f0c64c65610108efc4f592c4f957d8e22146957fdc1e453c2bc93c4cfacd079`.
 - Result-to-claim record:
   `artifacts/time_dependent_no/d093_planardet_arch_data_scaling_20260817a/result_to_claim_20260820.json`;
   file SHA-256
@@ -116,8 +120,8 @@ non-sealed population. This record does not authorize those runs.
   This immutable record predates the corrected seven-presentations-per-step
   sampler accounting and binds the older visualization source payload
   `068d33baf214ba0f153ab1eb906f45c623670977727ea15cd6c6a770be7ab5dc`
-  and bundle
-  `bb222a867bdfd5c5089909eca48fe7ae5ddd6d3266b90359c67592bbf39e44f0`,
+  and `visualization_deployment_20260820/visualization_output_bundle.tar.gz`
+  bundle `bb222a867bdf5c5089909eca48fe7ae5ddd6d3266b90359c67592bbf39e44f0`,
   not the later persistence packet used for the table above.
 
 Only `PCNO-3` and `FFNO-7` are marked as reaching the 5,000-step D093 endpoint.
@@ -133,7 +137,14 @@ normalized teacher/free prediction arrays. The closed JSON/CSV summaries
 support the table above; full packet closure and exact local replay from those
 arrays do not.
 
-The retained visualization packet is authoritative for its figures. A later
-checkout version of the visualizer is not bound by that packet and must not be
-used to retroactively reinterpret it. Bytewise historical replay should use
-the frozen source archives rather than the current dirty checkout.
+The 2026-08-21 cleanup removed only three expanded copies after member-by-member
+archive verification. Its append-only receipt is
+`artifacts/time_dependent_no/RETENTION_MANIFEST_20260821b.json`, SHA-256
+`de4d33468b7501188b9bf18cb3cea94dc50b4354455de4d38f935684407598c6`.
+The root evaluation source manifest and parent persistence source manifest named
+above remain directly present.
+
+The retained visualization archives are authoritative for their figures. A
+later checkout version of the visualizer is not bound by those archives and
+must not be used to retroactively reinterpret their outputs. Bytewise replay
+should use the frozen source archives rather than the current checkout.

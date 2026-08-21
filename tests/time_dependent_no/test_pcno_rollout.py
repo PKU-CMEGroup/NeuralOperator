@@ -14,6 +14,7 @@ from utility.time_dependent_no.pcno_rollout import (
     contract_forward_sample,
     evaluate_rollouts,
     failure_cause,
+    rollout_structure_diagnostics,
     rollout_trajectory,
 )
 
@@ -64,6 +65,17 @@ class _OneNodeStore:
             "node_type": torch.zeros(1, 1, dtype=torch.long, device=device),
             "mach": torch.ones(1, 1, device=device),
         }
+
+
+class _OneNodeStructureStore(_OneNodeStore):
+    def array(self, _key: str, name: str) -> np.ndarray:
+        arrays = {
+            "nodes": np.zeros((1, 2), dtype=np.float32),
+            "edges": np.empty((0, 2), dtype=np.int64),
+            "node_type": np.zeros((1, 1), dtype=np.int64),
+            "node_weights": np.ones((1, 1), dtype=np.float32),
+        }
+        return arrays[name]
 
 
 class _NonpositiveDensityStep(torch.nn.Module):
@@ -174,9 +186,7 @@ def test_finite_only_rollout_scores_physically_invalid_states_at_full_horizon() 
         "cause": "nonpositive_density",
     }
     assert row["physical_violation_counts"] == {"nonpositive_density": 3}
-    assert row["first_physical_violation_by_cause"] == {
-        "nonpositive_density": 1
-    }
+    assert row["first_physical_violation_by_cause"] == {"nonpositive_density": 1}
     assert not row["physically_admissible"]
     assert row["hard_failure_cause"] is None
     assert summary["completion_rate"] == 1.0
@@ -204,6 +214,51 @@ def test_finite_only_rollout_still_stops_on_nonfinite_state() -> None:
     assert row["first_physical_violation"] is None
     assert summary["hard_failure_count"] == 1
     assert summary["mean_full_horizon_relative_l2"] is None
+
+
+def test_structure_diagnostics_continue_finite_invalid_states(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def direct_forward(model, _sample, current, **_kwargs):
+        proposal = model(current)
+        return proposal, proposal, current
+
+    monkeypatch.setattr(rollout_module, "contract_forward_sample", direct_forward)
+    monkeypatch.setattr(
+        rollout_module,
+        "boundary_outflow_normal_mach",
+        lambda *_args, **_kwargs: torch.tensor([2.0]),
+    )
+    common = {
+        "model": _NonpositiveDensityStep(),
+        "store": _OneNodeStructureStore(),
+        "keys": ["case"],
+        "policies": {"case": {"policy": "synthetic"}},
+        "step_stride": 1,
+        "start_frame": 0,
+        "num_steps": 3,
+        "rollout_checkpoints": (3,),
+        "shock_quantile": 0.9,
+        "device": torch.device("cpu"),
+        "amp": "none",
+    }
+
+    strict = rollout_structure_diagnostics(**common)
+    finite_only = rollout_structure_diagnostics(
+        **common, failure_policy=FINITE_ONLY_ROLLOUT_POLICY
+    )
+
+    assert strict["completion_rate"] == 0.0
+    assert finite_only["completion_rate"] == 1.0
+    assert finite_only["hard_failure_count"] == 0
+    assert finite_only["physical_admissibility_rate"] == 0.0
+    assert finite_only["trajectories"][0]["physical_violation_counts"] == {
+        "nonpositive_density": 3
+    }
+    assert finite_only["trajectories"][0]["skipped_structure_endpoints"] == [
+        {"call_index": 3, "cause": "nonpositive_density"}
+    ]
+    assert finite_only["endpoints"]["3"]["population_count"] == 0
 
 
 def test_nonfinite_outflow_is_physical_but_missing_support_fails_closed(

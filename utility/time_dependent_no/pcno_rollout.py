@@ -62,6 +62,7 @@ STRUCTURE_ERROR_FIELDS = (
     "front_centroid_distance",
     "shock_thickness_log_error",
     "shock_strength_log_error",
+    "conserved_total_scaled_rmse_reconstructed_weight_proxy",
 )
 
 
@@ -925,6 +926,9 @@ def endpoint_diagnostics(
         return abs(math.log(value))
 
     error_energy = proxy_mass * np.sum(np.square(scaled_error), axis=-1)
+    prediction_totals = np.sum(proxy_mass[:, None] * prediction, axis=0)
+    target_totals = np.sum(proxy_mass[:, None] * target, axis=0)
+    scaled_total_error = (prediction_totals - target_totals) / component_scale
     return {
         "scaled_relative_l2_reconstructed_weight_proxy": weighted_relative_l2_numpy(
             prediction, target, proxy_weights, component_scale
@@ -950,6 +954,16 @@ def endpoint_diagnostics(
         "shock_strength_ratio": strength_ratio,
         "shock_thickness_log_error": log_error(thickness_ratio),
         "shock_strength_log_error": log_error(strength_ratio),
+        "conserved_total_scaled_rmse_reconstructed_weight_proxy": float(
+            np.sqrt(np.mean(np.square(scaled_total_error)))
+        ),
+        "conserved_total_scaled_error_by_component_reconstructed_weight_proxy": (
+            scaled_total_error.tolist()
+        ),
+        "conserved_total_contract": (
+            "reconstructed vertex-lumped proxy only; not physical conservation or "
+            "source-DG face-exchange accounting"
+        ),
     }
 
 
@@ -985,6 +999,16 @@ def _structure_summary(
     return {"rows": list(rows), "endpoints": endpoints}
 
 
+def _record_structure_physical_violation(
+    first: dict[str, Any] | None,
+    counts: dict[str, int],
+    cause: str,
+    call_index: int,
+) -> dict[str, Any]:
+    counts[cause] = counts.get(cause, 0) + 1
+    return first or {"call": call_index, "cause": cause}
+
+
 @torch.no_grad()
 def rollout_structure_diagnostics(
     model: torch.nn.Module,
@@ -999,7 +1023,10 @@ def rollout_structure_diagnostics(
     shock_quantile: float,
     device: torch.device,
     amp: str,
+    failure_policy: str = STRICT_PHYSICAL_ROLLOUT_POLICY,
 ) -> dict[str, Any]:
+    if failure_policy not in ROLLOUT_FAILURE_POLICIES:
+        raise ValueError(f"unsupported rollout failure policy: {failure_policy}")
     rows: list[dict[str, Any]] = []
     trajectories: list[dict[str, Any]] = []
     component_scale = model.state_scale.detach().float().cpu().numpy()
@@ -1025,6 +1052,11 @@ def rollout_structure_diagnostics(
         )
         valid_length = 0
         stopped_for = "completed"
+        hard_failure_cause = None
+        first_physical_violation = None
+        physical_violation_counts: dict[str, int] = {}
+        skipped_endpoints: list[dict[str, Any]] = []
+
         for call_index in range(1, num_steps + 1):
             with autocast_context(device, amp):
                 prediction, _, _ = contract_forward_sample(
@@ -1033,9 +1065,21 @@ def rollout_structure_diagnostics(
                     current,
                     boundary_policy=policy,
                 )
-            stopped_for, _ = failure_cause(prediction, gamma=model.gamma)
-            if stopped_for is not None:
+            state_failure, _ = failure_cause(prediction, gamma=model.gamma)
+            if state_failure == "nonfinite_state":
+                stopped_for = state_failure
+                hard_failure_cause = state_failure
                 break
+            if state_failure is not None:
+                first_physical_violation = _record_structure_physical_violation(
+                    first_physical_violation,
+                    physical_violation_counts,
+                    state_failure,
+                    call_index,
+                )
+                if failure_policy == STRICT_PHYSICAL_ROLLOUT_POLICY:
+                    stopped_for = state_failure
+                    break
             if policy is not None:
                 outflow = boundary_outflow_normal_mach(prediction.float(), policy)
                 if (
@@ -1043,29 +1087,42 @@ def rollout_structure_diagnostics(
                     or not bool(torch.isfinite(outflow).all())
                     or float(outflow.min().cpu()) <= 1.0
                 ):
-                    stopped_for = "invalid_outflow_regime"
-                    break
+                    outflow_failure = "invalid_outflow_regime"
+                    first_physical_violation = _record_structure_physical_violation(
+                        first_physical_violation,
+                        physical_violation_counts,
+                        outflow_failure,
+                        call_index,
+                    )
+                    if failure_policy == STRICT_PHYSICAL_ROLLOUT_POLICY:
+                        stopped_for = outflow_failure
+                        break
             valid_length = call_index
             if call_index in rollout_checkpoints:
-                target_index = start_frame + call_index * step_stride
-                target = np.array(states[target_index], copy=True)
-                rows.append(
-                    {
-                        "trajectory": key,
-                        "call_index": call_index,
-                        **endpoint_diagnostics(
-                            prediction[0].float().cpu().numpy(),
-                            target,
-                            positions=positions,
-                            edges=edges,
-                            node_type=node_type,
-                            proxy_weights=proxy_weights,
-                            component_scale=component_scale,
-                            gamma=model.gamma,
-                            shock_quantile=shock_quantile,
-                        ),
-                    }
-                )
+                if state_failure is None:
+                    target_index = start_frame + call_index * step_stride
+                    target = np.array(states[target_index], copy=True)
+                    rows.append(
+                        {
+                            "trajectory": key,
+                            "call_index": call_index,
+                            **endpoint_diagnostics(
+                                prediction[0].float().cpu().numpy(),
+                                target,
+                                positions=positions,
+                                edges=edges,
+                                node_type=node_type,
+                                proxy_weights=proxy_weights,
+                                component_scale=component_scale,
+                                gamma=model.gamma,
+                                shock_quantile=shock_quantile,
+                            ),
+                        }
+                    )
+                else:
+                    skipped_endpoints.append(
+                        {"call_index": call_index, "cause": state_failure}
+                    )
             current = prediction
         trajectories.append(
             {
@@ -1076,6 +1133,11 @@ def rollout_structure_diagnostics(
                 "failure_cause": (
                     "completed" if valid_length == num_steps else stopped_for
                 ),
+                "hard_failure_cause": hard_failure_cause,
+                "first_physical_violation": first_physical_violation,
+                "physical_violation_counts": physical_violation_counts,
+                "physically_admissible": first_physical_violation is None,
+                "skipped_structure_endpoints": skipped_endpoints,
             }
         )
     return {
@@ -1083,6 +1145,13 @@ def rollout_structure_diagnostics(
         "completion_rate": (
             sum(bool(row["completed"]) for row in trajectories) / len(trajectories)
         ),
+        "hard_failure_count": sum(
+            row["hard_failure_cause"] is not None for row in trajectories
+        ),
+        "physical_admissibility_rate": float(
+            np.mean([bool(row["physically_admissible"]) for row in trajectories])
+        ),
+        "rollout_failure_policy": failure_policy,
         **_structure_summary(rows, rollout_checkpoints=rollout_checkpoints),
     }
 

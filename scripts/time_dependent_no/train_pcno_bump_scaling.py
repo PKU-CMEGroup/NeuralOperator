@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import sys
 from collections import Counter
@@ -36,6 +37,7 @@ from utility.time_dependent_no.pcno_differential_branch import (
 from utility.time_dependent_no.pcno_rollout import FINITE_ONLY_ROLLOUT_POLICY
 
 SCHEMA = "d094_bump_scaling_training_v1"
+D094_METRIC_RECEIPT_SCHEMA = "d094_bump_scaling_metric_receipt_v1"
 SPLIT_SCHEMA = "d094_bump_trajectory_scaling_split_v1"
 REGISTERED_COUNTS = (8, 16, 32, 64, 128, 256)
 D094_SELECTION_MODE = "full_horizon_error_first"
@@ -119,6 +121,77 @@ def write_json(path: Path, value: Mapping[str, Any]) -> None:
         encoding="utf-8",
     )
     os.replace(temporary, path)
+
+
+def d094_checkpoint_metric_snapshot(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract fixed-scope metrics from one rollout-evaluation history row."""
+
+    train = row.get("train")
+    validation = row.get("validation")
+    rollout = row.get("rollout")
+    if not all(isinstance(value, Mapping) for value in (train, validation, rollout)):
+        raise TypeError(
+            "a D094 checkpoint metric row requires train, validation, and rollout"
+        )
+    comparable_seen = train.get("comparable_seen")
+    endpoints = rollout.get("mean_endpoint_relative_l2")
+    if not isinstance(comparable_seen, Mapping) or not isinstance(endpoints, Mapping):
+        raise TypeError("a D094 checkpoint row lacks fixed seen or endpoint metrics")
+    values = {
+        "epoch": int(row["epoch"]),
+        "optimizer_step": int(train["completed_optimizer_steps"]),
+        "online_train_one_step_relative_l2": float(train["relative_l2"]),
+        "fixed_seen_train_one_step_relative_l2": float(comparable_seen["relative_l2"]),
+        "fixed_validation_one_step_relative_l2": float(validation["relative_l2"]),
+        "rollout_all_call_mean_relative_l2": float(
+            rollout["mean_full_horizon_relative_l2"]
+        ),
+        "rollout_h79_relative_l2": float(endpoints["79"]),
+        "rollout_completion_rate": float(rollout["completion_rate"]),
+        "rollout_hard_failure_count": int(rollout.get("hard_failure_count", 0)),
+        "physical_admissibility_rate": float(rollout["physical_admissibility_rate"]),
+    }
+    if not all(
+        math.isfinite(value)
+        for name, value in values.items()
+        if name not in {"epoch", "optimizer_step", "rollout_hard_failure_count"}
+    ):
+        raise ValueError("D094 checkpoint metric receipt contains a nonfinite scalar")
+    return values
+
+
+def build_d094_metric_receipt(
+    summary: Mapping[str, Any],
+    metric_rows: Sequence[Mapping[str, Any]],
+    scaling_contract: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind selected and terminal metrics without conflating their scopes."""
+
+    if not metric_rows:
+        raise ValueError("D094 metric history is empty")
+    best_epoch = int(summary["best_epoch"])
+    selected_rows = [row for row in metric_rows if int(row["epoch"]) == best_epoch]
+    if len(selected_rows) != 1:
+        raise ValueError("D094 best epoch does not identify exactly one history row")
+    if scaling_contract.get("historical_test_population_accessed") is not False:
+        raise ValueError("D094 metric receipt cannot follow historical test access")
+    source_snapshot = summary.get("source_snapshot")
+    if not isinstance(source_snapshot, Mapping):
+        raise TypeError("D094 summary lacks its source snapshot")
+    return {
+        "schema": D094_METRIC_RECEIPT_SCHEMA,
+        "best_epoch": best_epoch,
+        "best_selection": [float(value) for value in summary["best_selection"]],
+        "selected_checkpoint": d094_checkpoint_metric_snapshot(selected_rows[0]),
+        "terminal_checkpoint": d094_checkpoint_metric_snapshot(metric_rows[-1]),
+        "metric_scope_contract": {
+            "selected_checkpoint": "metrics.jsonl row at summary.best_epoch",
+            "terminal_checkpoint": "final metrics.jsonl row",
+        },
+        "source_set_digest": str(source_snapshot["source_set_digest"]),
+        "split_partition_digest": str(scaling_contract["split_partition_digest"]),
+        "historical_test_population_accessed": False,
+    }
 
 
 def d094_source_snapshot_files(split_manifest_path: Path) -> tuple[str, ...]:
@@ -851,6 +924,15 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
     expected_steps = completed_epochs * args.presentations_per_epoch
     if actual_steps != expected_steps or len(presentation_hashes) != completed_epochs:
         raise RuntimeError("completed scaling exposure accounting does not close")
+    metric_rows = [
+        json.loads(line)
+        for line in (args.output_dir / "metrics.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    metric_receipt = build_d094_metric_receipt(summary, metric_rows, scaling_contract)
+    write_json(args.output_dir / "d094_metric_receipt.json", metric_receipt)
     final_contract = dict(scaling_contract)
     final_contract.update(
         {
@@ -865,6 +947,8 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
                 actual_steps / (79 * len(train_keys))
             ),
             "presentation_stream_sha256_by_epoch": presentation_hashes,
+            "metric_receipt_schema": D094_METRIC_RECEIPT_SCHEMA,
+            "metric_receipt_file": "d094_metric_receipt.json",
             "science_result_eligible": False,
             "science_ineligibility_reason": (
                 "engineering smoke only"

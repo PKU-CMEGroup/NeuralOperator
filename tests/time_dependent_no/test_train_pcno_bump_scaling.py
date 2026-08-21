@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.time_dependent_no.train_pcno_bump_scaling import (
+    D094_METRIC_RECEIPT_SCHEMA,
     D094_METRIC_SEMANTICS,
     D094_REGISTERED_SOURCE_FILES,
     D094_ROLLOUT_SELECTION_COUNT,
@@ -20,6 +21,7 @@ from scripts.time_dependent_no.train_pcno_bump_scaling import (
     SPLIT_SCHEMA,
     assert_balanced_epoch_stream,
     balanced_queue_presentations,
+    build_d094_metric_receipt,
     canonical_json_sha256,
     configure_parent_args,
     fixed_evaluation_pairs,
@@ -196,8 +198,9 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
     stretched = copy.deepcopy(parent)
     stretched.warmup_cosine_decay_steps = 20_480
     assert (
-        configure_parent_args(stretched, copy.deepcopy(wrapper), _split_payload())
-        .d094_schedule_arm
+        configure_parent_args(
+            stretched, copy.deepcopy(wrapper), _split_payload()
+        ).d094_schedule_arm
         == "stretched"
     )
     unregistered = copy.deepcopy(parent)
@@ -321,9 +324,10 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
         scaling_contract={},
         presentation_hashes=hashes,
     ):
-        assert trainer.stratified_train_val_split(
-            store, val_count=1, seed=7
-        ) == (["a", "b"], ["v"])
+        assert trainer.stratified_train_val_split(store, val_count=1, seed=7) == (
+            ["a", "b"],
+            ["v"],
+        )
         assert trainer.balanced_presentations(
             store,
             ["v"],
@@ -409,3 +413,47 @@ def test_metric_semantics_keep_one_step_and_rollout_objects_distinct() -> None:
     }
     assert "parameters change" in D094_METRIC_SEMANTICS["online_train_one_step"]
     assert "all-call mean and H79" in D094_METRIC_SEMANTICS["autonomous_rollout"]
+
+
+def test_metric_receipt_keeps_selected_and_terminal_rows_separate() -> None:
+    def row(epoch: int, value: float) -> dict[str, object]:
+        return {
+            "epoch": epoch,
+            "train": {
+                "completed_optimizer_steps": (epoch + 1) * 256,
+                "relative_l2": value,
+                "comparable_seen": {"relative_l2": value + 0.01},
+            },
+            "validation": {"relative_l2": value + 0.02},
+            "rollout": {
+                "mean_full_horizon_relative_l2": value + 0.03,
+                "mean_endpoint_relative_l2": {"79": value + 0.04},
+                "completion_rate": 1.0,
+                "hard_failure_count": 0,
+                "physical_admissibility_rate": 0.75,
+            },
+        }
+
+    receipt = build_d094_metric_receipt(
+        {
+            "best_epoch": 0,
+            "best_selection": [1.0, -0.13, -0.14, -0.12, 1.0, 1.0],
+            "source_snapshot": {"source_set_digest": "a" * 64},
+        },
+        [row(0, 0.1), row(1, 0.2)],
+        {
+            "split_partition_digest": "b" * 64,
+            "historical_test_population_accessed": False,
+        },
+    )
+
+    assert receipt["schema"] == D094_METRIC_RECEIPT_SCHEMA
+    assert receipt["selected_checkpoint"]["epoch"] == 0
+    assert receipt["terminal_checkpoint"]["epoch"] == 1
+    assert receipt["selected_checkpoint"]["rollout_h79_relative_l2"] == pytest.approx(
+        0.14
+    )
+    assert receipt["terminal_checkpoint"]["rollout_h79_relative_l2"] == pytest.approx(
+        0.24
+    )
+    assert receipt["historical_test_population_accessed"] is False

@@ -293,6 +293,53 @@ This block can support a gradient-path-by-data interaction within the bump famil
 
 Gate: a material interaction must reproduce in at least two of three seeds and improve free rollout without a structure, boundary, or validity regression.
 
+#### B1-A retrieved result and B1-B outside-selection audit registration (2026-08-21)
+
+The four B1-A cells completed all 20,480 optimizer steps with the registered
+source-set digest `6c510fbdca8f50d2bfacd40239574e7ac4496bdb0ba575c5ce69bb744568fca5`,
+the registered partition digest, no historical-test access, and no hard
+numerical rollout failure. The retrieved metadata/source packets were rehashed
+locally. Selected-checkpoint metrics are reconstructed from the unique
+`metrics.jsonl` row at `summary.json::best_epoch`; they are not taken from the
+runner-generated scalar receipt because that receipt combines a best-epoch
+label with terminal scalars when best and terminal differ.
+
+| Architecture | Schedule | Selected step | Fixed seen one-step | Fixed validation one-step | Rollout all-call mean | H79 | Physical-admissibility rate |
+|---|---|---:|---:|---:|---:|---:|---:|
+| PCNO | prefix-tail | 20,480 | 0.0124163 | 0.0126211 | 0.0948993 | 0.141995 | 1.000 |
+| PCNO | stretched | 20,480 | 0.0112578 | 0.0114138 | 0.0525120 | 0.0791166 | 1.000 |
+| PCFNO | prefix-tail | 20,480 | 0.0170696 | 0.0174813 | 0.0896706 | 0.129719 | 0.875 |
+| PCFNO | stretched | 15,360 | 0.0151365 | 0.0154052 | 0.0824803 | 0.121960 | 0.875 |
+
+The stretched/prefix selected all-call rollout ratios are `0.5533` for PCNO
+and `0.9198` for PCFNO. PCNO/PCFNO is `1.0583` under prefix-tail but `0.6367`
+under stretched, so this one seed exhibits a large schedule--architecture
+interaction. It is not yet a replicated architecture result. No arm meets the
+registered three-checkpoint one-step over-optimization definition. PCFNO
+stretched instead shows a different event: from its selected step 15,360 to
+the terminal step, fixed seen and validation one-step errors improve while
+all-call rollout error worsens. This is one-step/recurrent-objective divergence,
+not classical train--validation separation and not yet a causal mechanism.
+
+Before the data ladder is expanded, B1-B evaluates the four already-selected
+checkpoints on the same 28 open-validation trajectories excluded from rollout
+selection. This audit does not reselect checkpoints. Its schedule rule is
+fixed before those trajectories are opened:
+
+1. require numerical completion and zero hard failures for both architectures;
+2. among complete schedules, minimize the geometric mean of the PCNO and PCFNO
+   all-call rollout relative L2;
+3. use the corresponding geometric-mean H79 error only as a tie-break; and
+4. report physical admissibility, normal/boundary error, shock/front error,
+   smooth-region high-pass error, and reconstructed-weight proxy-total error
+   separately. Finite physical violations do not override a lower finite
+   rollout error, and proxy totals do not establish physical conservation.
+
+Only a numerically complete B1-B winner routes the seed-0
+`n={8,16,32,64,128}` ladder; the winning n=256 B1-A cell supplies its paired
+n=256 endpoint. The 28 audit cases remain outside checkpoint selection, and
+the 20 historical test trajectories remain unopened.
+
 ### B2: Official PlanarDet generator reproduction
 
 Purpose: establish that newly generated trajectories belong to the same benchmark.
@@ -404,19 +451,21 @@ The bump cost is measured by a native-graph smoke before queueing because its no
 ## 12. Immediate execution order
 
 1. Keep the retired `n<=7` factorial sweep unlaunched.
-2. Treat the locally tested v6 source registry over the adapter, branch utility, split builder, preregistration, and immutable split manifest as closed; keep the split separately hash-bound in the D094 contract.
-3. Treat the six remotely reported 5,120-step cells as unverified, unreplicated routing evidence until their packets are retrieved and rehashed; do not use them for a confirmatory architecture-by-data claim.
-4. Run the four-cell `n=256` B1-A schedule gate only after packet retrieval, local tests, source-snapshot closure, disk-budget checks, a bounded CUDA smoke pass, and explicit owner authorization.
-5. Do not resume D094 yet: the reported full `last.pt` retains state for a later exact-resume closeout, while reported model-only sentinels support evaluation, but neither artifact is locally retained or currently authorized for optimizer/scheduler replay.
-6. In parallel through human coordination, request the official PlanarDet case, additional trajectories, and an HPC cost/allocation answer. Do not generate PlanarDet from the paper description alone.
+2. Treat the B1-A metadata/source packets as locally retrieved and rehashed;
+   keep its single-seed result bounded to schedule routing.
+3. Run the registered B1-B 28-trajectory outside-selection audit without
+   opening the historical test population or changing checkpoints.
+4. If B1-B closes numerically, use its winner for the seed-0
+   `n={8,16,32,64,128}` fixed-compute ladder and reuse the corresponding B1-A
+   n=256 endpoint. Do not infer scaling from the earlier strict-physical
+   5,120-step pilot rollouts because they compare different valid-prefix
+   populations.
+5. Keep exact resume closed; no optimizer/scheduler replay is needed for B1-B
+   or the fresh fixed-compute ladder.
+6. In parallel through human coordination, request the official PlanarDet
+   case, additional trajectories, and an HPC cost/allocation answer. Do not
+   generate PlanarDet from the paper description alone.
 7. Do not start the full PlanarDet training surface until B2 and B3 close.
-
-Remote execution report (2026-08-21; not locally packet-verified): all six
-PCNO/PCFNO `n={16,64,256}` pilot cells reportedly reached 5,120 optimizer steps
-with finite terminal metrics and no historical-test access, and their source
-and split digests reportedly closed against the registered contracts. The
-packets are not retained in this source tree, so none of those statements is a
-local archival closeout or a confirmatory result.
 
 ## 13. Minimum paper-level evidence
 

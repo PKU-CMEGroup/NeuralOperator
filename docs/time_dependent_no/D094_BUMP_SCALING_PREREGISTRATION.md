@@ -443,7 +443,7 @@ The next stages are:
 | B1-C1: seed-0 surface | Plot the 80-row histories against optimizer step `s` and corrected exposure `X=s/(79n)`, using fixed seen only at checkpoints where it was actually evaluated; plot the selected fixed-compute outside-audit curve against `n`; retain selected and terminal rows separately. | Screen the shape of the data--architecture--optimization interaction; it remains single-seed development evidence. Do not interpolate a missing fixed-seen or model-state metric. |
 | B1-C2: seed replication | If B1-C0 closes, propose the full six-count PCNO/PCFNO ladder for seeds 1 and 2 under the already selected stretched schedule: 24 new cells. | A positive, null, or reversed seed-0 curve is retained; the purpose is replication, not only confirmation. A material interaction must agree in at least two of three seeds. |
 | B1-C3: compute/exposure control | Use the existing histories for exploratory matched-exposure slices. For future seeds, retain a count-specific model checkpoint at `s_X(n)=64n`, for common `X=64/79`, so fixed seen, fixed validation, rollout, and outside-audit metrics can be recomputed from one exact state. | Do not call interpolation between unmatched checkpoints a fixed-exposure result. A seed-0 replay is proposed only if the missing exact checkpoint would change the claim. |
-| B1-C4: conditional bottleneck test | If high-`n` fixed validation and rollout both improve through the last three checkpoints, propose a cold 40,960-step `n={128,256}` compute extension. If one-step improves while rollout worsens, route to an objective/recurrence diagnostic instead. Only after extra compute plateaus with a small fixed seen--validation gap should small/base/large `n=256` capacity controls be proposed. | Distinguish under-optimization from recurrent-objective divergence and then from capacity. Do not diagnose capacity merely because adding data stops helping at one compute budget. |
+| B1-C4: owner-selected bottleneck test | Run cold 40,960-step PCNO at `n={128,256}` under the exact contract below. Continue to 81,920 and 163,840 only after a separately reviewed joint one-step/rollout gate. Route PCFNO to an objective/recurrence diagnostic instead of generic longer training. | Distinguish under-optimization from recurrent-objective divergence and then from capacity. Do not diagnose capacity merely because adding data stops helping at one compute budget. |
 
 Using the observed long-gate rates of about 31 minutes for PCNO and 22 minutes
 for PCFNO, a conservative full 12-cell seed costs about 5.3 serial GPU-hours;
@@ -464,6 +464,60 @@ For every stage, the primary views are distinct:
   development metrics;
 - the 28-case audit reports fixed checkpoints without reselection; and
 - selected-checkpoint and terminal-checkpoint rollout are never merged.
+
+#### B1-C4 owner correction and executable contract (2026-08-22)
+
+Current explicit owner direction selects B1-C4 before seed replication. The
+comparison is corrected as follows.
+
+- D094 `n=256` PCNO has not beaten retained L3R-B1: H79 is `0.0791166`
+  versus B1's selected `0.0332016`.
+- At similar optimizer updates, D094 reaches H79 `0.0791166` at 20,480
+  updates and 20,480 one-pair presentations, while the owner-provided B1
+  comparison is H79 `0.08048` at 21,600 updates and 85,320 presentations.
+  This is a roughly fourfold presentation-efficiency signal, not a SOTA or
+  matched-evaluator result.
+- Over D094 PCNO's final 5,120 updates, fixed validation improves 4.9%,
+  all-call rollout improves 35.7%, and H79 improves 30.5%. PCNO is therefore
+  still under-optimized under this exact schedule.
+- PCFNO is qualitatively different: after its selected checkpoint, fixed
+  validation improves 10.9% while all-call rollout worsens 22.2%. It is not
+  admitted to the generic compute extension.
+
+The B1 comparison uses a different validation/rollout cohort and historical
+training contract. It is qualitative consistency evidence only. D044/B0 has
+not been evaluated under the D094 evaluator. The retained D094 v6 source
+snapshots and closeout artifact manifests rehash internally; the historical B1
+v1 manifest does not retain its bound source copies and is not promoted to a
+current-source compatibility receipt.
+
+The authorized B1-C4 execution contract is exactly:
+
+- architecture `PCNO`, differential branch `full`, initialization seed
+  `20260718`, and trajectory counts `n={128,256}` only;
+- cold initialization only: no checkpoint initialization or resume;
+- 160 epochs of 256 one-pair optimizer updates, hence 40,960 updates and
+  presentations per cell;
+- the existing one-step residual target, balanced no-replacement queues,
+  count-specific normalization, native graph, causal nodal physical boundary
+  closure, optimizer, and error-first finite-only H79 selection contract;
+- warmup-cosine decay stretched through step 40,960; consequently its
+  20,480-step state is an exact within-run anchor but not the same learning-rate
+  trajectory as the completed 20,480-step arm;
+- model-only sentinels at `{8192,20480}` for `n=128` and `{16384,20480}` for
+  `n=256`, retaining exact `s_X(n)=64n` and the old-budget anchor without
+  duplicating every diagnostic checkpoint; and
+- fixed-seen and recurrent rollout diagnostics every five epochs. The frozen
+  continuation rows are steps `{38400,39680,40960}`.
+
+An individual cell is eligible only to *propose* 81,920 steps when fixed open-
+validation one-step error, all-call rollout error, and H79 error each strictly
+decrease across all three frozen late rows, every rollout completes, and no
+hard numerical failure occurs. Physical admissibility remains reported but is
+not a checkpoint-selection or continuation criterion. The generated gate
+receipt explicitly sets automatic continuation authorization to false. No
+81,920/163,840 run, PCFNO/FFNO comparison, seed replication, capacity control,
+or historical-test access follows automatically.
 
 Define the paired architecture curve as
 
@@ -598,17 +652,18 @@ untouched-holdout result, or historical-test claim.
 
 The registered route is therefore:
 
-1. review storage and authorize B1-C2 seeds 1 and 2 without conditioning
-   retention on whether they confirm, nullify, or reverse seed 0;
-2. retain the count-specific `s_X(n)=64n` model state in future seeds so the
-   same outside cohort can be evaluated at exact common `X=64/79`; current
-   histories support exact selection-cohort exposure slices but not that
-   outside-audit checkpoint for every `n`;
-3. treat PCNO `n=256` as compute-extension evidence because its last rollout
-   checkpoints continue to improve, but route PCFNO `n=256` to a recurrence/
-   objective diagnostic because extra one-step optimization already worsens
-   rollout; and
-4. defer capacity controls until extra compute plateaus with a small fixed
+1. execute the owner-selected cold B1-C4 PCNO 40,960-step cells at
+   `n={128,256}` and stop for joint one-step/rollout review;
+2. continue conditionally to 81,920 and 163,840 steps only if the frozen
+   late-curve gate passes; then freeze the compute budget before paired
+   FFNO/PCFNO comparison and seed replication;
+3. retain the count-specific `s_X(n)=64n` model state so the same outside
+   cohort can later be evaluated at exact common `X=64/79`; current histories
+   support exact selection-cohort exposure slices but not that outside-audit
+   checkpoint for every `n`;
+4. route PCFNO `n=256` to a recurrence/objective diagnostic because extra
+   one-step optimization already worsens rollout; and
+5. defer capacity controls until extra compute plateaus with a small fixed
    seen--validation gap. The current fixed-compute `n=128 -> 256` reversal is
    insufficient to diagnose capacity.
 
@@ -725,13 +780,13 @@ The bump cost is measured by a native-graph smoke before queueing because its no
 1. B1-C0 retrieval/rehash and the registered 12-checkpoint evaluator are
    complete; B1-C1 retains fixed-compute, exact corrected-exposure, selected,
    terminal, and outside-audit views separately.
-2. Review storage and explicitly authorize B1-C2 seeds 1 and 2. Do not let the
-   seed-0 effect direction decide whether a null or reversal is retained.
-3. For future seeds, retain the exact `s_X(n)=64n` state required for a common
-   outside-audit exposure slice.
-4. Route conditionally to B1-C3/B1-C4 matched-exposure, extra-compute, or
-   capacity controls using the registered curve-shape rules above; do not run
-   all controls indiscriminately.
+2. Execute only the owner-authorized cold B1-C4 PCNO 40,960-step cells at
+   `n={128,256}`. Retain exact `s_X(n)=64n` and 20,480-step sentinels.
+3. Review the frozen final-three-checkpoint one-step/all-call/H79 gate. Do not
+   auto-launch 81,920 or 163,840 steps.
+4. Once the compute budget is frozen, run paired FFNO/PCFNO comparisons and
+   initialization-seed replication without conditioning retention on whether
+   they confirm, nullify, or reverse seed 0.
 5. Keep the retired `n<=7` factorial sweep unlaunched and keep exact resume
    closed unless a separate replay/resume gate is implemented and tested.
 6. In parallel through human coordination, request the official PlanarDet

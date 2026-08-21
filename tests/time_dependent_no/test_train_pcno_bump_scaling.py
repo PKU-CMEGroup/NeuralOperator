@@ -7,6 +7,11 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.time_dependent_no.train_pcno_bump_scaling import (
+    D094_B1_C4_GATE_STEPS,
+    D094_B1_C4_SEED,
+    D094_B1_C4_SENTINEL_STEPS_BY_COUNT,
+    D094_B1_C4_STAGE,
+    D094_BASE_STAGE,
     D094_METRIC_RECEIPT_SCHEMA,
     D094_METRIC_SEMANTICS,
     D094_REGISTERED_SOURCE_FILES,
@@ -21,6 +26,7 @@ from scripts.time_dependent_no.train_pcno_bump_scaling import (
     SPLIT_SCHEMA,
     assert_balanced_epoch_stream,
     balanced_queue_presentations,
+    build_b1_c4_continuation_gate,
     build_d094_metric_receipt,
     canonical_json_sha256,
     configure_parent_args,
@@ -162,6 +168,7 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         rollout_failure_policy="strict_physical",
         scheduler="warmup_cosine",
         warmup_cosine_decay_steps=5_120,
+        rollout_every=5,
     )
     wrapper = SimpleNamespace(
         split_manifest=(
@@ -170,6 +177,7 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         optimizer_steps_per_epoch=256,
         evaluation_windows_per_trajectory=4,
         differential_branch_mode="full",
+        registered_stage=D094_BASE_STAGE,
         trajectory_count=64,
         comparable_seen_every_epochs=5,
         sentinel_every_epochs=0,
@@ -213,6 +221,80 @@ def test_parent_args_are_forced_to_one_pair_per_update() -> None:
         configure_parent_args(copy.deepcopy(parent), bad_sentinels, _split_payload())
 
 
+def test_b1_c4_is_a_cold_pcno_only_40960_step_contract() -> None:
+    parent = SimpleNamespace(
+        split_mode="manifest",
+        split_seed=0,
+        val_count=1,
+        presentation_mode="full_coverage",
+        presentations_per_epoch=999,
+        batch_size=4,
+        gradient_accumulation_steps=7,
+        tiny_pairs=8,
+        val_presentations=1,
+        checkpoint_every=99,
+        init_checkpoint=None,
+        resume_checkpoint=None,
+        step_stride=1,
+        multistep_loss_steps=1,
+        multistep_loss_weight=0.0,
+        generated_state_exposure_weight=0.0,
+        input_noise_std=0.0,
+        seed=D094_B1_C4_SEED,
+        epochs=160,
+        rollout_checkpoints=(),
+        rollout_val_count=5,
+        rollout_steps=20,
+        rollout_every=5,
+        selection_mode="historical_all_node",
+        rollout_failure_policy="strict_physical",
+        scheduler="warmup_cosine",
+        warmup_cosine_decay_steps=40_960,
+    )
+    wrapper = SimpleNamespace(
+        split_manifest=(
+            ROOT / "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json"
+        ),
+        optimizer_steps_per_epoch=256,
+        evaluation_windows_per_trajectory=4,
+        differential_branch_mode="full",
+        registered_stage=D094_B1_C4_STAGE,
+        trajectory_count=128,
+        comparable_seen_every_epochs=5,
+        sentinel_every_epochs=0,
+        sentinel_steps=D094_B1_C4_SENTINEL_STEPS_BY_COUNT[128],
+        sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
+        engineering_smoke=False,
+    )
+
+    configured = configure_parent_args(parent, wrapper, _split_payload())
+    assert configured.d094_schedule_arm == "b1_c4_cold_stretched"
+    assert configured.epochs * configured.presentations_per_epoch == 40_960
+
+    bad_architecture = copy.deepcopy(wrapper)
+    bad_architecture.differential_branch_mode = "no_gradient"
+    with pytest.raises(ValueError, match="full differential branch only"):
+        configure_parent_args(
+            copy.deepcopy(parent), bad_architecture, _split_payload()
+        )
+
+    bad_count = copy.deepcopy(wrapper)
+    bad_count.trajectory_count = 64
+    bad_count.sentinel_steps = (4_096, 20_480)
+    with pytest.raises(ValueError, match="only n=128 or n=256"):
+        configure_parent_args(copy.deepcopy(parent), bad_count, _split_payload())
+
+    bad_seed = copy.deepcopy(parent)
+    bad_seed.seed = 1
+    with pytest.raises(ValueError, match="initialization seed"):
+        configure_parent_args(bad_seed, copy.deepcopy(wrapper), _split_payload())
+
+    warm_start = copy.deepcopy(parent)
+    warm_start.init_checkpoint = "checkpoint.pt"
+    with pytest.raises(ValueError, match="does not yet admit init/resume"):
+        configure_parent_args(warm_start, copy.deepcopy(wrapper), _split_payload())
+
+
 def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
     split = ROOT / "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json"
     parent = SimpleNamespace(
@@ -241,12 +323,14 @@ def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
         rollout_failure_policy="strict_physical",
         scheduler="warmup_cosine",
         warmup_cosine_decay_steps=5_120,
+        rollout_every=5,
     )
     wrapper = SimpleNamespace(
         split_manifest=split,
         optimizer_steps_per_epoch=256,
         evaluation_windows_per_trajectory=4,
         differential_branch_mode="full",
+        registered_stage=D094_BASE_STAGE,
         trajectory_count=64,
         comparable_seen_every_epochs=5,
         sentinel_every_epochs=0,
@@ -457,3 +541,47 @@ def test_metric_receipt_keeps_selected_and_terminal_rows_separate() -> None:
         0.24
     )
     assert receipt["historical_test_population_accessed"] is False
+
+
+def test_b1_c4_continuation_gate_requires_joint_late_curve_improvement() -> None:
+    def row(step: int, value: float, *, hard_failures: int = 0) -> dict[str, object]:
+        return {
+            "epoch": step // 256 - 1,
+            "train": {
+                "completed_optimizer_steps": step,
+                "relative_l2": value,
+                "comparable_seen": {"relative_l2": value},
+            },
+            "validation": {"relative_l2": value},
+            "rollout": {
+                "mean_full_horizon_relative_l2": value,
+                "mean_endpoint_relative_l2": {"79": value},
+                "completion_rate": 1.0,
+                "hard_failure_count": hard_failures,
+                "physical_admissibility_rate": 0.0,
+            },
+        }
+
+    improving = [
+        row(step, value)
+        for step, value in zip(D094_B1_C4_GATE_STEPS, (0.3, 0.2, 0.1), strict=True)
+    ]
+    gate = build_b1_c4_continuation_gate(improving)
+    assert gate["eligible_to_propose_81920"] is True
+    assert gate["automatic_continuation_authorized"] is False
+    assert gate["physical_admissibility_is_selection_gate"] is False
+
+    diverging = copy.deepcopy(improving)
+    diverging[-1]["rollout"]["mean_full_horizon_relative_l2"] = 0.25
+    gate = build_b1_c4_continuation_gate(diverging)
+    assert gate["strict_decrease"]["fixed_validation_one_step_relative_l2"] is True
+    assert gate["strict_decrease"]["rollout_all_call_mean_relative_l2"] is False
+    assert gate["eligible_to_propose_81920"] is False
+    assert gate["route"] == "stop_or_objective_recurrence_diagnostic"
+
+    unhealthy = copy.deepcopy(improving)
+    unhealthy[-1]["rollout"]["hard_failure_count"] = 1
+    assert build_b1_c4_continuation_gate(unhealthy)["rollout_health"] is False
+
+    with pytest.raises(ValueError, match="lacks exact rows"):
+        build_b1_c4_continuation_gate(improving[:-1])

@@ -45,6 +45,18 @@ D094_ROLLOUT_STEPS = 79
 D094_ROLLOUT_SELECTION_COUNT = 16
 D094_EPOCHS = 80
 D094_OPTIMIZER_STEPS_PER_EPOCH = 256
+D094_BASE_STAGE = "b1_base_20480"
+D094_B1_C4_STAGE = "b1_c4_pcno_40960"
+D094_REGISTERED_STAGES = (D094_BASE_STAGE, D094_B1_C4_STAGE)
+D094_B1_C4_COUNTS = (128, 256)
+D094_B1_C4_SEED = 20_260_718
+D094_B1_C4_EPOCHS = 160
+D094_B1_C4_OPTIMIZER_STEPS = 40_960
+D094_B1_C4_GATE_STEPS = (38_400, 39_680, 40_960)
+D094_B1_C4_SENTINEL_STEPS_BY_COUNT = {
+    128: (8_192, 20_480),
+    256: (16_384, 20_480),
+}
 D094_SCHEDULE_ARMS_BY_DECAY_STEPS = {
     5_120: "prefix_tail",
     20_480: "stretched",
@@ -191,6 +203,64 @@ def build_d094_metric_receipt(
         "source_set_digest": str(source_snapshot["source_set_digest"]),
         "split_partition_digest": str(scaling_contract["split_partition_digest"]),
         "historical_test_population_accessed": False,
+    }
+
+
+def build_b1_c4_continuation_gate(
+    metric_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Evaluate the frozen late-curve gate without authorizing another run."""
+
+    rows_by_step: dict[int, Mapping[str, Any]] = {}
+    for row in metric_rows:
+        train = row.get("train")
+        if not isinstance(train, Mapping):
+            continue
+        step = int(train.get("completed_optimizer_steps", -1))
+        if step in D094_B1_C4_GATE_STEPS:
+            if step in rows_by_step:
+                raise ValueError(f"duplicate B1-C4 gate row at optimizer step {step}")
+            rows_by_step[step] = row
+    missing = [step for step in D094_B1_C4_GATE_STEPS if step not in rows_by_step]
+    if missing:
+        raise ValueError(f"B1-C4 continuation gate lacks exact rows: {missing}")
+
+    snapshots = [
+        d094_checkpoint_metric_snapshot(rows_by_step[step])
+        for step in D094_B1_C4_GATE_STEPS
+    ]
+    metric_names = (
+        "fixed_validation_one_step_relative_l2",
+        "rollout_all_call_mean_relative_l2",
+        "rollout_h79_relative_l2",
+    )
+    strict_decrease = {
+        name: all(
+            snapshots[index][name] > snapshots[index + 1][name]
+            for index in range(len(snapshots) - 1)
+        )
+        for name in metric_names
+    }
+    rollout_health = all(
+        snapshot["rollout_completion_rate"] == 1.0
+        and snapshot["rollout_hard_failure_count"] == 0
+        for snapshot in snapshots
+    )
+    eligible = all(strict_decrease.values()) and rollout_health
+    return {
+        "schema": "d094_b1_c4_continuation_gate_v1",
+        "gate_steps": list(D094_B1_C4_GATE_STEPS),
+        "checkpoint_metrics": snapshots,
+        "strict_decrease": strict_decrease,
+        "rollout_health": rollout_health,
+        "physical_admissibility_is_selection_gate": False,
+        "eligible_to_propose_81920": eligible,
+        "automatic_continuation_authorized": False,
+        "route": (
+            "human_review_for_81920_proposal"
+            if eligible
+            else "stop_or_objective_recurrence_diagnostic"
+        ),
     }
 
 
@@ -398,10 +468,15 @@ def presentation_stream_sha256(pairs: Sequence[tuple[str, int]]) -> str:
 def parse_wrapper_args(
     argv: Sequence[str] | None = None,
 ) -> tuple[argparse.Namespace, list[str]]:
-    parser = argparse.ArgumentParser(description=__doc__, add_help=False)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split-manifest", type=Path, required=True)
     parser.add_argument(
         "--trajectory-count", type=int, required=True, choices=REGISTERED_COUNTS
+    )
+    parser.add_argument(
+        "--registered-stage",
+        choices=D094_REGISTERED_STAGES,
+        default=D094_BASE_STAGE,
     )
     parser.add_argument(
         "--differential-branch-mode",
@@ -424,12 +499,7 @@ def parse_wrapper_args(
     )
     parser.add_argument("--engineering-smoke", action="store_true")
     parser.add_argument("--preflight-only", action="store_true")
-    parser.add_argument("--help", action="store_true")
     wrapper, remaining = parser.parse_known_args(argv)
-    if wrapper.help:
-        parser.print_help()
-        print("\nAll remaining options are passed to train_pcno_euler2d_residual.py.")
-        raise SystemExit(0)
     return wrapper, remaining
 
 
@@ -488,8 +558,10 @@ def configure_parent_args(
         )
     wrapper.sentinel_steps = sentinel_steps
     if wrapper.engineering_smoke:
+        if wrapper.registered_stage != D094_BASE_STAGE:
+            raise ValueError("engineering smoke cannot claim the B1-C4 stage")
         args.d094_schedule_arm = "engineering_smoke"
-    else:
+    elif wrapper.registered_stage == D094_BASE_STAGE:
         expected_total = D094_EPOCHS * D094_OPTIMIZER_STEPS_PER_EPOCH
         if args.epochs != D094_EPOCHS:
             raise ValueError(f"the registered D094 schedule uses {D094_EPOCHS} epochs")
@@ -516,6 +588,38 @@ def configure_parent_args(
             raise ValueError("the registered D094 sentinel-step inventory is exact")
         if wrapper.sentinel_payload != MODEL_ONLY_SENTINEL_PAYLOAD:
             raise ValueError("registered D094 sentinels are model-only")
+    else:
+        if wrapper.trajectory_count not in D094_B1_C4_COUNTS:
+            raise ValueError("B1-C4 admits only n=128 or n=256")
+        if wrapper.differential_branch_mode != "full":
+            raise ValueError("B1-C4 admits PCNO with the full differential branch only")
+        if args.seed != D094_B1_C4_SEED:
+            raise ValueError(f"B1-C4 uses initialization seed {D094_B1_C4_SEED}")
+        if args.epochs != D094_B1_C4_EPOCHS:
+            raise ValueError(f"B1-C4 uses exactly {D094_B1_C4_EPOCHS} cold epochs")
+        if args.presentations_per_epoch != D094_OPTIMIZER_STEPS_PER_EPOCH:
+            raise ValueError("B1-C4 uses 256 optimizer steps per epoch")
+        if total_optimizer_steps != D094_B1_C4_OPTIMIZER_STEPS:
+            raise ValueError("B1-C4 uses exactly 40,960 optimizer steps")
+        if args.scheduler != "warmup_cosine":
+            raise ValueError("B1-C4 uses warmup_cosine")
+        if args.warmup_cosine_decay_steps != D094_B1_C4_OPTIMIZER_STEPS:
+            raise ValueError("B1-C4 stretches cosine decay through step 40,960")
+        if wrapper.comparable_seen_every_epochs != 5 or args.rollout_every != 5:
+            raise ValueError("B1-C4 evaluates fixed seen and rollout every five epochs")
+        expected_sentinels = D094_B1_C4_SENTINEL_STEPS_BY_COUNT[
+            wrapper.trajectory_count
+        ]
+        if wrapper.sentinel_every_epochs != 0:
+            raise ValueError("the B1-C4 sentinel schedule is step-explicit")
+        if sentinel_steps != expected_sentinels:
+            raise ValueError(
+                f"B1-C4 n={wrapper.trajectory_count} requires sentinels "
+                f"{expected_sentinels}"
+            )
+        if wrapper.sentinel_payload != MODEL_ONLY_SENTINEL_PAYLOAD:
+            raise ValueError("B1-C4 sentinels are model-only")
+        args.d094_schedule_arm = "b1_c4_cold_stretched"
     if args.init_checkpoint is not None or args.resume_checkpoint is not None:
         raise ValueError("the D094 engineering adapter does not yet admit init/resume")
     if args.step_stride != 1:
@@ -843,6 +947,7 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "science_result_eligible": False,
         "engineering_smoke": bool(wrapper.engineering_smoke),
         "trajectory_count": len(train_keys),
+        "registered_stage": wrapper.registered_stage,
         "train_keys": train_keys,
         "open_validation_count": len(validation_keys),
         "historical_test_population_accessed": False,
@@ -933,6 +1038,12 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
     ]
     metric_receipt = build_d094_metric_receipt(summary, metric_rows, scaling_contract)
     write_json(args.output_dir / "d094_metric_receipt.json", metric_receipt)
+    continuation_gate = None
+    if wrapper.registered_stage == D094_B1_C4_STAGE:
+        continuation_gate = build_b1_c4_continuation_gate(metric_rows)
+        write_json(
+            args.output_dir / "b1_c4_continuation_gate.json", continuation_gate
+        )
     final_contract = dict(scaling_contract)
     final_contract.update(
         {
@@ -949,11 +1060,26 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             "presentation_stream_sha256_by_epoch": presentation_hashes,
             "metric_receipt_schema": D094_METRIC_RECEIPT_SCHEMA,
             "metric_receipt_file": "d094_metric_receipt.json",
+            "continuation_gate_file": (
+                "b1_c4_continuation_gate.json"
+                if continuation_gate is not None
+                else None
+            ),
+            "eligible_to_propose_81920": (
+                continuation_gate["eligible_to_propose_81920"]
+                if continuation_gate is not None
+                else None
+            ),
+            "automatic_continuation_authorized": False,
             "science_result_eligible": False,
             "science_ineligibility_reason": (
                 "engineering smoke only"
                 if wrapper.engineering_smoke
-                else "single unreplicated pilot; exact-resume gate remains open"
+                else (
+                    "single-seed compute extension; continuation requires human review"
+                    if wrapper.registered_stage == D094_B1_C4_STAGE
+                    else "single unreplicated pilot; exact-resume gate remains open"
+                )
             ),
         }
     )

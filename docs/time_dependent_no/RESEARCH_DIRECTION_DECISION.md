@@ -25,7 +25,7 @@ Documentation roles are:
   bounded closed evidence for the reference-free H320 bump recurrence;
 - [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md):
   registered scaling plan with locally retained B1-A/B1-B and completed,
-  rehashed B1-C0/B1-C1 seed-0 evidence;
+  rehashed B1-C0/B1-C1 seed-0 evidence plus the owner-selected B1-C4 contract;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -339,6 +339,20 @@ single-seed data--architecture--optimization evidence, not a scaling law,
 gradient-path cause, capacity diagnosis, FFNO comparison, conservation result,
 or test claim. The 20 historical test trajectories remain sealed.
 
+Current owner direction selects B1-C4 before seed replication. D094 `n=256`
+PCNO has not beaten retained B1 (`0.07912` versus `0.03320` H79), but at about
+20k updates it is qualitatively comparable to the owner-provided early-B1
+anchor with roughly one quarter of the presentation count. This is an efficiency
+signal across different cohorts/contracts, not a SOTA or paired-evaluator claim.
+PCNO's final 5,120 updates improve fixed validation, all-call rollout, and H79;
+PCFNO instead improves one-step validation after selection while rollout
+worsens. The executable next stage is therefore cold 40,960-step PCNO only at
+`n={128,256}`. A frozen last-three-checkpoint gate jointly requires decreasing
+fixed validation, all-call rollout, and H79 with complete finite rollouts and
+zero hard failures. Admissibility is diagnostic rather than first-priority
+selection. The gate can propose but cannot authorize 81,920/163,840 steps;
+paired FFNO/PCFNO and seeds follow only after the compute budget is frozen.
+
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
 is bound. Its A46-A2-R1 resource-build continuation stopped twice on broad
@@ -375,7 +389,7 @@ likewise not implied by current evidence.
   closed 30-case descriptive recurrence and exact packet hashes.
 - [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
   locally retained B1-A/B1-B schedule audit and completed, rehashed B1-C0/B1-C1
-  seed-0 `n={8,16,32,64,128,256}` paired sweep.
+  seed-0 `n={8,16,32,64,128,256}` paired sweep plus B1-C4 execution contract.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

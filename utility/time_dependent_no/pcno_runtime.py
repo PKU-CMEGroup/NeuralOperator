@@ -154,6 +154,25 @@ def forward_sample(
     )
 
 
+def expand_homogeneous_sample(
+    sample: Mapping[str, torch.Tensor], batch_size: int
+) -> dict[str, torch.Tensor]:
+    """Expand one immutable geometry sample across a homogeneous state batch."""
+
+    if (
+        isinstance(batch_size, bool)
+        or not isinstance(batch_size, int)
+        or batch_size < 1
+    ):
+        raise ValueError("batch_size must be a positive integer")
+    expanded: dict[str, torch.Tensor] = {}
+    for name, value in sample.items():
+        if not isinstance(value, torch.Tensor) or value.ndim < 1 or value.shape[0] != 1:
+            raise ValueError(f"sample tensor {name!r} must have leading dimension one")
+        expanded[name] = value.expand(batch_size, *value.shape[1:])
+    return expanded
+
+
 @torch.inference_mode()
 def timed_model_call(
     model: PCNOEuler2DResidual,
@@ -163,8 +182,9 @@ def timed_model_call(
     device: torch.device,
     amp: str,
     repeats: int,
+    return_batch: bool = False,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """Time repeated resolution calls and return the first batch item as float64."""
+    """Time calls and return either the first item or the full batch as float64."""
 
     if repeats < 1:
         raise ValueError("repeat-forward must be positive")
@@ -179,14 +199,14 @@ def timed_model_call(
             prediction = forward_sample(model, sample, current)
         synchronize(device)
         seconds.append(perf_counter() - started)
-        predictions.append(
-            prediction[0].detach().float().cpu().numpy().astype(np.float64)
-        )
+        selected = prediction if return_batch else prediction[:1]
+        predictions.append(selected.detach().float().cpu().numpy().astype(np.float64))
     reference = predictions[0]
     repeat_max_abs = max(
         float(np.max(np.abs(value - reference))) for value in predictions
     )
-    return reference, {
+    output = reference if return_batch else reference[0]
+    return output, {
         "forward_seconds": seconds,
         "mean_forward_seconds": float(np.mean(seconds)),
         "minimum_forward_seconds": float(np.min(seconds)),

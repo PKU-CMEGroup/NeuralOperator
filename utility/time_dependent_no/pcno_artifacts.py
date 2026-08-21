@@ -20,7 +20,8 @@ import numpy as np
 import torch
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PCNO_SOURCE_SNAPSHOT_SCHEMA = "pcno_euler2d_source_snapshot_v5"
+PCNO_SOURCE_SNAPSHOT_SCHEMA = "pcno_euler2d_source_snapshot_v6"
+PCNO_SOURCE_SNAPSHOT_V5_SCHEMA = "pcno_euler2d_source_snapshot_v5"
 PCNO_SOURCE_SNAPSHOT_V4_SCHEMA = "pcno_euler2d_source_snapshot_v4"
 PCNO_SOURCE_SNAPSHOT_V3_SCHEMA = "pcno_euler2d_source_snapshot_v3"
 PCNO_SOURCE_SNAPSHOT_V2_SCHEMA = "pcno_euler2d_source_snapshot_v2"
@@ -52,10 +53,11 @@ PCNO_SOURCE_SNAPSHOT_V4_FILES = (
     "utility/time_dependent_no/euler2d.py",
     "utility/time_dependent_no/errors.py",
 )
-PCNO_SOURCE_SNAPSHOT_FILES = (
+PCNO_SOURCE_SNAPSHOT_V5_FILES = (
     *PCNO_SOURCE_SNAPSHOT_V4_FILES,
     "utility/time_dependent_no/pcno_boundary_fields.py",
 )
+PCNO_SOURCE_SNAPSHOT_FILES = PCNO_SOURCE_SNAPSHOT_V5_FILES
 PCNO_SOURCE_SNAPSHOT_V2_FILES = (
     *PCNO_SOURCE_PROVENANCE_FILES,
     *PCNO_SOURCE_SNAPSHOT_V3_FILES,
@@ -158,9 +160,44 @@ def _digest_mapping(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def write_source_snapshot(output_dir: Path) -> dict[str, Any]:
+def _normalize_extra_source_files(
+    relative_names: Sequence[str | Path],
+) -> tuple[str, ...]:
+    if isinstance(relative_names, (str, bytes, Path)):
+        raise TypeError("extra source files must be a sequence of repository paths")
+
+    root = REPOSITORY_ROOT.resolve()
+    registered = set(PCNO_SOURCE_SNAPSHOT_FILES) | set(PCNO_SOURCE_PROVENANCE_FILES)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in relative_names:
+        candidate = Path(value)
+        if candidate.is_absolute():
+            raise ValueError("extra source files must be relative to the repository")
+        try:
+            relative = (root / candidate).resolve().relative_to(root)
+        except ValueError as error:
+            raise ValueError(
+                "extra source files must remain inside the repository"
+            ) from error
+        name = relative.as_posix()
+        if name in registered:
+            raise ValueError(f"extra source file is already registered: {name}")
+        if name in seen:
+            raise ValueError(f"duplicate extra source file: {name}")
+        seen.add(name)
+        normalized.append(name)
+    return tuple(sorted(normalized))
+
+
+def write_source_snapshot(
+    output_dir: Path,
+    *,
+    extra_source_files: Sequence[str | Path] = (),
+) -> dict[str, Any]:
     """Retain the exact registered source surface used by a new training run."""
 
+    normalized_extras = _normalize_extra_source_files(extra_source_files)
     snapshot_dir = output_dir / "source_snapshot"
     snapshot_dir.mkdir(parents=True, exist_ok=False)
 
@@ -179,12 +216,13 @@ def write_source_snapshot(output_dir: Path) -> dict[str, Any]:
             }
         return records
 
-    files = copy_files(PCNO_SOURCE_SNAPSHOT_FILES)
+    files = copy_files((*PCNO_SOURCE_SNAPSHOT_FILES, *normalized_extras))
     provenance_files = copy_files(PCNO_SOURCE_PROVENANCE_FILES)
     payload = {
         "schema": PCNO_SOURCE_SNAPSHOT_SCHEMA,
         "git": git_state(),
         "files": files,
+        "extra_source_files": list(normalized_extras),
         "provenance_files": provenance_files,
         "source_set_digest": _digest_mapping(files),
         "provenance_set_digest": _digest_mapping(provenance_files),
@@ -197,27 +235,42 @@ def verify_source_snapshot(snapshot: Mapping[str, Any]) -> None:
     """Reject continuation unless the schema-specific bound source still matches."""
 
     schema = snapshot.get("schema")
+    supported_schemas = {
+        PCNO_SOURCE_SNAPSHOT_V2_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_V3_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_V4_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_V5_SCHEMA,
+        PCNO_SOURCE_SNAPSHOT_SCHEMA,
+    }
+    if schema not in supported_schemas:
+        expected = ", ".join(repr(value) for value in sorted(supported_schemas))
+        raise ValueError(
+            f"unsupported PCNO source snapshot schema: {schema!r}; expected {expected}"
+        )
+
     if schema == PCNO_SOURCE_SNAPSHOT_V2_SCHEMA:
         expected_files = PCNO_SOURCE_SNAPSHOT_V2_FILES
     elif schema == PCNO_SOURCE_SNAPSHOT_V3_SCHEMA:
         expected_files = PCNO_SOURCE_SNAPSHOT_V3_FILES
     elif schema == PCNO_SOURCE_SNAPSHOT_V4_SCHEMA:
         expected_files = PCNO_SOURCE_SNAPSHOT_V4_FILES
+    elif schema == PCNO_SOURCE_SNAPSHOT_V5_SCHEMA:
+        expected_files = PCNO_SOURCE_SNAPSHOT_V5_FILES
     else:
-        expected_files = PCNO_SOURCE_SNAPSHOT_FILES
-    if schema not in {
-        PCNO_SOURCE_SNAPSHOT_V2_SCHEMA,
-        PCNO_SOURCE_SNAPSHOT_V3_SCHEMA,
-        PCNO_SOURCE_SNAPSHOT_V4_SCHEMA,
-        PCNO_SOURCE_SNAPSHOT_SCHEMA,
-    }:
-        raise ValueError(
-            "unsupported PCNO source snapshot schema: "
-            f"{schema!r}; expected {PCNO_SOURCE_SNAPSHOT_V2_SCHEMA!r}, "
-            f"{PCNO_SOURCE_SNAPSHOT_V3_SCHEMA!r}, "
-            f"{PCNO_SOURCE_SNAPSHOT_V4_SCHEMA!r}, or "
-            f"{PCNO_SOURCE_SNAPSHOT_SCHEMA!r}"
-        )
+        extra_source_files = snapshot.get("extra_source_files")
+        if not isinstance(extra_source_files, Sequence) or isinstance(
+            extra_source_files, (str, bytes)
+        ):
+            raise ValueError("v6 source snapshot lacks its extra-source registry")
+        try:
+            normalized_extras = _normalize_extra_source_files(extra_source_files)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "v6 source snapshot has an invalid extra-source registry"
+            ) from error
+        if list(extra_source_files) != list(normalized_extras):
+            raise ValueError("v6 extra-source registry is not sorted and unique")
+        expected_files = (*PCNO_SOURCE_SNAPSHOT_FILES, *normalized_extras)
     files = snapshot.get("files")
     if not isinstance(files, Mapping) or set(files) != set(expected_files):
         raise ValueError("source snapshot does not cover the registered source set")

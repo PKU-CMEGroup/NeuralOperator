@@ -20,6 +20,8 @@ from utility.time_dependent_no.pcno_artifacts import (
     PCNO_SOURCE_SNAPSHOT_V3_SCHEMA,
     PCNO_SOURCE_SNAPSHOT_V4_FILES,
     PCNO_SOURCE_SNAPSHOT_V4_SCHEMA,
+    PCNO_SOURCE_SNAPSHOT_V5_FILES,
+    PCNO_SOURCE_SNAPSHOT_V5_SCHEMA,
     atomic_torch_save,
     atomic_write_json,
     atomic_write_json_with_paths,
@@ -106,13 +108,14 @@ def test_hash_and_atomic_torch_helpers_match_previous_contract(tmp_path: Path) -
     assert not checkpoint_path.with_suffix(".pt.tmp").exists()
 
 
-def test_source_snapshot_v5_covers_boundary_fields_and_separates_provenance(
+def test_source_snapshot_v6_covers_boundary_fields_and_separates_provenance(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     snapshot = write_source_snapshot(tmp_path / "run")
     assert snapshot["schema"] == PCNO_SOURCE_SNAPSHOT_SCHEMA
     assert set(snapshot["files"]) == set(PCNO_SOURCE_SNAPSHOT_FILES)
+    assert snapshot["extra_source_files"] == []
     assert set(snapshot["provenance_files"]) == set(PCNO_SOURCE_PROVENANCE_FILES)
     assert not set(snapshot["files"]) & set(snapshot["provenance_files"])
     assert "utility/time_dependent_no/pcno_artifacts.py" in snapshot["files"]
@@ -234,3 +237,53 @@ def test_source_snapshot_v4_remains_compatible(tmp_path: Path) -> None:
     }
 
     verify_source_snapshot(historical)
+
+
+def test_source_snapshot_v5_remains_compatible(tmp_path: Path) -> None:
+    snapshot = write_source_snapshot(tmp_path / "run")
+    historical_files = {
+        name: snapshot["files"][name] for name in PCNO_SOURCE_SNAPSHOT_V5_FILES
+    }
+    encoded_files = json.dumps(
+        historical_files, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    historical = {
+        "schema": PCNO_SOURCE_SNAPSHOT_V5_SCHEMA,
+        "files": historical_files,
+        "provenance_files": snapshot["provenance_files"],
+        "source_set_digest": hashlib.sha256(encoded_files).hexdigest(),
+        "provenance_set_digest": snapshot["provenance_set_digest"],
+    }
+
+    verify_source_snapshot(historical)
+
+
+def test_source_snapshot_v6_binds_registered_extension_sources(
+    tmp_path: Path,
+) -> None:
+    extra = "tests/time_dependent_no/test_pcno_artifacts.py"
+    snapshot = write_source_snapshot(
+        tmp_path / "run",
+        extra_source_files=(extra,),
+    )
+
+    assert snapshot["extra_source_files"] == [extra]
+    assert set(snapshot["files"]) == {*PCNO_SOURCE_SNAPSHOT_FILES, extra}
+    verify_source_snapshot(snapshot)
+
+    missing_registry = json.loads(json.dumps(snapshot))
+    missing_registry["extra_source_files"] = []
+    with pytest.raises(ValueError, match="registered source set"):
+        verify_source_snapshot(missing_registry)
+
+    with pytest.raises(ValueError, match="already registered"):
+        write_source_snapshot(
+            tmp_path / "duplicate",
+            extra_source_files=(PCNO_SOURCE_SNAPSHOT_FILES[0],),
+        )
+
+    with pytest.raises(ValueError, match="relative to the repository"):
+        write_source_snapshot(
+            tmp_path / "absolute",
+            extra_source_files=(Path(__file__).resolve(),),
+        )

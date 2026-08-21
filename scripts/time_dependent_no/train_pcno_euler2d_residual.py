@@ -2898,7 +2898,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     if log_path.exists() and args.resume_checkpoint is None:
         raise FileExistsError(f"refusing to append to an existing run log: {log_path}")
     if args.resume_checkpoint is None:
-        source_snapshot = write_source_snapshot(args.output_dir)
+        source_snapshot = write_source_snapshot(
+            args.output_dir,
+            extra_source_files=getattr(args, "source_snapshot_extra_files", ()),
+        )
     else:
         snapshot_manifest = args.output_dir / "source_snapshot" / "manifest.json"
         if not snapshot_manifest.is_file():

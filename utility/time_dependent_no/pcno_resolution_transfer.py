@@ -37,6 +37,7 @@ from utility.time_dependent_no.pcno_runtime import (
     CHECKPOINT_SCHEMA_VERSION,
     build_checkpoint_model,
     checkpoint_model_node_type_input,
+    expand_homogeneous_sample,
     load_checkpoint_payload,
     timed_model_call,
 )
@@ -538,6 +539,38 @@ def predict_resolution_sample(
     )
     del current
     return as_model_state(prediction), timing
+
+
+def predict_resolution_batch(
+    model: PCNOEuler2DResidual,
+    sample: Mapping[str, torch.Tensor],
+    states: Sequence[np.ndarray],
+    *,
+    device: torch.device,
+    amp: str,
+    repeats: int,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Evaluate homogeneous same-grid states in one model forward pass."""
+
+    if not states:
+        raise ValueError("states must contain at least one state")
+    arrays = [np.asarray(state, dtype=np.float32) for state in states]
+    if any(array.shape != arrays[0].shape for array in arrays):
+        raise ValueError("all homogeneous batch states must have the same shape")
+    current = torch.as_tensor(
+        np.stack(arrays, axis=0), dtype=torch.float32, device=device
+    )
+    prediction, timing = timed_model_call(
+        model,
+        expand_homogeneous_sample(sample, len(arrays)),
+        current,
+        device=device,
+        amp=amp,
+        repeats=repeats,
+        return_batch=True,
+    )
+    del current
+    return np.asarray(prediction, dtype=np.float32).astype(np.float64), timing
 
 
 def pressure_profile_shock_metrics(

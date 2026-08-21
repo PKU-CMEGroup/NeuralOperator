@@ -17,6 +17,8 @@ from utility.time_dependent_no.pcno_euler2d import (
 from utility.time_dependent_no.pcno_resolution_transfer import (
     build_resolution_checkpoint_model,
     load_resolution_checkpoint,
+    predict_resolution_batch,
+    predict_resolution_sample,
 )
 from utility.time_dependent_no.pcno_runtime import (
     autocast_context,
@@ -302,6 +304,51 @@ def test_physical_runtime_paths_match_frozen_golden(tmp_path: Path) -> None:
     assert timing["repeat_max_abs"] == pytest.approx(0.0)
     assert runtime_timing["repeat_max_abs"] == pytest.approx(0.0)
     assert runtime_output.dtype == np.float64
+
+
+def test_homogeneous_batch_matches_sequential_and_is_order_isolated(
+    tmp_path: Path,
+) -> None:
+    path = _write_checkpoint(tmp_path)
+    sample, first = _synthetic_sample()
+    second = first + torch.tensor([0.01, -0.02, 0.015, 0.03])
+    model, _ = build_resolution_checkpoint_model(
+        load_resolution_checkpoint(path), torch.device("cpu")
+    )
+    states = (first[0].numpy(), second[0].numpy())
+    sequential = np.stack(
+        [
+            predict_resolution_sample(
+                model,
+                sample,
+                state,
+                device=torch.device("cpu"),
+                amp="none",
+                repeats=1,
+            )[0]
+            for state in states
+        ]
+    )
+    batched, timing = predict_resolution_batch(
+        model,
+        sample,
+        states,
+        device=torch.device("cpu"),
+        amp="none",
+        repeats=2,
+    )
+    reversed_batch, _ = predict_resolution_batch(
+        model,
+        sample,
+        states[::-1],
+        device=torch.device("cpu"),
+        amp="none",
+        repeats=1,
+    )
+
+    np.testing.assert_allclose(batched, sequential, rtol=0.0, atol=2.0e-7)
+    np.testing.assert_allclose(reversed_batch[::-1], batched, rtol=0.0, atol=2.0e-7)
+    assert timing["repeat_max_abs"] == pytest.approx(0.0)
 
 
 def test_node_type_behavior_matches_frozen_golden(tmp_path: Path) -> None:

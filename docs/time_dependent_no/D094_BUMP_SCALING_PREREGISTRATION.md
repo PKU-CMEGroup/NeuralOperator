@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B and the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder are complete, locally retained, and rehashed; the result is partial single-seed development evidence, and the historical test population remains sealed
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, and the owner-selected B1-C4 cold 40,960-step PCNO `n={128,256}` stage are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, the result remains partial single-seed development evidence, and the historical test population remains sealed
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -671,22 +671,105 @@ support a multi-seed scaling law, general architecture ranking, causal
 differential-path mechanism, capacity bottleneck, physical conservation,
 untouched-holdout result, or historical-test claim.
 
-The registered route is therefore:
+#### B1-C4 retrieved result (2026-08-22)
 
-1. execute the owner-selected cold B1-C4 PCNO 40,960-step cells at
-   `n={128,256}` and stop for joint one-step/rollout review;
-2. continue conditionally to 81,920 and 163,840 steps only if the frozen
-   late-curve gate passes; then freeze the compute budget before paired
-   FFNO/PCFNO comparison and seed replication;
-3. retain the count-specific `s_X(n)=64n` model state so the same outside
-   cohort can later be evaluated at exact common `X=64/79`; current histories
-   support exact selection-cohort exposure slices but not that outside-audit
-   checkpoint for every `n`;
-4. route PCFNO `n=256` to a recurrence/objective diagnostic because extra
-   one-step optimization already worsens rollout; and
-5. defer capacity controls until extra compute plateaus with a small fixed
-   seen--validation gap. The current fixed-compute `n=128 -> 256` reversal is
-   insufficient to diagnose capacity.
+Both cold cells completed 40,960 optimizer steps with count-specific
+normalization, 160 metric rows, complete finite H79 rollouts, zero hard
+failures, and no historical-test access. Both selected step 38,400. Neither
+cell passes any of the three frozen strict-decrease checks over steps
+`{38400,39680,40960}`, so neither is eligible to propose 81,920 steps and no
+automatic continuation is authorized.
+
+The primary fixed-checkpoint comparison is:
+
+| `n` and checkpoint | Fixed seen one-step | Fixed validation one-step | Selection-cohort H79 | Outside-audit all-call | Outside-audit H79 | Outside admissibility |
+|---|---:|---:|---:|---:|---:|---:|
+| 128 selected, step 38,400 | 0.0107988 | 0.0109911 | 0.0399680 | 0.0293754 | 0.0389224 | 0.9643 |
+| 128 terminal, step 40,960 | 0.0107622 | 0.0109583 | 0.0406254 | 0.0290868 | 0.0395505 | 0.9643 |
+| 256 selected, step 38,400 | 0.0108548 | 0.0110188 | 0.0403593 | 0.0313774 | 0.0445500 | 0.9643 |
+| 256 terminal, step 40,960 | 0.0108614 | 0.0110207 | 0.0434540 | 0.0315600 | 0.0464606 | 0.8929 |
+
+Five bounded observations follow.
+
+1. **The selection-cohort near tie does not transfer exactly to the outside
+   audit.** At the selected checkpoint, `n=256` is only 0.25% worse in fixed
+   validation one-step error and 0.98% worse in selection-cohort H79. On the 28
+   outside trajectories it is 14.46% worse in H79, and `n=128` wins 22 of 28
+   paired trajectories. This is recurrent generalization evidence under one
+   seed, not a data-scaling law.
+2. **The fixed-exposure and fixed-update slices answer different confounded
+   questions.** At exact `X=64/79`, `n=256` step 16,384 has outside H79
+   `0.155737` versus `0.263888` for `n=128` step 8,192, a 41.0% reduction, but
+   it also has twice the optimizer updates and a later scheduler phase. At the
+   same 20,480 updates, `n=256` has H79 `0.109682` versus `0.096438` for
+   `n=128`, 13.7% worse, but only half as many passes. Neither slice isolates
+   data count, compute, repetition, or schedule by itself.
+3. **Late one-step and recurrent objectives decouple without a classical
+   generalization gap.** Selected-to-terminal outside H79 worsens 1.61% for
+   `n=128` and 4.29% for `n=256`, while fixed one-step changes are tiny. For
+   `n=128`, outside all-call error improves 0.98% even as H79 worsens; endpoint
+   selection and mean-horizon selection are therefore also distinct. The fixed
+   seen--validation gap remains small, so this is not evidence of a suddenly
+   widening conventional train--validation gap.
+4. **More trajectories trade among recurrent observables rather than improving
+   all of them.** At the selected checkpoint, `n=256` has better front-centroid,
+   symmetric-Chamfer, and reconstructed-weight proxy-total means, but worse
+   front IoU, shock-strength/thickness, smooth high-pass, and global H79. The
+   proxy total is not physical conservation.
+5. **Aggregate evaluation is more repeatable than individual case ranking.** A
+   warning-bearing first attempt and its clean tensor-copy replacement differ
+   by only `7.70e-5/1.86e-5` in selected aggregate H79 for `n=128/256`, but the
+   maximum per-trajectory H79 difference across all audited checkpoints is
+   `0.0273`, and the post-hoc largest-gap visualization case changes. This is
+   consistent with recurrent amplification of CUDA/bfloat16 nondeterminism but
+   does not yet identify the numerical mechanism. Population aggregates are
+   retained; maximum-case and marginal admissibility rankings require a
+   repeatability contract before scientific use.
+
+Retained clean provenance is source commit `3baa6cd`, deployment-archive
+SHA-256 `34ff20986067757eb7bbcaedc9f235c208d54c91eed45403f2aeea3c81106766`,
+evaluator source digest
+`e5923f1d54bbce9f41101829b37394b06d387da3d8cd911d4432238dfd9ecea5`,
+provenance digest
+`bb379962794d12f26451faff83f4977c73d61010d95118fe47636b8915d23208`,
+clean summary SHA-256
+`d48ab637704c49f647f7ea7ce00babaf32bda3690e41d9437ddbfe6d60d94cd1`,
+and artifact-manifest SHA-256
+`88cf197bcef98681162309b59aff76d4bc1f5e187eca070deae84d0cacc7e6ea`.
+All 12 declared artifact members and all 28 retained Git-archive source members
+rehash. The checkout-side verifier reports two Windows line-ending differences
+in `euler2d.py` and `euler2d_metrics.py`; byte comparison to `git show
+3baa6cd:<path>` closes all 28 source members, so this is a verifier portability
+caveat rather than deployed-source drift.
+
+The diagnostic visualization packet has manifest SHA-256
+`934d70ad0c5329476d4708556ef4ce82c5ddfc881514ab137deac219838950b8`
+and renderer SHA-256
+`854eb0d931272f7d90ce013df16b95cf15c77025a48c74b086723fecf7ea6332`.
+All 15 declared data/figure/movie records rehash. Each of the six H.264 movies
+has 79 frames at 5 FPS, even `1782x380` dimensions, and `yuv420p` pixel format.
+Trajectory 25 is the first frozen outside key; trajectory 83 is the clean
+run's post-hoc largest selected-H79 disagreement and remains visualization-only
+because that maximum-case ranking is not repeatable enough for a population
+claim.
+
+The registered route is now:
+
+1. do not automatically run 81,920 or 163,840 steps; the exact B1-C4
+   continuation gate failed for both counts;
+2. first bound evaluator repeatability on selected and terminal checkpoints,
+   including repeated bfloat16 evaluation and a float32 or deterministic-
+   reduction control, before using maximum-case or marginal-admissibility
+   differences;
+3. if longer-compute attribution is still desired, preregister a schedule-aware
+   matrix that keeps fixed-update, fixed-exposure, and scheduler-phase questions
+   separate rather than treating passes or updates as interchangeable;
+4. freeze the resulting compute budget before paired PCFNO, seed replication,
+   and any bump FFNO arm. A bump FFNO requires an explicit common-
+   representation contract; paper-faithful FFNO remains a PlanarDet baseline;
+   and
+5. defer a capacity diagnosis until additional compute genuinely plateaus while
+   the fixed seen--validation gap remains small.
 
 ### B2: Official PlanarDet generator reproduction
 
@@ -801,13 +884,16 @@ The bump cost is measured by a native-graph smoke before queueing because its no
 1. B1-C0 retrieval/rehash and the registered 12-checkpoint evaluator are
    complete; B1-C1 retains fixed-compute, exact corrected-exposure, selected,
    terminal, and outside-audit views separately.
-2. Execute only the owner-authorized cold B1-C4 PCNO 40,960-step cells at
-   `n={128,256}`. Retain exact `s_X(n)=64n` and 20,480-step sentinels.
-3. Review the frozen final-three-checkpoint one-step/all-call/H79 gate. Do not
-   auto-launch 81,920 or 163,840 steps.
-4. Once the compute budget is frozen, run paired FFNO/PCFNO comparisons and
-   initialization-seed replication without conditioning retention on whether
-   they confirm, nullify, or reverse seed 0.
+2. B1-C4 execution, its four-checkpoint-per-count outside audit, and the
+   diagnostic visualization packet are complete and rehashed. Both strict
+   continuation gates fail; do not auto-launch 81,920 or 163,840 steps.
+3. Close aggregate and per-case evaluator repeatability with repeated
+   bfloat16 and float32 or deterministic-reduction controls before routing a
+   maximum-case or marginal-admissibility mechanism claim.
+4. If longer compute remains scientifically useful, preregister fixed-update,
+   fixed-exposure, and scheduler-phase controls separately. Freeze that budget
+   before paired PCFNO, any representation-explicit bump FFNO, and
+   initialization-seed replication; retain positive, null, and reversed seeds.
 5. Keep the retired `n<=7` factorial sweep unlaunched and keep exact resume
    closed unless a separate replay/resume gate is implemented and tested.
 6. In parallel through human coordination, request the official PlanarDet

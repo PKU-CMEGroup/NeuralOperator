@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-21
+Updated: 2026-08-22
 
 This directory is the onboarding surface for the summer 2026 time-dependent
 neural-operator work on branch `time-dependent-no`. It points to authority,
@@ -27,8 +27,8 @@ Read active context in this order:
 8. [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
    for the closed reference-free H320 bump recurrence result.
 9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
-   for the retained B1-A/B1-B schedule audit and completed, rehashed
-   stretched-schedule seed-0 trajectory ladder.
+   for the retained B1-A/B1-B schedule audit, completed seed-0 trajectory
+   ladder, and closed B1-C4 compute-extension diagnostic.
 10. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
@@ -51,19 +51,19 @@ physical causal graph, correction method, or sealed ranking; the released test
 remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
 and claim boundaries.
 
-Current D094 execution state: B1-A/B1-B and the B1-C0/B1-C1 seed-0
-`n={8,16,32,64,128,256}` PCNO/PCFNO ladder are complete, locally retained, and
-rehashed. All 12 already-selected checkpoints finish the 28-case development
-audit through H79 with zero hard failures. The all-call PCNO/PCFNO ratio changes
-from `1.046` at `n=8` to `0.532` at `n=256`, but this one-seed pattern is an
-architecture--data--recurrence interaction signal, not a scaling law or causal
-gradient result. D094 `n=256` PCNO reaches H79 `0.07912` at 20,480 one-pair
-updates; it does not beat retained L3R-B1's selected `0.03320`, but is
-qualitatively comparable near 21,600 updates with roughly one quarter of B1's
-presentation count. Because PCNO still improves one-step and rollout late while
-PCFNO improves one-step and worsens rollout, the owner selected B1-C4 next: two
-cold 40,960-step PCNO cells at `n={128,256}`. Longer budgets are not automatic;
-they require the frozen joint late-curve gate. Historical test remains sealed.
+Current D094 execution state: B1-A/B1-B, the B1-C0/B1-C1 seed-0 six-count
+PCNO/PCFNO ladder, and B1-C4 are complete, locally retained, and rehashed.
+B1-C4 cold 40,960-step PCNO at `n={128,256}` selects step 38,400 for both.
+Fixed-validation and selection-cohort H79 are near ties, while outside-audit H79
+is `0.038922/0.044550` and `n=128` wins 22 of 28 cases. Exact-exposure and
+exact-update slices reverse direction while changing other variables.
+Selected-to-terminal outside H79 worsens for both counts while fixed one-step
+barely changes, and both frozen continuation gates fail. Repeated bfloat16
+evaluation preserves the selected aggregate result but can change maximum-case
+ranking, so repeatability/determinism is next; no 81,920-step run is automatic.
+This remains one-seed development evidence, not a scaling law, capacity
+diagnosis, causal gradient result, or FFNO comparison. Historical test remains
+sealed.
 
 The [archive guide](history/README.md) explains snapshot authority and link
 resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
@@ -116,7 +116,7 @@ coarse solves do not satisfy that contract.
 | 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
 | Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. The separately registered H320 study finds later reference-free failure events for active-gradient PCNO than PCFNO on the 30 open cases. | No later arm is an exact-contract D041 replacement; H80--H320 has no truth and is not accuracy, physical-validity, conservation, asymptotic-stability, or causal gradient evidence; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
-| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder separates fixed one-step, selected/terminal rollout, and outside-audit errors. Fixed-validation architecture ratios stay near `0.8`, while recurrent ratios change strongly with data count; exact matched-exposure slices show that the fixed-compute `n=256` reversal is underexposure/compute interaction rather than evidence that data ceased helping. B1-C4 now tests under-optimization with cold 40,960-step PCNO at `n={128,256}`. | One initialization seed and a development audit cohort already used for schedule selection; the historical B1 comparison is cross-cohort and qualitative. No general scaling law, causal differential-path mechanism, capacity bottleneck, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
+| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder and B1-C4 separate fixed one-step, selected/terminal rollout, and outside-audit error. B1-C4 finds a one-step/internal-rollout near tie but a 14.46% outside H79 disadvantage for `n=256`; exact-exposure and exact-update slices reverse direction while changing compute, passes, or schedule. Both continuation gates fail and repeated bfloat16 evaluation motivates a repeatability diagnostic. | One initialization seed and a schedule-selected development cohort. No general scaling law, capacity bottleneck, causal differential-path mechanism, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
 | REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |
@@ -175,7 +175,8 @@ branch-specific inventory.
 - CPG release provenance, mesh/reach audits, legal-boundary training, and plots;
 - bump shard preparation, residual-PCNO training/evaluation, boundary protocols,
   rollout decomposition, trajectory-scaling analysis, outside-selection audit,
-  selected/terminal scaling closeout, and geometry diagnostics;
+  selected/terminal scaling closeout, side-by-side curves, exact-input residual
+  animations, and geometry diagnostics;
 - dynamic shock-vortex reference/family generation and baseline evaluation;
 - common-source resolution rollout and pathway analysis;
 - boundary-field, node-type, admissibility, and finite-propagation probes;

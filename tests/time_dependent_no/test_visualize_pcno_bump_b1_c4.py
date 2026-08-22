@@ -5,11 +5,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import scripts.time_dependent_no.visualize_pcno_bump_b1_c4 as visualizer
 from scripts.time_dependent_no.visualize_pcno_bump_b1_c4 import (
+    _configure_matplotlib,
     _field_scales,
     free_pressure_fields,
     one_step_residual_fields,
     plot_loss_curves,
+    render_comparison_animation,
 )
 
 
@@ -31,6 +34,9 @@ def _bundle() -> dict[str, np.ndarray]:
     teacher128[:, :, 3] += 1.5
     teacher256[:, :, 3] -= 2.0
     return {
+        "trajectory": np.asarray("synthetic"),
+        "positions": np.asarray([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]]),
+        "physical_times": np.arange(80, dtype=np.float64) * 0.1,
         "reference_states_conservative": reference,
         "n128_free_states_conservative": free128,
         "n256_free_states_conservative": free256,
@@ -97,3 +103,31 @@ def test_side_by_side_loss_plot_writes_png_and_pdf(tmp_path: Path) -> None:
 def test_one_step_residual_rejects_nonconservative_component() -> None:
     with pytest.raises(ValueError, match="unsupported conservative component"):
         one_step_residual_fields(_bundle(), "pressure")
+
+
+def test_mp4_renderer_pads_odd_frame_dimension(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, animation = _configure_matplotlib()
+    if not animation.writers.is_available("ffmpeg"):
+        pytest.skip("ffmpeg is unavailable")
+    one_frame = {
+        name: np.zeros((1, 3), dtype=np.float64)
+        for name in ("truth", "n128", "n128_error", "n256", "n256_error")
+    }
+    monkeypatch.setattr(
+        visualizer,
+        "one_step_residual_fields",
+        lambda arrays, component: one_frame,
+    )
+    output = tmp_path / "tiny.mp4"
+    record = render_comparison_animation(
+        _bundle(),
+        output,
+        mode="one_step_residual",
+        component="density",
+        fps=20,
+        dpi=20,
+    )
+    assert record["frames"] == 1
+    assert output.stat().st_size > 0

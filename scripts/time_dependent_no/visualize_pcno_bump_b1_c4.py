@@ -562,6 +562,9 @@ def render_comparison_animation(
     times = np.asarray(arrays["physical_times"], dtype=np.float64)
     if positions.ndim != 2 or positions.shape[1] != 2 or times.shape != (80,):
         raise ValueError("visualization geometry or physical times changed")
+    num_frames = int(fields["truth"].shape[0])
+    if num_frames < 1 or any(value.shape[0] != num_frames for value in fields.values()):
+        raise ValueError("visualization fields do not share a positive frame count")
     scales = _field_scales(fields, mode=mode)
     plt, animation = _configure_matplotlib()
     fig, axes = plt.subplots(1, 5, figsize=(16.2, 3.45), constrained_layout=True)
@@ -597,14 +600,21 @@ def render_comparison_animation(
         label=f"{quantity} error",
     )
     trajectory = str(np.asarray(arrays["trajectory"]).item())
+    title = fig.suptitle(
+        f"D094 B1-C4 | trajectory {trajectory} | call 1/{num_frames} | "
+        f"t={times[1]:.3f}\n{definition}",
+        fontsize=10.5,
+    )
+    fig.canvas.draw()
+    fig.set_layout_engine("none")
 
     def update(frame: int) -> list[Any]:
         for scatter, name in zip(scatters, names, strict=True):
             scatter.set_array(np.asarray(fields[name][frame], dtype=np.float64))
-        fig.suptitle(
-            f"D094 B1-C4 | trajectory {trajectory} | call {frame + 1}/79 | "
-            f"t={times[frame + 1]:.3f}\n{definition}",
-            fontsize=10.5,
+        title.set_text(
+            f"D094 B1-C4 | trajectory {trajectory} | "
+            f"call {frame + 1}/{num_frames} | t={times[frame + 1]:.3f}\n"
+            f"{definition}"
         )
         return list(scatters)
 
@@ -618,12 +628,17 @@ def render_comparison_animation(
             fps=fps,
             codec="libx264",
             bitrate=2600,
-            extra_args=["-pix_fmt", "yuv420p"],
+            extra_args=[
+                "-vf",
+                "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+                "-pix_fmt",
+                "yuv420p",
+            ],
         )
     else:
         raise ValueError("animation output must end in .gif or .mp4")
     movie = animation.FuncAnimation(
-        fig, update, frames=79, interval=1000 / fps, blit=False
+        fig, update, frames=num_frames, interval=1000 / fps, blit=False
     )
     movie.save(
         output_path,
@@ -636,7 +651,7 @@ def render_comparison_animation(
         "mode": mode,
         "component": component,
         "trajectory": trajectory,
-        "frames": 79,
+        "frames": num_frames,
         "fps": fps,
         "definition": definition,
         "fixed_scales": scales,

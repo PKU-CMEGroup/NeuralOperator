@@ -375,7 +375,7 @@ def capture_visualization_bundle(
         TRAJECTORY_COUNTS
     ):
         raise ValueError("visualization capture requires selected n=128 and n=256")
-    reference = np.asarray(store.states(key)[:80], dtype=np.float32)
+    reference = np.array(store.states(key)[:80], dtype=np.float32, copy=True)
     if reference.shape[0] != 80 or reference.ndim != 3 or reference.shape[-1] != 4:
         raise ValueError(f"trajectory {key} does not expose the exact H79 reference")
     sample = store.tensor_sample(key, 0, step_stride=1, device=device)

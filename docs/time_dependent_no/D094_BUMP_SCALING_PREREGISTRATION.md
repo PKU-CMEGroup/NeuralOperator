@@ -519,6 +519,27 @@ receipt explicitly sets automatic continuation authorization to false. No
 81,920/163,840 run, PCFNO/FFNO comparison, seed replication, capacity control,
 or historical-test access follows automatically.
 
+The post-completion B1-C4 outside-selection audit is frozen before execution.
+It evaluates exactly four retained checkpoints per count on the same 28 open-
+validation trajectories excluded from checkpoint selection: `{8192,20480,
+38400(selected),40960(terminal)}` for `n=128` and `{16384,20480,
+38400(selected),40960(terminal)}` for `n=256`. All-call, H79, completion,
+finite failure, admissibility, boundary, shock/front, high-pass, and proxy-total
+diagnostics are reported under finite-only recurrence. Outside cases never
+reselect a checkpoint, and admissibility is not promoted ahead of rollout
+error in ranking or interpretation.
+
+Visualization is also frozen as diagnostic-only. The loss figure keeps online
+train, fixed seen-train one-step, fixed open-validation one-step, 16-case
+selection H79, and 28-case outside-audit H79 explicitly distinct. Trajectory
+bundles use the first registered outside-selection key plus the largest paired
+selected-checkpoint H79 disagreement among the remaining keys; the second is
+post-hoc visualization selection and supports no population claim. For each
+case, free recurrent pressure shows accumulated state error, while one-step
+conservative density and energy residuals use exact reference `U(t)` at every
+call and show predicted `U(t+1)-U(t)`, truth, and residual error with no
+accumulated rollout drift. Scales are fixed across both counts and all calls.
+
 Define the paired architecture curve as
 
     R_arch(n,s) = E_PCNO(n,s) / E_PCFNO(n,s),

@@ -73,7 +73,7 @@ def _preprocess_polygon_chunk(
 def preprocess_vtp(
     source: str | Path,
     preprocess_root: str | Path,
-    target_fields: list[str],
+    y_fields: list[str],
     chunk_size: int,
 ) -> dict:
     """Preprocess one large VTP into NumPy arrays and save them with np.save."""
@@ -123,9 +123,9 @@ def preprocess_vtp(
     # Columns: center_x, center_y, center_z, area, normal_x, normal_y, normal_z.
     node_data = np.empty((n_cells, 7), dtype=np.float64)
 
-    for target_field in target_fields:
-        values = np.asarray(mesh.cell_data[target_field], dtype=np.float64)
-        feature_path = preprocess_root / f"{target_field}_{case_id}.npy"
+    for y_field in y_fields:
+        values = np.asarray(mesh.cell_data[y_field], dtype=np.float64)
+        feature_path = preprocess_root / f"{y_field}_{case_id}.npy"
         np.save(feature_path, values)
 
     normal_error_squared = 0.0
@@ -198,12 +198,12 @@ def preprocess_vtp(
 
 def preprocess_data(
     chunk_size: int = 200_000,
-    target_fields: list[str] | None = None,
+    y_fields: list[str] | None = None,
 ) -> None:
     if chunk_size <= 0:
         raise ValueError(f"chunk_size must be positive, got {chunk_size}")
-    if target_fields is None:
-        target_fields = [
+    if y_fields is None:
+        y_fields = [
             "CpMeanTrim",
             "pMeanTrim",
             "wallShearStressMeanTrim",
@@ -217,7 +217,7 @@ def preprocess_data(
         raise FileNotFoundError(f"No boundary_*.vtp files found in {data_dir}")
 
     for source in files:
-        preprocess_vtp(source, preprocess_root, target_fields, chunk_size)
+        preprocess_vtp(source, preprocess_root, y_fields, chunk_size)
 
 
 if __name__ == "__main__":

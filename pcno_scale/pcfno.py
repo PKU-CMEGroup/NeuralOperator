@@ -45,7 +45,7 @@ def compute_Fourier_bases(
     return torch.cos(phase), torch.sin(phase)
 
 
-class SpectralConv():
+class SpectralConv(nn.Module):
     """Memory-efficient PCFNO spectral convolution.
 
     Quadrature weights are applied to the changing feature tensor ``x`` in
@@ -53,7 +53,7 @@ class SpectralConv():
     ``wbases_0`` over all points and Fourier modes.
     """
     def __init__(self, in_channels, out_channels, modes):
-        super(SpectralConv, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         nmodes, ndims, nmeasures = modes.shape
@@ -197,16 +197,18 @@ class PCFNO(nn.Module):
 
         Args:
             x: Input features with shape ``[batch, npoints, in_dim]``.
-            aux: ``(node_mask, nodes, node_weights)`` where the shapes are
+            aux: ``(node_mask, nodes, node_weights, outward_normals)`` where
+                the shapes are
                 ``[batch, npoints, 1]``, ``[batch, npoints, ndims]``, and
-                ``[batch, npoints, nmeasures]`` respectively.  When
-                ``geointegral=True``, append ``outward_normals`` as the fourth
-                item.  A six-item MPCNO auxiliary tuple is also accepted.
+                ``[batch, npoints, nmeasures]``, ``[batch, npoints, ndims]``
+                respectively.  Normals are converted to channel-major layout
+                internally when ``geointegral=True``.
 
         Returns:
             Output values with shape ``[batch, npoints, out_dim]``.  Padded
             points are exactly zero.
         """
+        # node_mask=[bx1], nodes=[bxd], node_weights=[bxw], normals=[bxd]
         node_mask, nodes, node_weights, outward_normals = aux
 
 
@@ -214,6 +216,10 @@ class PCFNO(nn.Module):
 
         x = self.fc0(x)  
         x = x.permute(0, 2, 1)
+
+        if self.layer_selection['geointegral']:
+            outward_normals = outward_normals.permute(0, 2, 1)
+
         
         last_layer = len(self.ws) - 1
         for i, (speconv, spw, spconvnw, spconvadjnw, w) in enumerate(zip(self.sp_convs, self.sp_ws, self.sp_convs_nws, self.sp_convs_adj_nws, self.ws)):
@@ -235,7 +241,5 @@ class PCFNO(nn.Module):
             if self.act is not None:
                 x = self.act(x)
 
-        x = self.fc2(x)        
-        return x
-
-
+        x = self.fc2(x)
+        return x * node_mask.to(dtype=x.dtype)

@@ -153,7 +153,9 @@ evaluation decision. See the bounded
 D094 B1-A/B1-B, B1-C0/B1-C1, and B1-C4 are locally retained and rehashed. The
 B1-C4 cells each complete 40,960 steps, 160 metric rows, and all finite H79
 rollouts with zero hard failures. Both select step 38,400 and fail every frozen
-strict late-decrease criterion, so neither is eligible to propose 81,920 steps.
+strict late-decrease criterion, so neither automatically proposes 81,920 steps.
+That routing result does not establish convergence of optimization,
+representations, or the deployed recurrent map.
 The clean outside audit evaluates four fixed checkpoints per count on the same
 28 development trajectories without reselection or historical-test access. At
 selection, fixed one-step and internal H79 are near ties, but outside H79 favors
@@ -168,7 +170,15 @@ Windows line-ending differences, while byte comparison to the bound Git commit
 passes every source member. A repeated bfloat16 audit changes selected aggregate
 H79 by less than `8e-5` but can change the maximum-gap case and marginal
 admissibility counts. The next exact diagnostic is evaluator repeatability and
-a float32 or deterministic-reduction control. Do not auto-run 81,920/163,840.
+a float32 or deterministic-reduction control, followed by a fixed-checkpoint
+probe of late one-step-map and propagated-input-response change. Do not
+auto-run 81,920/163,840. An 81,920-step representation-evolution study remains
+deferred rather than rejected; it is not the current priority and requires a
+separate schedule-aware contract.
+The B1-C5-A analyzer is implemented at
+`scripts/time_dependent_no/analyze_pcno_bump_b1_c5_repeatability.py` and the
+evaluator now records AMP, deterministic, cuDNN, and TF32 flags. The registered
+three-BF16/one-FP32 matrix has not yet been executed or assimilated.
 The ignored local recovery roots are `d094_b1_c4_closeout_20260822a`,
 `d094_b1_c4_outside_audit_20260822b`,
 `d094_b1_c4_audit_repeatability_20260822a`, and

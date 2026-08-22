@@ -630,6 +630,16 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "rollout_checkpoints": list(ROLLOUT_CHECKPOINTS),
         "rollout_failure_policy": FINITE_ONLY_ROLLOUT_POLICY,
         "shock_quantile": args.shock_quantile,
+        "evaluation_numerics": {
+            "amp": args.amp,
+            "deterministic_algorithms_enabled": (
+                torch.are_deterministic_algorithms_enabled()
+            ),
+            "cudnn_deterministic": torch.backends.cudnn.deterministic,
+            "cudnn_benchmark": torch.backends.cudnn.benchmark,
+            "cuda_matmul_allow_tf32": torch.backends.cuda.matmul.allow_tf32,
+            "cudnn_allow_tf32": torch.backends.cudnn.allow_tf32,
+        },
         "boundary_policy_digests": {
             key: record["policy_digest"] for key, record in policy_metadata.items()
         },

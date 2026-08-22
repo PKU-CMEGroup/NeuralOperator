@@ -342,7 +342,9 @@ or test claim. The 20 historical test trajectories remain sealed.
 B1-C4 is complete and retained. Both cold 40,960-step PCNO cells at
 `n={128,256}` select step 38,400, complete every H79 rollout, and have zero hard
 failures, but both fail every frozen strict late-decrease criterion; neither
-proposes 81,920 steps. Selected fixed-validation and selection-cohort H79 are
+automatically proposes 81,920 steps. This failed routing gate is not evidence
+that optimization, representation learning, or the deployed recurrent map has
+converged. Selected fixed-validation and selection-cohort H79 are
 near ties (`0.010991/0.011019` and `0.039968/0.040359` for `n=128/256`), while
 outside-audit H79 is `0.038922/0.044550`, with `n=128` winning 22 of 28 cases.
 At exact `X=64/79`, `n=256` is 41.0% better outside, but it has twice the
@@ -356,11 +358,19 @@ diagnosis, not classical overfitting, a capacity limit, or a scaling law.
 Repeated bfloat16 outside audits preserve the selected aggregate conclusion but
 can change the largest per-case disagreement and marginal admissibility counts.
 The next exact task is therefore evaluator repeatability/determinism closure,
-not automatic longer training. Any later compute extension must separate
-fixed-update, fixed-exposure, and scheduler-phase questions. The compute budget
-is frozen only after that review; paired PCFNO, a representation-explicit bump
-FFNO or paper-faithful PlanarDet FFNO, and seed replication follow under new
-authorization. The 20 historical test trajectories remain sealed.
+followed by a fixed-checkpoint diagnostic of whether the one-step map and its
+response to propagated inputs continue changing after scalar one-step loss is
+nearly flat. Longer training is not the current priority, but an 81,920-step
+representation-evolution study remains scientifically open. Any such extension
+must separately register fixed-update, fixed-exposure, scheduler-phase, and
+checkpoint-response questions. The compute budget is frozen only after that
+review; paired PCFNO, a representation-explicit bump FFNO or paper-faithful
+PlanarDet FFNO, and seed replication follow under new authorization. The 20
+historical test trajectories remain sealed.
+
+The B1-C5-A three-BF16/one-FP32 analysis contract and provenance-aware analyzer
+are implemented and pass the focused CPU suite. No B1-C5 evaluator execution
+has yet been assimilated.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest

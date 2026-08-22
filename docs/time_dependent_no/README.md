@@ -60,7 +60,11 @@ exact-update slices reverse direction while changing other variables.
 Selected-to-terminal outside H79 worsens for both counts while fixed one-step
 barely changes, and both frozen continuation gates fail. Repeated bfloat16
 evaluation preserves the selected aggregate result but can change maximum-case
-ranking, so repeatability/determinism is next; no 81,920-step run is automatic.
+ranking, so repeatability/determinism and fixed-checkpoint deployed-map change
+are next; no 81,920-step run is automatic. The failed gate is not a convergence
+test, and a later representation-evolution extension remains open.
+The B1-C5-A repeatability analyzer is CPU-verified; its registered
+three-BF16/one-FP32 evaluator matrix has not yet run.
 This remains one-seed development evidence, not a scaling law, capacity
 diagnosis, causal gradient result, or FFNO comparison. Historical test remains
 sealed.

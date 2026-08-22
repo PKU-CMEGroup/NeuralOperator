@@ -52,19 +52,24 @@ remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
 and claim boundaries.
 
 Current D094 execution state: B1-A/B1-B, the B1-C0/B1-C1 seed-0 six-count
-PCNO/PCFNO ladder, and B1-C4 are complete, locally retained, and rehashed.
+PCNO/PCFNO ladder, B1-C4, and B1-C5-A are complete, locally retained, and
+rehashed.
 B1-C4 cold 40,960-step PCNO at `n={128,256}` selects step 38,400 for both.
 Fixed-validation and selection-cohort H79 are near ties, while outside-audit H79
 is `0.038922/0.044550` and `n=128` wins 22 of 28 cases. Exact-exposure and
 exact-update slices reverse direction while changing other variables.
 Selected-to-terminal outside H79 worsens for both counts while fixed one-step
-barely changes, and both frozen continuation gates fail. Repeated bfloat16
-evaluation preserves the selected aggregate result but can change maximum-case
-ranking, so repeatability/determinism and fixed-checkpoint deployed-map change
-are next; no 81,920-step run is automatic. The failed gate is not a convergence
-test, and a later representation-evolution extension remains open.
-The B1-C5-A repeatability analyzer is CPU-verified; its registered
-three-BF16/one-FP32 evaluator matrix has not yet run.
+barely changes, and both frozen continuation gates fail. B1-C5-A now closes
+three fresh BF16 evaluations plus one FP32 control. Every execution preserves
+selected `n=128 < n=256` H79 and selected-to-terminal worsening; the largest
+aggregate numerical range is 15.58% of the smallest count gap. Terminal
+checkpoints improve early H20 by 4.06%/5.15% but worsen H79 by 1.98%/4.06% in
+BF16. Only 23/28 per-case winners are stable, the maximum-case identity changes,
+and eight of 112 physical-event rows are precision-sensitive despite 448/448
+complete finite rollouts. Fixed-checkpoint deployed-map response is next after
+its own floor is registered; no 81,920-step run is automatic. The failed B1-C4
+gate is not a convergence test, and a later representation-evolution extension
+remains open.
 This remains one-seed development evidence, not a scaling law, capacity
 diagnosis, causal gradient result, or FFNO comparison. Historical test remains
 sealed.
@@ -120,7 +125,7 @@ coarse solves do not satisfy that contract.
 | 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
 | Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. The separately registered H320 study finds later reference-free failure events for active-gradient PCNO than PCFNO on the 30 open cases. | No later arm is an exact-contract D041 replacement; H80--H320 has no truth and is not accuracy, physical-validity, conservation, asymptotic-stability, or causal gradient evidence; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
-| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder and B1-C4 separate fixed one-step, selected/terminal rollout, and outside-audit error. B1-C4 finds a one-step/internal-rollout near tie but a 14.46% outside H79 disadvantage for `n=256`; exact-exposure and exact-update slices reverse direction while changing compute, passes, or schedule. Both continuation gates fail and repeated bfloat16 evaluation motivates a repeatability diagnostic. | One initialization seed and a schedule-selected development cohort. No general scaling law, capacity bottleneck, causal differential-path mechanism, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
+| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder and B1-C4 separate fixed one-step, selected/terminal rollout, and outside-audit error. B1-C5-A confirms across three BF16 processes and one FP32 control that selected `n=128 < n=256` H79 and selected-to-terminal worsening exceed the evaluator floor. Terminal checkpoints help H20 but hurt H79; per-case winners and physical events are less repeatable. Exact-exposure and exact-update slices still change compute, passes, or schedule. | One initialization seed and a schedule-selected development cohort. No general scaling law, capacity bottleneck, causal differential-path mechanism, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
 | REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |

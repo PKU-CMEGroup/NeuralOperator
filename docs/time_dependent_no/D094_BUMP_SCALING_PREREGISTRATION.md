@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, and the owner-selected B1-C4 cold 40,960-step PCNO `n={128,256}` stage are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, the result remains partial single-seed development evidence, and the historical test population remains sealed
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, and the B1-C5-A evaluator-repeatability matrix are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, B1-C5-A closes aggregate but not local-event repeatability, the result remains partial single-seed development evidence, and the historical test population remains sealed
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -762,17 +762,18 @@ run's post-hoc largest selected-H79 disagreement and remains visualization-only
 because that maximum-case ranking is not repeatable enough for a population
 claim.
 
-The registered route is now:
+The B1-C4 registered route was:
 
 1. do not automatically run 81,920 or 163,840 steps; the exact B1-C4
    continuation gate failed for both counts, without establishing convergence;
 2. first bound evaluator repeatability on selected and terminal checkpoints,
    including repeated bfloat16 evaluation and a float32 or deterministic-
    reduction control, before using maximum-case or marginal-admissibility
-   differences;
-3. on retained checkpoints, measure whether exact-input predictions and the
-   response to common propagated inputs still change after scalar one-step loss
-   is nearly flat; keep this distinct from hidden-feature similarity alone;
+   differences; this item is now complete as B1-C5-A;
+3. on retained checkpoints, separately preregister and measure whether exact-
+   input predictions and the response to common propagated inputs still change
+   after scalar one-step loss is nearly flat; keep this distinct from hidden-
+   feature similarity alone;
 4. if longer-compute attribution is still desired later, preregister an
    81,920-step representation-evolution study whose schedule-aware matrix keeps
    fixed-update, fixed-exposure, scheduler-phase, and checkpoint-response
@@ -833,10 +834,86 @@ three bfloat16 and one float32 executions complete. Neither B1-C5 stage
 authorizes 81,920-step training, paired architectures, new seeds, or test
 access.
 
-Implementation state (2026-08-22): the evaluator records the AMP,
-deterministic-algorithm, cuDNN, and TF32 flags required by this contract, and
-the provenance-aware B1-C5-A analyzer plus focused tests are implemented. The
-registered four-execution matrix has not yet run and contributes no result.
+#### B1-C5-A retrieved result (2026-08-23)
+
+The registered matrix completed on one RTX 5090 under one source archive: three
+fresh independent-process bfloat16 evaluations and one `amp=none` float32
+control. All 448 primary case/checkpoint/execution rollouts reach H79 with zero
+hard failures. No checkpoint was reselected and the historical test population
+remained unopened. The 199-member remote retrieval manifest and all five
+evaluator/analysis artifact manifests plus five source snapshots rehash locally
+with zero mismatches. The retrieval contains 200 files including its own
+manifest and `960,928,141` bytes.
+
+The primary preregistered aggregate gate passes:
+
+- selected bfloat16 H79 means are `0.03880899` for `n=128` and `0.04474342`
+  for `n=256`; float32 gives `0.03957538/0.04528201`;
+- every execution favors `n=128`. The four cross-count gaps are
+  `0.00570664--0.00612945`. The largest within-cell four-execution H79 range is
+  `0.00088932`, or `15.58%` of the smallest gap, below the frozen `25%`
+  ceiling. Thus the selected aggregate `n=128 < n=256` ordering is numerically
+  robust under this evaluator contract;
+- the selected-to-terminal H79 direction is also stable in all four
+  executions. Bfloat16 means worsen `1.98%` for `n=128` and `4.06%` for
+  `n=256`; float32 worsens `1.71%/2.10%`;
+- this is horizon-dependent, not uniform degradation. From selected to
+  terminal, bfloat16 H20 improves `4.06%/5.15%` and all-call error improves
+  `0.90%/0.11%`, while H79 worsens. Fixed-validation one-step error changes
+  only `-0.30%/+0.02%`. Later updates therefore move the deployed response in
+  a way that helps early recurrence but hurts the tail; they do not exhibit a
+  sudden conventional seen--validation gap; and
+- the formal four-execution result is consistent with the earlier clean
+  B1-C4 audit on the exact same checkpoint, normalizer, split, data manifest,
+  and 28 outside cases. It replaces single-execution values when stating the
+  evaluator-repeatability conclusion, but does not turn one seed into a
+  scaling law.
+
+Local observables have narrower claim scope:
+
+- 23 of 28 selected per-case count winners agree in all four executions:
+  19 stable `n=128` wins and four stable `n=256` wins. Five winners are
+  precision-sensitive;
+- the maximum-disagreement case is not stable: trajectory 83 in three
+  executions and trajectory 152 in one. Neither may be promoted as the unique
+  worst mechanism case; and
+- 104 of 112 case/count/checkpoint event rows are stable, but 102 are stable
+  no-violation rows, only two are stable violation rows, and eight event rows
+  are precision-sensitive. Admissible counts vary in three of four cells even
+  though every rollout remains finite and completes. This supports treating
+  strict admissibility as a secondary diagnostic rather than overriding
+  rollout error for checkpoint selection; it is not a physical-conservation
+  result.
+
+Retained provenance is launcher source commit
+`db3b4f7c512034a63cfe64739c6b52f12f286f01`, source-archive SHA-256
+`893f33e5af25a8e3eeee4388688f222c84725b5f0f5d6244d610975fe414c52e`,
+retrieval-manifest SHA-256
+`0492c2fbdccf5e059361e545bbb861a675ceffb2548c173480299994a7dbd55b`,
+analysis summary SHA-256
+`e341e714fa2b69daf3e992ffa507cb42e798404fc4c96be9b9bfdc49183f5895`,
+and analysis artifact-manifest SHA-256
+`b267e4049a538e23f9ca9c0d2fa404057b7ea35e57243f52ae77df3b27390b84`.
+The ignored result root is
+`artifacts/time_dependent_no/d094_b1_c5_repeatability_20260823a`.
+
+The reproducible visualization packet contains the H20--H79 crossover and a
+four-panel aggregate/per-case/event summary in PDF and 300-DPI PNG. Its ignored
+root is
+`artifacts/time_dependent_no/d094_b1_c5_repeatability_visualizations_20260823a`;
+manifest SHA-256 is
+`4076e66ada24b3c229cf0c087bd9700d101ba94d666a2028a868df41481e0cca`
+and renderer SHA-256 is
+`494d3e153622f745b7f68625d8608b304585960357f10122d50ab377e880ff77`.
+All four declared figure records rehash and both PNGs pass visual inspection.
+
+The next scientific step is not longer training. B1-C5-B should first freeze
+its own paired numerical floor and directional gate, then compare step 20,480,
+selected, and terminal maps on exact reference inputs and on the same frozen
+selected-checkpoint propagated-input path. Its purpose is to distinguish
+functional map drift from changed input paths and to test the observed
+early-help/tail-harm response directly. B1-C5-A does not authorize B1-C5-B,
+81,920 steps, paired architectures, new seeds, or historical-test access.
 
 ### B2: Official PlanarDet generator reproduction
 

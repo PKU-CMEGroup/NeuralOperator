@@ -355,22 +355,38 @@ worsens for both counts while fixed one-step error barely changes, without a
 large seen--validation gap. This supports an objective/self-composition
 diagnosis, not classical overfitting, a capacity limit, or a scaling law.
 
-Repeated bfloat16 outside audits preserve the selected aggregate conclusion but
-can change the largest per-case disagreement and marginal admissibility counts.
-The next exact task is therefore evaluator repeatability/determinism closure,
-followed by a fixed-checkpoint diagnostic of whether the one-step map and its
-response to propagated inputs continue changing after scalar one-step loss is
-nearly flat. Longer training is not the current priority, but an 81,920-step
-representation-evolution study remains scientifically open. Any such extension
-must separately register fixed-update, fixed-exposure, scheduler-phase, and
-checkpoint-response questions. The compute budget is frozen only after that
-review; paired PCFNO, a representation-explicit bump FFNO or paper-faithful
-PlanarDet FFNO, and seed replication follow under new authorization. The 20
-historical test trajectories remain sealed.
+B1-C5-A now closes the evaluator-repeatability question on the same selected
+and terminal checkpoints. Three fresh bfloat16 processes and one float32
+control complete all 448 primary rollouts with zero hard failures and no
+historical-test access. Every execution preserves the selected `n=128 < n=256`
+H79 ordering. The largest within-cell H79 range is 15.58% of the smallest
+cross-count gap, below the frozen 25% ceiling. Bfloat16 selected H79 means are
+`0.038809/0.044743`; float32 gives `0.039575/0.045282`. The aggregate ordering
+is therefore numerically robust under this evaluator contract.
 
-The B1-C5-A three-BF16/one-FP32 analysis contract and provenance-aware analyzer
-are implemented and pass the focused CPU suite. No B1-C5 evaluator execution
-has yet been assimilated.
+Selected-to-terminal H79 also worsens in every execution: bfloat16 means rise
+1.98% for `n=128` and 4.06% for `n=256`, while fixed-validation one-step error
+changes only -0.30%/+0.02%. More specifically, terminal checkpoints improve
+bfloat16 H20 by 4.06%/5.15% and all-call error by 0.90%/0.11% but worsen H79.
+This reproducible early-help/tail-harm crossover is evidence of late deployed-
+response change under self-composition, not a conventional sudden train--
+validation gap, a capacity diagnosis, or proof of representation convergence.
+
+Local conclusions remain bounded. Only 23 of 28 per-case count winners are
+stable (19 for `n=128`, four for `n=256`), the maximum-disagreement identity
+changes between trajectories 83 and 152, and eight of 112 physical-event rows
+are precision-sensitive. Admissibility counts vary in three cells even though
+all rollouts remain finite and complete. Maximum-case and marginal-
+admissibility stories therefore remain diagnostic, not population claims.
+
+The next exact task is a separately gated B1-C5-B fixed-checkpoint functional-
+map diagnostic: compare exact-input predictions and response on one common
+selected-checkpoint propagated-input path at step 20,480, selection, and
+termination. It must freeze its own numerical floor and directional rule before
+execution. Longer training is not the current priority, but an 81,920-step
+representation-evolution study remains scientifically open under a separate
+schedule-aware contract. Paired PCFNO/FFNO, seed replication, and the 20
+historical test trajectories remain separately gated.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest

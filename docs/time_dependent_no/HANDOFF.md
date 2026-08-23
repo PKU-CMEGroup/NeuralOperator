@@ -205,13 +205,14 @@ classification is
 
 The selected-path map result rules out the simple explanation that the terminal
 map is pointwise worse at late selected-path states. Changed reachable path,
-repeated self-composition, or their interaction is required. The minimum
-decisive next diagnostic is an inference-only symmetric 2x2 map--path
-decomposition; its prospective prediction is that a harmful terminal-path term
-must exceed the favorable selected-path map term at H79, especially in the 14
-sign-flip cases. This is not yet authorized. Do not auto-run 81,920/163,840;
-the representation-evolution study remains deferred, not rejected, under a
-separate schedule-aware contract.
+repeated self-composition, or their interaction is required. The owner has now
+authorized exactly the registered inference-only B1-C5-C symmetric 2x2
+map--path decomposition. Its frozen decision asks whether path displacement
+under the selected map is sufficient to overcome the favorable selected-path
+map effect at H79 or whether map--path interaction is mathematically required.
+It has no result yet. Do not auto-run 81,920/163,840, PCFNO/FFNO, another seed,
+or the historical test; the representation-evolution study remains deferred,
+not rejected, under a separate schedule-aware contract.
 The ignored local recovery roots are `d094_b1_c4_closeout_20260822a`,
 `d094_b1_c4_outside_audit_20260822b`,
 `d094_b1_c4_audit_repeatability_20260822a`, and

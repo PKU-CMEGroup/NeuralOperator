@@ -403,15 +403,15 @@ result is consistent with D087's broader finding that propagated-input response
 can dominate realized late error, without pooling their different checkpoint
 and intervention contracts.
 
-The smallest decisive follow-up is a symmetric 2x2 map--path decomposition:
-evaluate selected and terminal maps on both selected and terminal paths and
-close map, path, and interaction terms. The prospective prediction is that a
-harmful terminal-path term exceeds the favorable selected-path map term at H79,
-especially in the 14 sign-flip cases; otherwise the interaction term must carry
-the reversal. Longer training is not the current priority, but an 81,920-step
-representation-evolution study remains scientifically open under a separate
-schedule-aware contract. The new result authorizes neither that diagnostic nor
-training, paired PCFNO/FFNO, seed replication, or historical-test access.
+The owner has now authorized the inference-only B1-C5-C symmetric 2x2
+map--path decomposition registered in the D094 record: selected and terminal
+maps on both selected and terminal paths, with exact map, path, and interaction
+closure. Its prospective test is whether path displacement under the selected
+map is already sufficient to overcome the favorable selected-path map effect
+at H79; otherwise interaction is mathematically required to carry the
+reversal. Longer training is not the current priority, and this authorization
+does not include 81,920/163,840 steps, paired PCFNO/FFNO, seed replication, or
+historical-test access.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest

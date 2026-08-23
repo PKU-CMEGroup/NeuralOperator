@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, and the paired FP32 B1-C5-B fixed-map diagnostic are complete, locally retained, and rehashed; B1-C5-B resolves a common-input functional response but does not reproduce the autonomous early-help/tail-harm crossover
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, and the paired FP32 B1-C5-B fixed-map diagnostic are complete, locally retained, and rehashed; B1-C5-B resolves a common-input functional response but does not reproduce the autonomous early-help/tail-harm crossover; the owner has authorized the registered inference-only B1-C5-C symmetric map--path decomposition, which has no result yet
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -1095,6 +1095,101 @@ favorable selected-path map term at H79, especially in the 14 sign-flip cases.
 Failure would route the explanation to a map--path interaction rather than a
 simple path displacement. This result does not itself authorize that study,
 81,920 steps, paired architectures, new seeds, or historical-test access.
+
+#### B1-C5-C symmetric map--path contract (registered 2026-08-23)
+
+The owner has now authorized exactly this inference-only continuation. It uses
+only the retained selected step-38,400 and terminal step-40,960 PCNO
+checkpoints for `n={128,256}` and the same ordered 28 outside-selection
+development cases. It creates no checkpoint, changes no normalizer, performs
+no checkpoint selection, and does not open the 20 historical test
+trajectories. It does not authorize 81,920/163,840-step training, PCFNO/FFNO,
+another initialization seed, or a different population.
+
+For each count and case, let the two checkpoint-native maps, including frozen
+causal input and output boundary closure, be `G_s` and `G_t`. Generate two
+autonomous paths from the same exact frame zero:
+
+`x^s_(j+1) = G_s(x^s_j)` and `x^t_(j+1) = G_t(x^t_j)`.
+
+At every call evaluate the complete map--path square. The first subscript below
+identifies the map and the second identifies the path:
+
+- `Y_ss = G_s(x^s_j)`;
+- `Y_ts = G_t(x^s_j)`;
+- `Y_st = G_s(x^t_j)`; and
+- `Y_tt = G_t(x^t_j)`.
+
+Only the separately called `Y_ss` and `Y_tt` advance their owning paths.
+Cross-path outputs never feed back. All four outputs are scored against the
+same dataset ground truth `U_(j+1)` with the existing proxy-weighted,
+component-scaled per-case state relative L2. Bump weights remain diagnostic
+proxies, not physical control volumes.
+
+Write the four scalar truth errors as `E_ss`, `E_ts`, `E_st`, and `E_tt`.
+The registered signed effects are:
+
+- selected-path map effect `M_s = E_ts - E_ss`;
+- terminal-path map effect `M_t = E_tt - E_st`;
+- selected-map path effect `P_s = E_st - E_ss`;
+- terminal-map path effect `P_t = E_tt - E_ts`;
+- map--path interaction `I = M_t - M_s = P_t - P_s`; and
+- autonomous total `T = E_tt - E_ss`.
+
+The evaluator must close the exact scalar identities
+`T = M_s + P_s + I = M_s + P_t = P_s + M_t`. In output space it also records
+`D_M = Y_ts - Y_ss`, `D_P = Y_st - Y_ss`, and
+`D_I = Y_tt - Y_ts - Y_st + Y_ss`, and must close
+`Y_tt - Y_ss = D_M + D_P + D_I` in the same frozen component geometry. Input-
+path displacement, all four output admissibility records, and calls
+`1/5/10/20/40/60/79` plus windows `1--20`, `21--40`, `41--60`, `61--79`, and
+`1--79` are supporting diagnostics.
+
+The numerical floor is frozen before B1-C5-C outcome access. Run the full
+matrix twice in fresh sequential `amp=none` processes named `fp32_1` and
+`fp32_2`, on the same device, source archive, checkpoint bytes, data/split,
+outside-key order, boundary policies, and runtime environment. At each call,
+repeat both maps on the two-path batch only as a numerical replay; those
+batched values never advance either path and never replace the four primary
+single-path outputs. For both path owners in each execution, pooled replay
+drift RMS divided by pooled owner learned-residual RMS must be at most `1e-4`.
+Every primary and replay output must be finite, every selected and terminal
+path must complete H79, the maximum scalar-identity residual must be at most
+relative `1e-12`, and the maximum output-identity residual must be at most
+relative `1e-10`. Physical inadmissibility is reported but is not a hard stop
+when the finite path completes.
+
+A nonzero aggregate signed effect is numerically resolved only when its two
+process values have the same sign and
+
+`(maximum - minimum) / smaller_absolute_magnitude <= 0.25`.
+
+The primary decision uses equal-case mean effects at call 79 separately for
+both counts. First, B1-C5-C must independently reproduce the parent crossover:
+resolved `M_s < 0` and resolved `T > 0` for `n=128` and `n=256`. If it does
+not, classify `parent_crossover_not_reproduced` rather than interpreting the
+new terms. Conditional on reproduction, classify:
+
+- `resolved_path_displacement_sufficient` when `M_s + P_s > 0` is resolved in
+  both counts. Under the zero-interaction counterfactual, the terminal path
+  evaluated by the selected map already overcomes the favorable selected-path
+  map effect;
+- `resolved_map_path_interaction_required` when `M_s + P_s <= 0` in both
+  processes and both counts, while resolved positive `I` changes the exact
+  total to `T > 0`;
+- `mixed_count_mechanism` when the two counts resolve to different branches;
+  and
+- `numerically_unresolved` when the required paired effects or branch signs do
+  not clear their frozen floors.
+
+For each count, also report the call-79 cases with `M_s < 0` and `T > 0`, how
+many are stable across both processes, and whether `M_s + P_s` makes path
+displacement sufficient or leaves interaction required. These case results are
+diagnostic; no individual case becomes a population claim. Input/source/
+binding drift, any nonfinite output, an incomplete path, replay failure, or
+algebraic-closure failure stops scientific interpretation. No B1-C5-C outcome
+automatically authorizes training, paired architectures, new seeds, or
+historical-test access.
 
 ### B2: Official PlanarDet generator reproduction
 

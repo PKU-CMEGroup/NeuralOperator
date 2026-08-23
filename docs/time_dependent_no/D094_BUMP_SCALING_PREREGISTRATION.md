@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, and the paired FP32 B1-C5-B fixed-map diagnostic are complete, locally retained, and rehashed; B1-C5-B resolves a common-input functional response but does not reproduce the autonomous early-help/tail-harm crossover; the owner has authorized the registered inference-only B1-C5-C symmetric map--path decomposition, which has no result yet
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, and the paired FP32 B1-C5-C symmetric map--path decomposition are complete, locally retained, and rehashed; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -1191,6 +1191,84 @@ algebraic-closure failure stops scientific interpretation. No B1-C5-C outcome
 automatically authorizes training, paired architectures, new seeds, or
 historical-test access.
 
+#### B1-C5-C retrieved result (2026-08-24)
+
+The launch-bound retry completed with `runner.exit=0`; the earlier detached
+attempt stopped before a launch record, evaluator output, or scientific marker
+because its environment bindings were not inherited. That operational stop is
+retained in `runner.log` and contributes no scientific observation. The retry
+used source commit `e5c8b70` and one source archive for two fresh sequential
+`amp=none` executions. Each execution contains 4,424 count/case/call rows;
+all four primary and replay outputs are finite, all 224 autonomous
+count/case/path rollouts complete H79, no checkpoint is reselected, no training
+occurs, and the historical test population remains unopened.
+
+The largest owner same-map replay fraction is `9.03676e-5`, below `1e-4`.
+Maximum scalar closure is exactly zero and maximum output closure is
+`1.24082e-16`, below the registered `1e-12/1e-10` ceilings. Every primary H79
+effect has the same sign in both processes; the largest paired range divided by
+the smaller magnitude is `2.97e-4`, far below the frozen `0.25` ceiling.
+
+The equal-case H79 means below average the two FP32 processes. Subscripts are
+the registered map--path order; signed effects use the definitions above.
+
+| `n` | `E_ss` | `E_ts` | `E_st` | `E_tt` | `M_s` | `P_s` | `I` | `M_s + P_s` | `T` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 128 | 0.03957539 | 0.03952388 | 0.04026400 | 0.04025130 | -0.00005151 | +0.00068861 | +0.00003881 | +0.00063710 | +0.00067590 |
+| 256 | 0.04528208 | 0.04522910 | 0.04624436 | 0.04623406 | -0.00005298 | +0.00096228 | +0.00004267 | +0.00090930 | +0.00095198 |
+
+Thus B1-C5-C independently reproduces the parent crossover: the terminal map
+slightly helps on the selected path (`M_s/E_ss = -0.130%/-0.117%`), while the
+terminal checkpoint is worse on its own path (`T/E_ss = +1.708%/+2.102%`). The
+selected-map path effect is already `+1.740%/+2.125%`, respectively 13.37x and
+18.16x the magnitude of the favorable map effect. The exact zero-interaction
+counterfactual `M_s + P_s` remains positive for both counts, so interaction is
+not algebraically required to reverse the sign. The positive interaction adds
+only 5.74%/4.48% of the realized total effect.
+
+The time-resolved result closes the early-help/tail-harm transition rather than
+only its endpoint. At call 20, `T/E_ss` is `-4.37%/-8.40%`; the terminal path is
+still beneficial under the selected map. The selected-map path effect becomes
+permanently positive at calls 61 and 57 for `n=128/256`, while the autonomous
+total becomes permanently positive at calls 61 and 56. Over calls 61--79, mean
+`T/E_ss` is `+0.853%/+1.860%`; over all 79 calls it remains
+`-1.55%/-3.24%`. Endpoint, tail-window, and all-call rankings are therefore
+distinct observables.
+
+All 14 stable parent sign-flip cases per count are classified
+`path_displacement_sufficient`; none requires interaction and none is
+numerically unresolved. Only six of those 14 trajectories overlap between the
+two count-specific models, so the common aggregate mechanism does not imply a
+count-invariant worst-case population.
+
+The frozen classification is `resolved_path_displacement_sufficient`. The local
+result-to-claim verdict is **yes for this bounded algebraic statement, with high
+confidence under the exact one-seed development contract and pending independent
+Codex review**. The result establishes that changed reachable inputs are already
+sufficient to explain the late reversal for these retained maps. It does not
+identify why training changed the path, nor an optimizer, hidden-representation,
+data-count, architecture, capacity, gradient, convergence, conservation, or test
+cause.
+
+Retained provenance is source commit
+`e5c8b702561fa48b414c9f2b944e53667227a073`, source-archive SHA-256
+`d2a237652d63a9cbd28700c1947a0ca0a680bf21580811d4eb2f092d899f4991`,
+result-manifest SHA-256
+`d92c2560fa6179b921b77b53c28d8f0164f155b11fd481a2f78acff05ffdf50a`,
+analysis-summary SHA-256
+`fdd1debb17c3e7038a2d8a5ccede7158ce392ada7ed1e97e901a5ded0110ef1b`,
+analysis-artifact-manifest SHA-256
+`c71830b2926386c02bf938b723e45ab783cab3e4e1d67532c0cf25e1f31f1c03`,
+and retrieval-manifest SHA-256
+`2c936241f3156a981fdf560d6e320dfd4235414a92270697ea3da4d519ce4281`.
+The result manifest binds 116 files and `70,825,545` bytes; the local retrieval
+manifest binds those files plus seven closed operational/provenance records, 123
+files and `70,862,988` bytes, with zero mismatches. A fresh local analyzer replay
+reproduces all three scientific CSVs byte-for-byte and the same classification.
+Its JSON scientific core is identical after excluding runtime and source-snapshot
+metadata; the source snapshot differs only in the two already known Windows
+line-ending materializations in `euler2d.py` and `euler2d_metrics.py`.
+
 ### B2: Official PlanarDet generator reproduction
 
 Purpose: establish that newly generated trajectories belong to the same benchmark.
@@ -1309,12 +1387,13 @@ The bump cost is measured by a native-graph smoke before queueing because its no
    continuation gates fail; do not auto-launch 81,920 or 163,840 steps, and do
    not treat the routing result as evidence of optimization or representation
    convergence.
-3. Close aggregate and per-case evaluator repeatability with repeated
-   bfloat16 and float32 or deterministic-reduction controls before routing a
-   maximum-case or marginal-admissibility mechanism claim.
-4. Use retained checkpoints to test whether exact-input predictions and
-   propagated-input response keep changing after scalar one-step loss is nearly
-   flat.
+3. B1-C5-A is complete: aggregate selected-count and selected-to-terminal H79
+   directions clear the repeated-BF16/FP32 floor, while maximum-case and
+   marginal-admissibility identities remain local diagnostics.
+4. B1-C5-B/C are complete: the terminal map helps on the selected path, while
+   selected-map evaluation of the terminal path is already sufficiently harmful
+   to reverse H79 without an interaction term. This closes the registered
+   retained-checkpoint map--path question but not the cause of path evolution.
 5. Retain 81,920 steps as a later representation-evolution study, not the
    current priority. Before it runs, preregister fixed-update, fixed-exposure,
    scheduler-phase, and checkpoint-response controls separately. Freeze that

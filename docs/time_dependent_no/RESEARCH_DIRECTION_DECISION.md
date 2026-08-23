@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-23
+Updated: 2026-08-24
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -25,7 +25,8 @@ Documentation roles are:
   bounded closed evidence for the reference-free H320 bump recurrence;
 - [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md):
   registered scaling plan with locally retained B1-A/B1-B and completed,
-  rehashed B1-C0/B1-C1, B1-C4, B1-C5-A, and B1-C5-B seed-0 evidence;
+  rehashed B1-C0/B1-C1, B1-C4, B1-C5-A, B1-C5-B, and B1-C5-C seed-0
+  evidence;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -49,7 +50,7 @@ operator solver.
 | --- | --- | --- |
 | 1D flow maps | Larger learned macro steps can win after fewer recurrent compositions; the preferred stride depends on horizon and metric. | No universal stride, learned CFL limit, timestep transfer, native-solver resolution transfer, or mesh-invariant solver. |
 | CPGNet | Corrected 1D controls support message reach rather than width alone; causal boundary training improves the local 2D release-bundle result without closing the oracle gap. | No paper-table reproduction, exact DG replay, physical interface trace, conservation, seed robustness, or architecture transfer. |
-| Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. D094 B1-C5-B independently shows that a terminal map can improve one-call error on the selected path at call 79 while its own self-composed rollout worsens H79. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal training/representation/boundary/data/optimizer mechanism, capacity diagnosis, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
+| Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. D094 B1-C5-B/C show that a terminal map can improve one-call error on the selected path at call 79 while its own self-composed rollout worsens H79, and that selected-map response to the changed terminal path is already sufficient to reverse the sign. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal training/representation/boundary/data/optimizer mechanism, capacity diagnosis, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
 | Dynamic finite-volume shock-vortex | D044 is a useful one-seed baseline; D060 improves state error but fails joint front/high-pass promotion. D063--D081 establish bounded common-source transfer, a composite mesh-defect diagnosis, differential-support evidence, and one deterministic open-validation correction result with exact same-population process reproduction. W26-L5 A32/A33 show that a target-free raw-shadow tether retains a modest low-rank recurrent gain after transfer to retained 500x200 truth on all six reused D074 cases: full/rank-8 trajectory ratios are `0.98887/0.94507`, all six trajectory/endpoint pairs improve, and the maximum maintained control is `1.00459`. Direct fixed-hop 500x200 loses decisively to corrected transfer (median H30 ratio `2.084`, zero of six wins), while matched-information initialization is nearly neutral. A34--A39 reject a universal vortex/Euler1D coefficient geometry, two simple Euler1D routers, and three prospective phase observers despite strong ordinary same-family fits. A41/A42 instead identify a nearly diagonal accepted-shadow native response on correction-inactive coast (`0.99850/0.99845` E12/E14 skill). A43 freezes that response map, removes the second native call on coast, and qualifies prospectively: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, maximum control is `1.01141`, and candidate cost falls from 604 to 548 logical calls versus optimized A32. A44-R1 then applies A43 unchanged to 14 disjoint correction cases in E00/E11 checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active trajectory/endpoint pairs win, and maximum control is `1.04361`. Large-scale/rank-8 views improve while transition/local views are neutral to slightly harmful. A45 finds stable pooled prediction of logged utility from lagged scalar displacement/response history, but E00 and coast fail the registered transfer gate. Its 32 case-band cells strengthen the broad/rank-8 benefit versus local-harm decomposition without qualifying a router or causal fine-refresh estimate. Node-type and always-on local-filter questions are closed at their registered scopes. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, safety beyond the opened cases, independent checkpoint/test or statistical confirmation, family-independent coefficients or response maps, deployable scalar-history router, causal exact-versus-coast estimate, a deployable Euler1D correction, practical latency advantage for the correction, physical conservation, general node-type necessity, optimal boundary encoding, native-solver equivalence, other-PDE transfer, or sealed performance. |
 | Latent forecast | Discontinuous decoder regularity improves front fidelity, but the tested family is decoder-capacity limited. | No latent transition, autonomous recurrence, geometry transfer, or data-assimilation result. |
 | REALM IgnitHIT | D088 shows that lower mean fresh-map error can hide a sparse inverse-domain tail. D089's species-domain link prevents that registered species-domain failure under its separate history, but D090 shows the H29 map still becomes unbounded while remaining finite and admissible; its sampled-pair training loss and rollout quality move in opposite directions. | No completed direct baseline, residual comparison, sealed test result, PlanarDet result, causal link effect, offending-channel attribution, general FFNO/direct-map rejection, or benchmark-wide claim. |
@@ -403,15 +404,25 @@ result is consistent with D087's broader finding that propagated-input response
 can dominate realized late error, without pooling their different checkpoint
 and intervention contracts.
 
-The owner has now authorized the inference-only B1-C5-C symmetric 2x2
-map--path decomposition registered in the D094 record: selected and terminal
-maps on both selected and terminal paths, with exact map, path, and interaction
-closure. Its prospective test is whether path displacement under the selected
-map is already sufficient to overcome the favorable selected-path map effect
-at H79; otherwise interaction is mathematically required to carry the
-reversal. Longer training is not the current priority, and this authorization
-does not include 81,920/163,840 steps, paired PCFNO/FFNO, seed replication, or
-historical-test access.
+B1-C5-C now closes that inference-only symmetric 2x2 decomposition. Two fresh
+FP32 processes reproduce `M_s < 0` and `T > 0` at H79 for both counts and close
+all replay, finite-path, scalar-identity, and output-identity gates. Under the
+selected map, terminal-path displacement contributes `P_s=+0.00068861` for
+`n=128` and `+0.00096228` for `n=256`, overwhelming the favorable selected-path
+map effects `M_s=-0.00005151/-0.00005298`. The zero-interaction totals remain
+positive (`+0.00063710/+0.00090930`), so the frozen classification is
+`resolved_path_displacement_sufficient`; the positive interaction is not
+required to carry the reversal.
+
+The path term changes sign only near the tail: the autonomous total becomes
+permanently harmful at calls 61/56 for `n=128/256`, while all-call error still
+favors the terminal checkpoint by `1.55%/3.24%`. This sharpens the current
+mechanism to horizon-dependent reachable-path drift under self-composition. It
+does not identify why training changes that path or establish an optimizer,
+representation, data-count, architecture, capacity, gradient, convergence,
+conservation, or test cause. Longer training remains outside the current
+priority, and no 81,920/163,840-step, PCFNO/FFNO, seed, or historical-test run is
+automatic.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
@@ -449,7 +460,8 @@ likewise not implied by current evidence.
   closed 30-case descriptive recurrence and exact packet hashes.
 - [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
   locally retained B1-A/B1-B schedule audit and completed, rehashed B1-C0/B1-C1
-  seed-0 `n={8,16,32,64,128,256}` paired sweep plus the closed B1-C4 result.
+  seed-0 `n={8,16,32,64,128,256}` paired sweep plus closed B1-C4 and
+  B1-C5-A/B/C results.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

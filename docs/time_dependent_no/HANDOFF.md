@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Handoff
 
-Updated: 2026-08-23
+Updated: 2026-08-24
 
 This is a replaceable operational snapshot. It records the current scientific
 position, workspace boundary, and decisions still owned by the human researcher.
@@ -40,7 +40,7 @@ long-horizon behavior.
 | 1D residual FNO | A useful fixed-family program exists. Larger-step advantages depend on horizon and metric; they are not a universal stability result. |
 | CPGNet reproduction | The released 1D gain depends materially on message reach, and causal boundary training improves the bounded local 2D release-bundle comparison while leaving the oracle gap. Paper-faithful parity and exact DG replay remain unresolved. |
 | Supersonic bump PCNO | D041 remains the historical comparator. D087 closes its exact H79 scope on B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. A separately registered H320 comparison on the same 30 open cases records later active-gradient PCNO first events than PCFNO more often than the reverse, but H80--H320 has no truth. These are bounded recurrence diagnostics, not causal factor attribution, physical validity, accuracy past H79, or general stability. |
-| Bump data--architecture--optimization scaling | D094 B1-A/B1-B, the seed-0 six-count PCNO/PCFNO ladder, B1-C4, B1-C5-A, and B1-C5-B are complete, retained, and rehashed. B1-C5-A's three BF16 plus one FP32 executions preserve selected `n=128 < n=256` H79 and selected-to-terminal worsening. B1-C5-B then finds that the terminal map slightly improves one-call error at selected-path call 79 for both counts while its own self-composed rollout worsens H79; 14/28 cases per count flip from common-path help to autonomous harm. This localizes the crossover to path/composition dependence. It remains partial one-seed recurrent-objective evidence, not a scaling law, representation/optimizer/data/capacity cause, causal gradient result, FFNO comparison, conservation result, or test claim. |
+| Bump data--architecture--optimization scaling | D094 B1-A/B1-B, the seed-0 six-count PCNO/PCFNO ladder, B1-C4, and B1-C5-A/B/C are complete, retained, and rehashed. B1-C5-A preserves selected `n=128 < n=256` H79 and selected-to-terminal worsening. B1-C5-B shows the terminal map slightly improves one-call error on the selected path while its own rollout worsens H79. B1-C5-C closes the square: selected-map response to the changed terminal path already overwhelms that favorable map effect for both counts, so interaction is positive but not required. This remains partial one-seed recurrent-objective evidence, not a scaling law, representation/optimizer/data/capacity cause, causal gradient result, FFNO comparison, conservation result, or test claim. |
 | Dynamic shock-vortex PCNO | D044 is the useful baseline and D060 is a useful one-seed improvement with unresolved structure error. Common-source resolution studies identify persistent large-scale mesh inconsistency plus locally cancelling shock/vortex defect. W26-L5 A32/A33 qualify one target-free raw-shadow-tethered affine protocol on reused open populations: on six retained-500x200 D074 cases, corrected versus raw transfer has full/rank-8 trajectory ratios `0.98887/0.94507`, full/rank-8 H30 ratios `0.97770/0.89007`, six of six trajectory/endpoint wins, and maximum control `1.00459`. Direct fixed-hop 500x200 has median H30 ratio `2.08418` versus corrected transfer and zero wins. A34--A39 reject universal coefficients/simple routers despite strong ordinary same-family fits. A41/A42 then identify a nearly diagonal accepted-shadow native response during coast. A43 uses that frozen response to remove 56 accepted-native calls and qualifies on the reused E12/E14 population: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, and maximum control is `1.01141`. A44-R1 confirms the unchanged protocol on 14 new E00/E11 correction cases inside checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active pairs win, maximum control is `1.04361`, and large/rank-8 benefit coexists with neutral-to-slightly-harmful local bands. A45 then finds pooled logged-utility prediction and stable lag-history coefficients, but fails the required E00 and coast transfer cells; it strengthens the broad/rank-8 versus local-harm diagnosis without qualifying a router. This is bounded same-family correction-protocol evidence, not resolution invariance, independent checkpoint/test confirmation, family-independent coefficients/response, causal fine-refresh utility, physical conservation, an Euler1D deployment result, or a measured latency win. |
 | Synthetic shock representation | W26-L2 P0/P1/P2 establish fixed-grid capacity followed by subcell-phase and finite-grid transfer failure. Retrained no-gradient and parameter-matched local arms roughly halve held L2 and reduce extrema/TV, but increase registered step-ripple mass and fail strict transfer/no-harm controls. P2-C0 is complete: zero-output gradient activation slightly lowers train loss but is a held-phase near tie, so it does not rescue the original full-PCNO path. P2-F is descriptive because its `1e-5` replay gate fails while the maintained `1e-4` ceiling passes: spectral transport is necessary, pointwise cancellation passes every seed, and the full model's differential path is acutely essential/cancelling in `3/3`, so the trained no-gradient gain is architecture reorganization rather than acute deletion. P2-W0 then isolates a moving-front wake: no native arm leaves error everywhere the front traveled; full PCNO has a held-pulse-only path-wide/recurrent wake in `2/3` seeds, no-gradient passes no wake stratum, and posthoc `/10` gradient scaling is catastrophic. The first defect is phase-sensitive and recurrence amplifies it. |
 | REALM PlanarDet | D092-R1 completed one seed-0 width-96 residual-PCNO run and selected step 950. Truth-input/free H49 sums are `6.09925/88.13821`; P0b is near-null, and G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. D093 reuses the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique supervised conditions. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`. This is one seed and one open trajectory under a common residual contract but distinct D092/D093 source inventories, not clean data scaling, a paper-faithful baseline, sealed ranking, physical causal graph, architecture cause, or general PlanarDet claim. |
@@ -57,7 +57,7 @@ finite-volume contract with geometry and boundary exchange accounted for.
 
 ## Current Workspace And Authorization
 
-The reviewed B1-C5-B source and launch infrastructure is committed through `b0be12c` in
+The reviewed B1-C5-C source and launch infrastructure is committed through `e5c8b70` in
 the following focused stages; the local artifact transaction is recorded
 separately below:
 
@@ -88,7 +88,9 @@ separately below:
    `9440ea6`, and `b0be12c` close
    B1-C4, register and close B1-C5-A, preregister the paired FP32 B1-C5-B
    fixed-map evaluator/analyzer, and preserve its first engineering stop plus
-   the tested retained-scale shape fix and corrected launch identity.
+   the tested retained-scale shape fix and corrected launch identity; and
+10. commits `45bfc24` and `e5c8b70` preregister and implement the paired FP32
+    B1-C5-C symmetric map--path decomposition.
 
 The audited artifact transaction removed six targets containing 81
 archive-covered files and 21 directories, including nine empty D094 pytest
@@ -204,29 +206,45 @@ classification is
 `resolved_common_input_response_does_not_match_full_crossover`.
 
 The selected-path map result rules out the simple explanation that the terminal
-map is pointwise worse at late selected-path states. Changed reachable path,
-repeated self-composition, or their interaction is required. The owner has now
-authorized exactly the registered inference-only B1-C5-C symmetric 2x2
-map--path decomposition. Its frozen decision asks whether path displacement
-under the selected map is sufficient to overcome the favorable selected-path
-map effect at H79 or whether map--path interaction is mathematically required.
-It has no result yet. Do not auto-run 81,920/163,840, PCFNO/FFNO, another seed,
-or the historical test; the representation-evolution study remains deferred,
-not rejected, under a separate schedule-aware contract.
+map is pointwise worse at late selected-path states. B1-C5-C now closes the
+registered symmetric square with two fresh FP32 processes. At H79, terminal-map
+effects on the selected path are `-0.00005151/-0.00005298` for `n=128/256`,
+while selected-map effects of terminal-path displacement are
+`+0.00068861/+0.00096228`. Even with interaction set to zero, the exact totals
+are `+0.00063710/+0.00090930`; the frozen classification is therefore
+`resolved_path_displacement_sufficient` for both counts. The positive
+interaction contributes only 5.74%/4.48% of the realized total and is not
+required to reverse the sign.
+
+The path effect turns permanently harmful only at calls 61/57 and the total at
+calls 61/56 for `n=128/256`. Terminal remains better over all calls by
+1.55%/3.24% while becoming worse at H79 by 1.71%/2.10%. All 14 stable parent
+sign-flip cases per count are path-sufficient, but only six case identities
+overlap across counts. This is a one-seed, retained-map reachable-path result,
+not an explanation of why optimization changed the path. Do not auto-run
+81,920/163,840, PCFNO/FFNO, another seed, or the historical test; the
+representation-evolution study remains deferred, not rejected, under a separate
+schedule-aware contract.
 The ignored local recovery roots are `d094_b1_c4_closeout_20260822a`,
 `d094_b1_c4_outside_audit_20260822b`,
 `d094_b1_c4_audit_repeatability_20260822a`, and
 `d094_b1_c4_visualizations_20260822c` under `artifacts/time_dependent_no/`.
 The new ignored roots are `d094_b1_c5_repeatability_20260823a`,
-`d094_b1_c5_repeatability_visualizations_20260823a`, and
-`d094_b1_c5_fixed_map_20260823b`; their retained manifests rehash. The fixed-map
+`d094_b1_c5_repeatability_visualizations_20260823a`,
+`d094_b1_c5_fixed_map_20260823b`, and
+`d094_b1_c5_map_path_20260823a`; their retained manifests rehash. The fixed-map
 retrieval binds 115 files and `125,482,211` bytes at SHA-256
 `d749ba95bca4fa084ca6a7d760a4b13adc5058e97650fb5f9ee185fab7b9b8c7`.
 The original result manifest preserves one finalizer-log self-reference mismatch;
 all scientific artifact/source manifests close. The visualization renderer is
 `scripts/time_dependent_no/visualize_pcno_bump_b1_c5_repeatability.py`.
-Only after this review may a schedule-aware compute/exposure matrix freeze a
-budget for PCFNO and seed replication. Native bump PCFNO remains a gradient-path
+The map--path result manifest binds 116 files and `70,825,545` bytes; its local
+retrieval manifest binds 123 files and `70,862,988` bytes with SHA-256
+`2c936241f3156a981fdf560d6e320dfd4235414a92270697ea3da4d519ce4281`.
+An independent local replay reproduces the three scientific CSVs byte-for-byte
+and the same classification.
+A future schedule-aware compute/exposure matrix must separately freeze a budget
+before paired PCFNO and seed replication. Native bump PCFNO remains a gradient-path
 ablation, not vanilla FFNO; a bump FFNO requires an explicit common-
 representation contract, while paper-faithful FFNO remains a PlanarDet stage.
 Historical test remains sealed. See the

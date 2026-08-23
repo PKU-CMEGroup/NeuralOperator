@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-23
+Updated: 2026-08-24
 
 This directory is the onboarding surface for the summer 2026 time-dependent
 neural-operator work on branch `time-dependent-no`. It points to authority,
@@ -28,7 +28,8 @@ Read active context in this order:
    for the closed reference-free H320 bump recurrence result.
 9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
    for the retained B1-A/B1-B schedule audit, completed seed-0 trajectory
-   ladder, and closed B1-C4 compute-extension diagnostic.
+   ladder, B1-C4 compute-extension diagnostic, and closed B1-C5-A/B/C
+   numerical and map--path diagnostics.
 10. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
@@ -52,8 +53,8 @@ remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
 and claim boundaries.
 
 Current D094 execution state: B1-A/B1-B, the B1-C0/B1-C1 seed-0 six-count
-PCNO/PCFNO ladder, B1-C4, B1-C5-A, and the paired FP32 B1-C5-B fixed-map
-diagnostic are complete, locally retained, and rehashed.
+PCNO/PCFNO ladder, B1-C4, and B1-C5-A/B/C are complete, locally retained, and
+rehashed.
 B1-C4 cold 40,960-step PCNO at `n={128,256}` selects step 38,400 for both.
 Fixed-validation and selection-cohort H79 are near ties, while outside-audit H79
 is `0.038922/0.044550` and `n=128` wins 22 of 28 cases. Exact-exposure and
@@ -71,11 +72,15 @@ selected path, the terminal map improves one-call error at calls 20/79 by
 `0.166%/0.130%` for `n=128` and `0.294%/0.117%` for `n=256`; its own FP32
 autonomous path instead improves H20 by `4.37%/8.40%` and worsens H79 by
 `1.71%/2.10%`. Fourteen of 28 cases in each count flip from common-path help to
-autonomous H79 harm. The tail crossover
-therefore requires changed recurrent paths, repeated self-composition, or their
-interaction; it is not terminal-map harm on selected-path states. No 81,920-
-step run is automatic. The failed B1-C4 gate is not a convergence test, and a
-later representation-evolution extension remains open.
+autonomous H79 harm. B1-C5-C then shows that selected-map response to terminal-
+path displacement is already harmful enough to reverse H79: `P_s` is
+`+0.00068861/+0.00096228`, versus favorable `M_s` of
+`-0.00005151/-0.00005298`, and both zero-interaction totals are positive. The
+classification is `resolved_path_displacement_sufficient`; interaction is
+positive but not necessary. The path and total turn permanently harmful only
+near calls 56--61, while all-call error still favors the terminal checkpoint.
+No 81,920-step run is automatic. The failed B1-C4 gate is not a convergence
+test, and a later representation-evolution extension remains open.
 This remains one-seed development evidence, not a scaling law, capacity
 diagnosis, causal gradient result, or FFNO comparison. Historical test remains
 sealed.
@@ -131,7 +136,7 @@ coarse solves do not satisfy that contract.
 | 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
 | Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. The separately registered H320 study finds later reference-free failure events for active-gradient PCNO than PCFNO on the 30 open cases. | No later arm is an exact-contract D041 replacement; H80--H320 has no truth and is not accuracy, physical-validity, conservation, asymptotic-stability, or causal gradient evidence; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
-| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder and B1-C4 separate fixed one-step, selected/terminal rollout, and outside-audit error. B1-C5-A confirms across three BF16 processes and one FP32 control that selected `n=128 < n=256` H79 and selected-to-terminal worsening exceed the evaluator floor. B1-C5-B then shows that the terminal map slightly improves one-call error at selected-path call 79 for both counts while its own self-composed rollout worsens H79; 14/28 cases per count have this sign flip. Exact-exposure and exact-update slices still change compute, passes, or schedule. | One initialization seed and a schedule-selected development cohort. The fixed-map result localizes the crossover to path/composition dependence but does not identify representation, optimizer, data, capacity, or gradient cause. No general scaling law, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
+| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder and B1-C4 separate fixed one-step, selected/terminal rollout, and outside-audit error. B1-C5-A confirms the aggregate count ordering and selected-to-terminal worsening across repeated BF16/FP32 evaluation. B1-C5-B/C then show that the terminal map helps on the selected path, but terminal-path displacement under the selected map already reverses H79 for both counts; interaction is positive but not required. Exact-exposure and exact-update slices still change compute, passes, or schedule. | One initialization seed and a schedule-selected development cohort. The map--path result identifies reachable-path sufficiency, not why optimization changed the path or a representation, optimizer, data, architecture, capacity, or gradient cause. No general scaling law, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
 | REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |

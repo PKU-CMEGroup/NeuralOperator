@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-21
+Updated: 2026-08-23
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -379,14 +379,17 @@ are precision-sensitive. Admissibility counts vary in three cells even though
 all rollouts remain finite and complete. Maximum-case and marginal-
 admissibility stories therefore remain diagnostic, not population claims.
 
-The next exact task is a separately gated B1-C5-B fixed-checkpoint functional-
-map diagnostic: compare exact-input predictions and response on one common
-selected-checkpoint propagated-input path at step 20,480, selection, and
-termination. It must freeze its own numerical floor and directional rule before
-execution. Longer training is not the current priority, but an 81,920-step
-representation-evolution study remains scientifically open under a separate
-schedule-aware contract. Paired PCFNO/FFNO, seed replication, and the 20
-historical test trajectories remain separately gated.
+The owner has now selected and authorized the separately registered B1-C5-B
+fixed-checkpoint functional-map diagnostic. Two fresh FP32 processes will
+compare exact-input predictions and response on one common selected-checkpoint
+propagated-input path at step 20,480, selection, and termination. Its paired
+25% effect-floor rule, `1e-4` same-map replay ceiling, call-20/call-79
+directional classification, and stop conditions are frozen in the D094
+preregistration before outcome access. This is inference only. Longer training
+is not the current priority, but an 81,920-step representation-evolution study
+remains scientifically open under a separate schedule-aware contract. Paired
+PCFNO/FFNO, seed replication, and the 20 historical test trajectories remain
+separately gated.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest

@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, and the B1-C5-A evaluator-repeatability matrix are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, B1-C5-A closes aggregate but not local-event repeatability, the result remains partial single-seed development evidence, and the historical test population remains sealed
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, and the B1-C5-A evaluator-repeatability matrix are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, B1-C5-A closes aggregate but not local-event repeatability, and owner-authorized B1-C5-B is now registered for two paired FP32 inference executions without longer training or historical-test access
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -907,13 +907,91 @@ and renderer SHA-256 is
 `494d3e153622f745b7f68625d8608b304585960357f10122d50ab377e880ff77`.
 All four declared figure records rehash and both PNGs pass visual inspection.
 
-The next scientific step is not longer training. B1-C5-B should first freeze
-its own paired numerical floor and directional gate, then compare step 20,480,
-selected, and terminal maps on exact reference inputs and on the same frozen
-selected-checkpoint propagated-input path. Its purpose is to distinguish
-functional map drift from changed input paths and to test the observed
-early-help/tail-harm response directly. B1-C5-A does not authorize B1-C5-B,
-81,920 steps, paired architectures, new seeds, or historical-test access.
+#### B1-C5-B fixed-map response contract (registered 2026-08-23)
+
+The owner authorized the exact inference-only continuation after reviewing
+B1-C5-A. It creates no checkpoint, changes no normalizer, performs no
+checkpoint selection, and does not open the 20 historical test trajectories.
+The population remains the ordered 28 outside-selection development cases.
+
+For each count separately, let `G_c` be the checkpoint-native deployed map,
+including its frozen causal input and output boundary closure. Let
+`F_c(x) = G_c(x) - x` be the denormalized learned conservative-state update.
+The selected checkpoint first generates one autonomous path
+`x^s_(t+1) = G_s(x^s_t)` from exact frame zero. The step-20,480, selected
+step-38,400, and terminal step-40,960 checkpoints then receive two fixed input
+sets at every call:
+
+1. exact reference `U_t`, scored against `U_(t+1)`; and
+2. the same count-specific selected path `x^s_t`, also scored against
+   `U_(t+1)` for a one-call common-path response comparison.
+
+Candidate outputs in item 2 never feed back. Therefore
+`F_c(x)-F_s(x)=G_c(x)-G_s(x)` is a same-input functional-map difference. Each
+count retains its own registered normalizer and component scale; functional
+drift is compared only among checkpoints within the same count. Cross-count
+map-drift magnitudes are descriptive, not a common-coordinate representation
+comparison. Bump node weights remain reconstructed diagnostic proxies, not
+physical control volumes.
+
+The evaluator reports for every case, call, checkpoint, and input view:
+
+- candidate and selected-map proxy-weighted, component-scaled state relative
+  L2 against the same next reference state;
+- exact-input prediction defect;
+- pooled learned-residual/map-drift RMS from the selected map, and that drift
+  relative to the selected learned-residual RMS;
+- the signed candidate-minus-selected error change and its exact quadratic
+  decomposition into selected error, error--drift cross term, and drift
+  energy; and
+- finiteness and Euler admissibility without using admissibility as the first
+  selection priority.
+
+The own numerical floor is paired and frozen before outcome access. Execute
+the full matrix twice in fresh sequential processes, named `fp32_1` and
+`fp32_2`, with no autocast on the same device, source archive, checkpoint
+bytes, data/split, outside-key order, boundary policies, and runtime
+environment. Within each execution the selected map is called again in a
+two-input batch on its already generated selected path. The pooled replayed
+selected-map drift RMS divided by pooled selected learned-residual RMS must be
+at most `1e-4` in each execution; every output must be finite; every H79 path
+must complete; and the quadratic identity must close to relative `1e-10`. A
+physical violation is reported but is not a hard failure when the finite path
+completes.
+
+The common-input comparison is primary. For terminal versus selected at calls
+20 and 79 and for both counts, define the signed effect as the mean
+candidate state relative L2 minus the mean selected-map state relative L2 on
+identical selected-path inputs and reference targets. A signed effect or
+functional-drift magnitude is numerically resolved only when the two process
+values have the same nonzero sign where applicable and
+
+`(maximum - minimum) / smaller_absolute_magnitude <= 0.25`.
+
+The fixed directional classification is:
+
+- `resolved_common_input_functional_map_crossover` only when all four primary
+  cells are resolved, terminal improves call 20, and terminal worsens call 79
+  for both counts;
+- `resolved_common_input_response_does_not_match_full_crossover` when all four
+  cells clear the floor but that early-help/tail-harm sign pattern does not;
+  this would route interpretation toward changed paths or repeated
+  self-composition rather than erase functional map drift; and
+- `numerically_unresolved` when any primary signed effect or drift magnitude
+  fails its paired floor.
+
+Early `1--20` and tail `61--79` windows, exact-input response, step-20,480
+response, common-versus-exact drift ratios, per-case signs, and admissibility
+are supporting diagnostics. Hidden activations are deliberately omitted: this
+stage asks about deployed function values, not representation similarity.
+Input/source/binding drift, any nonfinite proposal, an incomplete path, a
+same-map replay failure, or an algebraic-closure failure stops scientific
+interpretation. Neither outcome automatically authorizes 81,920-step training,
+PCFNO/FFNO, another seed, or historical-test access.
+
+The next scientific step is not longer training. B1-C5-B is now authorized
+only under the contract above. It does not authorize 81,920 steps, paired
+architectures, new seeds, or historical-test access.
 
 ### B2: Official PlanarDet generator reproduction
 

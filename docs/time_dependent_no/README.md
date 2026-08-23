@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-22
+Updated: 2026-08-23
 
 This directory is the onboarding surface for the summer 2026 time-dependent
 neural-operator work on branch `time-dependent-no`. It points to authority,
@@ -66,10 +66,10 @@ aggregate numerical range is 15.58% of the smallest count gap. Terminal
 checkpoints improve early H20 by 4.06%/5.15% but worsen H79 by 1.98%/4.06% in
 BF16. Only 23/28 per-case winners are stable, the maximum-case identity changes,
 and eight of 112 physical-event rows are precision-sensitive despite 448/448
-complete finite rollouts. Fixed-checkpoint deployed-map response is next after
-its own floor is registered; no 81,920-step run is automatic. The failed B1-C4
-gate is not a convergence test, and a later representation-evolution extension
-remains open.
+complete finite rollouts. Fixed-checkpoint deployed-map response is now
+owner-authorized and registered as two paired FP32 inference executions; no
+81,920-step run is automatic. The failed B1-C4 gate is not a convergence test,
+and a later representation-evolution extension remains open.
 This remains one-seed development evidence, not a scaling law, capacity
 diagnosis, causal gradient result, or FFNO comparison. Historical test remains
 sealed.

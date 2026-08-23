@@ -57,7 +57,7 @@ finite-volume contract with geometry and boundary exchange accounted for.
 
 ## Current Workspace And Authorization
 
-The reviewed source and experiment infrastructure is committed through `8cbf93c` in
+The reviewed source and experiment infrastructure is committed through `f105223` in
 the following focused stages; the local artifact transaction is recorded
 separately below:
 
@@ -83,7 +83,10 @@ separately below:
 8. commits `35efd96`, `ef46167`, `1aa21e9`, `3baa6cd`, and `8cbf93c` close the
    seed-0 analysis, register B1-C4, add its fixed-checkpoint outside audit and
    visual diagnostics, make tensor export copy-safe, and verify portable H.264
-   rendering.
+   rendering; and
+9. commits `a94c1aa`, `db3b4f7`, `fd3c7db`, and `f105223` close B1-C4,
+   register and close B1-C5-A, and preregister the paired FP32 B1-C5-B
+   fixed-map evaluator and analyzer without launching it.
 
 The audited artifact transaction removed six targets containing 81
 archive-covered files and 21 directories, including nine empty D094 pytest

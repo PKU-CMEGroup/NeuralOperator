@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, and the B1-C5-A evaluator-repeatability matrix are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, B1-C5-A closes aggregate but not local-event repeatability, and owner-authorized B1-C5-B is registered for two paired FP32 inference executions; its first one-case engineering smoke stopped on a retained scale-buffer shape guard before a registered execution or scientific row, and a corrected source identity is required
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, and the paired FP32 B1-C5-B fixed-map diagnostic are complete, locally retained, and rehashed; B1-C5-B resolves a common-input functional response but does not reproduce the autonomous early-help/tail-harm crossover
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -1012,9 +1012,89 @@ The retrieved preflight-log and stop-record SHA-256 values are
 `a0d1c308cb396f3ec7c0731de98302417e6327b49fbdf933fbbd9d78f84b4317`
 and `bb50dcd8669d7dd930aefa26055c673ad443e0fdee3bc2b6a84ea3a846012531`.
 
-The next scientific step is not longer training. B1-C5-B is now authorized
-only under the contract above. It does not authorize 81,920 steps, paired
-architectures, new seeds, or historical-test access.
+#### B1-C5-B retrieved result (2026-08-23)
+
+The corrected source completed the registered `fp32_1` and `fp32_2`
+executions in fresh sequential processes. Each execution contains 26,544
+case/call/checkpoint/view rows. All candidate outputs are finite, every selected
+path completes H79, all 28 outside-development cases are present, and no
+checkpoint reselection, training, or historical-test access occurred. The
+largest pooled same-map replay fraction is `9.02622e-5`, below `1e-4`; the
+largest quadratic-closure residual is `6.54107e-16`, below `1e-10`.
+
+All four primary terminal-versus-selected common-input effects are resolved,
+but only the call-20 signs match the autonomous crossover:
+
+| Count | Common-path call | terminal minus selected mean relative L2, `fp32_1/fp32_2` | terminal / selected error | Frozen expected sign |
+| --- | ---: | ---: | ---: | --- |
+| 128 | 20 | `-4.45288e-5/-4.45184e-5` | `0.998342/0.998343` | pass: terminal helps |
+| 128 | 79 | `-5.14261e-5/-5.14272e-5` | `0.998701/0.998701` | fail: terminal helps rather than harms |
+| 256 | 20 | `-8.40053e-5/-8.39981e-5` | `0.997063/0.997063` | pass: terminal helps |
+| 256 | 79 | `-5.30254e-5/-5.30159e-5` | `0.998829/0.998829` | fail: terminal helps rather than harms |
+
+The registered classification is therefore
+`resolved_common_input_response_does_not_match_full_crossover`. This is not a
+numerical-floor failure. Terminal-map drift on the common selected path is
+small but resolved: at calls 20/79 it is `0.89%/2.12%` of the selected learned
+residual for `n=128` and `0.79%/2.34%` for `n=256`. At call 79 its error--drift
+cross term is favorable for both counts. The terminal map improves all 79
+common-path call means for `n=128`; for `n=256` it improves 54/79 calls and
+17/19 tail calls. At call 79, 24/28 `n=128` cases and 23/28 `n=256` cases
+improve on common inputs.
+
+This reverses the autonomous result from B1-C5-A. In its FP32 control,
+terminal-versus-selected autonomous H20 changes by `-4.37%/-8.40%` for
+`n=128/256`, while H79 changes by `+1.71%/+2.10%`; all-call error changes by
+`-1.55%/-3.24%`. On the fixed selected path, the corresponding one-call
+changes at calls 20/79 are only `-0.166%/-0.130%` for `n=128` and
+`-0.294%/-0.117%` for `n=256`. Fourteen of 28
+cases in each count have the decisive sign pattern: the terminal map helps at
+call 79 on the selected path but the terminal checkpoint harms at H79 on its
+own recurrent path. Endpoint admissibility is unchanged on the common path;
+the autonomous `n=256` terminal path loses one admissible case. Thus the full
+tail harm is not a pointwise defect of `G_terminal` on selected-path states. It
+requires the changed recurrent path, repeated self-composition, or their
+interaction.
+
+The step-20,480 context further separates reference-state and deployment-state
+fidelity. Relative to selection it is worse on exact reference inputs for all
+79 calls in both counts (all-call ratios `1.11850/1.11999`), yet on the selected
+path its call-79 ratios are `0.993368/0.999000`. Conversely, selected-to-terminal
+exact-input all-call changes are `-0.308%/+0.037%`, closely matching B1-C4's
+fixed-validation changes `-0.298%/+0.017%`. One-step reference fit is therefore
+internally consistent but does not order self-composed H79 behavior.
+
+The local result-to-claim verdict is **yes for the bounded functional
+statement, pending independent Codex review**: under these retained maps,
+population, and FP32 evaluator, autonomous tail harm is path/composition
+dependent rather than terminal-map harm on the selected path. It does not
+identify a hidden-representation, optimizer, data-count, capacity, gradient,
+or convergence cause.
+
+Retained provenance is source commit `b0be12c`, source-archive SHA-256
+`1a77aee8ed593de07805b0d3eddfe01d465e2de4f99980d2c8857e2dd5198e6d`,
+analysis-summary SHA-256
+`45e3349c952173574f2219a17d0245a7aca7183cfd41a066c63c8f75bcbb74e4`,
+analysis-artifact-manifest SHA-256
+`c62f08d5a7414363080a5ebbaf3fab788698259f16c01d752269196fcb5c195b`,
+and retrieval-manifest SHA-256
+`d749ba95bca4fa084ca6a7d760a4b13adc5058e97650fb5f9ee185fab7b9b8c7`.
+The retrieval manifest binds 115 files and `125,482,211` bytes with zero local
+mismatches; all evaluator, analysis, and source-snapshot manifests close.
+The original result manifest has one preserved operational mismatch:
+`logs/finalize.log` was hashed while empty and then received 51 bytes of
+finalizer output. The post-run retrieval manifest binds the final bytes; no
+scientific artifact changed. A future launcher should exclude a live finalizer
+log from its own inventory or finalize logging before hashing.
+
+The minimum decisive continuation is an inference-only symmetric 2x2
+map--path decomposition: evaluate selected and terminal maps on both selected
+and terminal recurrent paths, then close map, path, and interaction terms. A
+prospective result is that a harmful terminal-path term must exceed the
+favorable selected-path map term at H79, especially in the 14 sign-flip cases.
+Failure would route the explanation to a map--path interaction rather than a
+simple path displacement. This result does not itself authorize that study,
+81,920 steps, paired architectures, new seeds, or historical-test access.
 
 ### B2: Official PlanarDet generator reproduction
 

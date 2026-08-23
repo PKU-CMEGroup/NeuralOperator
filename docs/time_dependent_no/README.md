@@ -67,7 +67,9 @@ checkpoints improve early H20 by 4.06%/5.15% but worsen H79 by 1.98%/4.06% in
 BF16. Only 23/28 per-case winners are stable, the maximum-case identity changes,
 and eight of 112 physical-event rows are precision-sensitive despite 448/448
 complete finite rollouts. Fixed-checkpoint deployed-map response is now
-owner-authorized and registered as two paired FP32 inference executions; no
+owner-authorized and registered as two paired FP32 inference executions. Its
+first one-case engineering smoke stopped before a registered execution on a
+retained scale-buffer shape guard; corrected source is required. No
 81,920-step run is automatic. The failed B1-C4 gate is not a convergence test,
 and a later representation-evolution extension remains open.
 This remains one-seed development evidence, not a scaling law, capacity

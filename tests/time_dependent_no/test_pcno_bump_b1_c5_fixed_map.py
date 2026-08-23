@@ -217,7 +217,7 @@ class _SyntheticStore:
 class _AdditiveMap:
     def __init__(self, increment: float) -> None:
         self.increment = increment
-        self.state_scale = torch.ones(4)
+        self.state_scale = torch.ones((1, 1, 4))
         self.gamma = 1.4
 
 

@@ -385,11 +385,14 @@ compare exact-input predictions and response on one common selected-checkpoint
 propagated-input path at step 20,480, selection, and termination. Its paired
 25% effect-floor rule, `1e-4` same-map replay ceiling, call-20/call-79
 directional classification, and stop conditions are frozen in the D094
-preregistration before outcome access. This is inference only. Longer training
-is not the current priority, but an 81,920-step representation-evolution study
-remains scientifically open under a separate schedule-aware contract. Paired
-PCFNO/FFNO, seed replication, and the 20 historical test trajectories remain
-separately gated.
+preregistration before outcome access. Its first one-case engineering smoke
+stopped before a registered execution because the metric guard rejected the
+retained `[1,1,4]` scale-buffer layout; no scientific row was written. The
+tested shape-canonicalization fix requires a new source identity. This is
+inference only. Longer training is not the current priority, but an 81,920-step
+representation-evolution study remains scientifically open under a separate
+schedule-aware contract. Paired PCFNO/FFNO, seed replication, and the 20
+historical test trajectories remain separately gated.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest

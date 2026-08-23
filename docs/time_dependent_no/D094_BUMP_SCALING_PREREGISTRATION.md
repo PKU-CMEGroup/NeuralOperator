@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, and the B1-C5-A evaluator-repeatability matrix are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, B1-C5-A closes aggregate but not local-event repeatability, and owner-authorized B1-C5-B is now registered for two paired FP32 inference executions without longer training or historical-test access
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, and the B1-C5-A evaluator-repeatability matrix are complete, locally retained, and rehashed; both B1-C4 continuation gates fail, B1-C5-A closes aggregate but not local-event repeatability, and owner-authorized B1-C5-B is registered for two paired FP32 inference executions; its first one-case engineering smoke stopped on a retained scale-buffer shape guard before a registered execution or scientific row, and a corrected source identity is required
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -988,6 +988,29 @@ Input/source/binding drift, any nonfinite proposal, an incomplete path, a
 same-map replay failure, or an algebraic-closure failure stops scientific
 interpretation. Neither outcome automatically authorizes 81,920-step training,
 PCFNO/FFNO, another seed, or historical-test access.
+
+#### B1-C5-B-A infrastructure stop (2026-08-23)
+
+The first source archive passed its 14 remote CPU tests and entered the
+separately labeled one-case full-grid engineering smoke. It generated model
+calls on the first registered outside-development case, then stopped at the
+first metric row because the retained checkpoint exposes `state_scale` with
+shape `[1,1,4]` while the new metric guard required literal shape `[4]`. No
+registered `fp32_1`/`fp32_2` execution started, no metric row or scientific
+receipt was serialized, no outcome was interpreted, no training occurred, and
+the historical test population remained unopened. The same smoke also exposed
+a non-writable memory-map view warning before device transfer.
+
+This is implementation provenance, not map-response evidence. The corrected
+source accepts any four-value scale-buffer shape before canonical reshaping and
+copies the reference slice before tensor conversion. The synthetic semantic
+test now uses the retained `[1,1,4]` layout. A new source archive and remote run
+root are required; the failed source identity is not overwritten. Its source
+commit/archive SHA-256 are `e3671ab` and
+`a9b375d833c3760786c789f95cef841c3e4bacab8a8e6b05c3dcb95c892d9c66`.
+The retrieved preflight-log and stop-record SHA-256 values are
+`a0d1c308cb396f3ec7c0731de98302417e6327b49fbdf933fbbd9d78f84b4317`
+and `bb50dcd8669d7dd930aefa26055c673ad443e0fdee3bc2b6a84ea3a846012531`.
 
 The next scientific step is not longer training. B1-C5-B is now authorized
 only under the contract above. It does not authorize 81,920 steps, paired

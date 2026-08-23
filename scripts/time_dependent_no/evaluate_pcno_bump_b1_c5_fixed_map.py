@@ -157,8 +157,8 @@ def _metric_geometry(
         raise ValueError("node weights must align with map fields")
     if node_mask.shape != value.shape[:2] + (1,):
         raise ValueError("node mask must align with map fields")
-    if component_scale.shape != (4,):
-        raise ValueError("component scale must have shape [4]")
+    if component_scale.numel() != 4:
+        raise ValueError("component scale must contain four values")
     weights = node_weights.detach().to(dtype=torch.float64).sum(
         dim=-1, keepdim=True
     ) * node_mask.detach().to(dtype=torch.float64)
@@ -515,7 +515,7 @@ def _evaluate_count(
     trajectory_records = []
     try:
         for key in outside_keys:
-            states_np = np.asarray(store.states(key)[:80], dtype=np.float32)
+            states_np = np.array(store.states(key)[:80], dtype=np.float32, copy=True)
             if (
                 states_np.shape[0] != 80
                 or states_np.ndim != 3

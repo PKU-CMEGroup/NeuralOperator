@@ -191,9 +191,12 @@ do not override rollout error for selection. B1-C5-B is now registered and
 authorized for two fresh FP32 inference processes. It compares retained
 step-20,480, selected, and terminal maps on exact inputs and one common
 selected-checkpoint propagated-input path, with a paired 25% numerical-floor
-rule and frozen call-20/call-79 classification. Do not auto-run
-81,920/163,840. The representation-evolution study remains deferred, not
-rejected, under a separate schedule-aware contract.
+rule and frozen call-20/call-79 classification. Its first one-case engineering
+smoke stopped before a registered execution on a retained `[1,1,4]`
+scale-buffer shape guard; the tested canonical-shape fix requires a new source
+identity and root. No scientific row or historical-test output was opened. Do
+not auto-run 81,920/163,840. The representation-evolution study remains
+deferred, not rejected, under a separate schedule-aware contract.
 The ignored local recovery roots are `d094_b1_c4_closeout_20260822a`,
 `d094_b1_c4_outside_audit_20260822b`,
 `d094_b1_c4_audit_repeatability_20260822a`, and

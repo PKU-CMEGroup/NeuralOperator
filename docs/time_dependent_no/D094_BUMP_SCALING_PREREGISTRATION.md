@@ -742,6 +742,27 @@ two-seed result would materially change the claim. No 81,920-step training,
 FFNO/component study, test access, or automatic continuation is authorized by
 this contract.
 
+Initial preflight attempt `d094_b1_c3_exact_exposure_audit_20260825a` stopped
+before CUDA smoke, output-directory creation, or rollout outcome opening. Its
+16 Linux CPU tests passed and all prior artifact hashes closed. Sentinel
+discovery then found that the exact `s=64n` history rows contain online-train
+and fixed-validation one-step metrics, but omit fixed-seen one-step and
+selection-cohort rollout because those scopes were logged only on the frozen
+five-epoch cadence. The model-only sentinel itself is intact. Treating a nearby
+logged row as exact exposure or silently dropping the registered scopes is
+prohibited.
+
+Replacement attempt `20260825b` therefore recomputes, from every exact frozen
+sentinel, the original four-window-per-trajectory fixed-seen and fixed-
+validation pair banks and the exact 16-case selection-cohort rollout before the
+outside audit. Their pair-bank SHA-256 values must match each cell's training
+contract. The stored exact-row fixed-validation scalar is retained as a
+training-time anchor, while the fresh BF16/FP32 values are the common evaluator
+measure. This correction changes evaluation work only; it adds no optimizer
+step, training presentation, resume state, interpolation, selection, or test
+access. No observation from failed preflight attempt `20260825a` is scientific
+evidence.
+
 #### B1-C4 owner correction and executable contract (2026-08-22)
 
 Current explicit owner direction selects B1-C4 before seed replication. The

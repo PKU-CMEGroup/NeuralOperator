@@ -125,7 +125,9 @@ def test_metric_at_step_requires_one_exact_history_row(tmp_path: Path) -> None:
     )
     snapshot = b1_c3._metric_at_step(tmp_path, 512)
     assert snapshot["optimizer_step"] == 512
-    assert snapshot["fixed_validation_one_step_relative_l2"] == pytest.approx(0.3)
+    assert snapshot["stored_fixed_validation_one_step_relative_l2"] == pytest.approx(
+        0.3
+    )
     with pytest.raises(ValueError, match="does not have one exact"):
         b1_c3._metric_at_step(tmp_path, 1_024)
 
@@ -235,3 +237,68 @@ def test_audit_cohorts_reuses_two_seed_holdouts_and_common_nine(
 def test_prior_audit_must_be_a_regular_directory(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="regular directory"):
         b1_c3._validate_prior_audit(tmp_path / "missing")
+
+
+def test_recomputed_scopes_fill_fixed_seen_validation_and_selection_rollout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    descriptor = {
+        "checkpoint": Path("sentinel.pt"),
+        "contract": {
+            "fixed_seen_pair_bank_sha256": "seen-bank",
+            "fixed_validation_pair_bank_sha256": "validation-bank",
+        },
+        "selected_training_metrics": {
+            "epoch": 1,
+            "optimizer_step": 512,
+            "online_train_one_step_relative_l2": 0.4,
+            "stored_fixed_validation_one_step_relative_l2": 0.31,
+        },
+    }
+    seen_pairs = [("seen", 0)]
+    validation_pairs = [("validation", 0)]
+    monkeypatch.setattr(
+        b1_c3,
+        "presentation_stream_sha256",
+        lambda pairs: f"{pairs[0][0]}-bank",
+    )
+    monkeypatch.setattr(
+        b1_c3, "load_bump_checkpoint", lambda _: {"step_stride": 1}
+    )
+    monkeypatch.setattr(b1_c3, "build_bump_checkpoint_model", lambda *_: object())
+    one_step = iter(
+        [
+            {"relative_l2": 0.2},
+            {"relative_l2": 0.3},
+        ]
+    )
+    monkeypatch.setattr(b1_c3, "evaluate_pairs", lambda *_, **__: next(one_step))
+    monkeypatch.setattr(
+        b1_c3,
+        "evaluate_rollouts",
+        lambda *_, **__: {
+            "mean_full_horizon_relative_l2": 0.5,
+            "mean_endpoint_relative_l2": {"79": 0.6},
+            "completion_rate": 1.0,
+            "hard_failure_count": 0,
+            "physical_admissibility_rate": 0.75,
+        },
+    )
+    result = b1_c3._evaluate_recomputed_scopes(
+        descriptor,
+        store=object(),
+        fixed_seen_pairs=seen_pairs,
+        fixed_validation_pairs=validation_pairs,
+        selection_keys=["selection"],
+        policies={},
+        device=b1_c3.torch.device("cpu"),
+        amp="none",
+    )
+    metrics = result["checkpoint_training_metrics"]
+    assert metrics["fixed_seen_train_one_step_relative_l2"] == pytest.approx(0.2)
+    assert metrics["fixed_validation_one_step_relative_l2"] == pytest.approx(0.3)
+    assert metrics["rollout_h79_relative_l2"] == pytest.approx(0.6)
+    assert result["fixed_seen_one_step"]["pair_bank_sha256"] == "seen-bank"
+    assert result["fixed_validation_one_step"]["pair_bank_sha256"] == (
+        "validation-bank"
+    )

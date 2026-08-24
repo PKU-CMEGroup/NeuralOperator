@@ -48,8 +48,9 @@ from scripts.time_dependent_no.evaluate_pcno_bump_scaling_holdout import (
     _load_jsonl,
     outside_selection_keys,
 )
-from scripts.time_dependent_no.evaluate_pcno_bump_scaling_ladder import (
-    checkpoint_metric_snapshot,
+from scripts.time_dependent_no.train_pcno_bump_scaling import (
+    fixed_evaluation_pairs,
+    presentation_stream_sha256,
 )
 from utility.time_dependent_no.pcno_artifacts import (
     atomic_write_json,
@@ -61,6 +62,9 @@ from utility.time_dependent_no.pcno_artifacts import (
 from utility.time_dependent_no.pcno_euler2d import PCNOEuler2DShardStore
 from utility.time_dependent_no.pcno_rollout import (
     FINITE_ONLY_ROLLOUT_POLICY,
+    build_bump_checkpoint_model,
+    evaluate_pairs,
+    evaluate_rollouts,
     load_bump_checkpoint,
 )
 from utility.time_dependent_no.pcno_runtime import select_device
@@ -86,6 +90,8 @@ EXTRA_SOURCE_FILES = (
     "scripts/time_dependent_no/evaluate_pcno_bump_scaling_ladder.py",
     "scripts/time_dependent_no/evaluate_pcno_bump_b1_c2.py",
     "scripts/time_dependent_no/evaluate_pcno_bump_b1_c3.py",
+    "scripts/time_dependent_no/train_pcno_bump_scaling.py",
+    "utility/time_dependent_no/pcno_differential_branch.py",
 )
 
 
@@ -232,7 +238,123 @@ def _metric_at_step(run_dir: Path, optimizer_step: int) -> dict[str, Any]:
             f"{run_dir.name} does not have one exact metric row at step "
             f"{optimizer_step}"
         )
-    return checkpoint_metric_snapshot(matches[0])
+    row = matches[0]
+    train = row.get("train")
+    validation = row.get("validation")
+    if not isinstance(train, Mapping) or not isinstance(validation, Mapping):
+        raise TypeError("exact sentinel history row lacks train or validation metrics")
+    result = {
+        "epoch": int(row["epoch"]),
+        "optimizer_step": int(train["completed_optimizer_steps"]),
+        "online_train_one_step_relative_l2": float(train["relative_l2"]),
+        "stored_fixed_validation_one_step_relative_l2": float(
+            validation["relative_l2"]
+        ),
+    }
+    if result["optimizer_step"] != optimizer_step:
+        raise ValueError("exact sentinel history row changed optimizer step")
+    return result
+
+
+def _evaluate_recomputed_scopes(
+    descriptor: Mapping[str, Any],
+    *,
+    store: PCNOEuler2DShardStore,
+    fixed_seen_pairs: Sequence[tuple[str, int]],
+    fixed_validation_pairs: Sequence[tuple[str, int]],
+    selection_keys: Sequence[str],
+    policies: Mapping[str, Mapping[str, Any]],
+    device: torch.device,
+    amp: str,
+) -> dict[str, Any]:
+    """Recompute scopes omitted by the sentinel epoch's logging cadence."""
+
+    seen_digest = presentation_stream_sha256(fixed_seen_pairs)
+    validation_digest = presentation_stream_sha256(fixed_validation_pairs)
+    contract = descriptor["contract"]
+    if (
+        seen_digest != contract["fixed_seen_pair_bank_sha256"]
+        or validation_digest != contract["fixed_validation_pair_bank_sha256"]
+    ):
+        raise ValueError("fixed one-step pair bank changed")
+
+    checkpoint = load_bump_checkpoint(Path(descriptor["checkpoint"]))
+    model = build_bump_checkpoint_model(checkpoint, device)
+    step_stride = int(checkpoint["step_stride"])
+    try:
+        fixed_seen = evaluate_pairs(
+            model,
+            store,
+            fixed_seen_pairs,
+            step_stride=step_stride,
+            batch_size=1,
+            device=device,
+            amp=amp,
+            boundary_policies=policies,
+        )
+        fixed_seen["pair_bank_sha256"] = seen_digest
+        fixed_validation = evaluate_pairs(
+            model,
+            store,
+            fixed_validation_pairs,
+            step_stride=step_stride,
+            batch_size=1,
+            device=device,
+            amp=amp,
+            boundary_policies=policies,
+        )
+        fixed_validation["pair_bank_sha256"] = validation_digest
+        selection_rollout = evaluate_rollouts(
+            model,
+            store,
+            selection_keys,
+            step_stride=step_stride,
+            start_frame=0,
+            num_steps=79,
+            device=device,
+            amp=amp,
+            boundary_policies=policies,
+            rollout_checkpoints=ROLLOUT_CHECKPOINTS,
+            failure_policy=FINITE_ONLY_ROLLOUT_POLICY,
+        )
+    finally:
+        del model, checkpoint
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
+
+    endpoints = selection_rollout["mean_endpoint_relative_l2"]
+    history = descriptor["selected_training_metrics"]
+    metrics = {
+        "epoch": int(history["epoch"]),
+        "optimizer_step": int(history["optimizer_step"]),
+        "online_train_one_step_relative_l2": float(
+            history["online_train_one_step_relative_l2"]
+        ),
+        "fixed_seen_train_one_step_relative_l2": float(fixed_seen["relative_l2"]),
+        "fixed_validation_one_step_relative_l2": float(
+            fixed_validation["relative_l2"]
+        ),
+        "stored_fixed_validation_one_step_relative_l2": float(
+            history["stored_fixed_validation_one_step_relative_l2"]
+        ),
+        "rollout_all_call_mean_relative_l2": float(
+            selection_rollout["mean_full_horizon_relative_l2"]
+        ),
+        "rollout_h79_relative_l2": float(endpoints["79"]),
+        "rollout_completion_rate": float(selection_rollout["completion_rate"]),
+        "rollout_hard_failure_count": int(
+            selection_rollout.get("hard_failure_count", 0)
+        ),
+        "physical_admissibility_rate": float(
+            selection_rollout["physical_admissibility_rate"]
+        ),
+    }
+    return {
+        "checkpoint_training_metrics": metrics,
+        "fixed_seen_one_step": fixed_seen,
+        "fixed_validation_one_step": fixed_validation,
+        "selection_rollout": selection_rollout,
+    }
 
 
 def _sentinel_descriptor(
@@ -375,15 +497,38 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             raise ValueError("B1-C3 evaluation data manifest changed")
         if not set(validation_keys) <= set(store.keys):
             raise ValueError("open-validation keys are absent from the shard store")
+        train_pool_keys = [
+            str(key) for key in split_manifest["split"]["train_pool_keys"]
+        ]
+        policy_keys = [*train_pool_keys, *validation_keys]
+        if len(policy_keys) != 300 or len(set(policy_keys)) != 300:
+            raise ValueError("B1-C3 policy population changed")
         reference = load_bump_checkpoint(Path(descriptors[0]["checkpoint"]))
         policies, policy_metadata = _build_boundary_policies(
-            store, validation_keys, reference, device
+            store, policy_keys, reference, device
         )
+        step_stride = int(reference["step_stride"])
         del reference
+        fixed_validation_pairs = fixed_evaluation_pairs(
+            store,
+            validation_keys,
+            step_stride=step_stride,
+            windows_per_trajectory=4,
+        )
+        fixed_seen_pairs_by_count = {
+            count: fixed_evaluation_pairs(
+                store,
+                split_manifest["nested_exposure"]["subsets"][str(count)],
+                step_stride=step_stride,
+                windows_per_trajectory=4,
+            )
+            for count in TRAJECTORY_COUNTS
+        }
 
         results = []
         for descriptor in descriptors:
             seed = int(descriptor["seed"])
+            count = int(descriptor["trajectory_count"])
             outside_keys = outside_by_seed[str(seed)]
             result = _evaluate_cell(
                 descriptor,
@@ -398,9 +543,18 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
                 amp=args.amp,
                 shock_quantile=args.shock_quantile,
             )
-            result["checkpoint_training_metrics"] = result.pop(
-                "selected_training_metrics"
+            result.pop("selected_training_metrics")
+            recomputed = _evaluate_recomputed_scopes(
+                descriptor,
+                store=store,
+                fixed_seen_pairs=fixed_seen_pairs_by_count[count],
+                fixed_validation_pairs=fixed_validation_pairs,
+                selection_keys=cohorts["selection_keys_by_seed"][str(seed)],
+                policies=policies,
+                device=device,
+                amp=args.amp,
             )
+            result.update(recomputed)
             for name in (
                 "seed",
                 "checkpoint_role",
@@ -477,6 +631,14 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             for count in TRAJECTORY_COUNTS
         },
         "presentations_per_training_trajectory": PRESENTATIONS_PER_TRAJECTORY,
+        "fixed_evaluation_windows_per_trajectory": 4,
+        "fixed_validation_pair_bank_sha256": presentation_stream_sha256(
+            fixed_validation_pairs
+        ),
+        "fixed_seen_pair_bank_sha256_by_count": {
+            str(count): presentation_stream_sha256(pairs)
+            for count, pairs in fixed_seen_pairs_by_count.items()
+        },
         "validation_count": len(validation_keys),
         "selection_keys_by_seed": cohorts["selection_keys_by_seed"],
         "outside_selection_keys_by_seed": outside_by_seed,

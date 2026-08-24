@@ -424,6 +424,8 @@ conservation, or test cause. Longer training remains outside the current
 priority, and no 81,920/163,840-step, FFNO, or historical-test run is automatic.
 The 2026-08-24 owner direction separately authorizes only the exact B1-C2
 20,480-step PCNO/PCFNO paired-seed matrix after its registered preflights.
+Replacement attempt `20260824b` passed those preflights and is running; no
+partial cell or partial matrix changes the evidence state above.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest

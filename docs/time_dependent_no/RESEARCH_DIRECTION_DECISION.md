@@ -26,8 +26,8 @@ Documentation roles are:
 - [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md):
   registered scaling plan with locally retained B1-A/B1-B and completed,
   rehashed B1-C0/B1-C1, B1-C4, B1-C5-A, B1-C5-B, and B1-C5-C seed-0
-  evidence, the completed B1-C2 paired-seed audit, and registered B1-C3
-  exact-exposure control;
+  evidence, the completed B1-C2 paired-seed audit, completed B1-C3
+  exact-exposure control, and registered B1-C3-R1 seed-0 replay;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -454,13 +454,27 @@ PCNO BF16 H79 varies by up to `3.11%`; same-step PCFNO is exact. Small late
 changes are within the gradient-path numerical floor, while the `46--48%`
 high-data architecture gap is not.
 
-The 2026-08-25 owner direction authorizes B1-C3 as the minimum next control:
-evaluate the 24 existing replication-seed sentinels at exact step `64n` in one
-BF16 and one FP32 process, with the same seed-specific outside cohorts and
-common-nine view. This is exactly 64 balanced presentations per trajectory but
-changes optimizer updates, compute, and learning-rate phase with `n`. It is not
-a pure data control. Seed-0 replay, new training, 81,920-step continuation,
-FFNO/component studies, and historical-test access remain separately gated.
+B1-C3 is complete on the 24 replication-seed sentinels at exact step `64n` in
+BF16 and FP32. PCNO has lower exact fixed-validation error in every cell, but
+the H79 winner changes nonmonotonically with count: PCFNO wins both seeds at
+`n=8/128`, PCNO wins both at `n=16/32/256`, and the seeds disagree at `n=64`.
+Every direction agrees between BF16 and FP32. The exact `n=256` sentinel is
+only 3.2% behind terminal one-step validation for PCNO but 36.6% behind terminal
+H79; PCFNO instead has a slightly better sentinel H79 despite worse sentinel
+one-step validation. The result therefore materially qualifies the B1-C2
+selected-checkpoint story and supports architecture-dependent optimization and
+self-composition, not a smooth data threshold or pure-data, scheduler,
+representation, capacity, or causal-gradient cause.
+
+Current owner direction proceeds with the previously conditional B1-C3-R1
+seed-0 replay. Both architectures and all six counts train cold through the
+unchanged 20,480-step stretched schedule while retaining the exact `64n`
+sentinel. Shortening training to the sentinel or compressing the scheduler is
+not an equivalent control. The sentinel is the primary estimand; selected and
+terminal states are replay diagnostics only. A three-seed exact-exposure
+closeout precedes any separately registered MLP, Fourier-factorization,
+differential-branch, or conditional attention comparison. The 81,920-step
+representation study and historical-test access remain separately gated.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
@@ -500,7 +514,8 @@ likewise not implied by current evidence.
   locally retained B1-A/B1-B schedule audit and completed, rehashed B1-C0/B1-C1
   seed-0 `n={8,16,32,64,128,256}` paired sweep plus closed B1-C4 and
   B1-C5-A/B/C results, the completed B1-C2 paired-seed matrix and 72-checkpoint
-  outside-development audit, plus the registered B1-C3 exact-exposure control.
+  outside-development audit, completed B1-C3 exact-exposure audit, and
+  registered B1-C3-R1 seed-0 replay.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

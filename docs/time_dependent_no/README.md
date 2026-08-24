@@ -29,7 +29,8 @@ Read active context in this order:
 9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
    for the retained B1-A/B1-B schedule audit, completed seed-0 trajectory
    ladder, B1-C4 compute-extension diagnostic, closed B1-C5-A/B/C numerical and
-   map--path diagnostics, completed B1-C2 audit, and registered B1-C3 control.
+   map--path diagnostics, completed B1-C2 and B1-C3 audits, and registered
+   B1-C3-R1 seed-0 replay.
 10. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
@@ -100,12 +101,20 @@ above that floor. PCNO has lower error and most H79 structure defects at high
 `n`, but lower strict physical admissibility; all 72 audit rollouts remain
 finite and complete. This is neither a no-harm nor conservation result.
 
-B1-C3 is the next registered inference-only stage: evaluate the 24 retained
-replication-seed sentinels at exact step `64n` in BF16 and FP32. This holds 64
-balanced presentations per trajectory, while optimizer updates, compute, and
-learning-rate phase still change with `n`. No seed-0 replay, 81,920-step run,
-FFNO/component study, or test access is automatic. The result does not yet
-identify a capacity, optimizer, representation, or causal gradient mechanism.
+B1-C3 is complete on the 24 retained exact-`64n` sentinels in BF16 and FP32.
+PCNO has lower one-step validation in every cell, but H79 favors PCFNO at
+`n=8/128`, PCNO at `n=16/32/256`, and opposite architectures across the two
+`n=64` seeds. Precision does not change those directions. This materially
+qualifies the selected-checkpoint scaling story: optimization phase and
+self-composition remain active after ordinary one-step generalization has
+largely saturated.
+
+B1-C3-R1 is the next registered stage. It cold-replays seed `20260718` for both
+architectures and all six counts through the unchanged 20,480-step schedule,
+retaining the exact `64n` sentinel. The exact sentinel is primary; selected and
+terminal states are diagnostics. No 81,920-step run, FFNO/component or
+attention study, or test access is automatic, and no capacity, optimizer,
+representation, pure-data, or causal-gradient mechanism is yet identified.
 
 The [archive guide](history/README.md) explains snapshot authority and link
 resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)

@@ -71,7 +71,7 @@ Anti-claims that must be ruled out or stated explicitly:
 | W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | D087 is complete at H79. A separately registered same-population H320 comparison is also closed: active-gradient PCNO reaches reference-free failure events later than PCFNO more often, but H80--H320 has no truth. | No implicit continuation. A separate H160 identity, spectra/JVPs, policy counterfactuals, and more bump truth require a new owner-selected claim and stable identity. |
 | W26-L2: Shock representation and differential pathway | Are shock-adjacent defects spectral-retrieval-like error, finite-grid capacity/phase error, gradient-path inconsistency, or recurrent exposure error? | Review P2-C0/P2-F/P2-W0: necessary spectral transport, robust pointwise cancellation, trained-architecture reorganization, a held-phase recurrent wake, and failed global gradient scaling. | Select at most one justified selective-limiter, loss/exposure, or bump-specific no-gradient A1 preregistration after human review; D073-B remains coordinated with W26-L5. |
 | W26-L3: Boundary conditions and finite propagation | Which boundary information and enforcement mechanisms are useful for each boundary class, and does global mixing seed the top-left error outside the physical domain of dependence? | Boundary taxonomy and task audit; information-versus-enforcement matrix; synthetic/local finite-propagation probe. | Multi-seed boundary training on selected classes and recurrent top-left causal test. |
-| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1, D093, D094 B1-C5-A/B/C, all 24 B1-C2 cells, and the exact 72-checkpoint three-seed audit are closed. B1-C5-C localizes one late reversal to reachable-path displacement. B1-C2 separately shows a replicated recurrent PCNO/PCFNO interaction that is much larger than the one-step gap; both architectures regress from `n=128` to `n=256`. | Close the registered inference-only B1-C3 two-seed exact-64-presentations-per-trajectory BF16/FP32 audit. It changes updates and LR phase and cannot isolate pure data. Seed-0 replay is conditional. Longer compute, FFNO/components, capacity controls, and test remain separately gated. |
+| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1, D093, D094 B1-C5-A/B/C, B1-C2, and B1-C3 are closed. B1-C5-C localizes one late reversal to reachable-path displacement. B1-C3 preserves PCNO's one-step advantage but finds a nonmonotone, precision-robust H79 architecture ranking at exact exposure, materially qualifying the B1-C2 selected-checkpoint story. | Execute the registered B1-C3-R1 seed-0 cold replay through the unchanged 20,480-step scheduler and evaluate only the exact `64n` sentinel as primary. Then choose the minimum component ladder. Longer compute, FFNO/components, attention, capacity controls, and test remain separately gated. |
 | W26-L5: Cross-resolution correction | Do coarse/native/fine prediction differences predict native error out of case, and can they improve a synchronized native update safely? | A43/A44-R1 qualify one bounded same-family correction protocol; A45 stops the scalar-history router. A46-A1 closes synthetic plumbing, A46-A2 fails closed on checkpoint/new-case compatibility, and A46-A2-R1 stops before generation or model construction. | No implicit branch inference or resource retry. A decisive continuation needs a compatible independent physical-node-type checkpoint and frozen new branch-label/recurrence manifests under separate authorization. |
 
 These lines may run in parallel through preflight and synthetic CPU checks. They
@@ -653,7 +653,7 @@ authoritative boundary/source accounting.
 | `PD0-G0/G0b` | Same step-950 checkpoint and open trajectory; independently replace chemistry, temperature, density, or velocity with exact next-frame truth only after scoring the raw proposal and only for recurrent feedback | G0 is a retained pre-inference manifest-parser launch failure. Corrected G0b passes replay/isolation/H49/metric gates. Primary untouched-group ratios are chemistry `0.48403`, density `0.34435`, temperature `1.13895`, and velocity `1.06437`. | Owner-authorized inference complete; coupling diagnosis only; no oracle arm promoted and no automatic continuation |
 | `PD0-G1` | Same checkpoint/trajectory; preserve the raw proposal at calls 4/12/32, use one exact chemistry or density group only in the next input, then return to raw recurrence | All six arms pass replay/isolation/H49/metric gates. Chemistry-to-density partner ratios are `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`; only chemistry-to-density is materially persistent at calls 12/32. Phase and pulse dose remain confounded. | Owner-authorized inference complete; no oracle arm promoted and no automatic continuation |
 | `D093` | Reuse D092-R1 as PCNO-7 and compare PCNO/PCFNO/residual FFNO with three or seven unique supervised trajectories at fixed seven presentations per optimizer step | Closed partial evidence. Each seven-condition cell has a lower selected truth-input sum than its three-condition counterpart; only FFNO has a lower selected free-rollout sum, and FFNO-7 is best at `1.36466/32.53910`. Three cells are incomplete; no free rollout is fully admissible. | Owner-authorized study closed at the available selected-checkpoint scope for one seed/open trajectory; no paper-faithful baseline, automatic replication, or test access |
-| `D094` | Native-mesh bump PCNO/PCFNO scaling over the nested `n=8..256` ladder, with a separately qualified hundreds-case PlanarDet population required for the hard-benchmark claim | B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, all 24 B1-C2 cells, and the 72-checkpoint three-seed audit are complete and rehashed. B1-C5-C localizes the selected-to-terminal reversal to path displacement. B1-C2 finds a replicated recurrent PCNO/PCFNO interaction: one-step ratios stay about `0.76--0.83`, rollout ratios reach `0.52--0.54`, and both regress at `n=256`. | Execute only the registered B1-C3 two-seed exact-64-presentations BF16/FP32 audit. It changes updates and LR phase. Seed-0 replay is conditional; longer compute, FFNO/components, capacity controls, and test remain separately gated. |
+| `D094` | Native-mesh bump PCNO/PCFNO scaling over the nested `n=8..256` ladder, with a separately qualified hundreds-case PlanarDet population required for the hard-benchmark claim | B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, and B1-C3 are complete and rehashed. B1-C3 finds lower PCNO one-step error in every exact-exposure cell but H79 directions that change nonmonotonically with count and agree across BF16/FP32. This supports optimization-phase/self-composition interaction, not a smooth data threshold. | Execute only the registered B1-C3-R1 seed-0 cold replay with the unchanged 20,480-step schedule and exact `64n` sentinel primary. Longer compute, FFNO/components, attention, capacity controls, and test remain separately gated. |
 | `PD0-A4` | One frozen checkpoint/evaluator test opening | One shot after conclusions and hashes are frozen | Separate named sealed-test approval |
 
 Current data/compute budget: the seven-train/one-validation open subset is
@@ -829,15 +829,21 @@ after about 7,680--16,640 updates. This is the current phenomenon: ordinary
 one-step generalization can saturate while architecture, data exposure,
 optimization phase, and self-composition continue to interact.
 
-B1-C3 now registers the minimum exposure control. Evaluate the retained
-`s_X(n)=64n` sentinels for seeds `20260812/20260813` in one BF16 and one FP32
-process. Each state has exactly 64 balanced presentations per training
-trajectory. The slice still changes optimizer updates, total compute, and
-learning-rate phase, so it cannot isolate data. A seed-0 cold replay is proposed
-only if the two-seed result would materially change the claim. Native bump
-PCFNO is not relabeled as vanilla FFNO. Longer compute, component ablations,
-matched-objective FFNO, paper-faithful FFNO, capacity controls, and test remain
-separate stages.
+B1-C3 closes the minimum two-seed exposure control. At exact `s_X(n)=64n`,
+PCNO has lower one-step validation in all 24 seed/count/precision comparisons,
+but H79 favors PCFNO at `n=8/128`, PCNO at `n=16/32/256`, and opposite
+architectures in the two `n=64` seeds. BF16 and FP32 agree on every direction.
+The architecture ranking therefore depends on optimization phase and recurrent
+self-composition rather than following a smooth count threshold.
+
+B1-C3-R1 now registers the seed-0 closure that the two-seed result warrants.
+Cold-train both architectures at all six counts through 20,480 updates with the
+original stretched scheduler and retain the exact `64n` sentinel. A short run
+to `64n` is not equivalent because it changes scheduler phase. Exact-sentinel
+evaluation is primary; selected/terminal histories are diagnostic. Native bump
+PCFNO is not relabeled as vanilla FFNO. Longer compute, MLP/Fourier/gradient
+component ablations, matched-objective or paper-faithful FFNO, attention,
+capacity controls, and test remain separate stages.
 
 ### Failure-decision table
 
@@ -1107,7 +1113,7 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | W26-L4-P2 | IgnitHIT residual comparison | HISTORICAL | NOT RUN; SUPERSEDED BY CURRENT PD0 DIRECTION | No result and no implicit queue |
 | W26-L4-PD0 | PlanarDet champion PCNO | MUST | A1--A3 + P0b + G0b + G1 COMPLETE; ASYMMETRIC RECURRENT PERSISTENCE LOCALIZED | Exact 2,940,759,467-byte open tree, resource ladder, D092-R1 training, step-950 selection, H49 evaluation, and three causal diagnostics are closed. Truth/free mean NPE is `0.1244744/1.7987391`; the comparable free horizon sum `88.13821` is 7.01x the paper FFNO validation value. P0b is near-null. G0b localizes chemistry/density sensitivity; G1 finds chemistry-to-density-only material partner persistence at calls 12/32, with phase/dose confounded. No intervention is promoted and test remains absent. |
 | D093 | PlanarDet architecture/exposure | REGISTERED FOLLOW-UP | CLOSED; PARTIAL SINGLE-SEED/OPEN-VALIDATION RESULT | PCNO-7 result anchor plus five PCNO/PCFNO/residual-FFNO cells at three/seven unique conditions. Every seven-condition cell has lower selected truth-input error than its three-condition counterpart; only FFNO has a lower selected free-rollout sum. Three cells are incomplete, no free rollout is fully admissible, the normalizer control is transductive, D092/D093 source inventories differ, and test remains absent. |
-| D094 | hundreds-trajectory scaling | B1-C0/B1-C1/B1-C4/B1-C5-A/B/C, B1-C2 TRAINING, AND 72-CHECKPOINT AUDIT COMPLETE | B1-C3 EXACT-64-PRESENTATIONS TWO-SEED BF16/FP32 AUDIT NEXT; 81,920 DEFERRED | Bump 300-case metadata population and 256/44 development split remain bound without historical-test opening. B1-C2 supports a replicated recurrent data--architecture interaction but not monotone scaling or a causal component result. B1-C3 uses only frozen sentinels; no seed-0 replay or training is automatic. |
+| D094 | hundreds-trajectory scaling | B1-C0/B1-C1/B1-C4/B1-C5-A/B/C, B1-C2, AND B1-C3 COMPLETE | B1-C3-R1 SEED-0 COLD REPLAY NEXT; 81,920 DEFERRED | Bump 300-case metadata population and 256/44 development split remain bound without historical-test opening. B1-C3 materially qualifies B1-C2: exact one-step favors PCNO throughout, while exact H79 ranking is nonmonotone and precision-robust. B1-C3-R1 preserves the full scheduler and makes only the exact `64n` sentinel primary. |
 | W26-L5-P0 | multiresolution | MUST | COMPLETE | Common-source/transfer closure tests and frozen gradient-policy decision |
 | W26-L5-P1 | correlation gate | CONDITIONAL | COMPLETE FOR REUSED OPEN POPULATIONS | Cross-fitted teacher-forced gate plus low-rank residual-error structure analysis |
 | W26-L5-P2 | recurrent fusion | CONDITIONAL | A44-R1 QUALIFIED; A45 STOPPED; A46 BLOCKED BEFORE SCIENTIFIC EXECUTION | A43/A44-R1 remain frozen bounded evidence. A45 fails E00/coast router transfer. A46-A1 closes synthetic same-state plumbing, A46-A2 finds no compatible independent checkpoint/new-case manifest, and three A46-A2-R1 infrastructure attempts stop before generation/model construction. No branch result or automatic resource retry. |
@@ -1139,12 +1145,13 @@ Working labels are coordination identifiers, not stable D-series run IDs.
    preregistered follow-up.
 2. Decide whether to start the still-unexecuted W26-L3 boundary taxonomy and
    synthetic finite-propagation line.
-3. Treat D093, the H320 recurrence, D094 B1-C5-A/B/C, and B1-C2 as closed at
-   their bounded scopes. Execute only the registered B1-C3 inference-only exact-
-   exposure control next. Do not auto-run seed-0 replay or longer compute; the
-   failed B1-C4 gates do not establish convergence. Retain 81,920 steps as a
-   later representation-evolution study and keep FFNO/components separately
-   gated.
+3. Treat D093, the H320 recurrence, D094 B1-C5-A/B/C, B1-C2, and B1-C3 as
+   closed at their bounded scopes. Execute only the registered B1-C3-R1 seed-0
+   cold replay next, preserving the 20,480-step scheduler and exact `64n`
+   sentinel. Do not auto-run longer compute; the failed B1-C4 gates do not
+   establish convergence. Retain 81,920 steps as a later representation-
+   evolution study and keep MLP/Fourier/gradient/FFNO/attention components
+   separately gated until the three-seed exact-exposure closeout.
 4. Close A46 at the independent-checkpoint/new-case block or separately repair
    and re-register its portable resource build.
 5. Keep sealed and strength-OOD populations closed unless a later named

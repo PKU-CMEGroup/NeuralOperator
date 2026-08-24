@@ -10,6 +10,9 @@ from scripts.time_dependent_no.train_pcno_bump_scaling import (
     D094_B1_C2_SEEDS,
     D094_B1_C2_SENTINEL_STEPS_BY_COUNT,
     D094_B1_C2_STAGE,
+    D094_B1_C3_R1_SEED,
+    D094_B1_C3_R1_SENTINEL_STEPS_BY_COUNT,
+    D094_B1_C3_R1_STAGE,
     D094_B1_C4_GATE_STEPS,
     D094_B1_C4_SEED,
     D094_B1_C4_SENTINEL_STEPS_BY_COUNT,
@@ -378,6 +381,84 @@ def test_b1_c2_is_a_paired_two_seed_stretched_replication_contract() -> None:
         configure_parent_args(bad_cadence, copy.deepcopy(wrapper), _split_payload())
 
 
+def test_b1_c3_r1_is_a_cold_seed0_exact_exposure_replay_contract() -> None:
+    parent = SimpleNamespace(
+        split_mode="manifest",
+        split_seed=0,
+        val_count=1,
+        presentation_mode="full_coverage",
+        presentations_per_epoch=999,
+        batch_size=4,
+        gradient_accumulation_steps=7,
+        tiny_pairs=8,
+        val_presentations=1,
+        checkpoint_every=99,
+        init_checkpoint=None,
+        resume_checkpoint=None,
+        step_stride=1,
+        multistep_loss_steps=1,
+        multistep_loss_weight=0.0,
+        generated_state_exposure_weight=0.0,
+        input_noise_std=0.0,
+        seed=D094_B1_C3_R1_SEED,
+        epochs=80,
+        rollout_checkpoints=(),
+        rollout_val_count=5,
+        rollout_steps=20,
+        rollout_every=5,
+        selection_mode="historical_all_node",
+        rollout_failure_policy="strict_physical",
+        scheduler="warmup_cosine",
+        warmup_cosine_decay_steps=20_480,
+    )
+    wrapper = SimpleNamespace(
+        split_manifest=(
+            ROOT / "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json"
+        ),
+        optimizer_steps_per_epoch=256,
+        evaluation_windows_per_trajectory=4,
+        differential_branch_mode="full",
+        registered_stage=D094_B1_C3_R1_STAGE,
+        trajectory_count=128,
+        comparable_seen_every_epochs=5,
+        sentinel_every_epochs=0,
+        sentinel_steps=D094_B1_C3_R1_SENTINEL_STEPS_BY_COUNT[128],
+        sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
+        engineering_smoke=False,
+    )
+
+    configured = configure_parent_args(parent, wrapper, _split_payload())
+    assert configured.d094_schedule_arm == "b1_c3_r1_seed0_replay_stretched"
+    assert configured.epochs * configured.presentations_per_epoch == 20_480
+    assert D094_B1_C3_R1_SENTINEL_STEPS_BY_COUNT == {
+        count: (64 * count,) for count in REGISTERED_COUNTS
+    }
+
+    paired_pcfno = copy.deepcopy(wrapper)
+    paired_pcfno.differential_branch_mode = "no_gradient"
+    configure_parent_args(copy.deepcopy(parent), paired_pcfno, _split_payload())
+
+    bad_seed = copy.deepcopy(parent)
+    bad_seed.seed = D094_B1_C2_SEEDS[0]
+    with pytest.raises(ValueError, match="initialization seed"):
+        configure_parent_args(bad_seed, copy.deepcopy(wrapper), _split_payload())
+
+    bad_schedule = copy.deepcopy(parent)
+    bad_schedule.warmup_cosine_decay_steps = 5_120
+    with pytest.raises(ValueError, match="only the 20,480-step stretched"):
+        configure_parent_args(bad_schedule, copy.deepcopy(wrapper), _split_payload())
+
+    bad_sentinel = copy.deepcopy(wrapper)
+    bad_sentinel.sentinel_steps = (4_096, 20_480)
+    with pytest.raises(ValueError, match="B1-C3-R1 n=128 requires sentinels"):
+        configure_parent_args(copy.deepcopy(parent), bad_sentinel, _split_payload())
+
+    bad_architecture = copy.deepcopy(wrapper)
+    bad_architecture.differential_branch_mode = "zero_output"
+    with pytest.raises(ValueError, match="only PCNO or PCFNO"):
+        configure_parent_args(copy.deepcopy(parent), bad_architecture, _split_payload())
+
+
 def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:
     split = ROOT / "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json"
     parent = SimpleNamespace(
@@ -576,6 +657,28 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
         trainer.atomic_torch_save(evaluation_payload, tmp_path / "last.pt")
 
     assert saved_paths == [tmp_path / "best.pt", tmp_path / "last.pt"]
+    assert [payload["checkpoint_role"] for payload in saved_payloads] == [
+        "evaluation_only_selected",
+        "evaluation_only_terminal",
+    ]
+    assert all("optimizer_state" not in payload for payload in saved_payloads)
+    assert all("scheduler_state" not in payload for payload in saved_payloads)
+
+    saved_paths.clear()
+    saved_payloads.clear()
+    wrapper.registered_stage = D094_B1_C3_R1_STAGE
+    with installed_scaling_adapter(
+        trainer,
+        args=args,
+        wrapper=wrapper,
+        train_keys=["a", "b"],
+        validation_keys=["v"],
+        scaling_contract={},
+        presentation_hashes=[],
+    ):
+        trainer.atomic_torch_save(evaluation_payload, tmp_path / "best.pt")
+        trainer.atomic_torch_save(evaluation_payload, tmp_path / "last.pt")
+
     assert [payload["checkpoint_role"] for payload in saved_payloads] == [
         "evaluation_only_selected",
         "evaluation_only_terminal",

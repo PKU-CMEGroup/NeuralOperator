@@ -50,14 +50,20 @@ D094_EPOCHS = 80
 D094_OPTIMIZER_STEPS_PER_EPOCH = 256
 D094_BASE_STAGE = "b1_base_20480"
 D094_B1_C2_STAGE = "b1_c2_seed_replication_20480"
+D094_B1_C3_R1_STAGE = "b1_c3_r1_seed0_replay_20480"
 D094_B1_C4_STAGE = "b1_c4_pcno_40960"
 D094_REGISTERED_STAGES = (
     D094_BASE_STAGE,
     D094_B1_C2_STAGE,
+    D094_B1_C3_R1_STAGE,
     D094_B1_C4_STAGE,
 )
 D094_B1_C2_SEEDS = (20_260_812, 20_260_813)
 D094_B1_C2_SENTINEL_STEPS_BY_COUNT = {
+    count: (64 * count,) for count in REGISTERED_COUNTS
+}
+D094_B1_C3_R1_SEED = 20_260_718
+D094_B1_C3_R1_SENTINEL_STEPS_BY_COUNT = {
     count: (64 * count,) for count in REGISTERED_COUNTS
 }
 D094_B1_C4_COUNTS = (128, 256)
@@ -573,7 +579,11 @@ def configure_parent_args(
         if wrapper.registered_stage != D094_BASE_STAGE:
             raise ValueError("engineering smoke cannot claim a registered extension stage")
         args.d094_schedule_arm = "engineering_smoke"
-    elif wrapper.registered_stage in (D094_BASE_STAGE, D094_B1_C2_STAGE):
+    elif wrapper.registered_stage in (
+        D094_BASE_STAGE,
+        D094_B1_C2_STAGE,
+        D094_B1_C3_R1_STAGE,
+    ):
         expected_total = D094_EPOCHS * D094_OPTIMIZER_STEPS_PER_EPOCH
         if args.epochs != D094_EPOCHS:
             raise ValueError(f"the registered D094 schedule uses {D094_EPOCHS} epochs")
@@ -616,6 +626,30 @@ def configure_parent_args(
                     "B1-C2 evaluates fixed seen and rollout every five epochs"
                 )
             args.d094_schedule_arm = "b1_c2_replication_stretched"
+        elif wrapper.registered_stage == D094_B1_C3_R1_STAGE:
+            if args.seed != D094_B1_C3_R1_SEED:
+                raise ValueError(
+                    f"B1-C3-R1 initialization seed must be {D094_B1_C3_R1_SEED}"
+                )
+            if wrapper.differential_branch_mode not in ("full", "no_gradient"):
+                raise ValueError("B1-C3-R1 admits only PCNO or PCFNO")
+            if args.d094_schedule_arm != "stretched":
+                raise ValueError(
+                    "B1-C3-R1 uses only the 20,480-step stretched schedule"
+                )
+            expected_sentinels = D094_B1_C3_R1_SENTINEL_STEPS_BY_COUNT[
+                wrapper.trajectory_count
+            ]
+            if sentinel_steps != expected_sentinels:
+                raise ValueError(
+                    f"B1-C3-R1 n={wrapper.trajectory_count} requires sentinels "
+                    f"{expected_sentinels}"
+                )
+            if wrapper.comparable_seen_every_epochs != 5 or args.rollout_every != 5:
+                raise ValueError(
+                    "B1-C3-R1 evaluates fixed seen and rollout every five epochs"
+                )
+            args.d094_schedule_arm = "b1_c3_r1_seed0_replay_stretched"
         elif sentinel_steps != D094_SENTINEL_STEPS:
             raise ValueError("the registered D094 sentinel-step inventory is exact")
         if wrapper.sentinel_payload != MODEL_ONLY_SENTINEL_PAYLOAD:
@@ -904,12 +938,12 @@ def installed_scaling_adapter(
 
     def atomic_torch_save(payload: Any, path: Path) -> None:
         stored_payload = payload
-        if (
-            wrapper.registered_stage == D094_B1_C2_STAGE
-            and path.name in ("best.pt", "last.pt")
-        ):
+        if wrapper.registered_stage in (
+            D094_B1_C2_STAGE,
+            D094_B1_C3_R1_STAGE,
+        ) and path.name in ("best.pt", "last.pt"):
             if not isinstance(payload, Mapping):
-                raise TypeError("B1-C2 checkpoints require a mapping payload")
+                raise TypeError("D094 evaluation checkpoints require a mapping payload")
             role = (
                 "evaluation_only_selected"
                 if path.name == "best.pt"
@@ -1059,7 +1093,10 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "sentinel_payload": wrapper.sentinel_payload,
         "selected_terminal_checkpoint_payload": (
             "model_only_evaluation"
-            if wrapper.registered_stage == D094_B1_C2_STAGE
+            if wrapper.registered_stage in (
+                D094_B1_C2_STAGE,
+                D094_B1_C3_R1_STAGE,
+            )
             else "full_training_state"
         ),
         "checkpoint_selection_mode": args.selection_mode,
@@ -1128,6 +1165,12 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         science_ineligibility_reason = (
             "one B1-C2 cell only; interpretation requires the complete paired "
             "24-cell replication matrix"
+        )
+    elif wrapper.registered_stage == D094_B1_C3_R1_STAGE:
+        completion_status = "completed_seed0_exact_exposure_replay_cell"
+        science_ineligibility_reason = (
+            "one B1-C3-R1 cell only; interpretation requires all 12 replay cells "
+            "and the registered exact-sentinel audit"
         )
     elif wrapper.registered_stage == D094_B1_C4_STAGE:
         completion_status = "completed_unreplicated_pilot"

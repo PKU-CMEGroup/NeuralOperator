@@ -763,6 +763,18 @@ step, training presentation, resume state, interpolation, selection, or test
 access. No observation from failed preflight attempt `20260825a` is scientific
 evidence.
 
+Replacement preflight `20260825b` also stopped before CUDA smoke, output-
+directory creation, or rollout outcome opening. All 31 CPU tests and prior
+artifact hashes passed. Its resource preflight then correctly rejected an
+attempt to build all 256 train-pool boundary policies from the first `n=8`
+sentinel: each checkpoint contract authenticates the common 44-case validation
+population plus only its own nested training subset. Attempt `20260825c` keeps
+the 44 validation policies common, but reconstructs each fixed-seen policy from
+that cell's own checkpoint and exact train keys before scoring. PCNO/PCFNO in a
+seed/count cell still share the same keys and policy digests. No cross-count
+checkpoint is granted authority over a trajectory absent from its contract.
+Attempt `20260825b` contributes infrastructure evidence only.
+
 #### B1-C4 owner correction and executable contract (2026-08-22)
 
 Current explicit owner direction selects B1-C4 before seed replication. The

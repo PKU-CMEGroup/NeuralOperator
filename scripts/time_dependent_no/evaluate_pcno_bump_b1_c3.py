@@ -281,6 +281,14 @@ def _evaluate_recomputed_scopes(
     checkpoint = load_bump_checkpoint(Path(descriptor["checkpoint"]))
     model = build_bump_checkpoint_model(checkpoint, device)
     step_stride = int(checkpoint["step_stride"])
+    train_keys = [str(key) for key in descriptor["contract"]["train_keys"]]
+    train_policies, train_policy_metadata = _build_boundary_policies(
+        store, train_keys, checkpoint, device
+    )
+    cell_policies = dict(policies)
+    if set(cell_policies) & set(train_policies):
+        raise ValueError("fixed-seen and validation policy populations overlap")
+    cell_policies.update(train_policies)
     try:
         fixed_seen = evaluate_pairs(
             model,
@@ -290,7 +298,7 @@ def _evaluate_recomputed_scopes(
             batch_size=1,
             device=device,
             amp=amp,
-            boundary_policies=policies,
+            boundary_policies=cell_policies,
         )
         fixed_seen["pair_bank_sha256"] = seen_digest
         fixed_validation = evaluate_pairs(
@@ -301,7 +309,7 @@ def _evaluate_recomputed_scopes(
             batch_size=1,
             device=device,
             amp=amp,
-            boundary_policies=policies,
+            boundary_policies=cell_policies,
         )
         fixed_validation["pair_bank_sha256"] = validation_digest
         selection_rollout = evaluate_rollouts(
@@ -313,7 +321,7 @@ def _evaluate_recomputed_scopes(
             num_steps=79,
             device=device,
             amp=amp,
-            boundary_policies=policies,
+            boundary_policies=cell_policies,
             rollout_checkpoints=ROLLOUT_CHECKPOINTS,
             failure_policy=FINITE_ONLY_ROLLOUT_POLICY,
         )
@@ -354,6 +362,10 @@ def _evaluate_recomputed_scopes(
         "fixed_seen_one_step": fixed_seen,
         "fixed_validation_one_step": fixed_validation,
         "selection_rollout": selection_rollout,
+        "fixed_seen_boundary_policy_digests": {
+            key: record["policy_digest"]
+            for key, record in train_policy_metadata.items()
+        },
     }
 
 
@@ -497,15 +509,9 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             raise ValueError("B1-C3 evaluation data manifest changed")
         if not set(validation_keys) <= set(store.keys):
             raise ValueError("open-validation keys are absent from the shard store")
-        train_pool_keys = [
-            str(key) for key in split_manifest["split"]["train_pool_keys"]
-        ]
-        policy_keys = [*train_pool_keys, *validation_keys]
-        if len(policy_keys) != 300 or len(set(policy_keys)) != 300:
-            raise ValueError("B1-C3 policy population changed")
         reference = load_bump_checkpoint(Path(descriptors[0]["checkpoint"]))
         policies, policy_metadata = _build_boundary_policies(
-            store, policy_keys, reference, device
+            store, validation_keys, reference, device
         )
         step_stride = int(reference["step_stride"])
         del reference

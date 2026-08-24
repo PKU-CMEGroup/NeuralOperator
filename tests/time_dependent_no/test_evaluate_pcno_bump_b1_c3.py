@@ -247,6 +247,7 @@ def test_recomputed_scopes_fill_fixed_seen_validation_and_selection_rollout(
         "contract": {
             "fixed_seen_pair_bank_sha256": "seen-bank",
             "fixed_validation_pair_bank_sha256": "validation-bank",
+            "train_keys": ["seen"],
         },
         "selected_training_metrics": {
             "epoch": 1,
@@ -266,6 +267,14 @@ def test_recomputed_scopes_fill_fixed_seen_validation_and_selection_rollout(
         b1_c3, "load_bump_checkpoint", lambda _: {"step_stride": 1}
     )
     monkeypatch.setattr(b1_c3, "build_bump_checkpoint_model", lambda *_: object())
+    monkeypatch.setattr(
+        b1_c3,
+        "_build_boundary_policies",
+        lambda *_, **__: (
+            {"seen": {"policy": True}},
+            {"seen": {"policy_digest": "seen-policy"}},
+        ),
+    )
     one_step = iter(
         [
             {"relative_l2": 0.2},
@@ -302,3 +311,6 @@ def test_recomputed_scopes_fill_fixed_seen_validation_and_selection_rollout(
     assert result["fixed_validation_one_step"]["pair_bank_sha256"] == (
         "validation-bank"
     )
+    assert result["fixed_seen_boundary_policy_digests"] == {
+        "seen": "seen-policy"
+    }

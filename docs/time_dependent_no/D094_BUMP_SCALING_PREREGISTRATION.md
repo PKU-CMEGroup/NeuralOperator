@@ -722,7 +722,9 @@ The executable contract is:
 - run one fresh BF16 process for direct numerical continuity and one fresh FP32
   process as a precision control. FP32 is not ground truth. Report both and call
   an architecture/count direction precision-sensitive if its sign disagrees;
-- report the exact-checkpoint online one-step train, fixed-seen one-step, fixed-
+- retain the history-linked online one-step train value as an optimization
+  diagnostic; it was accumulated while parameters changed and is not an exact-
+  checkpoint estimate. Recompute exact-checkpoint fixed-seen and fixed-
   validation one-step, selection-cohort rollout, seed-specific outside all-call
   and H79 rollout, common-nine rollout, structure diagnostics, completion,
   admissibility, and the PCNO/PCFNO ratio for each seed/count/precision;

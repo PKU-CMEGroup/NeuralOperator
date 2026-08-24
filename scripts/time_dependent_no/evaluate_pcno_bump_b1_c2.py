@@ -547,6 +547,21 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
                 ),
                 result,
             )
+            print(
+                json.dumps(
+                    {
+                        "architecture": descriptor["architecture"],
+                        "checkpoint_role": descriptor["checkpoint_role"],
+                        "completed_checkpoints": len(results),
+                        "elapsed_seconds": result["elapsed_seconds"],
+                        "seed": descriptor["seed"],
+                        "trajectory_count": descriptor["trajectory_count"],
+                    },
+                    sort_keys=True,
+                    allow_nan=False,
+                ),
+                flush=True,
+            )
     finally:
         store.close()
 

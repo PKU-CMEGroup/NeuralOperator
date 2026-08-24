@@ -53,8 +53,8 @@ from utility.time_dependent_no.pcno_rollout import (
 )
 from utility.time_dependent_no.pcno_runtime import select_device
 
-SCHEMA = "d094_b1_c2_three_seed_outside_selection_audit_v1"
-ARTIFACT_SCHEMA = "d094_b1_c2_three_seed_outside_selection_artifacts_v1"
+SCHEMA = "d094_b1_c2_three_seed_outside_selection_audit_v2"
+ARTIFACT_SCHEMA = "d094_b1_c2_three_seed_outside_selection_artifacts_v2"
 MATRIX_RECEIPT_SCHEMA = "d094_b1_c2_matrix_receipt_v1"
 CELL_RECEIPT_SCHEMA = "d094_b1_c2_cell_receipt_v1"
 SPLIT_SCHEMA = "d094_bump_trajectory_scaling_split_v1"

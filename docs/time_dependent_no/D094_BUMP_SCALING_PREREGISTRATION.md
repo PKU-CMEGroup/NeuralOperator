@@ -564,7 +564,8 @@ cases are outside checkpoint selection for all three seeds; the preregistered
 
 Before any outside-development outcome is opened, immutable replacement attempt
 `d094_b1_c2_three_seed_outside_audit_20260825c` is registered with this exact
-matrix and cohort contract:
+matrix and cohort contract. Its audit and artifact schemas are version 2 so
+they cannot be confused with the withdrawn common-28 implementation:
 
 - initialization seeds `{20260718,20260812,20260813}`, counts
   `n={8,16,32,64,128,256}`, architectures `{PCNO,PCFNO}`, and checkpoint roles

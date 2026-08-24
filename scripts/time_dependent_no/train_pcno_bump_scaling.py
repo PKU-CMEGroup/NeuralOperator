@@ -40,6 +40,7 @@ from utility.time_dependent_no.pcno_rollout import (  # noqa: E402
 
 SCHEMA = "d094_bump_scaling_training_v1"
 D094_METRIC_RECEIPT_SCHEMA = "d094_bump_scaling_metric_receipt_v1"
+D094_EVALUATION_CHECKPOINT_SCHEMA = "d094_evaluation_only_checkpoint_v1"
 SPLIT_SCHEMA = "d094_bump_trajectory_scaling_split_v1"
 REGISTERED_COUNTS = (8, 16, 32, 64, 128, 256)
 D094_SELECTION_MODE = "full_horizon_error_first"
@@ -707,6 +708,28 @@ def model_only_sentinel_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     return sentinel
 
 
+def evaluation_only_checkpoint_payload(
+    payload: Mapping[str, Any], *, checkpoint_role: str
+) -> dict[str, Any]:
+    """Strip unused resume state from a selected or terminal evaluation state."""
+
+    if checkpoint_role not in ("evaluation_only_selected", "evaluation_only_terminal"):
+        raise ValueError("unsupported evaluation-only checkpoint role")
+    if "model_state" not in payload or "epoch" not in payload:
+        raise ValueError("an evaluation-only checkpoint requires model state and epoch")
+    checkpoint = dict(payload)
+    checkpoint.pop("optimizer_state", None)
+    checkpoint.pop("scheduler_state", None)
+    checkpoint["checkpoint_role"] = checkpoint_role
+    checkpoint["resume_supported"] = False
+    checkpoint["evaluation_only_contract"] = {
+        "schema": D094_EVALUATION_CHECKPOINT_SCHEMA,
+        "evaluation_initialization_supported": True,
+        "exact_training_resume_supported": False,
+    }
+    return checkpoint
+
+
 def retain_sentinel_at_epoch(
     *, epoch: int, epochs: int, presentations_per_epoch: int, wrapper: argparse.Namespace
 ) -> bool:
@@ -880,7 +903,22 @@ def installed_scaling_adapter(
         )
 
     def atomic_torch_save(payload: Any, path: Path) -> None:
-        original_atomic_save(payload, path)
+        stored_payload = payload
+        if (
+            wrapper.registered_stage == D094_B1_C2_STAGE
+            and path.name in ("best.pt", "last.pt")
+        ):
+            if not isinstance(payload, Mapping):
+                raise TypeError("B1-C2 checkpoints require a mapping payload")
+            role = (
+                "evaluation_only_selected"
+                if path.name == "best.pt"
+                else "evaluation_only_terminal"
+            )
+            stored_payload = evaluation_only_checkpoint_payload(
+                payload, checkpoint_role=role
+            )
+        original_atomic_save(stored_payload, path)
         if path.name != "last.pt" or not isinstance(payload, Mapping):
             return
         epoch = int(payload["epoch"])
@@ -1019,6 +1057,11 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "sentinel_every_epochs": wrapper.sentinel_every_epochs,
         "sentinel_steps": list(wrapper.sentinel_steps),
         "sentinel_payload": wrapper.sentinel_payload,
+        "selected_terminal_checkpoint_payload": (
+            "model_only_evaluation"
+            if wrapper.registered_stage == D094_B1_C2_STAGE
+            else "full_training_state"
+        ),
         "checkpoint_selection_mode": args.selection_mode,
         "rollout_failure_policy": args.rollout_failure_policy,
         "rollout_selection_trajectory_count": args.rollout_val_count,

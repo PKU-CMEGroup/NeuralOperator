@@ -15,6 +15,7 @@ from scripts.time_dependent_no.train_pcno_bump_scaling import (
     D094_B1_C4_SENTINEL_STEPS_BY_COUNT,
     D094_B1_C4_STAGE,
     D094_BASE_STAGE,
+    D094_EVALUATION_CHECKPOINT_SCHEMA,
     D094_METRIC_RECEIPT_SCHEMA,
     D094_METRIC_SEMANTICS,
     D094_REGISTERED_SOURCE_FILES,
@@ -33,6 +34,7 @@ from scripts.time_dependent_no.train_pcno_bump_scaling import (
     build_d094_metric_receipt,
     canonical_json_sha256,
     configure_parent_args,
+    evaluation_only_checkpoint_payload,
     fixed_evaluation_pairs,
     installed_scaling_adapter,
     load_split_manifest,
@@ -474,6 +476,7 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
     wrapper = SimpleNamespace(
         evaluation_windows_per_trajectory=1,
         differential_branch_mode="full",
+        registered_stage=D094_BASE_STAGE,
         comparable_seen_every_epochs=1,
         sentinel_every_epochs=0,
         sentinel_steps=(2,),
@@ -549,6 +552,37 @@ def test_installed_adapter_uses_frozen_split_metrics_and_sentinels(tmp_path) -> 
     assert trainer.train_epoch is original_train_epoch
     assert trainer.atomic_torch_save is original_atomic_save
 
+    saved_paths.clear()
+    saved_payloads.clear()
+    wrapper.registered_stage = D094_B1_C2_STAGE
+    wrapper.sentinel_steps = (64,)
+    evaluation_payload = {
+        "epoch": 0,
+        "model_state": {"weight": "model"},
+        "optimizer_state": {"state": "optimizer"},
+        "scheduler_state": {"state": "scheduler"},
+        "resume_supported": False,
+    }
+    with installed_scaling_adapter(
+        trainer,
+        args=args,
+        wrapper=wrapper,
+        train_keys=["a", "b"],
+        validation_keys=["v"],
+        scaling_contract={},
+        presentation_hashes=[],
+    ):
+        trainer.atomic_torch_save(evaluation_payload, tmp_path / "best.pt")
+        trainer.atomic_torch_save(evaluation_payload, tmp_path / "last.pt")
+
+    assert saved_paths == [tmp_path / "best.pt", tmp_path / "last.pt"]
+    assert [payload["checkpoint_role"] for payload in saved_payloads] == [
+        "evaluation_only_selected",
+        "evaluation_only_terminal",
+    ]
+    assert all("optimizer_state" not in payload for payload in saved_payloads)
+    assert all("scheduler_state" not in payload for payload in saved_payloads)
+
 
 def test_model_only_sentinel_retains_evaluation_state_but_not_resume_state() -> None:
     payload = {
@@ -567,6 +601,43 @@ def test_model_only_sentinel_retains_evaluation_state_but_not_resume_state() -> 
     assert sentinel["checkpoint_role"] == "model_only_sentinel"
     assert sentinel["resume_supported"] is False
     assert payload["resume_supported"] is True
+
+
+def test_b1_c2_evaluation_checkpoint_strips_only_resume_state() -> None:
+    payload = {
+        "epoch": 7,
+        "model_state": {"weight": "model"},
+        "optimizer_state": {"state": "optimizer"},
+        "scheduler_state": {"state": "scheduler"},
+        "normalization": {"mean": [0.0]},
+        "checkpoint_role": "training",
+        "resume_supported": True,
+    }
+    selected = evaluation_only_checkpoint_payload(
+        payload, checkpoint_role="evaluation_only_selected"
+    )
+    terminal = evaluation_only_checkpoint_payload(
+        payload, checkpoint_role="evaluation_only_terminal"
+    )
+
+    for checkpoint, role in (
+        (selected, "evaluation_only_selected"),
+        (terminal, "evaluation_only_terminal"),
+    ):
+        assert checkpoint["model_state"] == payload["model_state"]
+        assert checkpoint["normalization"] == payload["normalization"]
+        assert "optimizer_state" not in checkpoint
+        assert "scheduler_state" not in checkpoint
+        assert checkpoint["checkpoint_role"] == role
+        assert checkpoint["resume_supported"] is False
+        assert (
+            checkpoint["evaluation_only_contract"]["schema"]
+            == D094_EVALUATION_CHECKPOINT_SCHEMA
+        )
+
+    assert "optimizer_state" in payload
+    with pytest.raises(ValueError, match="unsupported evaluation-only"):
+        evaluation_only_checkpoint_payload(payload, checkpoint_role="selected")
 
 
 def test_metric_semantics_keep_one_step_and_rollout_objects_distinct() -> None:

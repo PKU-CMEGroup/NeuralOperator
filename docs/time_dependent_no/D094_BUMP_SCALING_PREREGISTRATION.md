@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, and the paired FP32 B1-C5-C symmetric map--path decomposition are complete, locally retained, and rehashed; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required; the immutable B1-C2 paired-seed replication attempt below is registered and owner-authorized, while its runtime state and outcome belong to its run receipts rather than this status line
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, and the paired FP32 B1-C5-C symmetric map--path decomposition are complete, locally retained, and rehashed; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required; B1-C2 attempt `20260824a` closed at its no-write storage preflight and immutable replacement `20260824b` below is registered and owner-authorized, while runtime state and outcome belong to its run receipts rather than this status line
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -463,8 +463,13 @@ future 81,920-step representation study before seed replication. It does not
 reopen either failed B1-C4 continuation gate, authorize longer training, or
 change any completed seed-0 result.
 
-The immutable attempt label is
-`d094_b1_c2_seed_replication_20260824a`, and the registered trainer stage is
+The initial attempt `d094_b1_c2_seed_replication_20260824a` closed before source
+staging or remote writes because the target data filesystem had only about
+15.6 GiB free, below its conservative 32 GiB gate. That gate had projected the
+nine-sentinel seed-0 payload onto B1-C2 even though B1-C2 retains only one
+sentinel. No existing result was deleted or compacted. The immutable replacement
+attempt label is `d094_b1_c2_seed_replication_20260824b`, and the registered
+trainer stage is
 `b1_c2_seed_replication_20480`. The matrix contains exactly 24 cold-start cells:
 
 - initialization seeds `20260812` and `20260813`, paired with the retained
@@ -486,13 +491,19 @@ are reported every five epochs. Checkpoint selection remains full-rollout-error
 first under the finite-only recurrence policy; physical admissibility is
 reported but is not the leading selection gate.
 
-Each cell retains the selected and terminal checkpoints plus exactly one
-model-only matched-exposure sentinel at `s_X(n)=64n`, giving common corrected
-exposure `X=64/79`. The terminal checkpoint already represents step 20,480, so
-duplicating it as a B1-C2 sentinel is prohibited. A sentinel is not selected by
-interpolation and cannot be resumed.
+Each cell retains evaluation-only selected and terminal model states plus
+exactly one model-only matched-exposure sentinel at `s_X(n)=64n`, giving common
+corrected exposure `X=64/79`. Optimizer and scheduler states are omitted from all
+three because exact resume is already prohibited and none is needed by the
+registered evaluators. Model state, architecture/training contracts,
+normalization, provenance annotations, and epoch remain intact. Measured
+seed-0 model-only states are at most about 76.71 MB each, so the three-state
+payload is about 230.2 MB per cell and about 5.53 GB for 24 cells before small
+metadata/log overhead. The terminal checkpoint already represents step 20,480,
+so duplicating it as a B1-C2 sentinel is prohibited. A sentinel is not selected
+by interpolation and cannot be resumed.
 
-Before launch, the target output filesystem must show at least 32 GiB free, the
+Before launch, the target output filesystem must show at least 8 GiB free, the
 GPU must be idle, the registered data/split/source hashes must close, focused
 CPU tests and one CUDA forward must be finite, and no immutable output root may
 already exist. Existing remote outputs are not deleted or compacted. The queue

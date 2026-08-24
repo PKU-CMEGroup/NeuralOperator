@@ -26,7 +26,7 @@ Documentation roles are:
 - [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md):
   registered scaling plan with locally retained B1-A/B1-B and completed,
   rehashed B1-C0/B1-C1, B1-C4, B1-C5-A, B1-C5-B, and B1-C5-C seed-0
-  evidence;
+  evidence, plus the owner-authorized B1-C2 paired-seed replication contract;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -421,8 +421,9 @@ mechanism to horizon-dependent reachable-path drift under self-composition. It
 does not identify why training changes that path or establish an optimizer,
 representation, data-count, architecture, capacity, gradient, convergence,
 conservation, or test cause. Longer training remains outside the current
-priority, and no 81,920/163,840-step, PCFNO/FFNO, seed, or historical-test run is
-automatic.
+priority, and no 81,920/163,840-step, FFNO, or historical-test run is automatic.
+The 2026-08-24 owner direction separately authorizes only the exact B1-C2
+20,480-step PCNO/PCFNO paired-seed matrix after its registered preflights.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
@@ -461,7 +462,7 @@ likewise not implied by current evidence.
 - [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
   locally retained B1-A/B1-B schedule audit and completed, rehashed B1-C0/B1-C1
   seed-0 `n={8,16,32,64,128,256}` paired sweep plus closed B1-C4 and
-  B1-C5-A/B/C results.
+  B1-C5-A/B/C results and the registered B1-C2 paired-seed replication.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

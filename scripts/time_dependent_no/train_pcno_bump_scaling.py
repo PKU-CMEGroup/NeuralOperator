@@ -30,11 +30,13 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from utility.time_dependent_no.pcno_differential_branch import (
+from utility.time_dependent_no.pcno_differential_branch import (  # noqa: E402
     DIFFERENTIAL_BRANCH_MODES,
     apply_differential_branch_mode,
 )
-from utility.time_dependent_no.pcno_rollout import FINITE_ONLY_ROLLOUT_POLICY
+from utility.time_dependent_no.pcno_rollout import (  # noqa: E402
+    FINITE_ONLY_ROLLOUT_POLICY,
+)
 
 SCHEMA = "d094_bump_scaling_training_v1"
 D094_METRIC_RECEIPT_SCHEMA = "d094_bump_scaling_metric_receipt_v1"
@@ -46,8 +48,17 @@ D094_ROLLOUT_SELECTION_COUNT = 16
 D094_EPOCHS = 80
 D094_OPTIMIZER_STEPS_PER_EPOCH = 256
 D094_BASE_STAGE = "b1_base_20480"
+D094_B1_C2_STAGE = "b1_c2_seed_replication_20480"
 D094_B1_C4_STAGE = "b1_c4_pcno_40960"
-D094_REGISTERED_STAGES = (D094_BASE_STAGE, D094_B1_C4_STAGE)
+D094_REGISTERED_STAGES = (
+    D094_BASE_STAGE,
+    D094_B1_C2_STAGE,
+    D094_B1_C4_STAGE,
+)
+D094_B1_C2_SEEDS = (20_260_812, 20_260_813)
+D094_B1_C2_SENTINEL_STEPS_BY_COUNT = {
+    count: (64 * count,) for count in REGISTERED_COUNTS
+}
 D094_B1_C4_COUNTS = (128, 256)
 D094_B1_C4_SEED = 20_260_718
 D094_B1_C4_EPOCHS = 160
@@ -559,9 +570,9 @@ def configure_parent_args(
     wrapper.sentinel_steps = sentinel_steps
     if wrapper.engineering_smoke:
         if wrapper.registered_stage != D094_BASE_STAGE:
-            raise ValueError("engineering smoke cannot claim the B1-C4 stage")
+            raise ValueError("engineering smoke cannot claim a registered extension stage")
         args.d094_schedule_arm = "engineering_smoke"
-    elif wrapper.registered_stage == D094_BASE_STAGE:
+    elif wrapper.registered_stage in (D094_BASE_STAGE, D094_B1_C2_STAGE):
         expected_total = D094_EPOCHS * D094_OPTIMIZER_STEPS_PER_EPOCH
         if args.epochs != D094_EPOCHS:
             raise ValueError(f"the registered D094 schedule uses {D094_EPOCHS} epochs")
@@ -584,7 +595,27 @@ def configure_parent_args(
             ) from error
         if wrapper.sentinel_every_epochs != 0:
             raise ValueError("the registered D094 sentinel schedule is step-explicit")
-        if sentinel_steps != D094_SENTINEL_STEPS:
+        if wrapper.registered_stage == D094_B1_C2_STAGE:
+            if args.seed not in D094_B1_C2_SEEDS:
+                raise ValueError(
+                    f"B1-C2 initialization seed must lie in {D094_B1_C2_SEEDS}"
+                )
+            if args.d094_schedule_arm != "stretched":
+                raise ValueError("B1-C2 uses only the 20,480-step stretched schedule")
+            expected_sentinels = D094_B1_C2_SENTINEL_STEPS_BY_COUNT[
+                wrapper.trajectory_count
+            ]
+            if sentinel_steps != expected_sentinels:
+                raise ValueError(
+                    f"B1-C2 n={wrapper.trajectory_count} requires sentinels "
+                    f"{expected_sentinels}"
+                )
+            if wrapper.comparable_seen_every_epochs != 5 or args.rollout_every != 5:
+                raise ValueError(
+                    "B1-C2 evaluates fixed seen and rollout every five epochs"
+                )
+            args.d094_schedule_arm = "b1_c2_replication_stretched"
+        elif sentinel_steps != D094_SENTINEL_STEPS:
             raise ValueError("the registered D094 sentinel-step inventory is exact")
         if wrapper.sentinel_payload != MODEL_ONLY_SENTINEL_PAYLOAD:
             raise ValueError("registered D094 sentinels are model-only")
@@ -948,6 +979,7 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "engineering_smoke": bool(wrapper.engineering_smoke),
         "trajectory_count": len(train_keys),
         "registered_stage": wrapper.registered_stage,
+        "initialization_seed": int(args.seed),
         "train_keys": train_keys,
         "open_validation_count": len(validation_keys),
         "historical_test_population_accessed": False,
@@ -1045,13 +1077,28 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             args.output_dir / "b1_c4_continuation_gate.json", continuation_gate
         )
     final_contract = dict(scaling_contract)
+    if wrapper.engineering_smoke:
+        completion_status = "completed_engineering_smoke"
+        science_ineligibility_reason = "engineering smoke only"
+    elif wrapper.registered_stage == D094_B1_C2_STAGE:
+        completion_status = "completed_replication_cell"
+        science_ineligibility_reason = (
+            "one B1-C2 cell only; interpretation requires the complete paired "
+            "24-cell replication matrix"
+        )
+    elif wrapper.registered_stage == D094_B1_C4_STAGE:
+        completion_status = "completed_unreplicated_pilot"
+        science_ineligibility_reason = (
+            "single-seed compute extension; continuation requires human review"
+        )
+    else:
+        completion_status = "completed_unreplicated_pilot"
+        science_ineligibility_reason = (
+            "single unreplicated pilot; exact-resume gate remains open"
+        )
     final_contract.update(
         {
-            "status": (
-                "completed_engineering_smoke"
-                if wrapper.engineering_smoke
-                else "completed_unreplicated_pilot"
-            ),
+            "status": completion_status,
             "completed_epochs": completed_epochs,
             "actual_optimizer_steps": actual_steps,
             "actual_window_equivalent_exposure_per_trajectory": (
@@ -1072,15 +1119,7 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             ),
             "automatic_continuation_authorized": False,
             "science_result_eligible": False,
-            "science_ineligibility_reason": (
-                "engineering smoke only"
-                if wrapper.engineering_smoke
-                else (
-                    "single-seed compute extension; continuation requires human review"
-                    if wrapper.registered_stage == D094_B1_C4_STAGE
-                    else "single unreplicated pilot; exact-resume gate remains open"
-                )
-            ),
+            "science_ineligibility_reason": science_ineligibility_reason,
         }
     )
     write_json(args.output_dir / "bump_scaling_contract.json", final_contract)

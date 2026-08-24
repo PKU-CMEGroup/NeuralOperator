@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, and the paired FP32 B1-C5-C symmetric map--path decomposition are complete, locally retained, and rehashed; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, and the paired FP32 B1-C5-C symmetric map--path decomposition are complete, locally retained, and rehashed; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required; the immutable B1-C2 paired-seed replication attempt below is registered and owner-authorized, while its runtime state and outcome belong to its run receipts rather than this status line
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -455,6 +455,54 @@ deleted or compacted without a separate explicit decision. A count-specific
 sentinel inventory should retain the required matched-exposure state without
 duplicating unnecessary model-only checkpoints.
 
+#### B1-C2 owner authorization and executable contract (2026-08-24)
+
+The owner's current instruction to proceed selects the previously proposed
+B1-C2 replication stage. It supersedes only the earlier ordering that placed a
+future 81,920-step representation study before seed replication. It does not
+reopen either failed B1-C4 continuation gate, authorize longer training, or
+change any completed seed-0 result.
+
+The immutable attempt label is
+`d094_b1_c2_seed_replication_20260824a`, and the registered trainer stage is
+`b1_c2_seed_replication_20480`. The matrix contains exactly 24 cold-start cells:
+
+- initialization seeds `20260812` and `20260813`, paired with the retained
+  seed-0 value `20260718` for the eventual three-seed analysis;
+- nested training counts `n={8,16,32,64,128,256}` from the registered D094
+  split, with no subset replacement or state-field inspection;
+- full-gradient PCNO and functional no-gradient PCFNO at every seed/count;
+- identical model initialization for the shared state at a fixed seed/count,
+  with the differential branch intervention remaining state-dict stable; and
+- an order-balanced serial queue: at each increasing count, seed `20260812`
+  runs PCNO then PCFNO, and seed `20260813` runs PCFNO then PCNO.
+
+Every cell uses the selected stretched contract: 80 cold epochs, 256 batch-one
+optimizer updates per epoch, 20,480 total updates and pair presentations,
+one-step residual supervision, BF16 autocast, warmup cosine decaying through
+step 20,480, and no init/resume. Fixed open-validation one-step metrics are
+reported every epoch; fixed seen one-step and autonomous H79 selection rollouts
+are reported every five epochs. Checkpoint selection remains full-rollout-error
+first under the finite-only recurrence policy; physical admissibility is
+reported but is not the leading selection gate.
+
+Each cell retains the selected and terminal checkpoints plus exactly one
+model-only matched-exposure sentinel at `s_X(n)=64n`, giving common corrected
+exposure `X=64/79`. The terminal checkpoint already represents step 20,480, so
+duplicating it as a B1-C2 sentinel is prohibited. A sentinel is not selected by
+interpolation and cannot be resumed.
+
+Before launch, the target output filesystem must show at least 32 GiB free, the
+GPU must be idle, the registered data/split/source hashes must close, focused
+CPU tests and one CUDA forward must be finite, and no immutable output root may
+already exist. Existing remote outputs are not deleted or compacted. The queue
+stops on the first failed cell or validation receipt. A cell is complete only
+with 80 metric rows, 20,480 accounted presentations, a finite H79 rollout, the
+exact source/split receipts, and the exact count-specific sentinel. No partial
+matrix supports a seed claim. The historical 20-trajectory test population
+remains sealed; the same 28-case open-development audit may be run only after
+all 24 cells close, without checkpoint reselection.
+
 For every stage, the primary views are distinct:
 
 - online train one-step is an optimization trace;
@@ -785,6 +833,10 @@ The B1-C4 registered route was:
 6. do not diagnose capacity from the present gate. A later capacity diagnosis
    requires a separately evidenced compute plateau while the fixed
    seen--validation gap remains small.
+
+The 2026-08-24 owner authorization supersedes item 5 only for the exact B1-C2
+seed-replication matrix registered above. The deferred 81,920-step study and any
+bump FFNO arm remain separately gated.
 
 #### B1-C5: numerical floor and late deployed-map dynamics
 
@@ -1394,19 +1446,21 @@ The bump cost is measured by a native-graph smoke before queueing because its no
    selected-map evaluation of the terminal path is already sufficiently harmful
    to reverse H79 without an interaction term. This closes the registered
    retained-checkpoint map--path question but not the cause of path evolution.
-5. Retain 81,920 steps as a later representation-evolution study, not the
+5. Execute the registered B1-C2 seeds `20260812/20260813` matrix only after its
+   storage, source, split, CPU, and CUDA preflights close. Retain positive,
+   null, and reversed seeds, and interpret no partial matrix.
+6. Retain 81,920 steps as a later representation-evolution study, not the
    current priority. Before it runs, preregister fixed-update, fixed-exposure,
-   scheduler-phase, and checkpoint-response controls separately. Freeze that
-   budget before paired PCFNO, any representation-explicit bump FFNO, and
-   initialization-seed replication; retain positive, null, and reversed seeds.
-6. Keep the retired `n<=7` factorial sweep unlaunched and keep exact resume
+   scheduler-phase, and checkpoint-response controls separately. Any
+   representation-explicit bump FFNO remains separately gated.
+7. Keep the retired `n<=7` factorial sweep unlaunched and keep exact resume
    closed unless a separate replay/resume gate is implemented and tested.
-7. In parallel through human coordination, request the official PlanarDet
+8. In parallel through human coordination, request the official PlanarDet
    case, additional trajectories, and an HPC cost/allocation answer. Do not
    generate PlanarDet from the paper description alone.
-8. Do not start the full PlanarDet architecture surface or its matched and
+9. Do not start the full PlanarDet architecture surface or its matched and
    paper-faithful FFNO arms until B2 and B3 close.
-9. Keep the historical test population sealed until the three-seed development
+10. Keep the historical test population sealed until the three-seed development
    claims and final checkpoint-selection rules are frozen and separately
    authorized.
 

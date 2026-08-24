@@ -243,8 +243,11 @@ retrieval manifest binds 123 files and `70,862,988` bytes with SHA-256
 `2c936241f3156a981fdf560d6e320dfd4235414a92270697ea3da4d519ce4281`.
 An independent local replay reproduces the three scientific CSVs byte-for-byte
 and the same classification.
-A future schedule-aware compute/exposure matrix must separately freeze a budget
-before paired PCFNO and seed replication. Native bump PCFNO remains a gradient-path
+A 2026-08-24 owner correction now authorizes the exact 20,480-step B1-C2
+PCNO/PCFNO replication matrix for seeds `20260812/20260813`, subject to its
+registered storage, provenance, CPU, and CUDA preflights. This changes the run
+order only: 81,920-step representation evolution remains deferred and any FFNO
+arm remains separately gated. Native bump PCFNO remains a gradient-path
 ablation, not vanilla FFNO; a bump FFNO requires an explicit common-
 representation contract, while paper-faithful FFNO remains a PlanarDet stage.
 Historical test remains sealed. See the

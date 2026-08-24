@@ -820,10 +820,11 @@ corresponding rollout improves 66.0%
 for PCNO and 54.1% for PCFNO. Thus the fixed-compute reversal is insufficient
 to diagnose a capacity bottleneck.
 
-B1-C2 proposes the same full six-count ladder for seeds 1 and 2 whether the
-seed-0 interaction is positive, null, or reversed, but requires a human
-storage/retrieval decision before launch. Future seeds retain an exact
-`s_X(n)=64n` checkpoint. PCNO `n=256` routes conditionally to extra compute
+B1-C2 now registers and owner-authorizes the same full six-count ladder for
+seeds `20260812/20260813` whether the seed-0 interaction is positive, null, or
+reversed, subject to the frozen storage/retrieval and launch preflights. Every
+new cell retains exactly one `s_X(n)=64n` checkpoint. PCNO `n=256` routes
+conditionally to extra compute
 because its late one-step and rollout curves improve together; PCFNO `n=256`
 routes to a recurrence/objective diagnostic. Capacity controls follow only
 after extra compute plateaus. Native bump PCFNO is not relabeled as vanilla
@@ -1135,9 +1136,10 @@ Working labels are coordination identifiers, not stable D-series run IDs.
    case/event observable. Next freeze B1-C5-B's numerical floor and probe fixed-
    checkpoint one-step-map and common-propagated-input response change. Both
    B1-C4 continuation gates fail, so do not auto-run longer compute; this does
-   not establish convergence. Retain 81,920 steps as a later representation-
-   evolution study under a separately frozen schedule-aware budget before
-   paired PCFNO/FFNO and seeds; do not condition replication on seed-0 direction.
+   not establish convergence. Execute the separately registered 20,480-step
+   B1-C2 seed-replication matrix after its launch preflights; do not condition
+   replication on seed-0 direction. Retain 81,920 steps as a later
+   representation-evolution study and keep FFNO separately gated.
 4. Close A46 at the independent-checkpoint/new-case block or separately repair
    and re-register its portable resource build.
 5. Keep sealed and strength-OOD populations closed unless a later named

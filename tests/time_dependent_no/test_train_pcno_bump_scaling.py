@@ -7,6 +7,9 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.time_dependent_no.train_pcno_bump_scaling import (
+    D094_B1_C2_SEEDS,
+    D094_B1_C2_SENTINEL_STEPS_BY_COUNT,
+    D094_B1_C2_STAGE,
     D094_B1_C4_GATE_STEPS,
     D094_B1_C4_SEED,
     D094_B1_C4_SENTINEL_STEPS_BY_COUNT,
@@ -293,6 +296,84 @@ def test_b1_c4_is_a_cold_pcno_only_40960_step_contract() -> None:
     warm_start.init_checkpoint = "checkpoint.pt"
     with pytest.raises(ValueError, match="does not yet admit init/resume"):
         configure_parent_args(warm_start, copy.deepcopy(wrapper), _split_payload())
+
+
+def test_b1_c2_is_a_paired_two_seed_stretched_replication_contract() -> None:
+    parent = SimpleNamespace(
+        split_mode="manifest",
+        split_seed=0,
+        val_count=1,
+        presentation_mode="full_coverage",
+        presentations_per_epoch=999,
+        batch_size=4,
+        gradient_accumulation_steps=7,
+        tiny_pairs=8,
+        val_presentations=1,
+        checkpoint_every=99,
+        init_checkpoint=None,
+        resume_checkpoint=None,
+        step_stride=1,
+        multistep_loss_steps=1,
+        multistep_loss_weight=0.0,
+        generated_state_exposure_weight=0.0,
+        input_noise_std=0.0,
+        seed=D094_B1_C2_SEEDS[0],
+        epochs=80,
+        rollout_checkpoints=(),
+        rollout_val_count=5,
+        rollout_steps=20,
+        rollout_every=5,
+        selection_mode="historical_all_node",
+        rollout_failure_policy="strict_physical",
+        scheduler="warmup_cosine",
+        warmup_cosine_decay_steps=20_480,
+    )
+    wrapper = SimpleNamespace(
+        split_manifest=(
+            ROOT / "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json"
+        ),
+        optimizer_steps_per_epoch=256,
+        evaluation_windows_per_trajectory=4,
+        differential_branch_mode="no_gradient",
+        registered_stage=D094_B1_C2_STAGE,
+        trajectory_count=32,
+        comparable_seen_every_epochs=5,
+        sentinel_every_epochs=0,
+        sentinel_steps=D094_B1_C2_SENTINEL_STEPS_BY_COUNT[32],
+        sentinel_payload=MODEL_ONLY_SENTINEL_PAYLOAD,
+        engineering_smoke=False,
+    )
+
+    configured = configure_parent_args(parent, wrapper, _split_payload())
+    assert configured.d094_schedule_arm == "b1_c2_replication_stretched"
+    assert configured.epochs * configured.presentations_per_epoch == 20_480
+    assert D094_B1_C2_SENTINEL_STEPS_BY_COUNT == {
+        count: (64 * count,) for count in REGISTERED_COUNTS
+    }
+
+    paired_pcno = copy.deepcopy(wrapper)
+    paired_pcno.differential_branch_mode = "full"
+    configure_parent_args(copy.deepcopy(parent), paired_pcno, _split_payload())
+
+    bad_seed = copy.deepcopy(parent)
+    bad_seed.seed = 20_260_718
+    with pytest.raises(ValueError, match="initialization seed"):
+        configure_parent_args(bad_seed, copy.deepcopy(wrapper), _split_payload())
+
+    bad_schedule = copy.deepcopy(parent)
+    bad_schedule.warmup_cosine_decay_steps = 5_120
+    with pytest.raises(ValueError, match="only the 20,480-step stretched"):
+        configure_parent_args(bad_schedule, copy.deepcopy(wrapper), _split_payload())
+
+    bad_sentinel = copy.deepcopy(wrapper)
+    bad_sentinel.sentinel_steps = (2_048, 20_480)
+    with pytest.raises(ValueError, match="B1-C2 n=32 requires sentinels"):
+        configure_parent_args(copy.deepcopy(parent), bad_sentinel, _split_payload())
+
+    bad_cadence = copy.deepcopy(parent)
+    bad_cadence.rollout_every = 10
+    with pytest.raises(ValueError, match="every five epochs"):
+        configure_parent_args(bad_cadence, copy.deepcopy(wrapper), _split_payload())
 
 
 def test_d094_extension_sources_are_copied_into_v6_snapshot(tmp_path) -> None:

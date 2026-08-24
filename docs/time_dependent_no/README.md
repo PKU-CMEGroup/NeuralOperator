@@ -53,8 +53,10 @@ remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
 and claim boundaries.
 
 Current D094 execution state: B1-A/B1-B, the B1-C0/B1-C1 seed-0 six-count
-PCNO/PCFNO ladder, B1-C4, and B1-C5-A/B/C are complete, locally retained, and
-rehashed.
+PCNO/PCFNO ladder, B1-C4, B1-C5-A/B/C, and all 24 B1-C2 replication cells are
+complete, locally retained, and rehashed. The exact common-process audit of all
+72 three-seed selected/terminal checkpoints is registered but has no outcome;
+the historical test population remains sealed.
 B1-C4 cold 40,960-step PCNO at `n={128,256}` selects step 38,400 for both.
 Fixed-validation and selection-cohort H79 are near ties, while outside-audit H79
 is `0.038922/0.044550` and `n=128` wins 22 of 28 cases. Exact-exposure and

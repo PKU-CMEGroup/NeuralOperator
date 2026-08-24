@@ -424,8 +424,12 @@ conservation, or test cause. Longer training remains outside the current
 priority, and no 81,920/163,840-step, FFNO, or historical-test run is automatic.
 The 2026-08-24 owner direction separately authorizes only the exact B1-C2
 20,480-step PCNO/PCFNO paired-seed matrix after its registered preflights.
-Replacement attempt `20260824b` passed those preflights and is running; no
-partial cell or partial matrix changes the evidence state above.
+Replacement attempt `20260824b` passed those preflights and completed all 24
+cells with passing receipts, a zero matrix exit, local retention/rehash, and no
+historical-test access. The exact common-process audit of all 72 three-seed
+selected/terminal checkpoints on the same 28 open-development trajectories is
+registered; no partial audit changes the evidence state above, and no training
+continuation is automatic.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
@@ -464,7 +468,8 @@ likewise not implied by current evidence.
 - [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
   locally retained B1-A/B1-B schedule audit and completed, rehashed B1-C0/B1-C1
   seed-0 `n={8,16,32,64,128,256}` paired sweep plus closed B1-C4 and
-  B1-C5-A/B/C results and the registered B1-C2 paired-seed replication.
+  B1-C5-A/B/C results, the completed B1-C2 paired-seed matrix, and its
+  registered 72-checkpoint outside-development audit.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, and the paired FP32 B1-C5-C symmetric map--path decomposition are complete, locally retained, and rehashed; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required; B1-C2 attempt `20260824a` closed at its no-write storage preflight and immutable replacement `20260824b` below is registered and owner-authorized, while runtime state and outcome belong to its run receipts rather than this status line
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, the paired FP32 B1-C5-C symmetric map--path decomposition, and the 24-cell B1-C2 replacement matrix `20260824b` are complete, locally retained, and rehashed; the exact 72-checkpoint three-seed outside-development audit below is registered but has no outcome yet; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -523,6 +523,61 @@ For every stage, the primary views are distinct:
   development metrics;
 - the 28-case audit reports fixed checkpoints without reselection; and
 - selected-checkpoint and terminal-checkpoint rollout are never merged.
+
+#### B1-C2 completion and three-seed audit contract (2026-08-25)
+
+Replacement matrix `d094_b1_c2_seed_replication_20260824b` completed at
+2026-08-25 00:14:22 CST with `matrix.exit=0` and all 24 cell receipts passing.
+The matrix receipt binds source commit
+`2372b8b34cb8ddd21e4776faaa04c92ce3e60c00`, source archive SHA-256
+`ff029e6321686b1c2733f6d66dca237c45b323353eab4c2a38555d216ddd355b`,
+source-set digest
+`3dc03431bf2af1eb48b9b933d28ccbe60a25f78fe9cd64396fd4bcb2d0b91e1e`,
+and the registered split digest. It records 24 completed cells, the exact two
+seeds, six counts, two architectures, and
+`historical_test_population_accessed=false`.
+
+The complete remote attempt contains 1,700 regular files and 5,606,845,935
+payload bytes. A separately generated remote retrieval manifest has SHA-256
+`707e3ef2e7160becd4f7ef950caa80d20ee6e78e053d6a0215c3fdc3849f630d`.
+The streamed local tar is 5,609,922,560 bytes with SHA-256
+`215a4adea5f850a9c1a79c7fe934fbcb77c22a305dd151cb42ff123c52fa9c92`;
+all 1,700 regular-member hashes and byte counts match. Four pytest `current`
+symlinks target directories inside the same sealed attempt, are not part of the
+regular-file manifest, and are not followed during local metadata extraction.
+
+Before any outside-development outcome is opened, register audit attempt
+`d094_b1_c2_three_seed_outside_audit_20260825a` with this exact matrix:
+
+- initialization seeds `{20260718,20260812,20260813}`, counts
+  `n={8,16,32,64,128,256}`, architectures `{PCNO,PCFNO}`, and checkpoint roles
+  `{selected,terminal}`: exactly 72 frozen checkpoints;
+- the retained seed-0 ladder and `n=256` gate plus the completed B1-C2
+  replacement are re-evaluated together, rather than mixing the old seed-0
+  audit numerics with a new two-seed evaluator;
+- fixed ordering is seed, increasing count, PCNO then PCFNO, selected then
+  terminal; one BF16 evaluator process uses the same device, frozen boundary
+  policies, finite-only recurrence, shock quantile `0.9`, H79 horizon, and the
+  same 28 open-development trajectories for every checkpoint;
+- selected and terminal identities, training-metric anchors, checkpoint
+  hashes, source-set digests, normalization/configuration digests, nested train
+  subsets, and paired PCNO/PCFNO initialization hashes must close before the
+  first outside trajectory is evaluated;
+- no checkpoint is selected, rejected, or reordered using the 28 audit
+  trajectories. Physical inadmissibility is reported but is not a leading
+  ranking criterion. Selected and terminal results remain separate; and
+- the historical 20-trajectory test population remains sealed.
+
+The primary cross-seed report will retain raw per-seed values and mean plus
+sample standard deviation for online one-step train, fixed seen one-step, fixed
+open-validation one-step, selection-cohort rollout, and 28-case outside
+rollout. It will plot fixed-validation/fixed-seen ratio through optimization,
+not only at the endpoint. Architecture-by-count direction is called replicated
+only when it agrees in at least two of three seeds; otherwise it is heterogeneous.
+Outside-case paired uncertainty is estimated within each seed/count/role and is
+not substituted for initialization-seed uncertainty. No monotone scaling law,
+capacity diagnosis, optimizer cause, gradient cause, or FFNO conclusion is
+licensed by this audit alone.
 
 #### B1-C4 owner correction and executable contract (2026-08-22)
 

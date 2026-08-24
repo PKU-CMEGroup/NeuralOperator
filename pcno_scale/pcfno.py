@@ -228,12 +228,13 @@ class PCFNO(nn.Module):
                 x1 = spw(x1) + spconvadjnw(torch.cat([x1 * outward_normals[:, i:i+1, :] for i in range(outward_normals.size(1))], dim=1))
             else:
                 x1 = speconv(x, bases_c, bases_s, node_weights)
-                x1 = spw(x1)
                 
             x2 = w(x)
 
             if self.act is not None and i != last_layer:
                 x = x + self.act(x1 + x2)
+            else:
+                x = x1 + x2
 
         x = x.permute(0, 2, 1)
         if self.fc_dim > 0:
@@ -242,4 +243,4 @@ class PCFNO(nn.Module):
                 x = self.act(x)
 
         x = self.fc2(x)
-        return x * node_mask.to(dtype=x.dtype)
+        return x

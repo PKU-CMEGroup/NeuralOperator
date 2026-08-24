@@ -39,7 +39,6 @@ echo "Log: ${LOG_FILE}"
     --data_dir "${DATA_DIR}" \
     --preprocess_dir "${PREPROCESS_DIR}" \
     --y_fields CpMeanTrim,wallShearStressMeanTrim \
-    --statistics_chunk_size 200000 \
     --train_sample_size 16384 \
     --test_sample_size 16384 \
     --sample_weight_correction measure \

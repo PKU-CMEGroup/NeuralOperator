@@ -65,6 +65,20 @@ class UnitGaussianNormalizer(object):
         self.std  = torch.std(x[...,0:x.shape[-1]  - non_normalized_dim],  dim=normalization_dim)
         self.eps  = eps
 
+    @classmethod
+    def from_statistics(cls, mean, std, non_normalized_dim=0, eps=1.0e-5):
+        """Build a normalizer from precomputed statistics.
+
+        This is useful for datasets that are too large to materialize as one
+        tensor. ``mean`` and ``std`` may be NumPy arrays or tensors.
+        """
+        normalizer = cls.__new__(cls)
+        normalizer.non_normalized_dim = non_normalized_dim
+        normalizer.mean = torch.as_tensor(mean)
+        normalizer.std = torch.as_tensor(std)
+        normalizer.eps = eps
+        return normalizer
+
     def encode(self, x, inplace: bool = False):
         """
         Normalize input data to zero mean and unit variance.
@@ -142,5 +156,5 @@ class UnitGaussianNormalizer(object):
         """
         self.mean = self.mean.to(device)
         self.std = self.std.to(device)
+        return self
         
-

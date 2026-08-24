@@ -10,9 +10,8 @@
 处理后的数据存放在 ../../data/drivaerml/preprocess/
 包括 node_data_1.npy,  网格信息 格点中心坐标，格子面积，和外法向量， nc by 7 numpy array 
     CpMeanTrim_1.npy, pMeanTrim_1.npy, pPrime2MeanTrim_1.npy,  wallShearStressMeanTrim_1.npy ......
-    metadata_1.npy, 包括point 和 cell 数目
+    metadata_1.json, 包括数组描述、几何统计量和每个 y 通道的统计量
 """
-import argparse
 import json
 from pathlib import Path
 from timeit import default_timer
@@ -20,6 +19,40 @@ from timeit import default_timer
 import numpy as np
 import pyvista as pv
 from vtk.util.numpy_support import vtk_to_numpy
+
+def _channel_statistics(
+    values: np.ndarray, chunk_size: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """分块计算每个通道的 mean、M2、min 和 max，避免创建大型临时数组。"""
+    values_2d = values[:, None] if values.ndim == 1 else values
+    count = 0
+    mean = np.zeros(values_2d.shape[1], dtype=np.float64)
+    m2 = np.zeros_like(mean)
+    minimum = np.full_like(mean, np.inf)
+    maximum = np.full_like(mean, -np.inf)
+
+    for start in range(0, values_2d.shape[0], chunk_size):
+        chunk = np.asarray(values_2d[start : start + chunk_size], dtype=np.float64)
+        if not np.isfinite(chunk).all():
+            raise ValueError(f"Y data contains NaN/Inf in rows starting at {start}")
+        chunk_count = chunk.shape[0]
+        chunk_mean = chunk.mean(axis=0, dtype=np.float64)
+        chunk_m2 = np.square(chunk - chunk_mean).sum(axis=0, dtype=np.float64)
+        minimum = np.minimum(minimum, chunk.min(axis=0))
+        maximum = np.maximum(maximum, chunk.max(axis=0))
+
+        if count == 0:
+            mean = chunk_mean
+            m2 = chunk_m2
+            count = chunk_count
+            continue
+        delta = chunk_mean - mean
+        combined_count = count + chunk_count
+        mean += delta * (chunk_count / combined_count)
+        m2 += chunk_m2 + np.square(delta) * count * chunk_count / combined_count
+        count = combined_count
+
+    return mean, m2, minimum, maximum
 
 
 
@@ -103,6 +136,8 @@ def preprocess_vtp(
 
     polygons = mesh.GetPolys()
     n_cells = int(polygons.GetNumberOfCells())
+    if n_cells <= 0:
+        raise ValueError(f"{source} contains no polygon cells")
     vtk_cell_normals = np.asarray(mesh.cell_data["Normals"], dtype=np.float64)
 
     points = np.asarray(mesh.points, dtype=np.float64)
@@ -123,32 +158,61 @@ def preprocess_vtp(
     # Columns: center_x, center_y, center_z, area, normal_x, normal_y, normal_z.
     node_data = np.empty((n_cells, 7), dtype=np.float64)
 
+    y_metadata: dict[str, dict] = {}
     for y_field in y_fields:
+        if y_field not in mesh.cell_data:
+            raise KeyError(
+                f"Cell field {y_field!r} is absent from {source.name}; "
+                f"available fields: {list(mesh.cell_data.keys())}"
+            )
         values = np.asarray(mesh.cell_data[y_field], dtype=np.float64)
+        if values.ndim not in (1, 2) or values.shape[0] != n_cells:
+            raise ValueError(
+                f"Cell field {y_field!r} must have shape [n_cells] or "
+                f"[n_cells, channels]; got {values.shape}"
+            )
         feature_path = preprocess_root / f"{y_field}_{case_id}.npy"
         np.save(feature_path, values)
+        y_mean, y_m2, y_min, y_max = _channel_statistics(values, chunk_size)
+        y_metadata[y_field] = {
+            "file": feature_path.name,
+            "shape": list(values.shape),
+            "dtype": str(values.dtype),
+            "width": 1 if values.ndim == 1 else int(values.shape[1]),
+            "mean": y_mean.tolist(),
+            "m2": y_m2.tolist(),
+            "min": y_min.tolist(),
+            "max": y_max.tolist(),
+        }
 
-    normal_error_squared = 0.0
-    normal_error_min = np.inf
-    normal_error_max = -np.inf
+    total_measure = 0.0
+    coordinate_min = np.full(3, np.inf, dtype=np.float64)
+    coordinate_max = np.full(3, -np.inf, dtype=np.float64)
+    min_cell_area = np.inf
+    max_cell_area = -np.inf
     for start in range(0, n_cells, chunk_size):
         end = min(start + chunk_size, n_cells)
         centers, measures, _ = _preprocess_polygon_chunk(points, offsets, connectivity, start, end)
+        if not (
+            np.isfinite(centers).all()
+            and np.isfinite(measures).all()
+            and np.isfinite(vtk_cell_normals[start:end]).all()
+        ):
+            raise ValueError(
+                f"Geometry contains NaN/Inf in cells [{start}, {end})"
+            )
         node_data[start:end, :3] = centers
         node_data[start:end, 3:4] = measures
         node_data[start:end, 4:7] = vtk_cell_normals[start:end]
 
-        normal_difference = (
-            node_data[start:end, 4:7] - vtk_cell_normals[start:end]
-        )
-        normal_error_squared += float(
-            np.square(normal_difference).sum(dtype=np.float64)
-        )
-        normal_error_min = min(normal_error_min, float(normal_difference.min()))
-        normal_error_max = max(normal_error_max, float(normal_difference.max()))
+        total_measure += float(measures.sum(dtype=np.float64))
+        coordinate_min = np.minimum(coordinate_min, centers.min(axis=0))
+        coordinate_max = np.maximum(coordinate_max, centers.max(axis=0))
+        min_cell_area = min(min_cell_area, float(measures.min()))
+        max_cell_area = max(max_cell_area, float(measures.max()))
 
-    min_cell_area = min(node_data[:,3])
-    max_cell_area = max(node_data[:,3])
+    if not np.isfinite(total_measure) or total_measure <= 0:
+        raise ValueError(f"Invalid total cell area: {total_measure}")
 
     print(
         f"  cell area range: min={min_cell_area:.8e}, max={max_cell_area:.8e}",
@@ -157,9 +221,32 @@ def preprocess_vtp(
     np.save(node_data_path, node_data)
 
     metadata = {
+        "case_id": case_id,
+        "source_file": source.name,
         "n_points": int(mesh.n_points),
         "n_cells": n_cells,
-        "dtype": "float64",
+        "node_data": {
+            "file": node_data_path.name,
+            "shape": list(node_data.shape),
+            "dtype": str(node_data.dtype),
+            "columns": [
+                "center_x",
+                "center_y",
+                "center_z",
+                "area",
+                "normal_x",
+                "normal_y",
+                "normal_z",
+            ],
+        },
+        "geometry": {
+            "total_measure": total_measure,
+            "coordinate_min": coordinate_min.tolist(),
+            "coordinate_max": coordinate_max.tolist(),
+            "cell_area_min": min_cell_area,
+            "cell_area_max": max_cell_area,
+        },
+        "y_fields": y_metadata,
     }
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 

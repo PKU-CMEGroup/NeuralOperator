@@ -277,7 +277,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Comma-separated NumPy y field names",
     )
     parser.add_argument("--max_files", type=int, default=0)
-    parser.add_argument("--statistics_chunk_size", type=int, default=200_000)
     parser.add_argument("--train_sample_size", type=int, default=8192)
     parser.add_argument("--test_sample_size", type=int, default=8192)
     parser.add_argument(
@@ -321,24 +320,22 @@ def main() -> None:
     if min(
         args.train_sample_size,
         args.test_sample_size,
-        args.statistics_chunk_size,
         args.save_every,
         args.ep,
         args.bsz,
     ) <= 0:
-        raise ValueError("sample/chunk/batch/epoch/save values must be positive")
+        raise ValueError("sample/batch/epoch/save values must be positive")
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
     data_dir = args.data_dir.expanduser().resolve()
     preprocess_dir = args.preprocess_dir.expanduser().resolve()
-    print(f"Reading preprocessed arrays from {preprocess_dir}", flush=True)
+    print(f"Reading metadata from {preprocess_dir}", flush=True)
     records = discover_records(
         data_dir,
         preprocess_dir,
         args.y_fields,
         max_files=args.max_files,
-        statistics_chunk_size=args.statistics_chunk_size,
     )
     train_records, test_records = split_records(
         records, args.n_train, args.n_test
@@ -364,6 +361,8 @@ def main() -> None:
         lengths = (2.0 * (upper - lower) + 0.2).tolist()
     args.Ls = ",".join(str(value) for value in lengths)
 
+    print(f"Ls={args.Ls} ", flush=True,)
+    
     layers = [int(value) for value in args.layer_sizes.split(",")]
     if len(layers) < 2 or any(width <= 0 for width in layers):
         raise ValueError("--layer_sizes needs at least two positive widths")
@@ -386,7 +385,9 @@ def main() -> None:
         layer_selection={"geointegral": args.geointegral},
     ).to(device=device, dtype=torch.float32)
 
-    y_mean, y_std = y_statistics(train_records, args.statistics_chunk_size)
+    y_mean, y_std = y_statistics(train_records)
+
+    print(f"y_mean={y_mean} " f"y_std={y_std} ", flush=True,)
     
     y_normalizer = UnitGaussianNormalizer.from_statistics(
         torch.as_tensor(y_mean, dtype=torch.float32),
@@ -411,3 +412,29 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+''' 
+python pcfno_train.py \
+    --data_dir "../../data/drivaerml" \
+    --preprocess_dir "../../data/drivaerml/preprocess" \
+    --y_fields CpMeanTrim,wallShearStressMeanTrim \
+    --train_sample_size 16384 \
+    --test_sample_size 16384 \
+    --sample_weight_correction measure \
+    --n_train 1 \
+    --n_test  1 \
+    --num_workers 4 \
+    --geointegral \
+    --k_max 16 \
+    --layer_sizes 64,64,64,64 \
+    --fc_dim 128 \
+    --bsz 1 \
+    --ep 200 \
+    --base_lr 5e-4 \
+    --weight_decay 1e-4 \
+    --to_divide_factor 20 \
+    --save_every 100 \
+    --model_name "PCFNO" \
+    2>&1 | tee pcfno_train.log
+'''

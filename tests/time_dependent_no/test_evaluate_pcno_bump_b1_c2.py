@@ -154,9 +154,7 @@ def test_three_seed_discovery_uses_registered_audit_order(
             for role in reversed(audit.CHECKPOINT_ROLES)
         ]
 
-    monkeypatch.setattr(
-        audit, "_seed0_descriptors", lambda *_: rows((audit.SEEDS[0],))
-    )
+    monkeypatch.setattr(audit, "_seed0_descriptors", lambda *_: rows((audit.SEEDS[0],)))
     monkeypatch.setattr(
         audit,
         "_replication_descriptors",
@@ -182,3 +180,129 @@ def test_three_seed_discovery_uses_registered_audit_order(
         (audit.SEEDS[0], 8, "pcfno", "selected"),
         (audit.SEEDS[0], 8, "pcfno", "terminal"),
     ]
+
+
+def test_audit_cohorts_preserve_seed_specific_holdouts_and_common_nine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validation = [f"v{index:02d}" for index in range(44)]
+    selections = {
+        audit.SEEDS[0]: validation[0:16],
+        audit.SEEDS[1]: validation[10:26],
+        audit.SEEDS[2]: validation[19:35],
+    }
+    monkeypatch.setattr(
+        audit, "EXPECTED_VALIDATION_KEY_DIGEST", audit._ordered_key_digest(validation)
+    )
+    monkeypatch.setattr(
+        audit,
+        "EXPECTED_SELECTION_KEY_DIGESTS",
+        {seed: audit._ordered_key_digest(keys) for seed, keys in selections.items()},
+    )
+    common = validation[35:44]
+    monkeypatch.setattr(
+        audit,
+        "EXPECTED_COMMON_OUTSIDE_KEY_DIGEST",
+        audit._ordered_key_digest(common),
+    )
+    manifest = {
+        "schema": audit.SPLIT_SCHEMA,
+        "state_arrays_opened": False,
+        "historical_test_population_opened": False,
+        "partition_digest": audit.EXPECTED_SPLIT_PARTITION_DIGEST,
+        "split": {"open_validation_keys": validation},
+    }
+    descriptors = [
+        {
+            "seed": seed,
+            "split": {
+                "val_keys": validation,
+                "rollout_keys": selection,
+            },
+        }
+        for seed, selection in selections.items()
+        for _ in range(2)
+    ]
+
+    cohorts = audit.audit_cohorts(manifest, descriptors)
+
+    assert cohorts["common_outside_selection_keys"] == common
+    assert all(
+        len(keys) == 28 for keys in cohorts["outside_selection_keys_by_seed"].values()
+    )
+    assert (
+        cohorts["outside_selection_keys_by_seed"][str(audit.SEEDS[0])]
+        == validation[16:44]
+    )
+
+
+def test_audit_cohorts_reject_split_drift_within_a_seed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validation = [f"v{index:02d}" for index in range(44)]
+    selection = validation[:16]
+    monkeypatch.setattr(
+        audit, "EXPECTED_VALIDATION_KEY_DIGEST", audit._ordered_key_digest(validation)
+    )
+    monkeypatch.setattr(
+        audit,
+        "EXPECTED_SELECTION_KEY_DIGESTS",
+        {seed: audit._ordered_key_digest(selection) for seed in audit.SEEDS},
+    )
+    monkeypatch.setattr(
+        audit,
+        "EXPECTED_COMMON_OUTSIDE_KEY_DIGEST",
+        audit._ordered_key_digest(validation[16:]),
+    )
+    manifest = {
+        "schema": audit.SPLIT_SCHEMA,
+        "state_arrays_opened": False,
+        "historical_test_population_opened": False,
+        "partition_digest": audit.EXPECTED_SPLIT_PARTITION_DIGEST,
+        "split": {"open_validation_keys": validation},
+    }
+    descriptors = [
+        {
+            "seed": seed,
+            "split": {"val_keys": validation, "rollout_keys": selection},
+        }
+        for seed in audit.SEEDS
+    ]
+    descriptors.append(
+        {
+            "seed": audit.SEEDS[0],
+            "split": {
+                "val_keys": validation,
+                "rollout_keys": validation[1:17],
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="do not share one validation cohort"):
+        audit.audit_cohorts(manifest, descriptors)
+
+
+def test_rollout_subset_summary_uses_only_requested_rows() -> None:
+    rows = []
+    for index, key in enumerate(("a", "b", "c"), start=1):
+        rows.append(
+            {
+                "trajectory": key,
+                "completed": True,
+                "mean_prefix_relative_l2": float(index),
+                "endpoint_relative_l2": {
+                    str(checkpoint): float(index * checkpoint)
+                    for checkpoint in audit.ROLLOUT_CHECKPOINTS
+                },
+                "hard_failure_cause": None,
+                "physically_admissible": index != 2,
+            }
+        )
+    rollout = {"trajectories": rows, "rollout_failure_policy": "finite_only"}
+
+    summary = audit._rollout_subset_summary(rollout, ["a", "c"])
+
+    assert summary["num_trajectories"] == 2
+    assert summary["mean_full_horizon_relative_l2"] == 2.0
+    assert summary["mean_endpoint_relative_l2"]["79"] == 158.0
+    assert summary["physical_admissibility_rate"] == 1.0

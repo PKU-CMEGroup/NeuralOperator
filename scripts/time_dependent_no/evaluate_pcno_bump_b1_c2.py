@@ -2,14 +2,16 @@
 """Audit the frozen three-seed D094 B1-C2 checkpoints outside selection.
 
 The audit evaluates selected and terminal checkpoints for the retained seed-0
-ladder and the two B1-C2 replication seeds.  All 72 fixed checkpoints use the
-same 28 open-development trajectories, evaluator process, boundary policies,
-and numerical contract.  The audit never reselects a checkpoint.
+ladder and the two B1-C2 replication seeds.  Each of the 72 fixed checkpoints
+uses its seed's 28 trajectories excluded from checkpoint selection.  A fixed
+nine-trajectory subset excluded for all three seeds supplies the common-cohort
+view.  The evaluator never reselects a checkpoint.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections.abc import Mapping, Sequence
@@ -67,11 +69,20 @@ EXPECTED_DATA_MANIFEST_DIGEST = (
 EXPECTED_REPLICATION_SOURCE_SET_DIGEST = (
     "3dc03431bf2af1eb48b9b933d28ccbe60a25f78fe9cd64396fd4bcb2d0b91e1e"
 )
-EXPECTED_REPLICATION_SOURCE_COMMIT = (
-    "2372b8b34cb8ddd21e4776faaa04c92ce3e60c00"
-)
+EXPECTED_REPLICATION_SOURCE_COMMIT = "2372b8b34cb8ddd21e4776faaa04c92ce3e60c00"
 EXPECTED_REPLICATION_ARCHIVE_SHA256 = (
     "ff029e6321686b1c2733f6d66dca237c45b323353eab4c2a38555d216ddd355b"
+)
+EXPECTED_VALIDATION_KEY_DIGEST = (
+    "7bed09ff30a07b7440a0edf95ac2f9227d8f8f426716c97bc40f4e144a7d1db9"
+)
+EXPECTED_SELECTION_KEY_DIGESTS = {
+    20_260_718: "d976e8bb8474db7f9b9736825e736ad8d72df417f55f944b1152ff4df0f017f2",
+    20_260_812: "2c169b57e9e1448976a948c80fd916d08129ed57613480550e0e4398a6b3dfa8",
+    20_260_813: "2e68bad2fc75050d20d923ec726bccccf7738ee8f7107e463fb42887115c476f",
+}
+EXPECTED_COMMON_OUTSIDE_KEY_DIGEST = (
+    "4c9cb532143d457c8d57928a8054a14c08a002b60ca02e7ace157c9d30bc6f9c"
 )
 
 SEEDS = (20_260_718, 20_260_812, 20_260_813)
@@ -218,9 +229,7 @@ def _checkpoint_descriptor(
     return result
 
 
-def _seed0_descriptors(
-    ladder_root: Path, n256_root: Path
-) -> list[dict[str, Any]]:
+def _seed0_descriptors(ladder_root: Path, n256_root: Path) -> list[dict[str, Any]]:
     cells = discover_scaling_cells(ladder_root, n256_root)
     descriptors: list[dict[str, Any]] = []
     for identity in sorted(cells):
@@ -229,9 +238,7 @@ def _seed0_descriptors(
             FRESH_SOURCE_SET_DIGEST if identity[0] < 256 else B1A_SOURCE_SET_DIGEST
         )
         for role in CHECKPOINT_ROLES:
-            descriptors.append(
-                _checkpoint_descriptor(base, role=role, seed=SEEDS[0])
-            )
+            descriptors.append(_checkpoint_descriptor(base, role=role, seed=SEEDS[0]))
     return descriptors
 
 
@@ -272,8 +279,7 @@ def _replication_descriptors(
     if (
         not (replication_root / "matrix.completed").is_file()
         or not (replication_root / "matrix.exit").is_file()
-        or (replication_root / "matrix.exit").read_text(encoding="utf-8").strip()
-        != "0"
+        or (replication_root / "matrix.exit").read_text(encoding="utf-8").strip() != "0"
     ):
         raise ValueError("B1-C2 replication root lacks clean completion receipts")
     _validate_matrix_receipt(_load_json(replication_root / "matrix_receipt.json"))
@@ -377,15 +383,15 @@ def _replication_descriptors(
                 or pcno["summary"]["initialization_control"]["differential_branch"][
                     "initial_full_state_sha256"
                 ]
-                != pcfno["summary"]["initialization_control"][
-                    "differential_branch"
-                ]["initial_full_state_sha256"]
+                != pcfno["summary"]["initialization_control"]["differential_branch"][
+                    "initial_full_state_sha256"
+                ]
                 or pcno["summary"]["initialization_control"]["differential_branch"][
                     "initial_nondifferential_state_sha256"
                 ]
-                != pcfno["summary"]["initialization_control"][
-                    "differential_branch"
-                ]["initial_nondifferential_state_sha256"]
+                != pcfno["summary"]["initialization_control"]["differential_branch"][
+                    "initial_nondifferential_state_sha256"
+                ]
             ):
                 raise ValueError(
                     f"paired initialization changed for seed={seed} n={count}"
@@ -430,8 +436,119 @@ def discover_checkpoints(
     )
 
 
+def _ordered_key_digest(keys: Sequence[str]) -> str:
+    payload = json.dumps(
+        [str(key) for key in keys], separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def audit_cohorts(
+    split_manifest: Mapping[str, Any],
+    descriptors: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Resolve seed-specific audit cohorts and their common held-out subset."""
+    selection_by_seed: dict[str, list[str]] = {}
+    outside_by_seed: dict[str, list[str]] = {}
+    validation_keys: list[str] | None = None
+    for seed in SEEDS:
+        splits = [
+            descriptor["split"]
+            for descriptor in descriptors
+            if int(descriptor["seed"]) == seed
+        ]
+        if not splits:
+            raise ValueError(f"audit lacks checkpoint splits for seed={seed}")
+        validation, selection, outside = outside_selection_keys(split_manifest, splits)
+        if validation_keys is None:
+            validation_keys = validation
+        elif validation != validation_keys:
+            raise ValueError("audit seeds do not share the registered validation order")
+        observed_digest = _ordered_key_digest(selection)
+        if observed_digest != EXPECTED_SELECTION_KEY_DIGESTS[seed]:
+            raise ValueError(f"selection cohort changed for seed={seed}")
+        selection_by_seed[str(seed)] = selection
+        outside_by_seed[str(seed)] = outside
+
+    if validation_keys is None:
+        raise ValueError("audit has no validation cohort")
+    if _ordered_key_digest(validation_keys) != EXPECTED_VALIDATION_KEY_DIGEST:
+        raise ValueError("registered validation cohort changed")
+    selection_union = {key for keys in selection_by_seed.values() for key in keys}
+    common_outside = [key for key in validation_keys if key not in selection_union]
+    if (
+        len(common_outside) != 9
+        or _ordered_key_digest(common_outside) != EXPECTED_COMMON_OUTSIDE_KEY_DIGEST
+    ):
+        raise ValueError("common outside-selection cohort changed")
+    return {
+        "validation_keys": validation_keys,
+        "selection_keys_by_seed": selection_by_seed,
+        "outside_selection_keys_by_seed": outside_by_seed,
+        "common_outside_selection_keys": common_outside,
+    }
+
+
+def _rollout_subset_summary(
+    rollout: Mapping[str, Any], keys: Sequence[str]
+) -> dict[str, Any]:
+    rows = rollout.get("trajectories")
+    if not isinstance(rows, Sequence):
+        raise TypeError("rollout lacks trajectory rows")
+    rows_by_key = {str(row["trajectory"]): row for row in rows}
+    ordered_keys = [str(key) for key in keys]
+    if (
+        not ordered_keys
+        or len(rows_by_key) != len(rows)
+        or len(set(ordered_keys)) != len(ordered_keys)
+        or not set(ordered_keys) <= set(rows_by_key)
+    ):
+        raise ValueError("rollout does not contain the exact requested subset")
+    selected = [rows_by_key[key] for key in ordered_keys]
+    completed = [row for row in selected if bool(row["completed"])]
+    full_horizon_values = [
+        float(row["mean_prefix_relative_l2"])
+        for row in selected
+        if bool(row["completed"]) and row.get("mean_prefix_relative_l2") is not None
+    ]
+    endpoint_means: dict[str, float | None] = {}
+    endpoint_counts: dict[str, int] = {}
+    for checkpoint in ROLLOUT_CHECKPOINTS:
+        values = [
+            float(row["endpoint_relative_l2"][str(checkpoint)])
+            for row in selected
+            if str(checkpoint) in row["endpoint_relative_l2"]
+        ]
+        endpoint_counts[str(checkpoint)] = len(values)
+        endpoint_means[str(checkpoint)] = (
+            None if not values else sum(values) / len(values)
+        )
+    return {
+        "keys": ordered_keys,
+        "num_trajectories": len(selected),
+        "completed": len(completed),
+        "completion_rate": len(completed) / len(selected),
+        "hard_failure_count": sum(
+            row.get("hard_failure_cause") is not None for row in selected
+        ),
+        "physical_admissibility_rate": sum(
+            bool(row["physically_admissible"]) for row in selected
+        )
+        / len(selected),
+        "mean_full_horizon_relative_l2": (
+            sum(full_horizon_values) / len(full_horizon_values)
+            if len(full_horizon_values) == len(selected)
+            else None
+        ),
+        "mean_endpoint_relative_l2": endpoint_means,
+        "endpoint_population_count": endpoint_counts,
+        "rollout_failure_policy": rollout["rollout_failure_policy"],
+    }
+
+
 def _summary_row(result: Mapping[str, Any]) -> dict[str, Any]:
     rollout = result["outside_selection_rollout"]
+    common = result["common_outside_selection_rollout"]
     metrics = result["checkpoint_training_metrics"]
     return {
         "seed": result["seed"],
@@ -453,15 +570,28 @@ def _summary_row(result: Mapping[str, Any]) -> dict[str, Any]:
             "rollout_all_call_mean_relative_l2"
         ],
         "internal_rollout_h79_relative_l2": metrics["rollout_h79_relative_l2"],
-        "outside_rollout_all_call_mean_relative_l2": rollout[
+        "seed_specific_outside_rollout_all_call_mean_relative_l2": rollout[
             "mean_full_horizon_relative_l2"
         ],
-        "outside_rollout_h79_relative_l2": rollout["mean_endpoint_relative_l2"][
+        "seed_specific_outside_rollout_h79_relative_l2": rollout[
+            "mean_endpoint_relative_l2"
+        ]["79"],
+        "seed_specific_outside_rollout_completion_rate": rollout["completion_rate"],
+        "seed_specific_outside_rollout_hard_failure_count": rollout[
+            "hard_failure_count"
+        ],
+        "seed_specific_outside_rollout_physical_admissibility_rate": rollout[
+            "physical_admissibility_rate"
+        ],
+        "common_outside_rollout_all_call_mean_relative_l2": common[
+            "mean_full_horizon_relative_l2"
+        ],
+        "common_outside_rollout_h79_relative_l2": common["mean_endpoint_relative_l2"][
             "79"
         ],
-        "outside_rollout_completion_rate": rollout["completion_rate"],
-        "outside_rollout_hard_failure_count": rollout["hard_failure_count"],
-        "outside_rollout_physical_admissibility_rate": rollout[
+        "common_outside_rollout_completion_rate": common["completion_rate"],
+        "common_outside_rollout_hard_failure_count": common["hard_failure_count"],
+        "common_outside_rollout_physical_admissibility_rate": common[
             "physical_admissibility_rate"
         ],
         "elapsed_seconds": result["elapsed_seconds"],
@@ -486,9 +616,10 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         args.replication_root,
         split_manifest,
     )
-    validation_keys, selection_keys, outside_keys = outside_selection_keys(
-        split_manifest, [descriptor["split"] for descriptor in descriptors]
-    )
+    cohorts = audit_cohorts(split_manifest, descriptors)
+    validation_keys = cohorts["validation_keys"]
+    outside_by_seed = cohorts["outside_selection_keys_by_seed"]
+    common_outside_keys = cohorts["common_outside_selection_keys"]
 
     device = select_device(args.device)
     args.output_dir.mkdir(parents=True)
@@ -499,16 +630,17 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
     try:
         if store.manifest_digest != EXPECTED_DATA_MANIFEST_DIGEST:
             raise ValueError("B1-C2 evaluation data manifest changed")
-        if not set(outside_keys) <= set(store.keys):
-            raise ValueError("outside-selection keys are absent from the shard store")
+        if not set(validation_keys) <= set(store.keys):
+            raise ValueError("open-validation keys are absent from the shard store")
         reference = load_bump_checkpoint(Path(descriptors[0]["checkpoint"]))
         policies, policy_metadata = _build_boundary_policies(
-            store, outside_keys, reference, device
+            store, validation_keys, reference, device
         )
         del reference
 
         results = []
         for descriptor in descriptors:
+            outside_keys = outside_by_seed[str(int(descriptor["seed"]))]
             result = _evaluate_cell(
                 descriptor,
                 store=store,
@@ -536,6 +668,18 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
             result["checkpoint_source_set_digest"] = descriptor[
                 "expected_checkpoint_source_set_digest"
             ]
+            result["audit_cohort"] = {
+                "scope": "seed_specific_outside_checkpoint_selection",
+                "seed": int(descriptor["seed"]),
+                "selection_count": len(
+                    cohorts["selection_keys_by_seed"][str(int(descriptor["seed"]))]
+                ),
+                "outside_selection_count": len(outside_keys),
+                "outside_selection_keys": outside_keys,
+            }
+            result["common_outside_selection_rollout"] = _rollout_subset_summary(
+                result["outside_selection_rollout"], common_outside_keys
+            )
             results.append(result)
             atomic_write_json(
                 args.output_dir
@@ -569,7 +713,8 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "schema": SCHEMA,
         "status": "complete",
         "scientific_scope": (
-            "three_seed_selected_terminal_bump_audit_outside_checkpoint_selection"
+            "three_seed_selected_terminal_bump_audit_with_seed_specific_and_common_"
+            "outside_selection_cohorts"
         ),
         "historical_test_population_accessed": False,
         "checkpoint_reselection_on_outside_cases": False,
@@ -582,10 +727,21 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "architectures": list(ARCHITECTURES),
         "checkpoint_roles": list(CHECKPOINT_ROLES),
         "validation_count": len(validation_keys),
-        "selection_rollout_count": len(selection_keys),
-        "outside_selection_count": len(outside_keys),
-        "selection_keys": selection_keys,
-        "outside_selection_keys": outside_keys,
+        "selection_rollout_count_by_seed": {
+            seed: len(keys) for seed, keys in cohorts["selection_keys_by_seed"].items()
+        },
+        "outside_selection_count_by_seed": {
+            seed: len(keys) for seed, keys in outside_by_seed.items()
+        },
+        "selection_keys_by_seed": cohorts["selection_keys_by_seed"],
+        "outside_selection_keys_by_seed": outside_by_seed,
+        "common_outside_selection_count": len(common_outside_keys),
+        "common_outside_selection_keys": common_outside_keys,
+        "same_audit_cohort_across_all_seeds": False,
+        "cross_seed_uncertainty_scope": (
+            "initialization_and_seed_specific_selection_cohort_combined; the common-"
+            "nine view holds the trajectory cohort fixed"
+        ),
         "rollout_horizon": 79,
         "rollout_checkpoints": list(ROLLOUT_CHECKPOINTS),
         "rollout_failure_policy": FINITE_ONLY_ROLLOUT_POLICY,
@@ -606,9 +762,10 @@ def run(argv: Sequence[str] | None = None) -> dict[str, Any]:
         "cells": results,
         "runtime_environment": runtime_environment(device),
         "claims_not_supported": [
-            "checkpoint reselection on the 28 outside-selection trajectories",
+            "checkpoint reselection on any outside-selection trajectory",
             "independent test performance",
             "a universal data-scaling law from three seeds and one PDE family",
+            "a pure initialization-seed effect from seed-specific 28-case metrics",
             "causal attribution of optimizer, representation, data, or capacity",
             "a paper-faithful FFNO comparison",
             "physical conservation from reconstructed proxy weights",

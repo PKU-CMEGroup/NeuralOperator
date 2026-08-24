@@ -510,9 +510,10 @@ already exist. Existing remote outputs are not deleted or compacted. The queue
 stops on the first failed cell or validation receipt. A cell is complete only
 with 80 metric rows, 20,480 accounted presentations, a finite H79 rollout, the
 exact source/split receipts, and the exact count-specific sentinel. No partial
-matrix supports a seed claim. The historical 20-trajectory test population
-remains sealed; the same 28-case open-development audit may be run only after
-all 24 cells close, without checkpoint reselection.
+  matrix supports a seed claim. The historical 20-trajectory test population
+  remains sealed; outside-development auditing may run only after all 24 cells
+  close, without checkpoint reselection. The corrected seed-specific and
+  common-cohort contract is registered below.
 
 For every stage, the primary views are distinct:
 
@@ -521,7 +522,8 @@ For every stage, the primary views are distinct:
   support a classical generalization-gap statement;
 - selection-cohort rollout traces diagnose checkpoint dynamics but are
   development metrics;
-- the 28-case audit reports fixed checkpoints without reselection; and
+- each seed-specific 28-case audit reports fixed checkpoints without
+  reselection; and
 - selected-checkpoint and terminal-checkpoint rollout are never merged.
 
 #### B1-C2 completion and three-seed audit contract (2026-08-25)
@@ -550,13 +552,19 @@ Initial audit attempt `d094_b1_c2_three_seed_outside_audit_20260825a` stopped
 before outside-data access or audit-output creation. Its 16 Linux CPU tests
 passed, then checkpoint discovery rejected the supplied seed-0 `n=256` parent
 training root because it lacked the required immutable `gate.exit` receipt.
-No checkpoint evaluation or CUDA smoke ran. Immutable replacement audit attempt
-`d094_b1_c2_three_seed_outside_audit_20260825b` corrects only that path binding
-to the retained four-cell schedule-gate root; it preserves the source code,
-checkpoint matrix, ordering, evaluator numerics, and analysis contract below.
+No checkpoint evaluation or CUDA smoke ran. Replacement attempt
+`d094_b1_c2_three_seed_outside_audit_20260825b` corrected that path binding and
+again stopped before outside-data access, audit-output creation, or CUDA smoke.
+Its 16 Linux CPU tests passed, then discovery exposed that the three
+initialization seeds intentionally used three different 16-case rollout-
+selection cohorts. The common 44-case validation population is unchanged, but
+the union of the three selection cohorts contains 35 cases. Therefore only nine
+cases are outside checkpoint selection for all three seeds; the preregistered
+"same 28 for every seed" statement was false and is withdrawn before outcomes.
 
-Before any outside-development outcome is opened, register replacement attempt
-`d094_b1_c2_three_seed_outside_audit_20260825b` with this exact matrix:
+Before any outside-development outcome is opened, immutable replacement attempt
+`d094_b1_c2_three_seed_outside_audit_20260825c` is registered with this exact
+matrix and cohort contract:
 
 - initialization seeds `{20260718,20260812,20260813}`, counts
   `n={8,16,32,64,128,256}`, architectures `{PCNO,PCFNO}`, and checkpoint roles
@@ -566,8 +574,21 @@ Before any outside-development outcome is opened, register replacement attempt
   audit numerics with a new two-seed evaluator;
 - fixed ordering is seed, increasing count, PCNO then PCFNO, selected then
   terminal; one BF16 evaluator process uses the same device, frozen boundary
-  policies, finite-only recurrence, shock quantile `0.9`, H79 horizon, and the
-  same 28 open-development trajectories for every checkpoint;
+  policies, finite-only recurrence, shock quantile `0.9`, and H79 horizon;
+- each checkpoint is evaluated on the ordered 28 validation trajectories that
+  were outside checkpoint selection for its own seed. PCNO/PCFNO, all counts,
+  and selected/terminal checkpoints within one seed therefore remain exactly
+  case paired;
+- the ordered nine trajectories outside selection for all three seeds are a
+  prespecified common-cohort view derived from those same 28-case evaluations,
+  without additional inference or outcome-based case selection. Its digest is
+  `4c9cb532143d457c8d57928a8054a14c08a002b60ca02e7ace157c9d30bc6f9c`;
+- the common validation-order digest is
+  `7bed09ff30a07b7440a0edf95ac2f9227d8f8f426716c97bc40f4e144a7d1db9`.
+  The ordered seed-selection digests for `20260718/20260812/20260813` are
+  `d976e8bb8474db7f9b9736825e736ad8d72df417f55f944b1152ff4df0f017f2`,
+  `2c169b57e9e1448976a948c80fd916d08129ed57613480550e0e4398a6b3dfa8`,
+  and `2e68bad2fc75050d20d923ec726bccccf7738ee8f7107e463fb42887115c476f`;
 - selected and terminal identities, training-metric anchors, checkpoint
   hashes, source-set digests, normalization/configuration digests, nested train
   subsets, and paired PCNO/PCFNO initialization hashes must close before the
@@ -577,16 +598,19 @@ Before any outside-development outcome is opened, register replacement attempt
   ranking criterion. Selected and terminal results remain separate; and
 - the historical 20-trajectory test population remains sealed.
 
-The primary cross-seed report will retain raw per-seed values and mean plus
-sample standard deviation for online one-step train, fixed seen one-step, fixed
-open-validation one-step, selection-cohort rollout, and 28-case outside
-rollout. It will plot fixed-validation/fixed-seen ratio through optimization,
-not only at the endpoint. Architecture-by-count direction is called replicated
-only when it agrees in at least two of three seeds; otherwise it is heterogeneous.
-Outside-case paired uncertainty is estimated within each seed/count/role and is
-not substituted for initialization-seed uncertainty. No monotone scaling law,
-capacity diagnosis, optimizer cause, gradient cause, or FFNO conclusion is
-licensed by this audit alone.
+The primary report retains raw per-seed values and mean plus sample standard
+deviation for online one-step train, fixed seen one-step, fixed open-validation
+one-step, selection-cohort rollout, and seed-specific 28-case outside rollout.
+Those cross-seed rollout statistics combine initialization randomness with
+different selection/audit cohorts; they are not a pure SGD-seed estimate. The
+common-nine view holds cases fixed but has only nine trajectories and is
+reported separately. Fixed-validation/fixed-seen ratio is plotted through
+optimization, not only at the endpoint. Architecture-by-count direction is
+called replicated only when it agrees in at least two of three paired-seed
+comparisons; otherwise it is heterogeneous. Outside-case paired uncertainty is
+estimated within each seed/count/role and is not substituted for seed
+uncertainty. No monotone scaling law, capacity diagnosis, optimizer cause,
+gradient cause, or FFNO conclusion is licensed by this audit alone.
 
 #### B1-C4 owner correction and executable contract (2026-08-22)
 

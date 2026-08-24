@@ -427,8 +427,9 @@ The 2026-08-24 owner direction separately authorizes only the exact B1-C2
 Replacement attempt `20260824b` passed those preflights and completed all 24
 cells with passing receipts, a zero matrix exit, local retention/rehash, and no
 historical-test access. The exact common-process audit of all 72 three-seed
-selected/terminal checkpoints on the same 28 open-development trajectories is
-registered; no partial audit changes the evidence state above, and no training
+selected/terminal checkpoints is registered with each seed's 28-case outside-
+selection cohort and a fixed nine-case cohort outside all three selections; no
+partial audit changes the evidence state above, and no training
 continuation is automatic.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because

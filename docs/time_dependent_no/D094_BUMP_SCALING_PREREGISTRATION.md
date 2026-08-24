@@ -546,8 +546,17 @@ all 1,700 regular-member hashes and byte counts match. Four pytest `current`
 symlinks target directories inside the same sealed attempt, are not part of the
 regular-file manifest, and are not followed during local metadata extraction.
 
-Before any outside-development outcome is opened, register audit attempt
-`d094_b1_c2_three_seed_outside_audit_20260825a` with this exact matrix:
+Initial audit attempt `d094_b1_c2_three_seed_outside_audit_20260825a` stopped
+before outside-data access or audit-output creation. Its 16 Linux CPU tests
+passed, then checkpoint discovery rejected the supplied seed-0 `n=256` parent
+training root because it lacked the required immutable `gate.exit` receipt.
+No checkpoint evaluation or CUDA smoke ran. Immutable replacement audit attempt
+`d094_b1_c2_three_seed_outside_audit_20260825b` corrects only that path binding
+to the retained four-cell schedule-gate root; it preserves the source code,
+checkpoint matrix, ordering, evaluator numerics, and analysis contract below.
+
+Before any outside-development outcome is opened, register replacement attempt
+`d094_b1_c2_three_seed_outside_audit_20260825b` with this exact matrix:
 
 - initialization seeds `{20260718,20260812,20260813}`, counts
   `n={8,16,32,64,128,256}`, architectures `{PCNO,PCFNO}`, and checkpoint roles

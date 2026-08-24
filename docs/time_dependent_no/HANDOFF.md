@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Handoff
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 This is a replaceable operational snapshot. It records the current scientific
 position, workspace boundary, and decisions still owned by the human researcher.
@@ -40,7 +40,7 @@ long-horizon behavior.
 | 1D residual FNO | A useful fixed-family program exists. Larger-step advantages depend on horizon and metric; they are not a universal stability result. |
 | CPGNet reproduction | The released 1D gain depends materially on message reach, and causal boundary training improves the bounded local 2D release-bundle comparison while leaving the oracle gap. Paper-faithful parity and exact DG replay remain unresolved. |
 | Supersonic bump PCNO | D041 remains the historical comparator. D087 closes its exact H79 scope on B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. A separately registered H320 comparison on the same 30 open cases records later active-gradient PCNO first events than PCFNO more often than the reverse, but H80--H320 has no truth. These are bounded recurrence diagnostics, not causal factor attribution, physical validity, accuracy past H79, or general stability. |
-| Bump data--architecture--optimization scaling | D094 B1-A/B1-B, the seed-0 six-count PCNO/PCFNO ladder, B1-C4, B1-C5-A/B/C, and all 24 B1-C2 replication cells are complete, retained, and rehashed. B1-C5-A preserves selected `n=128 < n=256` H79 and selected-to-terminal worsening. B1-C5-B shows the terminal map slightly improves one-call error on the selected path while its own rollout worsens H79. B1-C5-C closes the square: selected-map response to the changed terminal path already overwhelms that favorable map effect for both counts, so interaction is positive but not required. B1-C2's exact 72-checkpoint three-seed selected/terminal audit is registered with seed-specific outside-selection cohorts plus a fixed common-nine view, but has no outcome yet. Until that audit closes, this is not a three-seed scaling result, representation/optimizer/data/capacity cause, causal gradient result, FFNO comparison, conservation result, or test claim. |
+| Bump data--architecture--optimization scaling | D094 B1-A/B1-B, the seed-0 six-count PCNO/PCFNO ladder, B1-C4, B1-C5-A/B/C, all 24 B1-C2 replication cells, and the exact 72-checkpoint outside-development audit are complete, retained, and rehashed. Selected seed-specific outside H79 favors PCNO in all three seeds for `n>=16`; its geometric PCNO/PCFNO ratio grows from `0.800` at `n=16` to about `0.52--0.54` at `n=64--256`, while selected one-step validation ratios remain about `0.76--0.83`. Both architectures are best at `n=128` and worsen at `n=256`, so there is a replicated recurrent data--architecture interaction but no monotone scaling law. B1-C5-B/C separately show that selected-map response to terminal-path displacement is sufficient for the late selected-to-terminal reversal. B1-C3 is now registered as an inference-only two-seed exact-64-presentations-per-trajectory control. No representation/optimizer/data/capacity cause, causal gradient result, FFNO comparison, conservation result, or test claim follows yet. |
 | Dynamic shock-vortex PCNO | D044 is the useful baseline and D060 is a useful one-seed improvement with unresolved structure error. Common-source resolution studies identify persistent large-scale mesh inconsistency plus locally cancelling shock/vortex defect. W26-L5 A32/A33 qualify one target-free raw-shadow-tethered affine protocol on reused open populations: on six retained-500x200 D074 cases, corrected versus raw transfer has full/rank-8 trajectory ratios `0.98887/0.94507`, full/rank-8 H30 ratios `0.97770/0.89007`, six of six trajectory/endpoint wins, and maximum control `1.00459`. Direct fixed-hop 500x200 has median H30 ratio `2.08418` versus corrected transfer and zero wins. A34--A39 reject universal coefficients/simple routers despite strong ordinary same-family fits. A41/A42 then identify a nearly diagonal accepted-shadow native response during coast. A43 uses that frozen response to remove 56 accepted-native calls and qualifies on the reused E12/E14 population: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, and maximum control is `1.01141`. A44-R1 confirms the unchanged protocol on 14 new E00/E11 correction cases inside checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active pairs win, maximum control is `1.04361`, and large/rank-8 benefit coexists with neutral-to-slightly-harmful local bands. A45 then finds pooled logged-utility prediction and stable lag-history coefficients, but fails the required E00 and coast transfer cells; it strengthens the broad/rank-8 versus local-harm diagnosis without qualifying a router. This is bounded same-family correction-protocol evidence, not resolution invariance, independent checkpoint/test confirmation, family-independent coefficients/response, causal fine-refresh utility, physical conservation, an Euler1D deployment result, or a measured latency win. |
 | Synthetic shock representation | W26-L2 P0/P1/P2 establish fixed-grid capacity followed by subcell-phase and finite-grid transfer failure. Retrained no-gradient and parameter-matched local arms roughly halve held L2 and reduce extrema/TV, but increase registered step-ripple mass and fail strict transfer/no-harm controls. P2-C0 is complete: zero-output gradient activation slightly lowers train loss but is a held-phase near tie, so it does not rescue the original full-PCNO path. P2-F is descriptive because its `1e-5` replay gate fails while the maintained `1e-4` ceiling passes: spectral transport is necessary, pointwise cancellation passes every seed, and the full model's differential path is acutely essential/cancelling in `3/3`, so the trained no-gradient gain is architecture reorganization rather than acute deletion. P2-W0 then isolates a moving-front wake: no native arm leaves error everywhere the front traveled; full PCNO has a held-pulse-only path-wide/recurrent wake in `2/3` seeds, no-gradient passes no wake stratum, and posthoc `/10` gradient scaling is catastrophic. The first defect is phase-sensitive and recurrence amplifies it. |
 | REALM PlanarDet | D092-R1 completed one seed-0 width-96 residual-PCNO run and selected step 950. Truth-input/free H49 sums are `6.09925/88.13821`; P0b is near-null, and G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. D093 reuses the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique supervised conditions. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`. This is one seed and one open trajectory under a common residual contract but distinct D092/D093 source inventories, not clean data scaling, a paper-faithful baseline, sealed ranking, physical causal graph, architecture cause, or general PlanarDet claim. |
@@ -243,16 +243,6 @@ retrieval manifest binds 123 files and `70,862,988` bytes with SHA-256
 `2c936241f3156a981fdf560d6e320dfd4235414a92270697ea3da4d519ce4281`.
 An independent local replay reproduces the three scientific CSVs byte-for-byte
 and the same classification.
-A 2026-08-24 owner correction now authorizes the exact 20,480-step B1-C2
-PCNO/PCFNO replication matrix for seeds `20260812/20260813`, subject to its
-registered storage, provenance, CPU, and CUDA preflights. This changes the run
-order only: 81,920-step representation evolution remains deferred and any FFNO
-arm remains separately gated. Native bump PCFNO remains a gradient-path
-ablation, not vanilla FFNO; a bump FFNO requires an explicit common-
-representation contract, while paper-faithful FFNO remains a PlanarDet stage.
-Historical test remains sealed. See the
-[D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
-
 B1-C2 attempt `d094_b1_c2_seed_replication_20260824a` closed before source
 staging or training when its conservative old-payload storage gate failed; no
 existing output was deleted or compacted. Replacement `20260824b` binds source
@@ -265,12 +255,44 @@ access. The 1,700-file, 5.607-GB regular payload is locally retained in a
 streamed tar whose SHA-256 is
 `215a4adea5f850a9c1a79c7fe934fbcb77c22a305dd151cb42ff123c52fa9c92`;
 every regular member matches the independent remote retrieval manifest. The
-next registered action is one common-process 72-checkpoint audit covering all
-three seeds, six counts, both architectures, and selected/terminal roles. Each
-seed uses its own 28 cases outside checkpoint selection; a fixed nine-case
-subset is outside selection for all three seeds. Do not interpret an incomplete audit,
-access the historical test population, or launch a training follow-on from
-training-cohort metrics alone.
+common-process 72-checkpoint audit `20260825c` also completed and rehashed:
+all cells reached H79 with zero hard failures, no reselection, and no historical-
+test access. Selected seed-specific outside H79 means for PCNO/PCFNO are
+`0.14047/0.14896`, `0.07918/0.09867`, `0.06389/0.10353`,
+`0.05808/0.10840`, `0.05115/0.09778`, and `0.06515/0.12108` for
+`n={8,16,32,64,128,256}`. PCNO is lower in all three seeds at `n>=16` and in
+every paired outside case at `n=128`. Both architectures worsen from `n=128`
+to `n=256`; this is not monotone scaling.
+
+The fixed-validation/fixed-seen ratio reaches about `1.21` at `n=8` but stays
+near `1.01--1.03` at `n>=32`, whereas the recurrent architecture gap keeps
+growing. PCNO is initially recurrently worse at step 256 for every count, then
+crosses and remains better after about 7,680--16,640 updates. This is the main
+mechanistic signal: one-step generalization saturation conceals an optimization-
+and-data-dependent difference in self-composition. A post-hoc same-state check
+also bounds BF16 interpretation: 14 selected/terminal pairs have bit-identical
+model tensors, yet repeated PCNO H79 differs by up to `3.11%`; PCFNO repeats
+exactly. Small late differences are within the gradient-path evaluator floor,
+while the `46--48%` high-data architecture gap is not.
+
+The ignored result roots are `d094_b1_c2_audit_closeout_20260825a`,
+`d094_b1_c2_analysis_20260825a`, and
+`d094_b1_c2_visualizations_20260825b` under
+`artifacts/time_dependent_no/`. The B1-C2 retrieval/artifact/analysis-manifest
+SHA-256 values are
+`2090796f2f23e9f89493834fb3ae7e3956e075c9b46604fadb19bbe242a9bea1`,
+`0645155a3d09e4eac642568f6491a542a51089252a7ffb0f37408855c96eef90`,
+and `9d91a5f4dbcf133e29ceb8967d08e67da38bbe063bf349889a4a391b46caed9b`.
+
+Current owner direction authorizes B1-C3 next: evaluate only the 24 retained
+replication-seed sentinels at exact step `64n`, once in BF16 and once in FP32,
+using the same seed-specific 28-case cohorts and common-nine view. This holds
+64 balanced presentations per trajectory, but changes updates, compute, and
+learning-rate phase with `n`; it is not a pure data control. No seed-0 replay,
+new training, checkpoint reselection, 81,920-step continuation, FFNO/component
+study, or test access is automatic. Native bump PCFNO remains a trained no-
+gradient ablation, not vanilla or paper-faithful FFNO. See the
+[D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0
 manifest-parser launch failure remain provenance, not scientific evidence. P0b

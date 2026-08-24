@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Current Research State
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 Status: current human-review snapshot; evidence and planning, not executable
 authorization
@@ -26,7 +26,8 @@ Documentation roles are:
 - [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md):
   registered scaling plan with locally retained B1-A/B1-B and completed,
   rehashed B1-C0/B1-C1, B1-C4, B1-C5-A, B1-C5-B, and B1-C5-C seed-0
-  evidence, plus the owner-authorized B1-C2 paired-seed replication contract;
+  evidence, the completed B1-C2 paired-seed audit, and registered B1-C3
+  exact-exposure control;
 - [README.md](README.md): onboarding and maintained-code navigation; and
 - [the 2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md):
   byte-preserved exact evidence, contracts, terminal narratives, and prior
@@ -50,7 +51,7 @@ operator solver.
 | --- | --- | --- |
 | 1D flow maps | Larger learned macro steps can win after fewer recurrent compositions; the preferred stride depends on horizon and metric. | No universal stride, learned CFL limit, timestep transfer, native-solver resolution transfer, or mesh-invariant solver. |
 | CPGNet | Corrected 1D controls support message reach rather than width alone; causal boundary training improves the local 2D release-bundle result without closing the oracle gap. | No paper-table reproduction, exact DG replay, physical interface trace, conservation, seed robustness, or architecture transfer. |
-| Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. D094 B1-C5-B/C show that a terminal map can improve one-call error on the selected path at call 79 while its own self-composed rollout worsens H79, and that selected-map response to the changed terminal path is already sufficient to reverse the sign. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, causal training/representation/boundary/data/optimizer mechanism, capacity diagnosis, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
+| Supersonic bump | D041 remains the exact historical comparator. B1 misses replacement parity; attached-K2 improves B1 recurrence, mostly through a better propagated path. D084 closes finite inadmissibility without a registered global explosion. D087 then separates four event horizons on a common declared B1/D019 population: B1 stays admissible and bounded through H79, while D019 loses accuracy first and later becomes inadmissible and unbounded without becoming nonfinite. Exact deployed-map decomposition shows propagated-input response dominates D019's realized late error. D094 B1-C5-B/C show that a terminal map can improve one-call error on the selected path at call 79 while its own self-composed rollout worsens H79, and that selected-map response to the changed terminal path is already sufficient to reverse the sign. B1-C2 then replicates a PCNO/PCFNO interaction: the one-step gap stays modest while the recurrent PCNO advantage expands with data through `n=128`; both regress at `n=256`. | No same-contract K2 comparison with D041, attached-gradient causality, fresh-ripple cure, monotone scaling law, causal training/representation/boundary/data/optimizer mechanism, capacity diagnosis, general stability, promotable collar encoding, physical conservation, PDE resolution transfer, broad geometry generalization, independent rotated PDE solve, or cross-family transfer. |
 | Dynamic finite-volume shock-vortex | D044 is a useful one-seed baseline; D060 improves state error but fails joint front/high-pass promotion. D063--D081 establish bounded common-source transfer, a composite mesh-defect diagnosis, differential-support evidence, and one deterministic open-validation correction result with exact same-population process reproduction. W26-L5 A32/A33 show that a target-free raw-shadow tether retains a modest low-rank recurrent gain after transfer to retained 500x200 truth on all six reused D074 cases: full/rank-8 trajectory ratios are `0.98887/0.94507`, all six trajectory/endpoint pairs improve, and the maximum maintained control is `1.00459`. Direct fixed-hop 500x200 loses decisively to corrected transfer (median H30 ratio `2.084`, zero of six wins), while matched-information initialization is nearly neutral. A34--A39 reject a universal vortex/Euler1D coefficient geometry, two simple Euler1D routers, and three prospective phase observers despite strong ordinary same-family fits. A41/A42 instead identify a nearly diagonal accepted-shadow native response on correction-inactive coast (`0.99850/0.99845` E12/E14 skill). A43 freezes that response map, removes the second native call on coast, and qualifies prospectively: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, maximum control is `1.01141`, and candidate cost falls from 604 to 548 logical calls versus optimized A32. A44-R1 then applies A43 unchanged to 14 disjoint correction cases in E00/E11 checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active trajectory/endpoint pairs win, and maximum control is `1.04361`. Large-scale/rank-8 views improve while transition/local views are neutral to slightly harmful. A45 finds stable pooled prediction of logged utility from lagged scalar displacement/response history, but E00 and coast fail the registered transfer gate. Its 32 case-band cells strengthen the broad/rank-8 benefit versus local-harm decomposition without qualifying a router or causal fine-refresh estimate. Node-type and always-on local-filter questions are closed at their registered scopes. | No resolution invariance, proof that PCNO is an operator, unique native fixed-hop cause, safety beyond the opened cases, independent checkpoint/test or statistical confirmation, family-independent coefficients or response maps, deployable scalar-history router, causal exact-versus-coast estimate, a deployable Euler1D correction, practical latency advantage for the correction, physical conservation, general node-type necessity, optimal boundary encoding, native-solver equivalence, other-PDE transfer, or sealed performance. |
 | Latent forecast | Discontinuous decoder regularity improves front fidelity, but the tested family is decoder-capacity limited. | No latent transition, autonomous recurrence, geometry transfer, or data-assimilation result. |
 | REALM IgnitHIT | D088 shows that lower mean fresh-map error can hide a sparse inverse-domain tail. D089's species-domain link prevents that registered species-domain failure under its separate history, but D090 shows the H29 map still becomes unbounded while remaining finite and admissible; its sampled-pair training loss and rollout quality move in opposite directions. | No completed direct baseline, residual comparison, sealed test result, PlanarDet result, causal link effect, offending-channel attribution, general FFNO/direct-map rejection, or benchmark-wide claim. |
@@ -422,15 +423,44 @@ does not identify why training changes that path or establish an optimizer,
 representation, data-count, architecture, capacity, gradient, convergence,
 conservation, or test cause. Longer training remains outside the current
 priority, and no 81,920/163,840-step, FFNO, or historical-test run is automatic.
-The 2026-08-24 owner direction separately authorizes only the exact B1-C2
-20,480-step PCNO/PCFNO paired-seed matrix after its registered preflights.
-Replacement attempt `20260824b` passed those preflights and completed all 24
-cells with passing receipts, a zero matrix exit, local retention/rehash, and no
-historical-test access. The exact common-process audit of all 72 three-seed
-selected/terminal checkpoints is registered with each seed's 28-case outside-
-selection cohort and a fixed nine-case cohort outside all three selections; no
-partial audit changes the evidence state above, and no training
-continuation is automatic.
+B1-C2 now supplies the first replicated bump data--architecture result under
+this schedule. Replacement attempt `20260824b` completed all 24 cells, and the
+exact common-process audit of 72 three-seed selected/terminal checkpoints
+completed with zero hard failures, no reselection, and no historical-test
+access. Each seed uses its own 28-case outside-selection cohort; the common-nine
+view is separate. Selected seed-specific outside H79 PCNO/PCFNO means over
+`n={8,16,32,64,128,256}` are `0.14047/0.14896`, `0.07918/0.09867`,
+`0.06389/0.10353`, `0.05808/0.10840`, `0.05115/0.09778`, and
+`0.06515/0.12108`. PCNO is lower in all three seeds at `n>=16`, and every
+paired outside case favors it at `n=128`. Both architectures worsen from
+`n=128` to `n=256`; no monotone scaling law is supported.
+
+The mechanism signal is the separation between one-step and deployment
+behavior. Selected fixed-validation PCNO/PCFNO ratios remain about
+`0.76--0.83`, whereas high-data H79 ratios reach `0.52--0.54`. For `n>=32`,
+fixed-validation/fixed-seen remains near `1.01--1.03`, so ordinary one-step
+generalization gap has largely saturated. Yet PCNO is recurrently worse at step
+256 for every count and becomes persistently better only after about
+7,680--16,640 updates. This supports an architecture-dependent interaction
+among data exposure, optimization phase, and self-composition; it does not
+identify a pure-data, gradient, representation, capacity, or optimizer cause.
+
+Strict physical admissibility is lower for high-data PCNO even though its error
+and most registered H79 structure metrics are better; all rollouts remain
+finite and complete. Error-first selection is therefore defensible here, but
+neither no-harm nor physical conservation is established. A post-hoc check of
+14 same-step selected/terminal pairs finds bit-identical model tensors while
+PCNO BF16 H79 varies by up to `3.11%`; same-step PCFNO is exact. Small late
+changes are within the gradient-path numerical floor, while the `46--48%`
+high-data architecture gap is not.
+
+The 2026-08-25 owner direction authorizes B1-C3 as the minimum next control:
+evaluate the 24 existing replication-seed sentinels at exact step `64n` in one
+BF16 and one FP32 process, with the same seed-specific outside cohorts and
+common-nine view. This is exactly 64 balanced presentations per trajectory but
+changes optimizer updates, compute, and learning-rate phase with `n`. It is not
+a pure data control. Seed-0 replay, new training, 81,920-step continuation,
+FFNO/component studies, and historical-test access remain separately gated.
 
 W26-L5 A46-A1 closes synthetic plumbing only. A46-A2 remains fail-closed because
 no compatible independent physical-node-type checkpoint or new-case manifest
@@ -469,8 +499,8 @@ likewise not implied by current evidence.
 - [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md):
   locally retained B1-A/B1-B schedule audit and completed, rehashed B1-C0/B1-C1
   seed-0 `n={8,16,32,64,128,256}` paired sweep plus closed B1-C4 and
-  B1-C5-A/B/C results, the completed B1-C2 paired-seed matrix, and its
-  registered 72-checkpoint outside-development audit.
+  B1-C5-A/B/C results, the completed B1-C2 paired-seed matrix and 72-checkpoint
+  outside-development audit, plus the registered B1-C3 exact-exposure control.
 - [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md): retained
   byte-for-byte at its artifact-bound root path.
 - [HANDOFF.md](HANDOFF.md): current operational recovery snapshot.

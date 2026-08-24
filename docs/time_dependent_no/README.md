@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-24
+Updated: 2026-08-25
 
 This directory is the onboarding surface for the summer 2026 time-dependent
 neural-operator work on branch `time-dependent-no`. It points to authority,
@@ -28,8 +28,8 @@ Read active context in this order:
    for the closed reference-free H320 bump recurrence result.
 9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
    for the retained B1-A/B1-B schedule audit, completed seed-0 trajectory
-   ladder, B1-C4 compute-extension diagnostic, and closed B1-C5-A/B/C
-   numerical and map--path diagnostics.
+   ladder, B1-C4 compute-extension diagnostic, closed B1-C5-A/B/C numerical and
+   map--path diagnostics, completed B1-C2 audit, and registered B1-C3 control.
 10. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
@@ -53,11 +53,11 @@ remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
 and claim boundaries.
 
 Current D094 execution state: B1-A/B1-B, the B1-C0/B1-C1 seed-0 six-count
-PCNO/PCFNO ladder, B1-C4, B1-C5-A/B/C, and all 24 B1-C2 replication cells are
-complete, locally retained, and rehashed. The exact common-process audit of all
-72 three-seed selected/terminal checkpoints, using seed-specific outside-
-selection cohorts and a fixed common-nine view, is registered but has no outcome;
-the historical test population remains sealed.
+PCNO/PCFNO ladder, B1-C4, B1-C5-A/B/C, all 24 B1-C2 replication cells, and the
+exact common-process audit of all 72 three-seed selected/terminal checkpoints
+are complete, locally retained, and rehashed. The audit uses seed-specific
+outside-selection cohorts and a fixed common-nine view; the historical test
+population remains sealed.
 B1-C4 cold 40,960-step PCNO at `n={128,256}` selects step 38,400 for both.
 Fixed-validation and selection-cohort H79 are near ties, while outside-audit H79
 is `0.038922/0.044550` and `n=128` wins 22 of 28 cases. Exact-exposure and
@@ -82,11 +82,30 @@ path displacement is already harmful enough to reverse H79: `P_s` is
 classification is `resolved_path_displacement_sufficient`; interaction is
 positive but not necessary. The path and total turn permanently harmful only
 near calls 56--61, while all-call error still favors the terminal checkpoint.
-No 81,920-step run is automatic. The failed B1-C4 gate is not a convergence
-test, and a later representation-evolution extension remains open.
-This remains one-seed development evidence, not a scaling law, capacity
-diagnosis, causal gradient result, or FFNO comparison. Historical test remains
-sealed.
+Across the three seeds, selected outside H79 PCNO/PCFNO means are
+`0.14047/0.14896`, `0.07918/0.09867`, `0.06389/0.10353`,
+`0.05808/0.10840`, `0.05115/0.09778`, and `0.06515/0.12108` for increasing
+`n`. PCNO is lower in all three seeds for `n>=16`, and its rollout advantage
+grows far beyond its roughly stable `17--24%` one-step validation advantage.
+Both architectures worsen from `n=128` to `n=256`, so there is a replicated
+recurrent data--architecture interaction but no monotone data-scaling law. The
+fixed-validation/fixed-seen ratio is near `1.01--1.03` at `n>=32`, showing that
+ordinary one-step generalization gap can saturate while recurrence remains the
+main discriminator. PCNO starts recurrently worse at step 256 for every count
+and crosses only after about 7,680--16,640 updates.
+
+A post-hoc bit-identical-checkpoint audit bounds small BF16 differences at about
+`3.11%` H79 for active-gradient PCNO. The high-data PCNO/PCFNO gap remains far
+above that floor. PCNO has lower error and most H79 structure defects at high
+`n`, but lower strict physical admissibility; all 72 audit rollouts remain
+finite and complete. This is neither a no-harm nor conservation result.
+
+B1-C3 is the next registered inference-only stage: evaluate the 24 retained
+replication-seed sentinels at exact step `64n` in BF16 and FP32. This holds 64
+balanced presentations per trajectory, while optimizer updates, compute, and
+learning-rate phase still change with `n`. No seed-0 replay, 81,920-step run,
+FFNO/component study, or test access is automatic. The result does not yet
+identify a capacity, optimizer, representation, or causal gradient mechanism.
 
 The [archive guide](history/README.md) explains snapshot authority and link
 resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)

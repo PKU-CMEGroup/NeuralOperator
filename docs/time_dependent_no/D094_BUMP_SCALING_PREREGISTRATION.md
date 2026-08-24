@@ -1,7 +1,7 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, the paired FP32 B1-C5-C symmetric map--path decomposition, and the 24-cell B1-C2 replacement matrix `20260824b` are complete, locally retained, and rehashed; the exact 72-checkpoint three-seed outside-development audit below is registered but has no outcome yet; B1-C5-C resolves path displacement under the selected map as sufficient to produce the autonomous H79 reversal for both counts, while the map--path interaction is positive but not required
+Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, the paired FP32 B1-C5-C symmetric map--path decomposition, the 24-cell B1-C2 replacement matrix `20260824b`, and its exact 72-checkpoint three-seed outside-development audit are complete, locally retained, and rehashed; B1-C2 supports a replicated data--architecture interaction in recurrent rollout but not a monotone scaling law or causal gradient claim; the inference-only two-seed B1-C3 exact-exposure control below is registered and owner-authorized but has no outcome yet
 Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
 
 ## 1. Decision
@@ -612,6 +612,135 @@ comparisons; otherwise it is heterogeneous. Outside-case paired uncertainty is
 estimated within each seed/count/role and is not substituted for seed
 uncertainty. No monotone scaling law, capacity diagnosis, optimizer cause,
 gradient cause, or FFNO conclusion is licensed by this audit alone.
+
+#### B1-C2 retrieved three-seed result (2026-08-25)
+
+Replacement audit `d094_b1_c2_three_seed_outside_audit_20260825c`
+completed with `audit.exit=0`. All 72 selected/terminal checkpoints completed
+H79 on their seed-specific 28-case outside-selection cohort, with no hard
+failure, no checkpoint reselection, and no historical-test access. The fixed
+common-nine view is retained separately. All 103 files in the remote retrieval
+manifest rehash locally. Binding provenance is evaluator source commit
+`3cc261fe127efc735752d0b2f89edb2d136eb1aa`, source-archive SHA-256
+`d36af3136fce922bc2eab87b0b2872f91a9178eb0ee624cecccf70f3c3aa2cc3`,
+retrieval-manifest SHA-256
+`2090796f2f23e9f89493834fb3ae7e3956e075c9b46604fadb19bbe242a9bea1`,
+audit-summary SHA-256
+`1a9601907ebd9d84c49db61cf1717fd26c309aeed80dc1fd984d463a506f033e`,
+and audit artifact-manifest SHA-256
+`0645155a3d09e4eac642568f6491a542a51089252a7ffb0f37408855c96eef90`.
+
+The primary selected-checkpoint seed-specific outside H79 result is:
+
+| `n` | PCNO mean +/- sample SD | PCFNO mean +/- sample SD | geometric PCNO/PCFNO | paired-seed direction |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | `0.140470 +/- 0.003436` | `0.148959 +/- 0.016860` | `0.947` | 2 of 3 lower |
+| 16 | `0.079183 +/- 0.007992` | `0.098672 +/- 0.004143` | `0.800` | 3 of 3 lower |
+| 32 | `0.063891 +/- 0.009187` | `0.103527 +/- 0.003646` | `0.613` | 3 of 3 lower |
+| 64 | `0.058079 +/- 0.006544` | `0.108401 +/- 0.017712` | `0.538` | 3 of 3 lower |
+| 128 | `0.051147 +/- 0.008351` | `0.097778 +/- 0.017401` | `0.524` | 3 of 3 lower |
+| 256 | `0.065147 +/- 0.005393` | `0.121076 +/- 0.004724` | `0.537` | 3 of 3 lower |
+
+This supports a replicated, family- and contract-bounded data--architecture
+interaction in recurrent rollout. PCNO improves `63.6%` from `n=8` to its
+`n=128` minimum, whereas PCFNO improves `34.4%`. Both architectures then worsen
+from `n=128` to `n=256` (`1.274x/1.238x`), so the result rejects a monotone
+data-scaling interpretation under the fixed 20,480-update schedule. At
+`n>=32`, every per-seed paired-case bootstrap interval for selected H79 lies
+below one; this is uncertainty across the 28 audit cases within a seed, not an
+independent estimate over training seeds.
+
+The one-step result is materially narrower. Selected fixed-validation
+geometric PCNO/PCFNO ratios are `0.801/0.831/0.823/0.826/0.792/0.762` over
+increasing `n`, while the high-data rollout ratio expands to about `0.52--0.54`.
+The fixed-validation/fixed-seen ratio grows to about `1.21` at `n=8`, but stays
+near `1.01--1.03` at `n>=32` for both architectures. Thus ordinary one-step
+generalization gap has largely saturated while recurrent deployment remains
+strongly architecture dependent.
+
+Optimization dynamics further bound the interpretation. PCNO is initially
+worse recurrently at step 256 for every count even though its one-step error is
+already lower; the mean selection-cohort H79 PCNO/PCFNO ratio becomes and stays
+below one only after about 7,680--16,640 updates, with higher counts crossing
+earlier. Fourteen of 36 selected checkpoints are terminal and the median
+selected step is 20,480 for PCNO and 19,200 for PCFNO. Checkpoint timing is
+therefore tied more closely to update/scheduler phase than to a simple
+small-data-overfit epoch count.
+
+At `n=128`, PCNO also has lower H79 boundary/normal error, better front IoU,
+centroid, Chamfer, shock-strength and shock-thickness error, lower high-pass
+error, and a lower reconstructed-weight total proxy than PCFNO. At `n=256` the
+same direction holds except for shock thickness. PCNO has lower strict physical
+admissibility at both counts (`0.9405/0.8571` versus `1.0000/0.8929`). All
+rollouts nevertheless remain finite and complete. This is compatible with the
+owner's error-first ranking rule, but it is not a no-harm, invariant-domain, or
+physical-conservation result.
+
+A post-hoc repeatability check found 14 selected/terminal pairs at the exact
+same optimizer step. Every pair has bit-identical `model_state` tensors, yet
+fresh PCNO BF16 evaluation differs by as much as `3.11%` in H79 and `2.79%` in
+all-call error; same-step PCFNO evaluations are exact. This is consistent with
+B1-C5-A's measured gradient-path BF16/CUDA evaluation floor. Differences of a
+few percent are not representation evidence under this evaluator. The roughly
+`46--48%` high-data PCNO/PCFNO gap remains far above that floor. The check was
+not preregistered and supports a numerical boundary, not a mechanism claim.
+
+The reproducible analysis contains 72 checkpoint rows, 2,880 training-curve
+rows, and 10,000 paired-case bootstrap draws. Its analysis-source SHA-256 is
+`3ab745cf8200294278903a7a564eb03cf3acb31509733d9b9b7f7527d4b91a73`
+and artifact-manifest SHA-256 is
+`9d91a5f4dbcf133e29ceb8967d08e67da38bbe063bf349889a4a391b46caed9b`.
+The ignored roots are
+`artifacts/time_dependent_no/d094_b1_c2_analysis_20260825a` and
+`artifacts/time_dependent_no/d094_b1_c2_visualizations_20260825b`; the corrected
+visualization manifest SHA-256 is
+`2a7bbeb479c6d2a13a2b4002f7856384a86f5a512708d70c5c1a16630abb5ebb`.
+The maintained entry points are
+`scripts/time_dependent_no/analyze_pcno_bump_b1_c2.py` and
+`scripts/time_dependent_no/visualize_pcno_bump_b1_c2.py`.
+
+#### B1-C3 exact-exposure two-seed audit contract (2026-08-25)
+
+Current owner direction authorizes the minimum next inference-only control.
+Use only the 24 model-only sentinels already retained by B1-C2 for seeds
+`{20260812,20260813}`, counts `n={8,16,32,64,128,256}`, and architectures
+`{PCNO,PCFNO}`. For each cell, evaluate the exact checkpoint at optimizer step
+`s=64n`. Because the balanced stream uses one presentation per update and 256
+presentations per epoch, this is exactly 64 presentations of every training
+trajectory. No training, resume, interpolation, checkpoint selection, or
+seed-0 replay is part of this stage.
+The maintained evaluator is
+`scripts/time_dependent_no/evaluate_pcno_bump_b1_c3.py`.
+
+The executable contract is:
+
+- bind the completed B1-C2 matrix receipt, every sentinel byte count and SHA-256,
+  checkpoint source/configuration/normalization/split identity, paired
+  initialization, and exact metric-history row before opening rollout outcomes;
+- preserve the same seed-specific ordered 28-case outside-selection cohorts and
+  prespecified common-nine view as B1-C2, with PCNO/PCFNO exactly case paired;
+- run one fresh BF16 process for direct numerical continuity and one fresh FP32
+  process as a precision control. FP32 is not ground truth. Report both and call
+  an architecture/count direction precision-sensitive if its sign disagrees;
+- report the exact-checkpoint online one-step train, fixed-seen one-step, fixed-
+  validation one-step, selection-cohort rollout, seed-specific outside all-call
+  and H79 rollout, common-nine rollout, structure diagnostics, completion,
+  admissibility, and the PCNO/PCFNO ratio for each seed/count/precision;
+- rank no checkpoint on these outside cases, retain physical admissibility as a
+  secondary diagnostic, and keep the historical 20-trajectory test population
+  sealed; and
+- call a direction replicated only if it agrees in both seeds. Two seeds and
+  two precision processes do not license a three-seed uncertainty estimate.
+
+B1-C3 holds per-trajectory sample exposure fixed but changes optimizer updates,
+total model calls, and learning-rate phase with `n`. It can test whether the
+B1-C2 architecture interaction survives equal data reuse and can reveal the
+low-update-to-high-update recurrent crossover. It cannot by itself identify a
+pure data, compute, optimizer, scheduler, capacity, representation, or causal
+gradient effect. A seed-0 cold replay remains conditional on whether the
+two-seed result would materially change the claim. No 81,920-step training,
+FFNO/component study, test access, or automatic continuation is authorized by
+this contract.
 
 #### B1-C4 owner correction and executable contract (2026-08-22)
 
@@ -1546,9 +1675,10 @@ The bump cost is measured by a native-graph smoke before queueing because its no
    selected-map evaluation of the terminal path is already sufficiently harmful
    to reverse H79 without an interaction term. This closes the registered
    retained-checkpoint map--path question but not the cause of path evolution.
-5. Execute the registered B1-C2 seeds `20260812/20260813` matrix only after its
-   storage, source, split, CPU, and CUDA preflights close. Retain positive,
-   null, and reversed seeds, and interpret no partial matrix.
+5. B1-C2 training and the complete 72-checkpoint audit are closed. Execute the
+   registered B1-C3 BF16/FP32 exact-64-presentations sentinel audit next; do not
+   add a seed-0 replay unless the two-seed result would materially change the
+   claim.
 6. Retain 81,920 steps as a later representation-evolution study, not the
    current priority. Before it runs, preregister fixed-update, fixed-exposure,
    scheduler-phase, and checkpoint-response controls separately. Any

@@ -17,10 +17,10 @@ Read active context in this order:
 3. [HANDOFF.md](HANDOFF.md) for the current workspace and unresolved decisions.
 4. [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md) for
    compact experiment-ID and topic routing.
-5. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the five coordinated
-   research lines and prospective gates.
+5. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the phased
+   deployment-response programme, evidence registers, and prospective gates.
 6. The [W26-L4 section of the weekly plan](WEEKLY_RESEARCH_PLAN.md#w26-l4-realm-benchmark-and-paper-level-validation)
-   for the current PlanarDet problem-discovery contract and authorization
+   for the retained PlanarDet problem-discovery contract and authorization
    boundary.
 7. [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md)
    for the closed PlanarDet architecture/exposure comparison.
@@ -29,9 +29,12 @@ Read active context in this order:
 9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
    for the retained B1-A/B1-B schedule audit, completed seed-0 trajectory
    ladder, B1-C4 compute-extension diagnostic, closed B1-C5-A/B/C numerical and
-   map--path diagnostics, completed B1-C2 and B1-C3 audits, and registered
-   B1-C3-R1 seed-0 replay.
-10. Read one bounded section of the
+   map--path diagnostics, completed B1-C2 and B1-C3 audits, and closed
+   B1-C3-R1 seed-0 replay/three-seed analysis.
+10. [P0_RESTART_SUFFICIENCY_PREREGISTRATION.md](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
+    for the draft, fail-closed native-coarse restart and solver-bias gate. It
+    authorizes no solver execution until owner review and provenance recovery.
+11. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
    when exact historical contracts, results, or hashes are required.
@@ -109,12 +112,14 @@ qualifies the selected-checkpoint scaling story: optimization phase and
 self-composition remain active after ordinary one-step generalization has
 largely saturated.
 
-B1-C3-R1 is the next registered stage. It cold-replays seed `20260718` for both
-architectures and all six counts through the unchanged 20,480-step schedule,
-retaining the exact `64n` sentinel. The exact sentinel is primary; selected and
-terminal states are diagnostics. No 81,920-step run, FFNO/component or
-attention study, or test access is automatic, and no capacity, optimizer,
-representation, pure-data, or causal-gradient mechanism is yet identified.
+B1-C3-R1 is closed at its registered development scope. All 12 cold seed-0
+cells, paired BF16/FP32 exact-sentinel evaluations, and the three-seed combined
+analysis complete without historical-test access. PCNO has lower one-step
+validation in all 18 seed-by-count comparisons in both precisions. Outside H79
+favors PCFNO in 3/3 seeds at `n=8`, PCNO in 3/3 at `n=16/32/256`, and is seed-inconsistent at
+`n=64/128`; precision directions agree. These opened outcomes are retrospective
+evidence, not a prospective response-diagnostic result. No 81,920-step run,
+FFNO/component or attention study, or test access is automatic.
 
 The [archive guide](history/README.md) explains snapshot authority and link
 resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
@@ -167,7 +172,7 @@ coarse solves do not satisfy that contract.
 | 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
 | CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
 | Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. The separately registered H320 study finds later reference-free failure events for active-gradient PCNO than PCFNO on the 30 open cases. | No later arm is an exact-contract D041 replacement; H80--H320 has no truth and is not accuracy, physical-validity, conservation, asymptotic-stability, or causal gradient evidence; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
-| Bump scaling D094 | The complete seed-0 six-count PCNO/PCFNO ladder and B1-C4 separate fixed one-step, selected/terminal rollout, and outside-audit error. B1-C5-A confirms the aggregate count ordering and selected-to-terminal worsening across repeated BF16/FP32 evaluation. B1-C5-B/C then show that the terminal map helps on the selected path, but terminal-path displacement under the selected map already reverses H79 for both counts; interaction is positive but not required. Exact-exposure and exact-update slices still change compute, passes, or schedule. | One initialization seed and a schedule-selected development cohort. The map--path result identifies reachable-path sufficiency, not why optimization changed the path or a representation, optimizer, data, architecture, capacity, or gradient cause. No general scaling law, vanilla/paper-faithful FFNO comparison, conservation result, or test claim. |
+| Bump scaling D094 | The seed-0 ladder, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are closed at their registered development scopes. B1-C5-C identifies reachable-path sufficiency for one retained late reversal. The R1 three-seed exact-exposure analysis preserves the PCNO one-step advantage across all registered cells while the H79 winner changes with count and seed. | Retrospective family-local evidence only. It does not measure trusted-solver response from displaced states or identify a causal architecture, data, scheduler, optimizer, representation, capacity, or gradient mechanism. No scaling law, deterministic-replay, FFNO, conservation, prospective, or test claim. |
 | Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
 | REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
 | Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |
@@ -178,10 +183,13 @@ leakage, and conservation where defined. A model can remain finite after error
 saturates or after becoming inadmissible; neither fact alone establishes stable
 or physically valid rollout.
 
-The active research program asks five linked questions: long-horizon stability;
-shock representation and the differential pathway; boundary information and
-finite propagation; REALM benchmark validation; and cross-resolution
-correlation/correction. Exact ladders and authorization stages live only in the
+The active programme asks one central question: whether solver-relative
+response on short reachable deviations predicts neural-operator behavior under
+self-composition beyond one-step and early-rollout error. It advances through
+restart feasibility, diagnostic development, prospective prediction, at most
+one causal intervention, and an optional HydroGym feedback capstone. The older
+five lines remain evidence and conditional intervention registers. Exact gates
+live in the [decision](RESEARCH_DIRECTION_DECISION.md) and
 [weekly plan](WEEKLY_RESEARCH_PLAN.md).
 
 ## Maintained-Code Navigation
@@ -229,6 +237,7 @@ branch-specific inventory.
   selected/terminal scaling closeout, side-by-side curves, exact-input residual
   animations, and geometry diagnostics;
 - dynamic shock-vortex reference/family generation and baseline evaluation;
+- exact D094 three-seed analysis and result-bound response-surface plotting;
 - common-source resolution rollout and pathway analysis;
 - boundary-field, node-type, admissibility, and finite-propagation probes;
 - long-horizon stability event, recurrence-feedback, and fresh/propagated

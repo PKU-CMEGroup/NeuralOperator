@@ -1,8 +1,8 @@
-# Weekly Research Plan: Long-Horizon Residual Neural Operators
+# Weekly Research Plan: Deployment-Response Fidelity Under Self-Composition
 
 Updated: 2026-08-25
 
-Status: current owner-selected planning and coordination surface. This document
+Status: current owner-selected thesis and coordination surface. This document
 does not by itself authorize checkpoint execution, dataset-scale training,
 remote access, or sealed-population access. Each research line advances through
 the authorization ladder below.
@@ -19,8 +19,9 @@ current weekly plan or queue.
 
 ## Problem Anchor And Method Thesis
 
-The paper studies neural operators as time steppers for difficult time-dependent
-PDEs. The common algorithmic skeleton is
+The paper studies neural operators as learned time steppers for difficult
+time-dependent PDEs. Let `S` denote one trusted numerical step and `G` the
+learned step. The common deployment skeleton is
 
     delta_u_hat_n = G_theta(u_n, mesh, dt, known boundary data, known forcing)
     u_hat_(n+1) = P_B(u_hat_n + delta_u_hat_n),
@@ -28,23 +29,38 @@ PDEs. The common algorithmic skeleton is
 where `G_theta` predicts a one-step flow-map increment and `P_B` is an explicit,
 causal boundary-handling operator when the problem requires one.
 
-Residual prediction plus autoregression is the backbone, not a sufficient
-novelty claim by itself. The intended contribution is a reproducible framework
-that identifies which state, boundary, representation, and stability contracts
-are necessary for accurate long-horizon use.
+The problem is not generic error accumulation. One-step supervision constrains
+the map mainly on reference states, while repeated composition also queries its
+finite-amplitude response along deviations created by prior model errors. Define
 
-The paper is intentionally non-frontier-model work. No LLM, diffusion, or RL
-component is needed unless a later result establishes that a simpler mechanism
-cannot solve a registered problem.
+    d_G(u) = G(u) - S(u)
+    r_G(u, eta) = [G(u + eta) - G(u)] - [S(u + eta) - S(u)].
+
+Then
+
+    e_(t+1) = [S(u_t + e_t) - S(u_t)] + d_G(u_t) + r_G(u_t, e_t).
+
+This identity is organizing algebra, not claimed theory. The intended dominant
+contribution is a solver-relative response diagnostic on a common cross-fitted
+bank of short-prefix reachable deviations that prospectively predicts
+long-horizon rankings beyond one-step and early-rollout error. For unmatched
+models, preserve the combined reachable-state defect
+`||G(u+eta)-S(u+eta)||`; response norm alone can hide helpful or harmful vector
+cancellation.
+
+Architecture, data diversity, repeated exposure, compute, and optimization
+phase are controlled levers, not separate contributions. HydroGym is an
+optional controlled-feedback capstone after the autonomous core passes; it is
+not a new RL-algorithm programme.
 
 ## Claim Map
 
-At most two claims are primary.
+At most two claims are primary. The second remains conditional on the first.
 
 | Claim | Minimum convincing evidence | Main supporting lines |
 | --- | --- | --- |
-| C1. A residual neural time-stepper can remain accurate and operationally stable across representative smooth, shock-dominated, and irregular-geometry time-dependent PDE regimes. | Matched direct-next-state versus residual comparison; reference-backed horizons; at least three seeds when training variance matters; separate accurate, admissible, bounded, and finite horizons; front, integral, boundary, and spectral diagnostics. | W26-L1, W26-L2, W26-L4 |
-| C2. Boundary handling is a separable algorithmic component: causal boundary information and boundary enforcement have distinguishable effects, and an appropriate combination improves recurrent interior prediction for more than one boundary class. | Information-versus-enforcement controls under frozen physical boundary policies; at least three representative boundary classes; raw and corrected proposal metrics; recurrent interior benefit rather than constraint satisfaction alone. | W26-L3, W26-L4 |
+| C1. A short, solver-relative deployment-response diagnostic predicts unseen long-horizon neural-operator rankings that one-step and H20 do not. | Replicated one-step/rollout separation; validated restart contract; frozen common cross-fitted deviation bank; comparison with one-step, H20, amplification, and displacement; more than one genuinely prospective model/seed comparison under state and structure metrics. | D094, W26-L1, W26-L4; one restartable family |
+| C2. One intervention targeted at the diagnosed response mediator changes both that mediator and rollout in the predicted direction. | One-step matched or explicitly controlled comparison; independent training randomness; mediator movement preceding the target rollout; confirmation on one distinct restartable family. | One selected component or reachable-state intervention; W26-L2/L3/L5 only if diagnosed |
 
 Anti-claims that must be ruled out or stated explicitly:
 
@@ -64,19 +80,36 @@ Anti-claims that must be ruled out or stated explicitly:
 - results on bump, dynamic FV, REALM, or 1D families can be pooled without a
   family-specific transfer experiment.
 
-## Five Coordinated Research Lines
+Additional nonclaims: no universal ID/OOD definition, universal stability
+theorem, general PCNO modernization, monotone scaling law, universal boundary
+framework, or new RL algorithm.
 
-| Line | Core question | This-week must-run scope | Conditional continuation |
+## Current Programme And Supporting Evidence Lines
+
+The programme advances in order. A later phase is not an automatic queue.
+
+| Phase | Immediate question | Go gate | Failure disposition |
 | --- | --- | --- | --- |
-| W26-L1: Long-horizon stability | Why do some PCNO checkpoints remain finite through H79 while others fail near H60, and what does stability mean? | D087 is complete at H79. A separately registered same-population H320 comparison is also closed: active-gradient PCNO reaches reference-free failure events later than PCFNO more often, but H80--H320 has no truth. | No implicit continuation. A separate H160 identity, spectra/JVPs, policy counterfactuals, and more bump truth require a new owner-selected claim and stable identity. |
-| W26-L2: Shock representation and differential pathway | Are shock-adjacent defects spectral-retrieval-like error, finite-grid capacity/phase error, gradient-path inconsistency, or recurrent exposure error? | Review P2-C0/P2-F/P2-W0: necessary spectral transport, robust pointwise cancellation, trained-architecture reorganization, a held-phase recurrent wake, and failed global gradient scaling. | Select at most one justified selective-limiter, loss/exposure, or bump-specific no-gradient A1 preregistration after human review; D073-B remains coordinated with W26-L5. |
-| W26-L3: Boundary conditions and finite propagation | Which boundary information and enforcement mechanisms are useful for each boundary class, and does global mixing seed the top-left error outside the physical domain of dependence? | Boundary taxonomy and task audit; information-versus-enforcement matrix; synthetic/local finite-propagation probe. | Multi-seed boundary training on selected classes and recurrent top-left causal test. |
-| W26-L4: Benchmark and paper validation | After baseline insufficiency is removed, what fails first in one strongest-PCNO realistic reactive-flow rollout: the fresh map, recurrent on-manifold behavior, condition generalization, or a dynamically decisive structure hidden by aggregate metrics? | PD0 through G1, D093, D094 B1-C5-A/B/C, B1-C2, and B1-C3 are closed. B1-C5-C localizes one late reversal to reachable-path displacement. B1-C3 preserves PCNO's one-step advantage but finds a nonmonotone, precision-robust H79 architecture ranking at exact exposure, materially qualifying the B1-C2 selected-checkpoint story. | Execute the registered B1-C3-R1 seed-0 cold replay through the unchanged 20,480-step scheduler and evaluate only the exact `64n` sentinel as primary. Then choose the minimum component ladder. Longer compute, FFNO/components, attention, capacity controls, and test remain separately gated. |
-| W26-L5: Cross-resolution correction | Do coarse/native/fine prediction differences predict native error out of case, and can they improve a synchronized native update safely? | A43/A44-R1 qualify one bounded same-family correction protocol; A45 stops the scalar-history router. A46-A1 closes synthetic plumbing, A46-A2 fails closed on checkpoint/new-case compatibility, and A46-A2-R1 stops before generation or model construction. | No implicit branch inference or resource retry. A decisive continuation needs a compatible independent physical-node-type checkpoint and frozen new branch-label/recurrence manifests under separate authorization. |
+| P0: response-target feasibility | Can the trusted solver advance the exact displaced state queried by the model? | D094 is closed retrospective evidence; reproduce a stored restart and pass admissible displacement and solver-bias checks. | Keep bump as phenomenon evidence; move the direct diagnostic to a restartable family or narrow to path-conditioned error. |
+| P1: diagnostic and prospective prediction | Does a frozen short-prefix response/reachable-state score add information beyond one-step and H20? | Common cross-fitted bank; frozen norm, amplitudes, admissibility, aggregation, and ranking; success on more than one unseen model/seed comparison. | Retain a bounded empirical thesis; do not expand the architecture/PDE sweep. |
+| P2: bounded causality | Can one targeted intervention move the mediator and rollout together? | Replication over training randomness and one distinct restartable family. | Keep a diagnostic thesis; drop the design-principle claim. |
+| P3: optional HydroGym capstone | Does the unchanged diagnostic predict true-CFD policy transfer under feedback? | One cylinder contract; Markov actuator state; frozen policy bank; POD/SINDy and non-operator baselines; true-CFD return. | Omit feedback from the title and retain the autonomous thesis. |
 
-These lines may run in parallel through preflight and synthetic CPU checks. They
-do not create five independent GPU queues. Training and real-checkpoint phases
-advance only after their line-specific gate is reviewed.
+The existing W26 lines are retained as evidence registers and possible
+intervention sources, not five co-equal workstreams:
+
+| Line | Current role | Conditional re-entry |
+| --- | --- | --- |
+| W26-L1: long-horizon stability | Evidence for separating accuracy, admissibility, boundedness, finiteness, fresh defect, and propagated response. | Only as a baseline or metric source for P1. |
+| W26-L2: shock representation and differential pathway | Candidate causal levers and negative controls. | At most one mediator-targeted component after P1 passes. |
+| W26-L3: boundary conditions and finite propagation | Boundary-contract evidence; no independent boundary thesis is active. | One bounded intervention only after a boundary-response defect or HydroGym actuation need is measured. |
+| W26-L4: benchmark and paper validation | Primary D094 phenomenon evidence; REALM is secondary, family-local context. | P0/P1 closeout and genuinely prospective prediction only. |
+| W26-L5: cross-resolution correction | Independent mechanism evidence and a possible restartable native-FV fallback. | Only after restart sufficiency and solver bias are validated; no implicit A46 continuation. |
+
+The detailed line sections below preserve current evidence and old conditional
+ladders. Their `MUST` labels describe the earlier line-local plan and do not
+override the phase order above. Training and real-checkpoint work advances only
+after an explicit owner-selected gate.
 
 ## Shared Authorization Ladder
 
@@ -139,6 +172,56 @@ Use case-level records before aggregation. At minimum, report:
 
 Three seeds are the default for new training comparisons. A one-seed frozen
 intervention may diagnose a mechanism but cannot establish training robustness.
+
+## Immediate P0 Gate: Restart Sufficiency And Solver Bias
+
+Solver-relative response is a target hypothesis, not a currently available bump
+metric. The retained bump contract is a no-go for direct solver-relative
+response: its HDF5 bundle exposes primitive graph-node samples and graph edges
+but not a graph-to-Trixi-DG inverse, DG volume/surface degrees of freedom, or a
+validated arbitrary-state restart. B1-C5-C remains a path-conditioned model/map
+decomposition against archived truth. Do not start graph-to-DG reconstruction
+as an automatic prerequisite.
+
+The dynamic shock-vortex family is the first fallback candidate. Its PCNO state
+is a row-major conservative cell-average array accepted by
+`run_coarse_cfd_rollout`, but its learned target is fine-grid evolution followed
+by restriction, not the native coarse solver map. Before any response-bank
+implementation, an A0 read-only design/provenance audit must bind the candidate
+states, injection semantics, ordering, units, `gamma`, geometry, boundary
+rules, physical start time, precision, timestep/retry/fallback policy, source
+hashes, comparison metrics, and numeric decision margins. It authorizes no
+solver or model call. After owner review, an A1 preflight may exercise only
+focused synthetic CPU/FP64 plumbing and fail-closure, without model checkpoints
+or dataset-scale states.
+
+Only after separate registration and explicit owner approval may an A2 baseline
+solver-execution gate:
+
+1. restart 2--3 stored open-validation conservative states for one model stride
+   under that fully bound contract;
+2. require exact input replay, finite/admissible completion, no hidden clipping
+   or repair, and numerical repeatability;
+3. compare the native-coarse next state with the stored fine-evolve/restrict
+   reference and require this solver-bias error to be materially below both the
+   model defect and the between-model response separation; and
+4. freeze the resulting bias and separation decision before inspecting any
+   model-generated deviation.
+
+Only a conditional, separately approved A3 may then evaluate a small set of
+admissible model-generated deviations under the unchanged contract.
+
+The exact proposed contract is the draft
+[P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md).
+Its current A0 audit is blocked on recovery of exact checkpoint bytes,
+trajectory arrays, and a compatible historical model-source binding. This is a
+provenance stop, not permission to substitute the current checkout.
+
+Failure closes the native-coarse proxy for the main diagnostic. A high-fidelity
+alternative would need retained fine states, arbitrary-state fine-solver
+restart, a declared coarse-to-fine lift, and sensitivity to nonunique lifts. Do
+not call a lift-conditioned or coarse-only response the trusted target-map
+response.
 
 ## W26-L1: Long-Horizon Stability And Failure Forensics
 
@@ -473,8 +556,12 @@ error without worsening the physical response region.
 
 ### Paper role and decision
 
-This line owns C2. If only enforcement satisfies the trace while raw/interior
-behavior is unchanged, narrow the claim to a deployment contract rather than a
+This line is a conditional intervention source, not an independent primary
+claim. Keep boundary information and enforcement frozen as part of each
+deployment contract. Re-enter only if P1 localizes a material
+boundary-response defect or the optional HydroGym capstone requires a bounded
+actuator-boundary study. If enforcement only fixes the trace while raw/interior
+behavior is unchanged, report a deployment contract rather than a
 rollout-improvement method.
 
 ## W26-L4: REALM Benchmark And Paper-Level Validation
@@ -653,7 +740,7 @@ authoritative boundary/source accounting.
 | `PD0-G0/G0b` | Same step-950 checkpoint and open trajectory; independently replace chemistry, temperature, density, or velocity with exact next-frame truth only after scoring the raw proposal and only for recurrent feedback | G0 is a retained pre-inference manifest-parser launch failure. Corrected G0b passes replay/isolation/H49/metric gates. Primary untouched-group ratios are chemistry `0.48403`, density `0.34435`, temperature `1.13895`, and velocity `1.06437`. | Owner-authorized inference complete; coupling diagnosis only; no oracle arm promoted and no automatic continuation |
 | `PD0-G1` | Same checkpoint/trajectory; preserve the raw proposal at calls 4/12/32, use one exact chemistry or density group only in the next input, then return to raw recurrence | All six arms pass replay/isolation/H49/metric gates. Chemistry-to-density partner ratios are `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`; only chemistry-to-density is materially persistent at calls 12/32. Phase and pulse dose remain confounded. | Owner-authorized inference complete; no oracle arm promoted and no automatic continuation |
 | `D093` | Reuse D092-R1 as PCNO-7 and compare PCNO/PCFNO/residual FFNO with three or seven unique supervised trajectories at fixed seven presentations per optimizer step | Closed partial evidence. Each seven-condition cell has a lower selected truth-input sum than its three-condition counterpart; only FFNO has a lower selected free-rollout sum, and FFNO-7 is best at `1.36466/32.53910`. Three cells are incomplete; no free rollout is fully admissible. | Owner-authorized study closed at the available selected-checkpoint scope for one seed/open trajectory; no paper-faithful baseline, automatic replication, or test access |
-| `D094` | Native-mesh bump PCNO/PCFNO scaling over the nested `n=8..256` ladder, with a separately qualified hundreds-case PlanarDet population required for the hard-benchmark claim | B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, and B1-C3 are complete and rehashed. B1-C3 finds lower PCNO one-step error in every exact-exposure cell but H79 directions that change nonmonotonically with count and agree across BF16/FP32. This supports optimization-phase/self-composition interaction, not a smooth data threshold. | Execute only the registered B1-C3-R1 seed-0 cold replay with the unchanged 20,480-step schedule and exact `64n` sentinel primary. Longer compute, FFNO/components, attention, capacity controls, and test remain separately gated. |
+| `D094` | Native-mesh bump PCNO/PCFNO data--exposure--compute--horizon response surface over the nested `n=8..256` ladder | B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes without test access. The R1 three-seed analysis has lower PCNO one-step error in all 18 seed-by-count comparisons in both precisions; H79 favors PCFNO 3/3 at `n=8`, PCNO 3/3 at `n=16/32/256`, and is seed-inconsistent at `n=64/128`; precision directions agree. | Closed retrospective evidence. Longer compute, FFNO/components, attention, capacity controls, and test remain separately gated. |
 | `PD0-A4` | One frozen checkpoint/evaluator test opening | One shot after conclusions and hashes are frozen | Separate named sealed-test approval |
 
 Current data/compute budget: the seven-train/one-validation open subset is
@@ -836,14 +923,21 @@ architectures in the two `n=64` seeds. BF16 and FP32 agree on every direction.
 The architecture ranking therefore depends on optimization phase and recurrent
 self-composition rather than following a smooth count threshold.
 
-B1-C3-R1 now registers the seed-0 closure that the two-seed result warrants.
-Cold-train both architectures at all six counts through 20,480 updates with the
-original stretched scheduler and retain the exact `64n` sentinel. A short run
-to `64n` is not equivalent because it changes scheduler phase. Exact-sentinel
-evaluation is primary; selected/terminal histories are diagnostic. Native bump
-PCFNO is not relabeled as vanilla FFNO. Longer compute, MLP/Fourier/gradient
-component ablations, matched-objective or paper-faithful FFNO, attention,
-capacity controls, and test remain separate stages.
+B1-C3-R1 has completed all 12 cold seed-0 cells through 20,480 updates with the
+original stretched scheduler. Its paired BF16/FP32 exact-sentinel evaluation
+completes all selection and outside-H79 rollouts, binds identical checkpoint
+hashes across precisions, and records no test access. PCNO has lower one-step
+error at all six counts; H79 favors PCFNO at `n=8/64` and PCNO at
+`n=16/32/128/256`, with identical precision directions. The closed three-seed
+analysis keeps the PCNO one-step win in all 18 seed-by-count comparisons in
+both precisions; outside H79 favors PCFNO
+3/3 at `n=8`, PCNO 3/3 at `n=16/32/256`, and is seed-inconsistent at
+`n=64/128`. Because the target H79 outcomes are already open, all of B1-C3-R1
+is retrospective development evidence for the
+future response diagnostic, not its prospective test. Native bump PCFNO is not
+relabeled as vanilla FFNO. Longer compute, MLP/Fourier/gradient component
+ablations, matched-objective or paper-faithful FFNO, attention, capacity
+controls, and test remain separate stages.
 
 ### Failure-decision table
 
@@ -1072,19 +1166,20 @@ a new preregistration, identity, and source manifest. See the complete
 Appendix/diagnostic unless the held-out recurrent correction beats raw native
 and direct off-grid baselines after cost and no-harm controls.
 
-## Weekly Run Order And Review Gates
+## Active Run Order And Review Gates
 
-| Milestone | Goal | Parallel work | Gate before next stage | Cost class |
+| Stage | Goal | Exact next scope | Gate before continuation | Authorization |
 | --- | --- | --- | --- | --- |
-| M0 | Bind scope and avoid duplicate experiments | All five A0 audits | Every line returns current evidence, exact gaps, proposed files, and a noncolliding identity request. | Low, CPU/read-only |
-| M1 | Validate the diagnostic surfaces | L1 event semantics; L2 synthetic front and gradient harness; L3 synthetic boundary/cone probe; L4 metadata audit; L5 synthetic transfer closure | Focused CPU tests pass; no current result is contradicted or silently rerun. | Low |
-| M2 | Human causal review | Joint review of all five preregistrations | Select at most one new training matrix and at most two open-checkpoint evaluations. | Human decision |
-| M3 | Open scientific runs | Approved L1/L2/L3/L5 checkpoint diagnostics and/or L4 baseline | Exact provenance, open-only population, smoke, and artifact manifest gates pass. | Medium; measure from smoke |
-| M4 | Training confirmation | Approved three-seed no-gradient, boundary, or REALM comparison | Main metric improves and every structure/admissibility/no-harm gate passes. | High; explicit AutoDL approval |
-| M5 | Integration | Claim table, figures, negative results, and next decision | No claim exceeds its family, horizon, population, or metric evidence. | Low |
+| P0-A | Closed replicated phenomenon | B1-C3-R1 training, evaluation, and three-seed analysis are complete and internally rehashed. | Closed as retrospective development evidence; captured training source is not fully current-checkout compatible. | No continuation implied |
+| P0-B | Establish response-target feasibility | Record bump as unavailable under the retained state contract; test the declared dynamic-FV native-coarse fallback and quantify solver bias. | Exact restart/repeatability/admissibility pass; proxy bias is materially below model defect and between-model response separation. | Read-only design first; any solver execution needs a separate registration and owner approval |
+| P1-A | Develop the diagnostic | Use only already open outcomes to freeze the common bank, norm, amplitudes, aggregation, baselines, and ranking rule. | The score adds information beyond one-step and H20 without using target H79 outcomes. | No prospective claim |
+| P1-B | Test prospective prediction | Apply the unchanged score to genuinely unseen model/seed panels before target H79 access. | More than one independent ranking is predicted under registered state and structure metrics. | Separate preregistration and explicit approval |
+| P2 | Test bounded causality | Select at most one mediator-targeted component or reachable-state intervention. | Mediator and rollout move together over seeds and one distinct restartable family. | Conditional on P1; new training separately approved |
+| P3 | Test optional feedback transfer | Apply the unchanged diagnostic to one low-cost HydroGym cylinder contract. | It predicts true-CFD policy transfer beyond one-step and reward baselines. | Optional; separately scoped and approved |
 
-The first-week target is M0--M2 plus any synthetic M1 result. M3--M4 are not
-assumed to fit in the week and must not be launched merely to keep GPUs busy.
+No row above is an implicit experiment queue. Failure narrows the thesis at the
+corresponding stage rather than activating more architectures, PDEs, or
+optimization variants.
 
 ## Compact Coordination Tracker
 
@@ -1105,15 +1200,15 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | W26-L2-P2-W0 | moving-front residual wake | A2 | COMPLETE; PHASE-SPECIFIC RECURRENT DEFECT | Three-call true/predicted residual and error decomposition; full held pulse passes wake/regeneration in 2/3, no-gradient passes none, global `/10` scaling fails |
 | W26-L2-P3 | filtering | CONDITIONAL | DEFERRED BEHIND P2 | Frozen-intervention selector |
 | W26-L2-P4 | loss/noise | CONDITIONAL | DEFERRED BEHIND P2 AND DEFECT RESULT | Measured loss/exposure rationale |
-| W26-L3-P0 | boundary taxonomy | MUST | TODO | Family-by-boundary contract table |
-| W26-L3-P1 | boundary 2x2 | MUST-DESIGN | TODO | One controlled-task preregistration |
-| W26-L3-P2 | finite propagation | MUST | TODO | Synthetic cone/leakage pilot |
+| W26-L3-P0 | boundary taxonomy | CONDITIONAL SUPPORT | DEFERRED | Re-enter only for a measured boundary-response defect or HydroGym deployment contract |
+| W26-L3-P1 | boundary 2x2 | CONDITIONAL SUPPORT | DEFERRED | At most one controlled intervention after the P1 diagnostic |
+| W26-L3-P2 | finite propagation | CONDITIONAL SUPPORT | DEFERRED | Use only if early out-of-cone response is selected as the mediator |
 | W26-L4-P0 | REALM audit | MUST | COMPLETE FOR PLANNING | Paper, public release, local source, and retained-manifest audit; D088--D091 remain terminal at their exact IgnitHIT scopes |
 | W26-L4-P1 | IgnitHIT direct baseline | HISTORICAL | TERMINAL INCOMPLETE UNDER D088--D090 | Sparse decode and later boundedness failures; no completed baseline or residual comparison |
 | W26-L4-P2 | IgnitHIT residual comparison | HISTORICAL | NOT RUN; SUPERSEDED BY CURRENT PD0 DIRECTION | No result and no implicit queue |
 | W26-L4-PD0 | PlanarDet champion PCNO | MUST | A1--A3 + P0b + G0b + G1 COMPLETE; ASYMMETRIC RECURRENT PERSISTENCE LOCALIZED | Exact 2,940,759,467-byte open tree, resource ladder, D092-R1 training, step-950 selection, H49 evaluation, and three causal diagnostics are closed. Truth/free mean NPE is `0.1244744/1.7987391`; the comparable free horizon sum `88.13821` is 7.01x the paper FFNO validation value. P0b is near-null. G0b localizes chemistry/density sensitivity; G1 finds chemistry-to-density-only material partner persistence at calls 12/32, with phase/dose confounded. No intervention is promoted and test remains absent. |
 | D093 | PlanarDet architecture/exposure | REGISTERED FOLLOW-UP | CLOSED; PARTIAL SINGLE-SEED/OPEN-VALIDATION RESULT | PCNO-7 result anchor plus five PCNO/PCFNO/residual-FFNO cells at three/seven unique conditions. Every seven-condition cell has lower selected truth-input error than its three-condition counterpart; only FFNO has a lower selected free-rollout sum. Three cells are incomplete, no free rollout is fully admissible, the normalizer control is transductive, D092/D093 source inventories differ, and test remains absent. |
-| D094 | hundreds-trajectory scaling | B1-C0/B1-C1/B1-C4/B1-C5-A/B/C, B1-C2, AND B1-C3 COMPLETE | B1-C3-R1 SEED-0 COLD REPLAY NEXT; 81,920 DEFERRED | Bump 300-case metadata population and 256/44 development split remain bound without historical-test opening. B1-C3 materially qualifies B1-C2: exact one-step favors PCNO throughout, while exact H79 ranking is nonmonotone and precision-robust. B1-C3-R1 preserves the full scheduler and makes only the exact `64n` sentinel primary. |
+| D094 | bump data--exposure--compute--horizon response | REPLICATED PHENOMENON | B1-C3-R1 CLOSED AT DEVELOPMENT SCOPE | The 300-case metadata population and 256/44 development split remain bound without historical-test opening. The three-seed exact-exposure analysis closes internally: PCNO wins one-step throughout, while the H79 architecture winner varies with count and seed. These opened outcomes are retrospective development evidence, not a prospective response-diagnostic result. |
 | W26-L5-P0 | multiresolution | MUST | COMPLETE | Common-source/transfer closure tests and frozen gradient-policy decision |
 | W26-L5-P1 | correlation gate | CONDITIONAL | COMPLETE FOR REUSED OPEN POPULATIONS | Cross-fitted teacher-forced gate plus low-rank residual-error structure analysis |
 | W26-L5-P2 | recurrent fusion | CONDITIONAL | A44-R1 QUALIFIED; A45 STOPPED; A46 BLOCKED BEFORE SCIENTIFIC EXECUTION | A43/A44-R1 remain frozen bounded evidence. A45 fails E00/coast router transfer. A46-A1 closes synthetic same-state plumbing, A46-A2 finds no compatible independent checkpoint/new-case manifest, and three A46-A2-R1 infrastructure attempts stop before generation/model construction. No branch result or automatic resource retry. |
@@ -1123,9 +1218,11 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 | Mentor point or question | Owned by |
 | --- | --- |
 | Residual flow-map prediction and autoregressive framework | Claim map, W26-L4 |
-| Systematic use and enforcement of boundary conditions | W26-L3 |
+| One-step versus rollout behavior and a model-independent operational diagnostic | Problem anchor, P0--P1, D094 |
+| Systematic use and enforcement of boundary conditions | Frozen family contracts; conditional W26-L3 |
 | Existing advection/Burgers/1D Euler/bump/dynamic benchmarks | W26-L3-P0, W26-L4 |
 | REALM benchmark problems | W26-L4 |
+| Neural operators in RL control and HydroGym | Optional P3 feedback-transfer falsifier |
 | Publish without deliberate architecture changes if performance is strong | Claim map, W26-L4 decision |
 | Literature meaning of rollout stability and whether PCNO stability is surprising | W26-L1 |
 | Extend horizons and distinguish stable from unstable checkpoints | W26-L1 |
@@ -1141,18 +1238,20 @@ Working labels are coordination identifiers, not stable D-series run IDs.
 
 ## Current Human Decisions
 
-1. Decide whether the closed W26-L2 evidence warrants at most one separately
-   preregistered follow-up.
-2. Decide whether to start the still-unexecuted W26-L3 boundary taxonomy and
-   synthetic finite-propagation line.
-3. Treat D093, the H320 recurrence, D094 B1-C5-A/B/C, B1-C2, and B1-C3 as
-   closed at their bounded scopes. Execute only the registered B1-C3-R1 seed-0
-   cold replay next, preserving the 20,480-step scheduler and exact `64n`
-   sentinel. Do not auto-run longer compute; the failed B1-C4 gates do not
-   establish convergence. Retain 81,920 steps as a later representation-
-   evolution study and keep MLP/Fourier/gradient/FFNO/attention components
-   separately gated until the three-seed exact-exposure closeout.
-4. Close A46 at the independent-checkpoint/new-case block or separately repair
-   and re-register its portable resource build.
-5. Keep sealed and strength-OOD populations closed unless a later named
-   one-shot decision opens them.
+1. Adopt deployment-response fidelity under self-composition as the narrow
+   thesis center; treat architecture, data, exposure, and compute as controlled
+   levers rather than independent contributions.
+2. Treat B1-C3-R1 as closed retrospective development evidence. Do not launch
+   longer compute or component studies from it.
+3. Review the
+   [P0 restart-sufficiency and solver-bias preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
+   before any trusted-solver response evaluation. No solver execution is
+   authorized by this plan update.
+4. If P0 passes, freeze the diagnostic on open development evidence and reserve
+   genuinely unseen model/seed panels for the prospective test before opening
+   target H79 outcomes.
+5. Select at most one causal intervention only after P1 passes. Boundary work
+   re-enters only if the diagnostic selects a boundary-specific mediator.
+6. Keep HydroGym optional and bounded to one feedback-transfer capstone; keep
+   all sealed, historical-test, and strength-OOD populations closed absent a
+   later named one-shot decision.

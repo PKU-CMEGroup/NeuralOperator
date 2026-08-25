@@ -1,8 +1,8 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
 Date: 2026-08-20
-Status: B1-A/B1-B, the B1-C0/B1-C1 seed-0 `n={8,16,32,64,128,256}` PCNO/PCFNO ladder, owner-selected B1-C4, B1-C5-A evaluator repeatability, the paired FP32 B1-C5-B fixed-map diagnostic, the paired FP32 B1-C5-C symmetric map--path decomposition, the 24-cell B1-C2 replacement matrix `20260824b`, its exact 72-checkpoint three-seed outside-development audit, and the two-seed BF16/FP32 B1-C3 exact-exposure audit are complete, locally retained, and rehashed; B1-C3 shows a stable one-step PCNO advantage but a nonmonotone, optimization-phase-dependent rollout ranking, so it materially qualifies B1-C2 without identifying a pure-data or causal-gradient effect; the separately registered B1-C3-R1 seed-0 cold replay below is the next bounded continuation
-Scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target
+Status: B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes; the R1 training, paired-precision evaluation, and three-seed combined analysis are locally retained and rehashed without historical-test access; current thesis authority supersedes the forward-looking B2--B4 and component queues below, which remain historical planning rather than automatic continuation
+Registered scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target. This line records the original D094 contract; the current decision leaves its forward-looking PlanarDet and component stages inactive.
 
 ## 1. Decision
 
@@ -60,7 +60,11 @@ At step 850, both arms have completed about 7.5 two-call temporal-window cycles 
 
 The correct conclusion is: D093 was not designed to determine whether three trajectories overfit sooner than seven. A hundreds-trajectory study needs a sampler in which additional trajectories create additional distinct condition--window pairs, not duplicate weights inside one update.
 
-## 3. Claims under consideration
+## 3. Historical D094 claims under consideration (inactive)
+
+The `C1`/`C2` labels in this section belong to the original D094 plan, not the
+current thesis claim ladder. They are retained as contract history and authorize
+no new data generation, architecture matrix, or test opening.
 
 At most two primary claims will be tested.
 
@@ -922,6 +926,49 @@ scopes. Results go to fresh precision-specific roots. The evaluator may neither
 train nor resume, reselect on any evaluation scope, or access the historical
 test population. Completion of both precisions authorizes only the registered
 three-seed combined analysis, not a component run by itself.
+
+##### B1-C3-R1 paired-precision and three-seed closeout (2026-08-25)
+
+Both exact-sentinel precision arms and the registered combined analysis are
+complete. The BF16 and FP32 artifact-manifest SHA-256 values are
+`2a7df14a50527150d2f869529ef995a1a2b24e7715e008de91b896beb7fe769a`
+and `0796f50fc729ebe6b4ab790305109e4ac4c4883669bfbbc9f4f643c4c0321c56`.
+Their precision-pair receipt binds identical checkpoint hashes, complete
+selection/outside-H79 rollouts, and `historical_test_population_accessed=false`.
+The three-seed analysis artifact manifest has 12 entries, all of which rehash;
+its SHA-256 is
+`5ff3bb80ba0342ff1e9caa2d548227cb15fb67aaaf24873bdb5d5cbb084f6fd8`.
+Its `analysis.json` SHA-256 is
+`aac678220774e38c202cba2bc02d1ea67de576262b0e8d90383f2d190fee9b6b`
+and records analyzer SHA-256
+`b6ad563e2cd6cedaee6b2de6cb5ade097f261d428d96346d6e9959af4ba14d72`,
+which matches the current workspace analyzer. The analyzer was not yet tracked
+when the packet was generated and is not a member of the artifact manifest, so
+the packet remains source-hash-consistent rather than commit-bound end to end;
+later repository tracking does not retroactively change that provenance.
+
+PCNO has lower fixed-validation one-step error in all 18 seed-by-count
+comparisons in both precisions. Outside H79, PCFNO wins 3/3 seeds at `n=8`, PCNO
+wins 3/3 at `n=16/32/256`, and `n=64/128` are seed-inconsistent with PCNO
+winning 1/3; every direction agrees between BF16 and FP32. PCFNO replay
+histories reproduce exactly, whereas PCNO diverges from step 256 despite an
+exact learning-rate trace. The historical/replay source comparison records 23
+unchanged and two changed files, so neither bitwise PCNO determinism nor a
+causal source attribution is supported. The captured training source matches
+22/25 current strict-source files: packet integrity is not current-checkout
+replay compatibility.
+
+Directional precision agreement is not magnitude invariance: the maximum
+outside-H79 BF16/FP32 difference is 19.5%, and the maximum across all reported
+error metrics is 43.4%. The three seeds are fixed replications; paired-case
+bootstrap intervals condition on a trained checkpoint and do not measure
+training-seed uncertainty. Matching 64 presentations per trajectory also does
+not match optimizer updates, compute, or learning-rate phase across counts.
+
+These H79 targets were opened before any deployment-response score, deviation
+bank, or prospective ranking rule was frozen. The closeout is therefore
+retrospective development evidence. It authorizes no component ladder, longer
+training, checkpoint reselection, new population, or historical-test opening.
 
 #### B1-C4 owner correction and executable contract (2026-08-22)
 
@@ -1839,7 +1886,11 @@ This excludes capacity controls, evaluator time, and failed runs. B4 is therefor
 
 The bump cost is measured by a native-graph smoke before queueing because its node counts and trainer differ from PlanarDet.
 
-## 12. Immediate execution order
+## 12. Historical D094 execution order (inactive)
+
+This order records the earlier D094 route. Current thesis authority supersedes
+its forward-looking PlanarDet, component, and longer-compute branches; no item
+in this section is an active instruction or queue.
 
 1. B1-C0 retrieval/rehash and the registered 12-checkpoint evaluator are
    complete; B1-C1 retains fixed-compute, exact corrected-exposure, selected,
@@ -1856,31 +1907,32 @@ The bump cost is measured by a native-graph smoke before queueing because its no
    selected-map evaluation of the terminal path is already sufficiently harmful
    to reverse H79 without an interaction term. This closes the registered
    retained-checkpoint map--path question but not the cause of path evolution.
-5. B1-C2 and B1-C3 are closed. B1-C3 materially changes the claim: one-step
-   PCNO advantage persists, while the H79 architecture ranking changes with
-   count and optimization phase. Execute the separately registered B1-C3-R1
-   cold seed-0 replay and exact-sentinel audit next.
-6. After B1-C3-R1, use the three-seed exact-exposure result to choose the
-   smallest separately preregistered component comparison. The first wave may
-   distinguish pointwise MLP, Fourier factorization, and the differential
-   branch; attention remains a conditional second wave, not part of an
-   automatic factorial queue.
+5. B1-C2, B1-C3, and B1-C3-R1 are closed. The three-seed exact-exposure result
+   preserves PCNO's one-step advantage while the H79 architecture ranking
+   changes with count and seed. Retain it as retrospective development evidence.
+6. Do not start a component comparison from D094 alone. Current thesis authority
+   first requires review of the
+   [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md),
+   followed by a frozen diagnostic and prospective test.
 7. Retain 81,920 steps as a later representation-evolution study, not the
    current priority. Before it runs, preregister fixed-update, fixed-exposure,
    scheduler-phase, and checkpoint-response controls separately. Any
    representation-explicit bump FFNO remains separately gated.
 8. Keep the retired `n<=7` factorial sweep unlaunched and keep exact resume
    closed unless a separate replay/resume gate is implemented and tested.
-9. In parallel through human coordination, request the official PlanarDet
-   case, additional trajectories, and an HPC cost/allocation answer. Do not
-   generate PlanarDet from the paper description alone.
+9. The original plan proposed requesting the official PlanarDet case,
+   additional trajectories, and an HPC cost/allocation answer. That outreach is
+   inactive; PlanarDet must not be generated from the paper description alone.
 10. Do not start the full PlanarDet architecture surface or its matched and
    paper-faithful FFNO arms until B2 and B3 close.
 11. Keep the historical test population sealed until the three-seed development
    claims and final checkpoint-selection rules are frozen and separately
    authorized.
 
-## 13. Minimum paper-level evidence
+## 13. Historical D094 minimum paper-level evidence (inactive)
+
+The `C1`/`C2` names below are the historical D094 claims. They do not redefine
+the current deployment-response claims or authorize the inactive B2--B4 route.
 
 For C1:
 

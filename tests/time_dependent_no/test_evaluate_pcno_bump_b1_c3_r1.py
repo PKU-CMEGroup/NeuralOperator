@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 from scripts.time_dependent_no import evaluate_pcno_bump_b1_c3_r1 as r1
+
+
+def test_registered_sha256_values_have_canonical_shape() -> None:
+    for value in (
+        r1.EXPECTED_SOURCE_ARCHIVE_SHA256,
+        r1.EXPECTED_CHECKPOINT_SOURCE_SET_DIGEST,
+        r1.EXPECTED_CLOSEOUT_MATRIX_RECEIPT_SHA256,
+        r1.EXPECTED_CLOSEOUT_ARTIFACT_MANIFEST_SHA256,
+    ):
+        assert re.fullmatch(r"[0-9a-f]{64}", value)
 
 
 def _receipt() -> dict:

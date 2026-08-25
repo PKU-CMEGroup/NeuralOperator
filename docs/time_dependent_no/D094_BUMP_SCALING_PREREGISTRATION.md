@@ -906,7 +906,7 @@ or waive any B1-C3-R1 scientific requirement.
 
 The corrected matrix-receipt and closeout artifact-manifest SHA-256 values are
 `cc935ce0495d9c153152ca280bbd650d47b4589cd7ddaf3c1afd6d03e05756b9` and
-`e74281466fba618bd0c472a5261eba3a34b8df260bb063467eebeb42144951360`.
+`e74281466fba618bd0c472a5261eba3a34b8df260bb063467ebeb42144951360`.
 The receipt independently binds 12 cells and 156 files. Its reconstruction
 reproduces every recorded whole-state hash; the parameter-only and
 nondifferential-parameter-only hash cardinalities across counts are both one.

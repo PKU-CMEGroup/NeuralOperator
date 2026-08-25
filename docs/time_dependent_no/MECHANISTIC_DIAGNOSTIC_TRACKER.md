@@ -1,6 +1,6 @@
 # Time-Dependent Experiment Index
 
-Updated: 2026-08-25
+Updated: 2026-08-26
 
 Status: compact routing index; not an execution queue
 
@@ -81,7 +81,10 @@ the current source and artifact manifests before execution or interpretation.
   precision evaluations complete, and the three-seed analysis has lower PCNO
   one-step error in all 18 seed-by-count comparisons in both precisions while
   H79 is 3/3 PCFNO at `n=8`, 3/3 PCNO at
-  `n=16/32/256`, and seed-inconsistent at `n=64/128`.
+  `n=16/32/256`, and seed-inconsistent at `n=64/128`. On the exact-`64n`
+  diagonal, all three primary one-step means decrease at every adjacent count
+  for both architectures; PCNO mean outside H79 is also monotone there, while
+  PCFNO mean outside H79 is not.
 - A46-A2-R1 resource-build stops are infrastructure attempts under A46-A2, not
   a new scientific run or result.
 - PlanarDet cumulative-`pMax` P0/P0b, group-feedback G0/G0b, and one-call pulse
@@ -225,7 +228,7 @@ linked below for D087--D094.
 | D091 | W26-L4 REALM boundedness attribution | A1 complete; no scientific model execution. The exact step-50/step-100, teacher-forced/free-recurrence, per-channel first-event and spatial-support contract is implemented and synthetic/maintained REALM CPU gates pass. One exact A2 inference run remains separately unauthorized, so offending-channel and fresh-versus-propagated attribution are still missing evidence. |
 | D092 | W26-L4 PlanarDet champion residual-PCNO | The original scalar-hash failure remains infrastructure provenance. D092-R1 completed the repaired seed-0 width-96 5,000-step run and selected step 950. On the one open-validation trajectory, truth-input/free H49 mean NPE is `0.1244744/1.7987391`, with released-code horizon sums `6.09925/88.13821`; every call is finite and bounded, free recurrence is admissible on 7/49 calls, and truth competence fails only cumulative-`pMax` monotonicity. The PCNO free validation sum is 7.01x the REALM paper's FFNO validation value `12.577`, but no sealed test or paired baseline reproduction occurred. |
 | D093 | W26-L4 PlanarDet architecture/exposure comparison | Closed as partial single-seed, single-open-validation evidence. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum. FFNO-7 is best in this matrix (`1.36466/32.53910` truth-input/free H49 sums); all free rollouts remain incompletely admissible, and PCFNO-7, PCFNO-3, and FFNO-3 training is incomplete after later decoded-validation failures. D092 and D093 bind distinct source inventories; the common residual FFNO is not paper-faithful, PCFNO is not vanilla FNO, and test remains absent. See [the bounded D093 record](D093_W26_L4_PLANARDET_SCALING_RECORD.md). |
-| D094 | Bump data--exposure--compute--horizon response surface | B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes. B1-C5-C classifies one selected-to-terminal reversal as `resolved_path_displacement_sufficient`. The R1 three-seed exact-exposure analysis has lower PCNO one-step error in all 18 seed-by-count comparisons in both precisions; outside H79 is 3/3 PCFNO at `n=8`, 3/3 PCNO at `n=16/32/256`, and seed-inconsistent at `n=64/128`, with matching BF16/FP32 directions. This is retrospective architecture-dependent optimization/self-composition evidence, not a prospective diagnostic, monotone scaling, deterministic replay, or a pure-data, scheduler, capacity, representation, causal-gradient, FFNO, conservation, or test result. See [the preregistration](D094_BUMP_SCALING_PREREGISTRATION.md). |
+| D094 | Bump data--exposure--compute--horizon response surface | B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes. B1-C5-C classifies one selected-to-terminal reversal as `resolved_path_displacement_sufficient`. On the R1 three-seed exact-`64n` diagonal, online-train, fixed-seen, and fixed-validation one-step means decrease at every adjacent count for both architectures; PCNO has lower one-step error in all 18 seed-by-count comparisons in both precisions. PCNO mean outside H79 is also monotone there, but PCFNO H79 is not; per-seed H79 is 3/3 PCFNO at `n=8`, 3/3 PCNO at `n=16/32/256`, and seed-inconsistent at `n=64/128`. This is retrospective joint data/exposure/optimization and self-composition evidence, not a prospective diagnostic, pure-data or generic rollout scaling law, deterministic replay, causal-gradient, FFNO, conservation, or test result. See [the preregistration](D094_BUMP_SCALING_PREREGISTRATION.md). |
 | W26-L4-PD0 | PlanarDet champion execution | A1--A3, the open-validation evaluator, P0b, corrected G0b, and G1 are complete. P0 failed exact CPU metric-decoder closure; P0b removes all `pMax` decreases but is near-null on non-`pMax` drift (`0.9925744`). G0 failed before inference; corrected G0b localizes strong chemistry/density recurrence sensitivity. G1 preserves the pulse-call proposal and injects one exact group only into the next input at calls 4/12/32. Common `T+u` ratios are chemistry `0.965/0.926/0.839` and density `0.983/0.902/0.863`; partner ratios are chemistry-to-density `0.950/0.854/0.677` versus density-to-chemistry `0.991/0.942/0.936`. The frozen classification is chemistry-to-density-only at calls 12/32 and no material partner effect at call 4. Phase and correction dose remain confounded, and error gains can worsen validity counts. This supports checkpoint-local asymmetric recurrent persistence, not a physical causal graph, architecture cause, or promotable oracle correction; test remains absent. |
 
 ## Evidence And Claim Boundaries

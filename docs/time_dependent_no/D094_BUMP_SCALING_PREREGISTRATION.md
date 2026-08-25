@@ -1,6 +1,6 @@
 # D094: Hundreds-Trajectory Data--Architecture--Optimization Scaling
 
-Date: 2026-08-20
+Date: 2026-08-20; consolidated result log updated 2026-08-26
 Status: B1-A/B1-B, B1-C0/B1-C1, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes; the R1 training, paired-precision evaluation, and three-seed combined analysis are locally retained and rehashed without historical-test access; current thesis authority supersedes the forward-looking B2--B4 and component queues below, which remain historical planning rather than automatic continuation
 Registered scope: use the 300-trajectory supersonic-bump population for an immediate native-mesh calibration, while making a hundreds-trajectory PlanarDet population the required hard-benchmark target. This line records the original D094 contract; the current decision leaves its forward-looking PlanarDet and component stages inactive.
 
@@ -969,6 +969,68 @@ These H79 targets were opened before any deployment-response score, deviation
 bank, or prospective ranking rule was frozen. The closeout is therefore
 retrospective development evidence. It authorizes no component ladder, longer
 training, checkpoint reselection, new population, or historical-test opening.
+
+##### Consolidated exact-exposure result log (2026-08-26)
+
+The tables below are the primary BF16 three-seed summaries at the exact
+`64n` sentinel, reported as mean plus or minus sample standard deviation. The
+online training statistic, fixed-seen statistic, fixed-validation statistic,
+and outside H79 are kept separate because they estimate different objects.
+The exhaustive per-seed, paired-precision, rollout, structure, ratio, and
+bootstrap rows remain machine-readable in the rehashed B1-C3-R1 analysis
+packet; this table does not replace them.
+
+| PCNO `n` | Updates | Online train one-step | Fixed seen one-step | Fixed validation one-step | Outside H79 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 512 | 0.04068276 +/- 0.00362347 | 0.03351645 +/- 0.00163601 | 0.03423539 +/- 0.00192392 | 0.63661259 +/- 0.07602354 |
+| 16 | 1,024 | 0.02311976 +/- 0.00066879 | 0.02331016 +/- 0.00112286 | 0.02387805 +/- 0.00096419 | 0.40986201 +/- 0.03200049 |
+| 32 | 2,048 | 0.01993882 +/- 0.00093418 | 0.01838041 +/- 0.00083979 | 0.01865531 +/- 0.00085941 | 0.34292709 +/- 0.02709560 |
+| 64 | 4,096 | 0.01626237 +/- 0.00102139 | 0.01660090 +/- 0.00079135 | 0.01673336 +/- 0.00069483 | 0.26319589 +/- 0.01545646 |
+| 128 | 8,192 | 0.01397223 +/- 0.00017297 | 0.01622335 +/- 0.00196688 | 0.01659463 +/- 0.00203991 | 0.23683742 +/- 0.04006605 |
+| 256 | 16,384 | 0.01139603 +/- 0.00008597 | 0.01155092 +/- 0.00003388 | 0.01175031 +/- 0.00006169 | 0.09054211 +/- 0.01269583 |
+
+| PCFNO `n` | Updates | Online train one-step | Fixed seen one-step | Fixed validation one-step | Outside H79 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 512 | 0.06220776 +/- 0.00379189 | 0.05975991 +/- 0.00075905 | 0.05999630 +/- 0.00104009 | 0.41954910 +/- 0.01267153 |
+| 16 | 1,024 | 0.04230531 +/- 0.00168682 | 0.04347587 +/- 0.00253033 | 0.04454742 +/- 0.00254006 | 0.91521589 +/- 0.47030335 |
+| 32 | 2,048 | 0.02917736 +/- 0.00170846 | 0.03221323 +/- 0.00063988 | 0.03271128 +/- 0.00066917 | 0.93345651 +/- 0.83694798 |
+| 64 | 4,096 | 0.02166433 +/- 0.00052786 | 0.02707449 +/- 0.00107474 | 0.02726468 +/- 0.00106433 | 0.25355109 +/- 0.06764097 |
+| 128 | 8,192 | 0.01788776 +/- 0.00060406 | 0.02189186 +/- 0.00223296 | 0.02229886 +/- 0.00236250 | 0.21667003 +/- 0.08720038 |
+| 256 | 16,384 | 0.01339137 +/- 0.00012265 | 0.01439985 +/- 0.00011355 | 0.01469560 +/- 0.00016130 | 0.12892626 +/- 0.01314671 |
+
+All three one-step means decrease at every adjacent count for both
+architectures. Fixed-validation error falls by 65.68% for PCNO and 75.51% for
+PCFNO from `n=8` to `n=256`. PCNO's mean outside H79 also decreases at every
+adjacent count, whereas PCFNO's mean outside H79 first worsens at `n=16/32`
+before improving. Thus the newly visible phenomenon is monotone one-step loss
+along this exact-exposure diagonal, not a generic monotone rollout law.
+
+This diagonal is still not a pure data-size experiment: holding presentations
+per trajectory at 64 makes updates grow from 512 to 16,384 and changes compute,
+passes, learning-rate phase, and the learned checkpoint together. The B1-C2
+selected-checkpoint comparison and the B1-C4 fixed-update slices answer
+different confounded questions and need not share this ordering. The bounded
+claim remains that ordinary one-step fit improves predictably with the joint
+data/exposure/optimization scale, while recurrent deployment quality remains
+architecture-, seed-, count-, and path-dependent.
+
+The completed D094 evidence ledger is therefore:
+
+| Stage | Question closed | Retained result |
+| --- | --- | --- |
+| B1-A/B1-B | Is the 300-case population and schedule auditable? | The field-blind 256/44 development split, nested count ladder, and presentation accounting close locally. |
+| B1-C0/B1-C1 | What does one seed show across count, updates, exposure, and horizon? | Fixed-exposure and fixed-update views can reverse ordering; one-step and rollout quantities decouple. |
+| B1-C4 | Does cold 40,960-step PCNO establish a longer-compute route? | Both cells select step 38,400; the automatic continuation gates fail without establishing convergence. |
+| B1-C5-A | Are late aggregate directions larger than the evaluator floor? | Aggregate directions clear repeated BF16/FP32 variation; maximum-case and marginal-event identities do not. |
+| B1-C5-B/C | Is late H79 reversal caused by a worse map on the old path? | No. The terminal map improves one-call response on the selected path; reachable-path displacement is already sufficient to reverse autonomous H79. |
+| B1-C2 | Does the selected-checkpoint architecture interaction replicate? | Yes at its retrospective scope, but both selected families worsen from `n=128` to `n=256` and the result is not a monotone scaling law. |
+| B1-C3/B1-C3-R1 | What happens at exactly 64 presentations per trajectory over three seeds and two evaluation precisions? | One-step means are monotone with count and PCNO wins every paired one-step cell; H79 ranking remains architecture-, count-, and seed-dependent. |
+
+Local result-to-claim verdict: **partial, high confidence** for one-step/rollout
+non-equivalence and architecture-dependent optimization/self-composition on
+this bump development population. Pure data causality, capacity saturation,
+gradient causality, universal neural-operator behavior, FFNO comparison,
+physical conservation, and historical-test performance remain unsupported.
 
 #### B1-C4 owner correction and executable contract (2026-08-22)
 

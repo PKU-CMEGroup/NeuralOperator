@@ -1,9 +1,10 @@
 # P0: Restart Sufficiency And Native-Coarse Solver-Bias Gate
 
-Date: 2026-08-25
+Date: 2026-08-25; local A0 continuation audit updated 2026-08-26
 
-Status: draft for owner review; no solver, model, or dataset-scale execution is
-authorized by this document
+Status: owner-reviewed for read-only A0 provenance recovery; the 2026-08-26
+local audit fails closed, so A1/A2, solver, model, and dataset-scale execution
+remain unauthorized
 
 Owner: time-dependent neural-operator project
 
@@ -81,6 +82,39 @@ also lacks a complete executable source hash inventory, while D060 was produced
 from a dirty historical checkout whose recorded core and wrapper hashes differ
 from the current checkout. These are hard A0 blockers, not details to infer or
 waive.
+
+### 2.1 P0-A0 local continuation audit (2026-08-26)
+
+The owner authorized continuation of the documented plan, so the local part of
+A0 was repeated by content and inventory rather than by historical filename.
+It remains a provenance stop:
+
+- all 52 standalone checkpoint-like files under the retained artifact root
+  were SHA-256 hashed (`6,873,764,799` total bytes); neither expected D044 nor
+  D060 checkpoint digest is present;
+- all 88 retained archive inventories were opened read-only. Eighty-seven
+  contain no checkpoint-like member. The remaining archive contains 72
+  explicitly named D094 B1-C2 checkpoints and no advertised D044/D060 member;
+- the local artifact tree contains 882 array-like files, including derived
+  traces, visualization payloads, and partial dynamic-family bundles, but no
+  immutable full trajectory root bound to the frozen D044/D060 data and open-
+  split contract;
+- the compact family manifest, grouped split, D060 normalizer, model configs,
+  and downstream summary bindings survive and rehash, but they cannot replace
+  the absent checkpoint and trajectory bytes; and
+- of the eight historical evaluator-source members named by the retained
+  D044/D060 resolution summaries, only three match the current checkout. A
+  compatible complete historical executable source tree has not been
+  recovered.
+
+The three preregistered native-coarse solver members still match the audit-time
+hashes in the table above. No case was selected, no checkpoint or state array
+was loaded, no model was constructed, and no A1/A2 numerical work ran. The A0
+receipt therefore has status `failed_missing_exact_resources`, and the next
+legal action is a read-only recovery search on an explicitly selected retained
+compute resource. AutoDL is the recommended first search target because it was
+the active high-capacity environment for this lineage; no remote search is
+implicitly authorized by this local audit.
 
 ## 3. Frozen State And Time Contract
 

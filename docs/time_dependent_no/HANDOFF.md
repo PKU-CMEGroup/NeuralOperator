@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Handoff
 
-Updated: 2026-08-25
+Updated: 2026-08-26
 
 This is a replaceable operational snapshot. It records the current scientific
 position, workspace boundary, and decisions still owned by the human researcher.
@@ -79,7 +79,7 @@ benchmark programme.
 | 1D residual FNO | A useful fixed-family program exists. Larger-step advantages depend on horizon and metric; they are not a universal stability result. |
 | CPGNet reproduction | The released 1D gain depends materially on message reach, and causal boundary training improves the bounded local 2D release-bundle comparison while leaving the oracle gap. Paper-faithful parity and exact DG replay remain unresolved. |
 | Supersonic bump PCNO | D041 remains the historical comparator. D087 closes its exact H79 scope on B1 and owner-designated D019: B1 stays admissible/bounded/finite, while D019 loses accuracy first, later becomes inadmissible and unbounded, and remains finite. Exact decomposition shows propagated-input response dominates D019's realized late error. A separately registered H320 comparison on the same 30 open cases records later active-gradient PCNO first events than PCFNO more often than the reverse, but H80--H320 has no truth. These are bounded recurrence diagnostics, not causal factor attribution, physical validity, accuracy past H79, or general stability. |
-| Bump data--architecture--optimization response surface | D094 B1-A/B1-B, the seed-0 ladder, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes. The R1 three-seed exact-exposure analysis has lower PCNO one-step error in all 18 seed-by-count comparisons in both precisions. Outside H79 favors PCFNO in 3/3 seeds at `n=8`, PCNO in 3/3 at `n=16/32/256`, and is seed-inconsistent at `n=64/128`; BF16/FP32 directions agree. This supports one-step/rollout non-equivalence and architecture-dependent optimization/self-composition, not a monotone data law, deterministic replay, or pure-data, scheduler, representation, capacity, or causal-gradient cause. FFNO/components, conservation, 81,920 steps, and test remain separately gated. |
+| Bump data--architecture--optimization response surface | D094 B1-A/B1-B, the seed-0 ladder, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are complete at their registered development scopes. On the three-seed exact-`64n` diagonal, mean online-train, fixed-seen, and fixed-validation one-step errors decrease at every adjacent count for both PCNO and PCFNO; PCNO has lower one-step error in all 18 seed-by-count comparisons in both precisions. Mean PCNO outside H79 is also monotone on this diagonal, but PCFNO outside H79 is not; per-seed H79 favors PCFNO in 3/3 seeds at `n=8`, PCNO in 3/3 at `n=16/32/256`, and is seed-inconsistent at `n=64/128`. This supports predictable one-step improvement under joint data/exposure/optimization scaling plus one-step/rollout non-equivalence, not pure data causality or a generic monotone rollout law. FFNO/components, conservation, 81,920 steps, and test remain separately gated. |
 | Dynamic shock-vortex PCNO | D044 is the useful baseline and D060 is a useful one-seed improvement with unresolved structure error. Common-source resolution studies identify persistent large-scale mesh inconsistency plus locally cancelling shock/vortex defect. W26-L5 A32/A33 qualify one target-free raw-shadow-tethered affine protocol on reused open populations: on six retained-500x200 D074 cases, corrected versus raw transfer has full/rank-8 trajectory ratios `0.98887/0.94507`, full/rank-8 H30 ratios `0.97770/0.89007`, six of six trajectory/endpoint wins, and maximum control `1.00459`. Direct fixed-hop 500x200 has median H30 ratio `2.08418` versus corrected transfer and zero wins. A34--A39 reject universal coefficients/simple routers despite strong ordinary same-family fits. A41/A42 then identify a nearly diagonal accepted-shadow native response during coast. A43 uses that frozen response to remove 56 accepted-native calls and qualifies on the reused E12/E14 population: active full/rank-8/H30 ratios are `0.97877/0.93117/0.96249`, all four active trajectory/endpoint pairs win, and maximum control is `1.01141`. A44-R1 confirms the unchanged protocol on 14 new E00/E11 correction cases inside checkpoint training support: active full/rank-8/H30 ratios are `0.98216/0.95586/0.97873`, all four active pairs win, maximum control is `1.04361`, and large/rank-8 benefit coexists with neutral-to-slightly-harmful local bands. A45 then finds pooled logged-utility prediction and stable lag-history coefficients, but fails the required E00 and coast transfer cells; it strengthens the broad/rank-8 versus local-harm diagnosis without qualifying a router. This is bounded same-family correction-protocol evidence, not resolution invariance, independent checkpoint/test confirmation, family-independent coefficients/response, causal fine-refresh utility, physical conservation, an Euler1D deployment result, or a measured latency win. |
 | Synthetic shock representation | W26-L2 P0/P1/P2 establish fixed-grid capacity followed by subcell-phase and finite-grid transfer failure. Retrained no-gradient and parameter-matched local arms roughly halve held L2 and reduce extrema/TV, but increase registered step-ripple mass and fail strict transfer/no-harm controls. P2-C0 is complete: zero-output gradient activation slightly lowers train loss but is a held-phase near tie, so it does not rescue the original full-PCNO path. P2-F is descriptive because its `1e-5` replay gate fails while the maintained `1e-4` ceiling passes: spectral transport is necessary, pointwise cancellation passes every seed, and the full model's differential path is acutely essential/cancelling in `3/3`, so the trained no-gradient gain is architecture reorganization rather than acute deletion. P2-W0 then isolates a moving-front wake: no native arm leaves error everywhere the front traveled; full PCNO has a held-pulse-only path-wide/recurrent wake in `2/3` seeds, no-gradient passes no wake stratum, and posthoc `/10` gradient scaling is catastrophic. The first defect is phase-sensitive and recurrence amplifies it. |
 | REALM PlanarDet | D092-R1 completed one seed-0 width-96 residual-PCNO run and selected step 950. Truth-input/free H49 sums are `6.09925/88.13821`; P0b is near-null, and G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. D093 reuses the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique supervised conditions. Each seven-condition cell has lower selected truth-input error than its three-condition counterpart, but only FFNO has a lower selected free-rollout sum; FFNO-7 is best at `1.36466/32.53910`. This is one seed and one open trajectory under a common residual contract but distinct D092/D093 source inventories, not clean data scaling, a paper-faithful baseline, sealed ranking, physical causal graph, architecture cause, or general PlanarDet claim. |
@@ -185,13 +185,18 @@ authorized.
 
 ## Human Decisions Still Required
 
-D094 B1-C3-R1 is now closed retrospective development evidence. The draft
+D094 B1-C3-R1 is now closed retrospective development evidence. The owner has
+reviewed the
 [P0 restart-sufficiency and solver-bias gate](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-is ready for owner review. Its audit finds the compact local D044/D060 records
-insufficient for execution because checkpoint bytes, trajectory arrays, and a
-complete compatible historical source binding are absent. No solver execution
-or new model training is authorized. Boundary work remains conditional on a
-measured boundary-response defect, and HydroGym remains an optional capstone.
+for read-only A0 recovery. The repeated local A0 audit fails closed: all 52
+standalone checkpoint-like files were rehashed with no D044/D060 match, retained
+archives advertise no such member, the full bound trajectory root is absent,
+and only three of eight named historical evaluator-source members match the
+current checkout. The next decision is whether to search a named retained
+compute resource read-only; AutoDL is recommended first. No A1/A2 solver
+execution or new model training is authorized. Boundary work remains
+conditional on a measured boundary-response defect, and HydroGym remains an
+optional capstone.
 
 D092-R1, P0b, corrected G0b, G1, and the D093 architecture/exposure matrix are
 terminal at their registered scopes. In D093, each seven-condition cell has
@@ -388,7 +393,7 @@ checkpoint reselection, resume, 81,920-step continuation, FFNO/component study,
 attention arm, or test access is automatic. Native bump PCFNO remains a trained
 no-gradient ablation, not vanilla or paper-faithful FFNO. See the
 [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
-The next contract is the draft
+The next contract is the owner-reviewed, A0-blocked
 [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md),
 whose A0 provenance recovery must pass before any numerical stage.
 

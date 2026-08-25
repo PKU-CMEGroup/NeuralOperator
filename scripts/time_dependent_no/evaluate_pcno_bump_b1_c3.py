@@ -374,6 +374,7 @@ def _sentinel_descriptor(
     *,
     replication_root: Path,
     file_records: Mapping[str, Mapping[str, Any]],
+    expected_source_set_digest: str = EXPECTED_REPLICATION_SOURCE_SET_DIGEST,
 ) -> dict[str, Any]:
     seed = int(base["seed"])
     count = int(base["trajectory_count"])
@@ -408,7 +409,7 @@ def _sentinel_descriptor(
         or sentinel_contract.get("exact_training_resume_supported") is not False
         or payload.get("data_manifest_digest") != EXPECTED_DATA_MANIFEST_DIGEST
         or payload.get("source_snapshot", {}).get("source_set_digest")
-        != EXPECTED_REPLICATION_SOURCE_SET_DIGEST
+        != expected_source_set_digest
         or payload.get("config_digest") != base["summary"]["config_digest"]
         or payload.get("normalization_digest")
         != base["summary"]["normalization_digest"]

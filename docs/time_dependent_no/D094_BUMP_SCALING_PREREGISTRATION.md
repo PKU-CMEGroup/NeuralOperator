@@ -904,6 +904,25 @@ written to a new output root by
 does not train, resume, evaluate, reselect, open the historical test population,
 or waive any B1-C3-R1 scientific requirement.
 
+The corrected matrix-receipt and closeout artifact-manifest SHA-256 values are
+`cc935ce0495d9c153152ca280bbd650d47b4589cd7ddaf3c1afd6d03e05756b9` and
+`e74281466fba618bd0c472a5261eba3a34b8df260bb063467eebeb42144951360`.
+The receipt independently binds 12 cells and 156 files. Its reconstruction
+reproduces every recorded whole-state hash; the parameter-only and
+nondifferential-parameter-only hash cardinalities across counts are both one.
+
+The registered evaluator is
+`scripts/time_dependent_no/evaluate_pcno_bump_b1_c3_r1.py`. It must require the
+two hashes above, the original training source commit/archive, checkpoint source
+set, split/data manifests, prior three-seed outside-development audit, and every
+exact `64n` model-only sentinel. Run the 12 cells serially in BF16 and then
+FP32, using the frozen fixed-seen, fixed-validation, seed-0 selection,
+seed-specific outside-development, common-nine, finite-only H79, and structure
+scopes. Results go to fresh precision-specific roots. The evaluator may neither
+train nor resume, reselect on any evaluation scope, or access the historical
+test population. Completion of both precisions authorizes only the registered
+three-seed combined analysis, not a component run by itself.
+
 #### B1-C4 owner correction and executable contract (2026-08-22)
 
 Current explicit owner direction selects B1-C4 before seed replication. The

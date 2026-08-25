@@ -879,6 +879,31 @@ A three-seed exact-exposure analysis may then decide the minimum count and
 optimization phase for a separately registered component ladder. It does not
 authorize FFNO, attention, capacity, 81,920-step, or test execution by itself.
 
+##### B1-C3-R1 matrix-closeout correction (2026-08-25)
+
+All 12 registered cells in immutable attempt
+`d094_b1_c3_r1_seed0_replay_20260825a` completed, but the launcher stopped
+before writing its matrix receipt with `initialization changed across
+trajectory counts`. The terminal check was stronger than the contract above:
+it compared whole-model `state_dict` hashes across counts even though those
+hashes include the deliberately active-subset-dependent normalization buffers.
+The registered pairing requirement is equality between PCNO and PCFNO at a
+fixed seed and count, not equality of normalization state across counts.
+
+The original attempt and its 12 cell directories must remain unchanged. A
+fresh closeout audit may only read and hash them. It must require all 12 cell
+completion markers; the exact cell identities, cold-start contracts, steps,
+sentinels, schedules, finite histories, and no-test receipts; and equal PCNO /
+PCFNO initialization, normalization, and presentation streams at each count.
+For every count it must reconstruct the initial model from the bound model
+configuration and normalization under seed `20260718`, reproduce the recorded
+whole-state hash exactly, and then compare parameter-only and
+nondifferential-parameter-only hashes across counts. The corrected receipt is
+written to a new output root by
+`scripts/time_dependent_no/closeout_pcno_bump_b1_c3_r1.py`. This correction
+does not train, resume, evaluate, reselect, open the historical test population,
+or waive any B1-C3-R1 scientific requirement.
+
 #### B1-C4 owner correction and executable contract (2026-08-22)
 
 Current explicit owner direction selects B1-C4 before seed replication. The

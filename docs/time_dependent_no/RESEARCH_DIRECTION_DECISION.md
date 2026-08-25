@@ -270,11 +270,15 @@ is fine evolution followed by restriction. It may be called only
 **native-coarse-solver-relative** unless a registered restart-sufficiency and
 solver-bias gate shows that the coarse one-step error is materially below the
 model defect and between-model response separation.
-The draft
+The owner-reviewed
 [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
 fixes the common `0.02` horizon, field-blind open cases, factor-of-four bias
-margin, repeatability/accounting gates, and provenance stop conditions. It is a
-review artifact, not execution authorization.
+margin, repeatability/accounting gates, and provenance stop conditions. Its
+exact D044/D060 checkpoints, complete trajectory root, compatibility receipts,
+and separate evaluator/solver source closures are now recovered in one ignored
+read-only AutoDL input root. This is provenance and compatibility evidence only:
+formal A0 closure still awaits exact downstream command/source binding, and no
+A1/A2 numerical execution is authorized.
 Do not create a graph-to-DG reconstruction project unless a later independent
 scientific need and explicit authorization justify it.
 

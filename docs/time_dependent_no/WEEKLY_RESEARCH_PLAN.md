@@ -211,11 +211,13 @@ solver-execution gate:
 Only a conditional, separately approved A3 may then evaluate a small set of
 admissible model-generated deviations under the unchanged contract.
 
-The exact proposed contract is the draft
+The exact proposed contract is the owner-reviewed
 [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md).
-Its current A0 audit is blocked on recovery of exact checkpoint bytes,
-trajectory arrays, and a compatible historical model-source binding. This is a
-provenance stop, not permission to substitute the current checkout.
+Its exact checkpoint bytes, trajectory arrays, compatibility receipts, and
+separate historical-evaluator/current-solver source closures are now recovered
+in one ignored read-only input root. Formal A0 closure remains blocked on exact
+downstream command/source binding. This is still a provenance stop, not
+permission to substitute the current checkout or run A1/A2.
 
 Failure closes the native-coarse proxy for the main diagnostic. A high-fidelity
 alternative would need retained fine states, arbitrary-state fine-solver
@@ -1171,7 +1173,7 @@ and direct off-grid baselines after cost and no-harm controls.
 | Stage | Goal | Exact next scope | Gate before continuation | Authorization |
 | --- | --- | --- | --- | --- |
 | P0-A | Closed replicated phenomenon | B1-C3-R1 training, evaluation, and three-seed analysis are complete and internally rehashed. | Closed as retrospective development evidence; captured training source is not fully current-checkout compatible. | No continuation implied |
-| P0-B | Establish response-target feasibility | The local A0 recovery audit fails closed because exact D044/D060 checkpoint bytes, the full bound trajectory root, and compatible complete historical source are absent. Search one explicitly selected retained resource read-only before any native-coarse fallback execution. | Exact provenance recovery, then restart/repeatability/admissibility; proxy bias must be materially below model defect and between-model response separation. | Owner-reviewed for A0 only; A1/A2 remain unauthorized |
+| P0-B | Establish response-target feasibility | Exact D044/D060 checkpoints, the complete bound trajectory root, two compatibility receipts, and separate evaluator/solver closures are recovered in a read-only ignored AutoDL root. Freeze an exact source-hashed A1 implementation and command before any execution. | Formal A0 command binding, then restart/repeatability/admissibility; proxy bias must be materially below model defect and between-model response separation. | Resource recovery complete; A1/A2 remain unauthorized pending owner review and exact command binding |
 | P1-A | Develop the diagnostic | Use only already open outcomes to freeze the common bank, norm, amplitudes, aggregation, baselines, and ranking rule. | The score adds information beyond one-step and H20 without using target H79 outcomes. | No prospective claim |
 | P1-B | Test prospective prediction | Apply the unchanged score to genuinely unseen model/seed panels before target H79 access. | More than one independent ranking is predicted under registered state and structure metrics. | Separate preregistration and explicit approval |
 | P2 | Test bounded causality | Select at most one mediator-targeted component or reachable-state intervention. | Mediator and rollout move together over seeds and one distinct restartable family. | Conditional on P1; new training separately approved |
@@ -1245,9 +1247,10 @@ Working labels are coordination identifiers, not stable D-series run IDs.
    longer compute or component studies from it.
 3. The owner-reviewed
    [P0 restart-sufficiency and solver-bias preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-   is active only for read-only A0 recovery. The local audit fails closed; the
-   next decision is whether to search a named retained compute resource, with
-   AutoDL recommended first. No A1/A2 solver execution is authorized.
+   now has exact read-only inputs and compatibility receipts recovered on the
+   explicitly selected AutoDL resource. The next decision is whether to approve
+   an exact source-hashed A1 implementation and command so formal A0 can close.
+   No A1/A2 solver or model execution is authorized.
 4. If P0 passes, freeze the diagnostic on open development evidence and reserve
    genuinely unseen model/seed panels for the prospective test before opening
    target H79 outcomes.

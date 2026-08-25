@@ -32,8 +32,9 @@ Read active context in this order:
    map--path diagnostics, completed B1-C2 and B1-C3 audits, and closed
    B1-C3-R1 seed-0 replay/three-seed analysis.
 10. [P0_RESTART_SUFFICIENCY_PREREGISTRATION.md](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-    for the draft, fail-closed native-coarse restart and solver-bias gate. It
-    authorizes no solver execution until owner review and provenance recovery.
+    for the native-coarse restart and solver-bias gate. Its exact inputs and
+    compatibility surface are recovered read-only; formal A0 command binding
+    and separate owner approval still precede any A1/A2 execution.
 11. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)

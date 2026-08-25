@@ -185,18 +185,20 @@ authorized.
 
 ## Human Decisions Still Required
 
-D094 B1-C3-R1 is now closed retrospective development evidence. The owner has
+D094 B1-C3-R1 is now closed retrospective development evidence. The owner
 reviewed the
 [P0 restart-sufficiency and solver-bias gate](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-for read-only A0 recovery. The repeated local A0 audit fails closed: all 52
-standalone checkpoint-like files were rehashed with no D044/D060 match, retained
-archives advertise no such member, the full bound trajectory root is absent,
-and only three of eight named historical evaluator-source members match the
-current checkout. The next decision is whether to search a named retained
-compute resource read-only; AutoDL is recommended first. No A1/A2 solver
-execution or new model training is authorized. Boundary work remains
-conditional on a measured boundary-response defect, and HydroGym remains an
-optional capstone.
+and explicitly selected AutoDL for read-only A0 recovery. Exact D044/D060
+checkpoints, all `1,755` manifest-bound arrays, the frozen normalizers/config
+records, and separate complete checkpoint--evaluator compatibility receipts are
+now recovered in a fresh read-only ignored root. The reconstructed historical
+evaluator closure has 23 members and canonical digest `9bda9459...e675`; the
+separate current solver closure has 10 members and digest `293af994...e8cf`.
+The three field-blind cases are fixed at `sv_e06_y00/f10`,
+`sv_e11_y08/f30`, and `sv_e05_y00/f50`. Formal A0 closure still requires exact
+downstream command/source binding; no A1/A2 solver or model execution and no new
+training is authorized. Boundary work remains conditional on a measured
+boundary-response defect, and HydroGym remains an optional capstone.
 
 D092-R1, P0b, corrected G0b, G1, and the D093 architecture/exposure matrix are
 terminal at their registered scopes. In D093, each seven-condition cell has
@@ -393,9 +395,12 @@ checkpoint reselection, resume, 81,920-step continuation, FFNO/component study,
 attention arm, or test access is automatic. Native bump PCFNO remains a trained
 no-gradient ablation, not vanilla or paper-faithful FFNO. See the
 [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
-The next contract is the owner-reviewed, A0-blocked
-[P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md),
-whose A0 provenance recovery must pass before any numerical stage.
+The next contract is the owner-reviewed
+[P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md).
+Its exact inputs and compatibility surface have been recovered and made
+read-only, but its formal A0 command-binding clause remains open. No numerical
+stage may begin until the owner reviews that receipt and separately authorizes
+an exact, source-hashed A1 implementation and command.
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0
 manifest-parser launch failure remain provenance, not scientific evidence. P0b

@@ -1,10 +1,11 @@
 # P0: Restart Sufficiency And Native-Coarse Solver-Bias Gate
 
-Date: 2026-08-25; local A0 continuation audit updated 2026-08-26
+Date: 2026-08-25; A0 recovery status updated 2026-08-26
 
-Status: owner-reviewed for read-only A0 provenance recovery; the 2026-08-26
-local audit fails closed, so A1/A2, solver, model, and dataset-scale execution
-remain unauthorized
+Status: exact A0 inputs and evaluator compatibility recovered into one ignored,
+read-only AutoDL root; formal A0 closure still requires exact downstream command
+and source binding, so A1/A2, solver, model, and training execution remain
+unauthorized
 
 Owner: time-dependent neural-operator project
 
@@ -76,12 +77,12 @@ and source-artifact-set digest
 Their shared training-only conservative-state scales are
 `[0.0752340287, 0.0546168404, 0.0435805767, 0.2345080528]`.
 
-The compact local records do **not** retain the checkpoint bytes or trajectory
-arrays, and their recorded checkpoint paths are not currently available. D044
-also lacks a complete executable source hash inventory, while D060 was produced
-from a dirty historical checkout whose recorded core and wrapper hashes differ
-from the current checkout. These are hard A0 blockers, not details to infer or
-waive.
+At the local-only audit boundary, the compact records did **not** retain the
+checkpoint bytes or trajectory arrays, and their recorded checkpoint paths were
+not available locally. D044 also lacked a complete executable source hash
+inventory, while D060 was produced from a dirty historical checkout whose
+recorded core and wrapper hashes differ from the current checkout. Those were
+hard blockers for the local attempt, not details to infer or waive.
 
 ### 2.1 P0-A0 local continuation audit (2026-08-26)
 
@@ -115,6 +116,58 @@ legal action is a read-only recovery search on an explicitly selected retained
 compute resource. AutoDL is the recommended first search target because it was
 the active high-capacity environment for this lineage; no remote search is
 implicitly authorized by this local audit.
+
+### 2.2 P0-A0 AutoDL recovery (2026-08-26)
+
+The owner explicitly selected AutoDL for the next read-only recovery step. The
+search recovered and independently rehashed:
+
+- exact D044 and D060 `best.pt` bytes at the expected hashes, together with
+  each run's frozen normalization, split, and training summary;
+- the complete `135`-trajectory root: `1,893` files and `3,954,339,212` bytes,
+  including all `1,755` manifest-bound arrays, with top-level manifest SHA-256
+  `f8d228ae3c6e08fe6697f37df21476fe621abc354d0b0a6eed2a623ed2b9f96c`
+  and exact `84/24/27` train/validation/test counts;
+- separate completed evaluator receipts for D044 and D060, with SHA-256
+  `66a7d30197e861820acad2ff178949e2301b4c66830c779f5b0575070bac8a14`
+  and `625a07b91d8cd93354375e08493aaf2efdd62f00ad9d0308d1d8436032ff1dee`.
+  Each receipt jointly binds its exact checkpoint, the data/split contract, and
+  the same eight registered evaluator-source members; and
+- one recovery-time static project-import closure of those eight members: `23`
+  files, no unresolved project import, no dynamic import site, and canonical
+  mapping SHA-256
+  `9bda94598e09cdabb56731ccbcfe8c52bd1a829b6cb169b478ed0952f946e675`.
+  This 23-file closure is a recovery-time extension, not a retroactive claim
+  that all 23 hashes were registered during historical execution.
+
+The current native-solver source was frozen in a distinct `10`-file transitive
+root with canonical mapping SHA-256
+`293af994cfd3656f9ea72120bec9d32a921c6f3a4939f71daa9ae67fdd48e8cf`.
+The evaluator and solver roots must remain separate because they bind different
+registered revisions of `shock_vortex_fv.py`.
+
+Field-blind sorting selected `(sv_e06_y00, 10)`, `(sv_e11_y08, 30)`, and
+`(sv_e05_y00, 50)` before their frame bytes were read. All are open-validation
+members with frames through `f+4`; the promoted case-manifest file has SHA-256
+`1452e03f905b1fd7a50ba7f2c09143faec259b5cab08e12a0d2538deebb554f7`
+and references no historical-test or strength-OOD member.
+
+The fresh ignored input root contains `1,945` manifested members totaling
+`4,415,212,852` bytes. Its final artifact-manifest SHA-256 is
+`14b5b48c8d6ea754341ece82cb1e3cf26ef53c350807b2620df89c1eb77d8eb7`;
+the canonical member-mapping digest is
+`393a5035ee9f32b38df8700d8f6808a005397a9fb3d46f6a498ea45139d29bda`.
+Every input member was rehashed after promotion and has no write bit; the three
+fresh output roots are empty.
+
+No checkpoint was deserialized, no model was constructed, no solver or project
+source was executed, and no training or scientific metric ran. The immutable
+resource and compatibility recovery is complete. The formal A0 gate is not yet
+closed because the receipt deliberately leaves A1/A2 commands null until an
+owner-authorized implementation is source-hashed and reviewed; this literal
+command-binding requirement may not be waived. The next legal action is owner
+review of this recovery record, followed only if approved by A1 implementation
+and command freezing. A2 remains separately unauthorized.
 
 ## 3. Frozen State And Time Contract
 

@@ -6,7 +6,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from scripts.time_dependent_no import run_p0_restart_sufficiency_a2_solver as runner
 from utility.time_dependent_no import p0_restart_sufficiency_a2 as a2
+from utility.time_dependent_no.shock_vortex_coarse_cfd import CoarseCFDRollout
 
 
 def _solver_summary(role: str) -> dict:
@@ -159,6 +161,29 @@ def test_relative_l2_and_conservative_change_use_physical_volumes() -> None:
         a2.integrated_conservative_change(prediction, reference, volumes=volumes),
         np.full(4, 3.0),
     )
+
+
+def test_solver_checks_are_json_serializable() -> None:
+    config = runner._config()
+    initial = np.tile(np.asarray([1.0, 0.0, 0.0, 2.5]), (a2.NATIVE_NODES, 1))
+    states = np.stack((initial, initial))
+    rollout = CoarseCFDRollout(
+        config=config,
+        states=states,
+        interval_boundary_exchange=np.zeros((1, 4), dtype=np.float64),
+        core_seconds=0.0,
+        accepted_steps=1,
+        rejected_attempts=0,
+        face_reconstruction_fallbacks=0,
+        minimum_density=1.0,
+        minimum_pressure=1.0,
+    )
+
+    checks = runner._validate_rollout(rollout, initial=initial)
+
+    assert json.loads(json.dumps(checks)) == checks
+    assert isinstance(checks["integrated_conservative_change"], list)
+    assert isinstance(checks["recorded_outward_boundary_exchange"], list)
 
 
 def test_artifact_manifest_round_trip_and_tamper(tmp_path: Path) -> None:

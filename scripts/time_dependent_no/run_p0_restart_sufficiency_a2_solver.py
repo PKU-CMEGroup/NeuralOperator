@@ -116,8 +116,8 @@ def _validate_rollout(result: CoarseCFDRollout, *, initial: np.ndarray) -> dict:
     require_solver_balance(residual)
     return {
         **physical,
-        "integrated_conservative_change": delta,
-        "recorded_outward_boundary_exchange": exchange,
+        "integrated_conservative_change": delta.tolist(),
+        "recorded_outward_boundary_exchange": exchange.tolist(),
         "boundary_balance_residual": residual,
     }
 

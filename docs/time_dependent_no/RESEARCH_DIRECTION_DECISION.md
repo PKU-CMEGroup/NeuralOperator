@@ -276,9 +276,12 @@ fixes the common `0.02` horizon, field-blind open cases, factor-of-four bias
 margin, repeatability/accounting gates, and provenance stop conditions. Its
 exact D044/D060 checkpoints, complete trajectory root, compatibility receipts,
 and separate evaluator/solver source closures are now recovered in one ignored
-read-only AutoDL input root. This is provenance and compatibility evidence only:
-formal A0 closure still awaits exact downstream command/source binding, and no
-A1/A2 numerical execution is authorized.
+read-only AutoDL input root. A bounded source-hashed A1 then passed all eleven
+focused CPU tests and proved exact stored-frame/solver-input byte equality for
+all three fixed cases. It opened no checkpoint, constructed no model, advanced
+no solver, and computed no scientific metric. A0/A1 are complete; the exact A2
+stored-state restart and repeatability execution remains separately
+unauthorized.
 Do not create a graph-to-DG reconstruction project unless a later independent
 scientific need and explicit authorization justify it.
 

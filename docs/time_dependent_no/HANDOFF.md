@@ -44,9 +44,9 @@ optimization phase are controlled levers, not independent thesis claims.
 
 Immediate priority order:
 
-1. review the
+1. review the completed A0/A1 receipts under the
    [P0 restart-sufficiency contract](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-   and recover its exact inputs before any solver execution;
+   and decide whether to authorize its exact A2 stored-state restarts;
 2. freeze and test the diagnostic first on open development evidence, then on
    genuinely unseen model/seed panels before target H79 access;
 3. only after that passes, select one mediator-targeted causal intervention;
@@ -195,10 +195,15 @@ now recovered in a fresh read-only ignored root. The reconstructed historical
 evaluator closure has 23 members and canonical digest `9bda9459...e675`; the
 separate current solver closure has 10 members and digest `293af994...e8cf`.
 The three field-blind cases are fixed at `sv_e06_y00/f10`,
-`sv_e11_y08/f30`, and `sv_e05_y00/f50`. Formal A0 closure still requires exact
-downstream command/source binding; no A1/A2 solver or model execution and no new
-training is authorized. Boundary work remains conditional on a measured
-boundary-response defect, and HydroGym remains an optional capstone.
+`sv_e11_y08/f30`, and `sv_e05_y00/f50`. A source-hashed A1 passed eleven focused
+CPU tests and exact stored-frame/solver-input byte equality for all three cases;
+its corrected closeout manifest is `8fd2192d...93c6`. The first receipt is
+retained but superseded because it omitted an independent physical
+execution-contract rehash. The corrected attempt opened no checkpoint,
+constructed no model, advanced no solver, and computed no scientific metric.
+A0/A1 are complete. A2 and new training remain separately unauthorized.
+Boundary work remains conditional on a measured boundary-response defect, and
+HydroGym remains an optional capstone.
 
 D092-R1, P0b, corrected G0b, G1, and the D093 architecture/exposure matrix are
 terminal at their registered scopes. In D093, each seven-condition cell has
@@ -397,10 +402,11 @@ no-gradient ablation, not vanilla or paper-faithful FFNO. See the
 [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
 The next contract is the owner-reviewed
 [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md).
-Its exact inputs and compatibility surface have been recovered and made
-read-only, but its formal A0 command-binding clause remains open. No numerical
-stage may begin until the owner reviews that receipt and separately authorizes
-an exact, source-hashed A1 implementation and command.
+Its exact inputs and compatibility surface are read-only, and its source-hashed
+A1 closes the shape/order/channel, admissibility-rejection, timing, boundary,
+manifest, and exact-input plumbing gates. The next unresolved decision is
+whether to authorize exactly A2; no solver, checkpoint/model, training, A3, or
+broader diagnostic execution follows automatically.
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0
 manifest-parser launch failure remain provenance, not scientific evidence. P0b

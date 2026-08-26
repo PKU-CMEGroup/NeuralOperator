@@ -1,11 +1,10 @@
 # P0: Restart Sufficiency And Native-Coarse Solver-Bias Gate
 
-Date: 2026-08-25; A0 recovery status updated 2026-08-26
+Date: 2026-08-25; A0 recovery and A1 closeout updated 2026-08-26
 
-Status: exact A0 inputs and evaluator compatibility recovered into one ignored,
-read-only AutoDL root; formal A0 closure still requires exact downstream command
-and source binding, so A1/A2, solver, model, and training execution remain
-unauthorized
+Status: A0 recovery and the bounded CPU/FP64 A1 plumbing stage are complete in
+ignored, read-only AutoDL roots; A2, solver advancement, checkpoint/model
+execution, training, and scientific metrics remain separately unauthorized
 
 Owner: time-dependent neural-operator project
 
@@ -162,12 +161,73 @@ fresh output roots are empty.
 
 No checkpoint was deserialized, no model was constructed, no solver or project
 source was executed, and no training or scientific metric ran. The immutable
-resource and compatibility recovery is complete. The formal A0 gate is not yet
-closed because the receipt deliberately leaves A1/A2 commands null until an
-owner-authorized implementation is source-hashed and reviewed; this literal
-command-binding requirement may not be waived. The next legal action is owner
-review of this recovery record, followed only if approved by A1 implementation
-and command freezing. A2 remains separately unauthorized.
+resource and compatibility recovery was complete. The formal A0 gate was not
+yet closed at that recovery boundary because the receipt deliberately left A1/A2
+commands null until an owner-authorized implementation is source-hashed and
+reviewed; this literal command-binding requirement may not be waived. The next
+legal action at that boundary was owner review of this recovery record, followed
+only if approved by A1 implementation and command freezing. A2 remains
+separately unauthorized.
+
+### 2.3 P0-A1 synthetic and exact-input closeout (2026-08-26)
+
+After explicit owner approval, a bounded A1 implementation was frozen and
+executed on AutoDL with CUDA disabled and one CPU thread. Post-run review of the
+first attempt found that it semantically validated `execution_contract.json`
+and its frozen artifact record but did not independently rehash the physical
+file. Its immutable closeout manifest
+`686c71b185dee6449838ef651f5bb4fb93b857e62b975c169aac27d0bdc25302`
+is retained as superseded infrastructure provenance and is not the promoted A1
+receipt.
+
+The corrected `P0-A1-v2` attempt adds the physical-member rehash and a regression
+test under a fresh source, command, output, and attempt root. Its `13`-member
+source manifest has SHA-256
+`6ee2a5d27da37875e63b6b5cd35fcbf5e625914db292a3761fbafdb7a404a740`
+and canonical mapping digest
+`6027b7e0e802deae56d30e0f718f05fbc072f2ba659ddca54fbf151f36cd3d69`.
+The exact two-command binding, which runs the focused test before the data-bound
+preflight and records A2 as unauthorized, has SHA-256
+`1ae74bd9cb4b480915b3ee07c9df271fc8ea08d69053d3f0bd09cd3be551f131`.
+
+All `11` focused CPU tests pass. They cover row-major shape/channel replay,
+dtype and shape rejection, admissibility rejection, the registered one-stride
+timing, boundary-balance pass/fail behavior, fixed-case and population closure,
+physical artifact-member rehash, source-hash drift, unmanifested Python, and
+path traversal. The data-bound preflight then rehashed the unchanged A0
+artifact manifest, physical execution contract, and only the three fixed
+selected state files. The physical execution-contract file SHA-256 is
+`b3d88b16d33b26797a7f1fdd324d5c8681797cd984e1de70f759331d82a963d2`.
+For every case, the C-contiguous solver-input copy is still little-endian
+float32 and its raw byte hash exactly equals the selected stored-frame hash:
+
+- `sv_e06_y00/f10`:
+  `6681c8c8008180d3a31ce3863ed608bb50b1872eb26fd03e70bb699336c6cbec`;
+- `sv_e11_y08/f30`:
+  `e7f4f4ffd8b4cf270a509034a1b6539df86e68b6393f0cb9e83283fd77772896`;
+  and
+- `sv_e05_y00/f50`:
+  `b4a807dca89e71694c571bbb8bc979e0f1fabb64d27f87292dc7fdd6dea20878`.
+
+The A1 summary file SHA-256 is
+`1a57413f10040013034b09570cd6315580a5fe504ccdf67688d74fe8129cf182`,
+with payload SHA-256
+`addff7cb47f129d850226b7fdd1b596e91951d40e7d5b82b5290af9b64aaf330`.
+The final execution receipt has SHA-256
+`2fac2a8a1c5ad33d7de8796801dc3ceacecce450fa0eea3d90d394d1c742d21e`;
+the `9`-member closeout manifest has SHA-256
+`8fd2192d84e287da98c890a653dda2f367791ec8d3b8ca889cd13626257f93c6`
+and canonical mapping digest
+`35dfc745f07f19a9a3c2a2be4ad04e3ca2296835eb145f77864591f0a02b4c32`.
+All `13` source members and all `9` closeout members were independently
+rehashed after execution, and the execution/output roots have no write bit.
+
+A1 opened exactly the three fixed state files. It did not open or deserialize a
+checkpoint, construct a model, advance the native solver, train, field-select a
+case, or compute a scientific metric. The formerly open A0 downstream
+source/command-binding requirement is now satisfied by the immutable A1
+receipts without rewriting the historical A0 receipt. A0 and A1 are complete;
+A2 remains a separate owner decision.
 
 ## 3. Frozen State And Time Contract
 

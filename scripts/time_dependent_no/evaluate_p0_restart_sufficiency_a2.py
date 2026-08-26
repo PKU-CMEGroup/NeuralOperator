@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import os
 import platform
 import sys
 import traceback
@@ -55,10 +56,12 @@ from utility.time_dependent_no.p0_restart_sufficiency_a2 import (  # noqa: E402
     integrated_conservative_change,
     prepare_fresh_directory,
     primitive_relative_l2_metrics,
+    require_a2_cublas_workspace_config,
     scaled_rms_distance,
     validate_a1_closeout,
     validate_a2_source_manifest,
     validate_artifact_tree,
+    validated_a2_physical_volumes,
     validate_solver_process_summary,
     weighted_relative_l2_metrics,
 )
@@ -339,6 +342,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         repeat_states=repeat_states,
         volumes=uniform_volumes,
     )
+    require_a2_cublas_workspace_config(os.environ.get("CUBLAS_WORKSPACE_CONFIG"))
 
     # Historical evaluator imports are deferred until the frozen solver gate passes.
     from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import (
@@ -483,15 +487,9 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError("fixed reference frame bytes drifted")
         initial = np.asarray(stored_initial, dtype=np.float64)
         reference = np.asarray(stored_reference, dtype=np.float64)
-        volumes = np.asarray(
-            store.array(case_id, "node_measures"), dtype=np.float64
-        ).reshape(-1)
-        if (
-            volumes.shape != (NATIVE_NODES,)
-            or not np.all(volumes > 0.0)
-            or not np.isclose(volumes.sum(), 2.0, rtol=0.0, atol=1.0e-12)
-        ):
-            raise ValueError("A2 physical cell-volume contract drifted")
+        volumes = validated_a2_physical_volumes(
+            store.array(case_id, "node_measures")
+        )
         positions = np.asarray(store.array(case_id, "nodes"), dtype=np.float64)
         edges = np.asarray(store.array(case_id, "edges"), dtype=np.int64)
         solver_metrics = _variant_metrics(

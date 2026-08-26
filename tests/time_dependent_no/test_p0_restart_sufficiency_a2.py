@@ -186,6 +186,37 @@ def test_solver_checks_are_json_serializable() -> None:
     assert isinstance(checks["recorded_outward_boundary_exchange"], list)
 
 
+def test_a2_physical_volumes_validate_serialized_geometry_and_restore_fp64() -> None:
+    serialized = np.full(
+        (a2.NATIVE_NODES, 1),
+        np.float32(a2.NATIVE_DOMAIN_MEASURE / a2.NATIVE_NODES),
+        dtype=np.float32,
+    )
+
+    volumes = a2.validated_a2_physical_volumes(serialized)
+
+    assert volumes.dtype == np.float64
+    assert volumes.shape == (a2.NATIVE_NODES,)
+    assert volumes.sum() == pytest.approx(
+        a2.NATIVE_DOMAIN_MEASURE, rel=0.0, abs=1.0e-15
+    )
+    with pytest.raises(ValueError, match="cell-volume contract"):
+        a2.validated_a2_physical_volumes(serialized.astype(np.float64))
+    serialized[0, 0] = np.nextafter(serialized[0, 0], np.float32(np.inf))
+    with pytest.raises(ValueError, match="cell-volume contract"):
+        a2.validated_a2_physical_volumes(serialized)
+
+
+def test_a2_requires_the_bound_deterministic_cublas_workspace() -> None:
+    a2.require_a2_cublas_workspace_config(
+        a2.DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG
+    )
+    with pytest.raises(ValueError, match="CUBLAS_WORKSPACE_CONFIG"):
+        a2.require_a2_cublas_workspace_config(None)
+    with pytest.raises(ValueError, match="CUBLAS_WORKSPACE_CONFIG"):
+        a2.require_a2_cublas_workspace_config(":16:8")
+
+
 def test_artifact_manifest_round_trip_and_tamper(tmp_path: Path) -> None:
     root = tmp_path / "artifacts"
     root.mkdir()

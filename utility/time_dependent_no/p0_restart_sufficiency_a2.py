@@ -54,6 +54,8 @@ A2_MODEL_ARTIFACT_SCHEMA = "p0_restart_sufficiency_a2_model_artifact_manifest_v1
 
 PRIMARY_DISTANCE_TOLERANCE = 1.0e-12
 BIAS_RATIO_LIMIT = 0.25
+NATIVE_DOMAIN_MEASURE = 2.0
+DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG = ":4096:8"
 SOURCE_ROLES = ("native_solver", "historical_evaluator")
 PROCESS_ROLES = ("primary", "fresh_repeat")
 
@@ -95,6 +97,31 @@ def json_safe(value: Any) -> Any:
     if isinstance(value, (np.bool_,)):
         return bool(value)
     return value
+
+
+def validated_a2_physical_volumes(stored: np.ndarray) -> np.ndarray:
+    serialized = np.asarray(stored)
+    expected_value = np.float32(NATIVE_DOMAIN_MEASURE / NATIVE_NODES)
+    expected = np.full((NATIVE_NODES, 1), expected_value, dtype=np.float32)
+    if (
+        serialized.shape != expected.shape
+        or serialized.dtype != np.dtype(np.float32)
+        or not np.array_equal(serialized, expected)
+    ):
+        raise ValueError("A2 physical cell-volume contract drifted")
+    return np.full(
+        NATIVE_NODES,
+        NATIVE_DOMAIN_MEASURE / NATIVE_NODES,
+        dtype=np.float64,
+    )
+
+
+def require_a2_cublas_workspace_config(value: str | None) -> None:
+    if value != DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG:
+        raise ValueError(
+            "P0-A2 deterministic CUDA requires "
+            f"CUBLAS_WORKSPACE_CONFIG={DETERMINISTIC_CUBLAS_WORKSPACE_CONFIG}"
+        )
 
 
 def atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:

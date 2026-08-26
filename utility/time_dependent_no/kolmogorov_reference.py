@@ -102,6 +102,53 @@ class VorticityDiagnostics:
     palinstrophy: float
 
 
+def resize_dealiased_vorticity(state: np.ndarray, target_resolution: int) -> np.ndarray:
+    """Resize a periodic vorticity polynomial and apply the target 2/3 mask.
+
+    Fourier coefficients are transferred by their integer mode labels.  On
+    upsampling, this is exact trigonometric interpolation for the source
+    polynomial.  On downsampling, modes outside the target's dealiased state
+    space are deliberately discarded.
+    """
+
+    values = np.asarray(state)
+    if values.ndim != 2 or values.shape[0] != values.shape[1]:
+        raise ValueError("state must be a square two-dimensional array")
+    source_resolution = values.shape[0]
+    if source_resolution < 12 or source_resolution % 2:
+        raise ValueError("source resolution must be even and at least 12")
+    if (
+        isinstance(target_resolution, bool)
+        or not isinstance(target_resolution, int)
+        or target_resolution < 12
+        or target_resolution % 2
+    ):
+        raise ValueError("target resolution must be even and at least 12")
+    if values.dtype != np.float64 or np.iscomplexobj(values):
+        raise ValueError("state must be real float64")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("state must contain only finite values")
+
+    source_modes = np.rint(
+        np.fft.fftfreq(source_resolution) * source_resolution
+    ).astype(int)
+    target_cutoff = target_resolution // 3
+    source_hat = np.fft.fft2(values) / source_resolution**2
+    target_hat = np.zeros((target_resolution, target_resolution), dtype=np.complex128)
+    for source_x, mode_x in enumerate(source_modes):
+        if abs(mode_x) > target_cutoff:
+            continue
+        target_x = mode_x % target_resolution
+        for source_y, mode_y in enumerate(source_modes):
+            if abs(mode_y) > target_cutoff:
+                continue
+            target_y = mode_y % target_resolution
+            target_hat[target_x, target_y] = source_hat[source_x, source_y]
+    target_hat[0, 0] = 0.0
+    resized = np.fft.ifft2(target_hat * target_resolution**2).real
+    return np.ascontiguousarray(resized, dtype=np.float64)
+
+
 class KolmogorovReferenceStepper:
     """Pseudo-spectral RK4 transition for damped, forced 2D vorticity.
 
@@ -141,6 +188,10 @@ class KolmogorovReferenceStepper:
         self._forcing_hat = np.fft.fft2(forcing) * self._dealias
         self._forcing_hat[0, 0] = 0.0
         self._maximum_retained_k2 = float(np.max(self._k2[self._dealias]))
+        self._decay = self.config.viscosity * self._k2 + self.config.linear_drag
+        self._shell_index = np.floor(
+            np.sqrt(self._k2) / (2.0 * math.pi / length) + 1.0e-12
+        ).astype(int)
 
     @property
     def state_shape(self) -> tuple[int, int]:
@@ -212,8 +263,7 @@ class KolmogorovReferenceStepper:
         omega_y = np.fft.ifft2(1j * self._ky * omega_hat).real
         advection_hat = np.fft.fft2(velocity_x * omega_x + velocity_y * omega_y)
         advection_hat *= self._dealias
-        decay = self.config.viscosity * self._k2 + self.config.linear_drag
-        rhs = -advection_hat - decay * omega_hat + self._forcing_hat
+        rhs = -advection_hat - self._decay * omega_hat + self._forcing_hat
         rhs *= self._dealias
         rhs[0, 0] = 0.0
         return rhs
@@ -322,6 +372,29 @@ class KolmogorovReferenceStepper:
             enstrophy=float(0.5 * np.mean(canonical**2)),
             palinstrophy=float(0.5 * np.mean(omega_x**2 + omega_y**2)),
         )
+
+    def kinetic_energy_spectrum_canonical(
+        self, state: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return shell wavenumbers and kinetic energy summing to total energy."""
+
+        checked, _ = self._canonical_input(state)
+        canonical = self.canonicalize(checked)
+        omega_hat = np.fft.fft2(canonical)
+        psi_hat = omega_hat * self._inverse_k2
+        velocity_x_hat = 1j * self._ky * psi_hat
+        velocity_y_hat = -1j * self._kx * psi_hat
+        mode_energy = (
+            0.5
+            * (np.abs(velocity_x_hat) ** 2 + np.abs(velocity_y_hat) ** 2)
+            / self.config.resolution**4
+        )
+        shell_energy = np.bincount(
+            self._shell_index.ravel(), weights=mode_energy.ravel()
+        )
+        fundamental = 2.0 * math.pi / self.config.domain_length
+        shell_wavenumbers = fundamental * np.arange(shell_energy.size)
+        return shell_wavenumbers, shell_energy
 
     def laminar_vorticity(self) -> np.ndarray:
         """Return the exact steady laminar state for the configured forcing."""

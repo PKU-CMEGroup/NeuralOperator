@@ -8,6 +8,7 @@ import pytest
 from utility.time_dependent_no.kolmogorov_reference import (
     KolmogorovReferenceConfig,
     KolmogorovReferenceStepper,
+    resize_dealiased_vorticity,
 )
 
 
@@ -105,6 +106,26 @@ def test_configured_laminar_kolmogorov_state_is_steady() -> None:
     assert diagnostics.kinetic_energy > 0.0
     assert diagnostics.enstrophy > 0.0
     assert diagnostics.palinstrophy > 0.0
+    _, shell_energy = stepper.kinetic_energy_spectrum_canonical(result.state)
+    np.testing.assert_allclose(
+        np.sum(shell_energy), diagnostics.kinetic_energy, rtol=2.0e-15, atol=1.0e-15
+    )
+
+
+def test_dealiased_spectral_resize_roundtrip_preserves_source_polynomial() -> None:
+    source = KolmogorovReferenceStepper(
+        KolmogorovReferenceConfig(resolution=18, forcing_wavenumber=2)
+    )
+    state = _random_canonical(source)
+    upsampled = resize_dealiased_vorticity(state, 36)
+    restored = resize_dealiased_vorticity(upsampled, 18)
+
+    assert upsampled.shape == (36, 36)
+    np.testing.assert_allclose(restored, state, rtol=0.0, atol=3.0e-15)
+    with pytest.raises(ValueError, match="float64"):
+        resize_dealiased_vorticity(state.astype(np.float32), 36)
+    with pytest.raises(ValueError, match="target resolution"):
+        resize_dealiased_vorticity(state, 17)
 
 
 def test_canonical_restart_is_deterministic_and_closes_repeated_rollout() -> None:

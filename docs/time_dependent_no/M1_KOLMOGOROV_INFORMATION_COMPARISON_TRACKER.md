@@ -12,8 +12,8 @@ redefining its gates.
 | M1-Q0-SRC | A1 | reusable fixed-grid reference map | synthetic only | MUST | COMPLETE LOCALLY | focused commit and source hash |
 | M1-Q0-TEST | A1 | analytic, projection, restart, and fail-closure tests | 12 CPU tests | MUST | PASS | retain exact command/result |
 | M1-Q0-CLI | A1 | dry-run invocation and JSON accounting | synthetic random and laminar states | MUST | PASS | retain exact command/result |
-| M1-Q1-NUM | qualification | time refinement, process repeatability, spatial context | solver-only calibration | MUST | NOT AUTHORIZED | named solver-execution approval |
-| M1-Q1-STAT | qualification | burn-in and stationarity | open generated calibration states | MUST | NOT AUTHORIZED | Q1-NUM pass plus data-generation approval |
+| M1-Q1-NUM | qualification | time refinement, process repeatability, spatial context | solver-only calibration | MUST | AUTHORIZED; SOURCE PREPARATION | immutable Q1 source commit, then exact registered run |
+| M1-Q1-STAT | qualification | burn-in and stationarity | four deterministic generated calibration states | MUST | AUTHORIZED WITHIN Q1 | unchanged Q1 source/population contract |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | Q1 pass and A3 contract |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
 | M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |

@@ -2,10 +2,14 @@
 
 Date: 2026-08-26
 
-Status: **A1 DESIGN AND SYNTHETIC PLUMBING ONLY**. This document does not
-authorize scientific solver execution, dataset generation, checkpoint access,
-training, remote execution, or sealed evaluation. Every later stage requires
-the named authorization in the execution ladder.
+Status: **A1 COMPLETE; LOCAL SOLVER-ONLY M1-Q1 AUTHORIZED**. This document does
+not authorize dataset-scale generation, checkpoint access, model training,
+remote execution, or sealed evaluation. Every later stage requires the named
+authorization in the execution ladder.
+
+Owner continuation on 2026-08-26 authorizes the local solver-only M1-Q1
+qualification specified below. It does not authorize M1-Q2 model training,
+dataset-scale generation, remote execution, or test access.
 
 ## 1. Decision Being Registered
 
@@ -164,6 +168,55 @@ Under a separately authorized small scientific execution:
    trajectories.
 
 Failure stops M1 at qualification. Parameters are not tuned after arm outcomes.
+
+#### Frozen M1-Q1 execution amendment
+
+The first Q1 execution uses run ID `M1-KF-Q1-20260826A` and the following
+deterministic calibration population:
+
+- four independent Gaussian initial arrays with seeds
+  `2026082601--2026082604`, canonicalized and rescaled to vorticity RMS `4.0`;
+- 256 candidate-map burn-in calls followed by 128 observation calls;
+- one predeclared contingency only: if the stationarity gate fails, discard the
+  first observation window, extend total burn-in to 512 calls, and observe one
+  new 128-call window; and
+- no further burn-in, parameter, forcing, resolution, or threshold change.
+
+Time-refinement inputs are the first three post-burn-in clean states and three
+matched 3%-RMS perturbations. Perturbation seeds are
+`2026082701--2026082703`; their radial integer-mode bands are respectively
+`[1,4]`, `[5,10]`, and `[11,20]`. All directions are real, canonical, and
+rescaled after band selection. Candidate `dt_max` values are
+`{0.002,0.001,0.0005}`; `0.0005` is the comparison reference.
+
+Exact aggregation is:
+
+- one-step and H16 state discrepancy: relative physical-grid L2, with the
+  median and maximum evaluated separately for clean and displaced families;
+- H64 kinetic-energy and enstrophy distribution discrepancy: empirical
+  one-Wasserstein distance computed by sorting the 64 call values, normalized
+  by the fine-step mean absolute value;
+- H64 spectral discrepancy: total variation between time-averaged normalized
+  kinetic-energy shell spectra; and
+- stationarity: per-trajectory first-half versus second-half relative mean
+  change for energy and enstrophy, divided by the full-window mean absolute
+  value, plus Spearman time correlation. A shared drift event requires
+  `|rho| >= 0.5` with the same sign in all four trajectories; three of four is
+  allowed by the registered 75% boundary.
+
+The spatial-context assay zero-pads each of the same six 64-grid states to 128,
+advances at `dt_max=0.0005`, truncates back to the canonical 64-grid space, and
+reports one-step and H16 discrepancy from the fine-step 64-grid map. This row
+cannot pass its model-relative factor-of-four gate until M1-Q2 supplies a clean
+model defect and M1-B0 supplies the recovery/dynamics target separation.
+
+Two spawned FP64 Python processes advance the first clean state independently.
+The output packet records bitwise equality, scaled RMS difference, substep
+accounting, environment, elapsed time, all case rows, source hashes, and final
+artifact hashes. The fixed-grid Q1 classification is
+`qualified_fixed_grid` only if time refinement, stationarity, process
+repeatability, finiteness, and canonical closure all pass. Spatial qualification
+remains explicitly pending rather than being inferred from the fixed-grid gate.
 
 ### Q2: phenomenon qualification
 

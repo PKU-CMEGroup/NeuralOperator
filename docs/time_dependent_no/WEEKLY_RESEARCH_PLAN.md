@@ -215,9 +215,11 @@ The exact proposed contract is the owner-reviewed
 [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md).
 Its exact checkpoint bytes, trajectory arrays, compatibility receipts, and
 separate historical-evaluator/current-solver source closures are now recovered
-in one ignored read-only input root. Formal A0 closure remains blocked on exact
-downstream command/source binding. This is still a provenance stop, not
-permission to substitute the current checkout or run A1/A2.
+read-only. A0/A1 passed, and the explicitly authorized A2 is complete. Both
+solver processes pass exact repeatability/accounting, but all three cases fail
+both factor-of-four bias ratios: `b/min(d044,d060)=1.356/1.075/0.823` and
+`b/s=1.096/1.070/0.777`. The native-coarse map is therefore closed as the
+trusted target proxy, and A3 did not run.
 
 Failure closes the native-coarse proxy for the main diagnostic. A high-fidelity
 alternative would need retained fine states, arbitrary-state fine-solver
@@ -1173,7 +1175,7 @@ and direct off-grid baselines after cost and no-harm controls.
 | Stage | Goal | Exact next scope | Gate before continuation | Authorization |
 | --- | --- | --- | --- | --- |
 | P0-A | Closed replicated phenomenon | B1-C3-R1 training, evaluation, and three-seed analysis are complete and internally rehashed. | Closed as retrospective development evidence; captured training source is not fully current-checkout compatible. | No continuation implied |
-| P0-B | Establish response-target feasibility | A0 recovery and the corrected source-hashed CPU/FP64 A1 plumbing gate are complete. Eleven focused tests pass, including physical execution-contract rehash, and all three prepared solver-input hashes exactly equal the frozen stored-frame hashes. | If separately authorized, run only the exact A2 restart/repeatability/admissibility contract; proxy bias must be materially below model defect and between-model response separation. | A0/A1 complete; A2 remains unauthorized pending owner review |
+| P0-B | Establish response-target feasibility | A0/A1/A2 are complete. A2 solver repeatability/accounting passes, but all three cases fail both factor-of-four bias ratios. | Native-coarse trusted-target proxy closed; choose a higher-fidelity restartable map or a narrower path-conditioned diagnostic before any response bank. | Closed negative qualification; A3 did not run and no replacement execution is implied |
 | P1-A | Develop the diagnostic | Use only already open outcomes to freeze the common bank, norm, amplitudes, aggregation, baselines, and ranking rule. | The score adds information beyond one-step and H20 without using target H79 outcomes. | No prospective claim |
 | P1-B | Test prospective prediction | Apply the unchanged score to genuinely unseen model/seed panels before target H79 access. | More than one independent ranking is predicted under registered state and structure metrics. | Separate preregistration and explicit approval |
 | P2 | Test bounded causality | Select at most one mediator-targeted component or reachable-state intervention. | Mediator and rollout move together over seeds and one distinct restartable family. | Conditional on P1; new training separately approved |
@@ -1247,13 +1249,12 @@ Working labels are coordination identifiers, not stable D-series run IDs.
    longer compute or component studies from it.
 3. The owner-reviewed
    [P0 restart-sufficiency and solver-bias preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-   now has complete A0 recovery and a passing source-hashed CPU/FP64 A1. The
-   next decision is whether to authorize exactly the frozen A2 stored-state
-   restart/repeatability execution. No solver, checkpoint/model, training, A3,
-   or broader diagnostic execution follows automatically.
-4. If P0 passes, freeze the diagnostic on open development evidence and reserve
-   genuinely unseen model/seed panels for the prospective test before opening
-   target H79 outcomes.
+   now has complete A0/A1/A2 closure. A2 repeatability passes but its accuracy
+   qualification fails on all three cases, so the native-coarse target proxy is
+   closed and A3 is ineligible.
+4. Decide, without automatic execution, whether to seek a higher-fidelity
+   restartable map or narrow the thesis diagnostic to path-conditioned evidence;
+   do not open target H79 or a new model/seed panel first.
 5. Select at most one causal intervention only after P1 passes. Boundary work
    re-enters only if the diagnostic selects a boundary-specific mediator.
 6. Keep HydroGym optional and bounded to one feedback-transfer capstone; keep

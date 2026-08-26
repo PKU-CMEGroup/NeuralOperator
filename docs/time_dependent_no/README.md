@@ -32,10 +32,10 @@ Read active context in this order:
    map--path diagnostics, completed B1-C2 and B1-C3 audits, and closed
    B1-C3-R1 seed-0 replay/three-seed analysis.
 10. [P0_RESTART_SUFFICIENCY_PREREGISTRATION.md](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-    for the native-coarse restart and solver-bias gate. Its exact inputs and
-    compatibility surface are recovered read-only, and its bounded A1 source,
-    command, synthetic tests, and exact-input receipts pass. A2 remains a
-    separate owner decision; no solver or model execution follows automatically.
+    for the native-coarse restart and solver-bias gate. A0/A1 and the explicitly
+    authorized A2 are complete. Solver repeatability passes, but all three cases
+    fail both factor-of-four bias ratios, so this native-coarse target proxy is
+    closed and A3 did not run.
 11. Read one bounded section of the
    [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
    or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)

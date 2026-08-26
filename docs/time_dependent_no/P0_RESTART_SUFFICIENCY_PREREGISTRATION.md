@@ -1,10 +1,11 @@
 # P0: Restart Sufficiency And Native-Coarse Solver-Bias Gate
 
-Date: 2026-08-25; A0 recovery and A1 closeout updated 2026-08-26
+Date: 2026-08-25; A0--A2 closeout updated 2026-08-26
 
-Status: A0 recovery and the bounded CPU/FP64 A1 plumbing stage are complete in
-ignored, read-only AutoDL roots; A2, solver advancement, checkpoint/model
-execution, training, and scientific metrics remain separately unauthorized
+Status: A0/A1 are complete; the explicitly authorized A2 execution completed
+and failed both factor-of-four solver-bias gates on all three fixed cases. The
+native-coarse map is closed as the trusted target proxy for this registration;
+A3, training, checkpoint reselection, test, and strength-OOD access did not run
 
 Owner: time-dependent neural-operator project
 
@@ -167,7 +168,7 @@ commands null until an owner-authorized implementation is source-hashed and
 reviewed; this literal command-binding requirement may not be waived. The next
 legal action at that boundary was owner review of this recovery record, followed
 only if approved by A1 implementation and command freezing. A2 remains
-separately unauthorized.
+separately unauthorized at that recovery boundary.
 
 ### 2.3 P0-A1 synthetic and exact-input closeout (2026-08-26)
 
@@ -227,7 +228,76 @@ checkpoint, construct a model, advance the native solver, train, field-select a
 case, or compute a scientific metric. The formerly open A0 downstream
 source/command-binding requirement is now satisfied by the immutable A1
 receipts without rewriting the historical A0 receipt. A0 and A1 are complete;
-A2 remains a separate owner decision.
+A2 remained a separate owner decision at that A1 closeout boundary.
+
+### 2.4 P0-A2 stored-state restart and bias-gate closeout (2026-08-26)
+
+After explicit owner approval, A2 was executed on AutoDL under fresh primary
+and repeat processes. The promoted `P0-A2-v4` source is commit
+`4e22c7022df4d23a3376758bcce54cdfb0b44641`. Its `14`-member native source
+manifest has SHA-256
+`acb6d163c7fca679eba4e5a69b14aca96cfec83244b16e82df423406ec52548e`
+and mapping digest
+`cbe3625694cd01bdf46d33568c812c3c44283ce2c1c1f2c853d45af4e7d3cc78`.
+The `26`-member historical-evaluator source manifest has SHA-256
+`7ed7b15a67f4706719cd42de45925ce3b4763860a68a894efd056f929d3508ae`
+and mapping digest
+`1e013788494fb8ab4385473b02dda1830bda3892a94fddbc3a91463592cf2e53`.
+The exact command binding, including deterministic cuBLAS workspace
+configuration, has SHA-256
+`e27c1ce8944a212c5f415d9837d4dce4ca641384afcd982ec381aab7eeb3dfb4`.
+All `18` focused tests and the historical evaluator import gate pass.
+
+Both solver processes made two calls per case. Same-process states and boundary
+exchange were byte-identical. Primary and fresh-process counts agreed, and all
+fresh-process FP64 state distances were exactly zero:
+
+| Case | Accepted steps | Rejected / fallbacks | Boundary residual | Fresh-process scaled RMS |
+| --- | ---: | ---: | ---: | ---: |
+| `sv_e06_y00/f10` | 28 | 0 / 0 | `7.483e-15` | `0` |
+| `sv_e11_y08/f30` | 28 | 0 / 0 | `1.315e-14` | `0` |
+| `sv_e05_y00/f50` | 27 | 0 / 0 | `1.326e-14` | `0` |
+
+The solver therefore passed completion, finiteness, admissibility,
+repeatability, retry/fallback, and boundary-accounting gates. It failed the
+registered accuracy qualification on every case; all denominators were finite
+and resolved:
+
+| Case | Solver bias `b` | D044 defect | D060 defect | D044--D060 separation `s` | `b/min(d044,d060)` | `b/s` | Pass |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `sv_e06_y00/f10` | `0.01607056` | `0.01292325` | `0.01184779` | `0.01466799` | `1.35642` | `1.09562` | no |
+| `sv_e11_y08/f30` | `0.02369133` | `0.02311327` | `0.02203681` | `0.02213283` | `1.07508` | `1.07042` | no |
+| `sv_e05_y00/f50` | `0.02109930` | `0.02563764` | `0.02598512` | `0.02715236` | `0.82298` | `0.77707` | no |
+
+This is not merely an admissibility failure: every solver, D044, and D060
+proposal is finite and admissible. Descriptively, the solver has higher front
+IoU than either learned map on all three cases (`0.945/0.950/0.947`), but it
+produces thicker (`1.055/1.129/1.110`) and weaker
+(`0.840/0.805/0.813`) shocks. The learned maps have near-unit thickness and
+strength ratios but distinct bulk proposals. These family-local diagnostics do
+not rank D044 against D060; they show why coarse-solver error cannot be treated
+as a negligible common target bias.
+
+Four implementation-only stops are retained under distinct attempt identities:
+JSON serialization of solver diagnostics, missing deterministic cuBLAS workspace
+configuration, an exact-float volume-contract error, and post-inference payload
+serialization. No failed attempt produced a scientific gate result.
+The six model proposals retained by the last stop are byte-identical to the
+promoted v4 proposals, providing an independent deterministic rerun check.
+
+The final model summary payload is
+`392b6873d6eb154edb4d160be88c9caa1d4fad1f798ca7791ec4906fd394202d`.
+The closeout receipt has SHA-256
+`f02b2f608ce6ffd0da88fe990aa3fe6d85005651ff6c7ee70c67434f9a61fb9b`;
+the `111`-member immutable closeout manifest has SHA-256
+`fad5b6c39b1c619c348a719f624a5d830809d34a8dc317ac198229c66b351825`
+and mapping digest
+`a582d2d92717f844d4fe5385e756398b83ae8a35ea05689201cb002eac16455f`.
+Exactly the two fixed checkpoints were deserialized; D044 made six logical calls
+and D060 made three. No checkpoint selection, training, test/strength-OOD
+access, or A3 execution occurred. Under the registered decision rule, this
+native-coarse target proxy is closed and only descriptive solver-relative
+evidence is retained.
 
 ## 3. Frozen State And Time Contract
 
@@ -364,6 +434,9 @@ tuning CFL, thresholds, WENO epsilon, retry policy, cases, or frames.
 Compute the model defects and separation only after solver outputs and their
 hashes are frozen. Do not select or reselect either checkpoint from A2 results.
 
+Closeout: A2 completed, but both factor-of-four bias ratios failed on all three
+cases. The registered native-coarse target proxy is closed.
+
 ### P0-A3: admissible displaced-state smoke
 
 A3 is conditional on a complete A2 pass. For each model and case, define the
@@ -383,6 +456,9 @@ as A2.
 A3 establishes only that the proxy can advance a small, registered set of
 reachable model deviations. It has no fine-reference truth at those displaced
 states and cannot validate response accuracy.
+
+A3 was not executed because A2 failed its prerequisite accuracy gate; it remains
+unauthorized.
 
 ## 7. Required Outputs
 

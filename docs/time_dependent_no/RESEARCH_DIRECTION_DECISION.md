@@ -275,13 +275,17 @@ The owner-reviewed
 fixes the common `0.02` horizon, field-blind open cases, factor-of-four bias
 margin, repeatability/accounting gates, and provenance stop conditions. Its
 exact D044/D060 checkpoints, complete trajectory root, compatibility receipts,
-and separate evaluator/solver source closures are now recovered in one ignored
-read-only AutoDL input root. A bounded source-hashed A1 then passed all eleven
-focused CPU tests and proved exact stored-frame/solver-input byte equality for
-all three fixed cases. It opened no checkpoint, constructed no model, advanced
-no solver, and computed no scientific metric. A0/A1 are complete; the exact A2
-stored-state restart and repeatability execution remains separately
-unauthorized.
+and separate evaluator/solver source closures were recovered read-only. A1
+passed exact-input plumbing, and the explicitly authorized A2 then completed
+under immutable source and command bindings. Solver completion and repeatability
+passed exactly, but the native-coarse bias was not small: across the three fixed
+cases, `b/min(d044,d060)` is `1.356/1.075/0.823` and `b/s` is
+`1.096/1.070/0.777`, versus the required `0.25`. The native-coarse map is
+therefore closed as the trusted target proxy for this registration. This does
+not reject deployment-response fidelity as a question, but it blocks the
+planned A3/reachable-deviation bank on this map. A higher-fidelity restartable
+map or a narrower path-conditioned diagnostic requires a new owner decision;
+neither follows automatically.
 Do not create a graph-to-DG reconstruction project unless a later independent
 scientific need and explicit authorization justify it.
 

@@ -44,11 +44,12 @@ optimization phase are controlled levers, not independent thesis claims.
 
 Immediate priority order:
 
-1. review the completed A0/A1 receipts under the
+1. review the closed A2 solver-bias failure under the
    [P0 restart-sufficiency contract](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-   and decide whether to authorize its exact A2 stored-state restarts;
-2. freeze and test the diagnostic first on open development evidence, then on
-   genuinely unseen model/seed panels before target H79 access;
+   and decide whether the thesis needs a higher-fidelity restartable map or a
+   narrower path-conditioned diagnostic;
+2. do not build the reachable-deviation bank until a separately registered
+   trusted map passes its own qualification;
 3. only after that passes, select one mediator-targeted causal intervention;
    and
 4. treat one HydroGym cylinder contract as an optional feedback capstone, not a
@@ -196,14 +197,18 @@ evaluator closure has 23 members and canonical digest `9bda9459...e675`; the
 separate current solver closure has 10 members and digest `293af994...e8cf`.
 The three field-blind cases are fixed at `sv_e06_y00/f10`,
 `sv_e11_y08/f30`, and `sv_e05_y00/f50`. A source-hashed A1 passed eleven focused
-CPU tests and exact stored-frame/solver-input byte equality for all three cases;
-its corrected closeout manifest is `8fd2192d...93c6`. The first receipt is
-retained but superseded because it omitted an independent physical
-execution-contract rehash. The corrected attempt opened no checkpoint,
-constructed no model, advanced no solver, and computed no scientific metric.
-A0/A1 are complete. A2 and new training remain separately unauthorized.
-Boundary work remains conditional on a measured boundary-response defect, and
-HydroGym remains an optional capstone.
+CPU tests and exact stored-frame/solver-input byte equality for all three cases.
+The owner then explicitly authorized A2. Its final v4 source and command gates
+pass `18` tests; both solver processes are exactly repeatable with zero retries
+or fallbacks. The accuracy gate fails on every case:
+`b/min(d044,d060)=1.356/1.075/0.823` and
+`b/s=1.096/1.070/0.777`, versus `0.25`. All solver and model proposals are
+finite/admissible, and the six final proposals exactly reproduce the retained
+post-inference v3 bytes. Closeout manifest `fad5b6c3...1825` is immutable. The
+native-coarse map is closed as the trusted target proxy; A3, training,
+checkpoint reselection, and test/strength-OOD access did not occur. Boundary
+work remains conditional on a measured boundary-response defect, and HydroGym
+remains an optional capstone.
 
 D092-R1, P0b, corrected G0b, G1, and the D093 architecture/exposure matrix are
 terminal at their registered scopes. In D093, each seven-condition cell has
@@ -402,11 +407,10 @@ no-gradient ablation, not vanilla or paper-faithful FFNO. See the
 [D094 preregistration](D094_BUMP_SCALING_PREREGISTRATION.md).
 The next contract is the owner-reviewed
 [P0 restart-sufficiency preregistration](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md).
-Its exact inputs and compatibility surface are read-only, and its source-hashed
-A1 closes the shape/order/channel, admissibility-rejection, timing, boundary,
-manifest, and exact-input plumbing gates. The next unresolved decision is
-whether to authorize exactly A2; no solver, checkpoint/model, training, A3, or
-broader diagnostic execution follows automatically.
+Its A0/A1 inputs and plumbing are closed, and its explicitly authorized A2 is
+now terminal. Numerical completion/repeatability pass, but all three cases fail
+both factor-of-four bias ratios. The native-coarse map cannot support the planned
+A3 target response; no broader diagnostic, training, or sealed access follows.
 
 The original D092 scalar-hash failure, P0 metric-decoder closure failure, and G0
 manifest-parser launch failure remain provenance, not scientific evidence. P0b

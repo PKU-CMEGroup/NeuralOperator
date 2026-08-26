@@ -694,14 +694,18 @@ Public query families included combinations of:
 autoregressive neural operator stability long horizon PDE
 neural PDE solver pushforward unrolled training detached
 solver in the loop learned PDE correction
+physics informed neural operator PDE residual constraint
+learned data driven discretization coarse PDE closure
 noise injection recovery learned physical simulator rollout
 neural operator conservation boundary energy constraint
 neural operator invariant measure chaotic attractor
 neural operator data assimilation observation correction
+neural operator closed loop PDE control stability
 memory time-dependent PDE neural operator
 stochastic refinement neural PDE rollout
 hybrid PDE solver neural corrector
 space-time neural operator direct trajectory prediction
+continuous time flow neural operator rollout drift
 ```
 
 The search was seeded by existing public citations in the branch, then updated
@@ -725,16 +729,19 @@ Every method is described by
 | Detached pushforward in [MP-PDE](https://openreview.net/forum?id=vSix3HPYKSU) (ICLR 2022) | Stopped-gradient generated input | Exposure/recovery on generated prefixes | Model state plus stored future target | Empirical finite-horizon improvement; no `Phi(x)` label at generated `x` |
 | Supervised unrolling and its optimization variants in [APEBench](https://proceedings.neurips.cc/paper_files/paper/2024/hash/d9875ebcf74bccdc5076acab0dbee62c-Abstract-Datasets_and_Benchmarks_Track.html) (NeurIPS 2024) and [stabilized BPTT](https://openreview.net/forum?id=bozbTTWcaw) (ICLR 2024) | Multistep training objective and gradient path | Finite-prefix composition | Stored trajectories; model-generated intermediate states | Empirical finite-horizon behavior and optimization evidence |
 | Diverted-chain relabeling in [APEBench](https://proceedings.neurips.cc/paper_files/paper/2024/file/d9875ebcf74bccdc5076acab0dbee62c-Paper-Datasets_and_Benchmarks_Track.pdf) and [Solver-in-the-Loop](https://proceedings.neurips.cc/paper/2020/hash/43e4e6a6f341e00671e123714de019a8-Abstract.html) (NeurIPS 2020) | Training-time solver coupling | Dynamics-consistent response or correction interaction | Trusted solver evaluated on model-affected states | Empirical solver-relative improvement; differentiability depends on gradient contract |
-| Stability-oriented architecture in [Towards Stability of Autoregressive Neural Operators](https://openreview.net/forum?id=RFfUUtKYOG) (TMLR 2023) | Architecture and spectral operations | Selected amplification/aliasing mechanisms | Structural prior plus clean data | Analysis and empirical long-rollout improvement, not universal stability |
+| Physics-residual supervision in [PINO](https://arxiv.org/abs/2111.03794) (arXiv preprint, last revised 2023) | Training objective and collocation law | PDE residual and solution-operator fidelity | Known differential operator, collocation points, and optional trajectory data | Physics-informed approximation evidence under the tested residual contract; no automatic self-composition guarantee |
+| Stability-oriented architecture in [Towards Stability of Autoregressive Neural Operators](https://openreview.net/forum?id=RFfUUtKYOG) (TMLR 2023) and [DRIFT-Net](https://proceedings.iclr.cc/paper_files/paper/2026/hash/c951d202164800b0c45f4e7fbf91cae2-Abstract-Conference.html) (ICLR 2026) | Architecture and spectral operations | Selected amplification, aliasing, and global/local drift mechanisms | Structural prior plus clean data | Method-specific analysis and empirical long-rollout improvement, not universal stability |
 | [SGNO](https://arxiv.org/abs/2602.18801) (arXiv preprint, 2026) | Generator parameterization, gating, filtering | Latent amplification and high-frequency feedback | Structural spectral prior | Stated one-step and finite-horizon sufficient bounds; preprint evidence |
-| Boundary, conservation, and energy structure in [BOON](https://openreview.net/forum?id=gfWNItGOES6) (ICLR 2023), [clawNO](https://proceedings.mlr.press/v235/liu24p.html) (ICML 2024), and [Energy-Consistent Neural Operators](https://proceedings.mlr.press/v258/tanaka25a.html) (AISTATS 2025) | Architecture or analytic output parameterization | Exact/structured physical constraints | Boundary law, conservation law, or energy structure | Exact stated constraint or structural consistency; not unique dynamics fidelity |
+| Boundary, conservation, and energy structure in [BOON](https://openreview.net/forum?id=gfWNItGOES6) (ICLR 2023), [clawNO](https://proceedings.mlr.press/v235/liu24p.html) (ICML 2024), and [Energy-Consistent Neural Operators](https://proceedings.mlr.press/v258/tanaka25a.html) (AISTATS 2025) | Architecture, analytic parameterization, or regularized objective | Exact or soft physical constraints | Boundary law, conservation law, or energy structure | Exact satisfaction only for the analytically enforced property; otherwise structural or penalty-based consistency; neither implies unique dynamics fidelity |
+| Learned discretization and embedded coarse-solver closure in [Learning data-driven discretizations](https://doi.org/10.1073/pnas.1814058116) (PNAS 2019) and [Machine learning-accelerated CFD](https://doi.org/10.1073/pnas.2101784118) (PNAS 2021) | Spatial discretization or closure inside a numerical update | Truncation and unresolved-scale defect | Fine-resolution solutions plus a known numerical/PDE scaffold | Solver-specific accuracy, generalization, and stable-integration evidence; not a guarantee for a standalone learned transition |
 | Hybrid numerical correction in [Solver-in-the-Loop](https://proceedings.neurips.cc/paper/2020/hash/43e4e6a6f341e00671e123714de019a8-Abstract.html) and [INC](https://papers.nips.cc/paper_files/paper/2025/hash/9facb952d4152f1ce2f21a979ab5b420-Abstract-Conference.html) (NeurIPS 2025) | Post-step or equation-level learned/numerical composition | Discretization or solver defect | Coarse and/or fine numerical solver | Method-specific error analysis plus empirical hybrid rollout evidence |
 | Stochastic refinement in [PDE-Refiner](https://proceedings.neurips.cc/paper_files/paper/2023/hash/d529b943af3dba734f8a7d49efcb6d09-Abstract-Conference.html) (NeurIPS 2023) | Iterative denoising/refinement at each step | Frequency-resolved state and uncertainty | Noise-conditioned trajectory data | Empirical long-rollout and uncertainty results; not pathwise contraction |
 | Long-time statistical objectives in [Invariant-measure neural operators](https://proceedings.neurips.cc/paper_files/paper/2023/hash/57d7e7e1593ad1ab6818c258fa5654ce-Abstract-Conference.html) (NeurIPS 2023) and [DySLIM](https://proceedings.mlr.press/v235/schiff24b.html) (ICML 2024) | Training loss/regularizer | Invariant measure and attractor statistics | Long trajectories or reference statistics | Statistical-fidelity objective and empirical evidence; not phase tracking |
 | Observation feedback in [Semilinear Neural Operators](https://openreview.net/forum?id=ZMv6zKYYUs) (ICLR 2024) | Deployed recursive prediction/correction | Online state estimate | Sparse noisy observations | Data-assimilation/observer contract; not autonomous surrogate stability |
+| Neural-operator control in [Operator Learning for Nonlinear Adaptive Control](https://proceedings.mlr.press/v211/bhan23a.html) (L4DC 2023) and [Neural operators for boundary stabilization](https://proceedings.mlr.press/v242/zhang24c.html) (L4DC 2024) | Controller, gain, or boundary-input law | Closed-loop regulation of the physical system | Sensed/estimated state, controller structure, and training examples | Conditional closed-loop or practical stability under method assumptions; deliberately changes the dynamics and does not establish autonomous surrogate fidelity |
 | Memory augmentation in [MemNO](https://openreview.net/forum?id=o9kqa5K3tB) (ICLR 2025) | Augmented state and architecture | Markov closure under partial observation | State history | Expressivity examples and empirical gains; changes the learned state object |
 | Geometry and symmetry restrictions in [SFNO](https://proceedings.mlr.press/v202/bonev23a.html) (ICML 2023) and [INO](https://proceedings.mlr.press/v206/liu23f.html) (AISTATS 2023) | Transform/kernel geometry | Equivariance, spherical artifacts, or momentum structure | Geometric/physical prior | Exact or architecture-specific invariance plus empirical accuracy |
-| Recursion reduction via direct space--time or continuous time-shift maps, represented by [FNO](https://openreview.net/forum?id=c8P9NQVtmnO) and [Khatri--Rao Neural Operators](https://proceedings.mlr.press/v267/dama25a.html) (ICML 2025) | Temporal parameterization | Fewer recurrent compositions or irregular-time forecasting | Stored trajectories and time coordinates/history | Empirical forecasting; partly outside the one-step corrector core |
+| Recursion redesign via direct space--time maps, time-shift maps, or a learned continuous generator, represented by [FNO](https://openreview.net/forum?id=c8P9NQVtmnO), [Khatri--Rao Neural Operators](https://proceedings.mlr.press/v267/dama25a.html) (ICML 2025), and [CFO](https://proceedings.iclr.cc/paper_files/paper/2026/hash/8bfbf4ec87e1e331f0b1adc483b53b6b-Abstract-Conference.html) (ICLR 2026) | Temporal parameterization and inference integrator | Avoiding a fixed learned one-step self-composition; irregular-time forecasting | Stored trajectories, time coordinates/history, and for CFO derivative/velocity estimates | Empirical forecasting and time-resolution evidence; numerical integration may remain and these methods are partly outside the one-step corrector core |
 | Active perturbation and input denoising in [Beyond Uniform Sampling](https://arxiv.org/abs/2604.13316) (arXiv preprint, 2026) | Data acquisition plus denoising architecture | Adversarial/local robustness | Model-guided queries and synthetic attacks | Empirical robustness on the tested setting; preprint evidence |
 
 ### Capacity changes that are not automatically corrective mechanisms
@@ -745,6 +752,15 @@ can materially alter approximation, optimization, and recurrent behavior. Under
 this taxonomy they remain architecture/capacity choices until a separate target
 and information contract is identified. This preserves the value of later
 component ablations without making the word `corrector` tautological.
+
+Three adjacency boundaries matter for interpreting the table. A physics residual
+is equation-derived information, but it is not automatically a trusted
+`Phi(x)` label at a deployed off-trace state. A learned discretization modifies
+the numerical transition rather than repairing an otherwise fixed black-box
+surrogate. A controller intentionally changes the closed-loop physical dynamics;
+its stability guarantee therefore answers a different question from autonomous
+surrogate fidelity. These families are relevant precisely because the taxonomy
+keeps those information and target contracts distinct.
 
 ### Evaluation-only evidence
 
@@ -847,8 +863,9 @@ clean next state rather than with `Phi(u+eta)`, it cannot substitute for arm 4.
 - Verify venue status separately for 2026 preprints.
 - Read full papers before attributing theorem strength; abstracts establish
   scope, not every assumption.
-- Search adjacent control, reduced-order modeling, differentiable simulation,
-  and data-assimilation venues for mechanisms described under different names.
+- Complete full-paper verification in adjacent control, reduced-order modeling,
+  differentiable simulation, learned-discretization, and data-assimilation
+  venues; the present coverage is primary-source and abstract-bounded.
 - Phrase the four-arm gap as search-bounded until a formal systematic-review
   protocol and duplicate screening log are complete.
 

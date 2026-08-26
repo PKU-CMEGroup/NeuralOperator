@@ -299,6 +299,16 @@ access, or A3 execution occurred. Under the registered decision rule, this
 native-coarse target proxy is closed and only descriptive solver-relative
 evidence is retained.
 
+Result-to-claim verdict (`[pending independent Codex review]` because unpublished
+results were not sent to an external tool): `claim_supported=no` for the
+intended native-coarse trusted-target qualification, with high confidence. The
+results support a deterministic, admissible, boundary-accounted implementation
+of the declared coarse map. They do not support treating that map as the learned
+target or using it for A3 response attribution. The missing evidence is a
+higher-fidelity arbitrary-state restart map, or a newly justified diagnostic
+whose claim does not require one; the route is a scoped pivot, not an A3
+supplement.
+
 ## 3. Frozen State And Time Contract
 
 The common physical horizon is `Delta t = 0.02`:

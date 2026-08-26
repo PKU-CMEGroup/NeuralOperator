@@ -45,6 +45,7 @@ from utility.time_dependent_no.p0_restart_sufficiency_a2 import (  # noqa: E402
     admissibility_summary,
     atomic_save_npy,
     boundary_balance_residual,
+    bind_payload_sha256,
     build_artifact_manifest,
     case_contract,
     expected_solver_array_shape,
@@ -297,7 +298,7 @@ def _run(args: argparse.Namespace) -> dict:
         },
         "elapsed_seconds": perf_counter() - started,
     }
-    summary["payload_sha256"] = canonical_json_sha256(summary)
+    summary = bind_payload_sha256(summary)
     atomic_write_json(args.output_dir / "summary.json", summary)
     manifest = build_artifact_manifest(
         args.output_dir, schema=A2_SOLVER_ARTIFACT_SCHEMA

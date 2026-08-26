@@ -99,6 +99,16 @@ def json_safe(value: Any) -> Any:
     return value
 
 
+def bind_payload_sha256(payload: Mapping[str, Any]) -> dict[str, Any]:
+    safe = json_safe(payload)
+    if not isinstance(safe, dict):
+        raise TypeError("payload binding requires a JSON object")
+    if "payload_sha256" in safe:
+        raise ValueError("payload is already SHA-256 bound")
+    safe["payload_sha256"] = canonical_json_sha256(safe)
+    return safe
+
+
 def validated_a2_physical_volumes(stored: np.ndarray) -> np.ndarray:
     serialized = np.asarray(stored)
     expected_value = np.float32(NATIVE_DOMAIN_MEASURE / NATIVE_NODES)

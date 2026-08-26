@@ -217,6 +217,22 @@ def test_a2_requires_the_bound_deterministic_cublas_workspace() -> None:
         a2.require_a2_cublas_workspace_config(":16:8")
 
 
+def test_payload_binding_converts_numpy_before_hashing() -> None:
+    bound = a2.bind_payload_sha256(
+        {
+            "vector": np.asarray([1.0, 2.0], dtype=np.float64),
+            "count": np.int64(3),
+        }
+    )
+    payload_sha256 = bound.pop("payload_sha256")
+
+    assert bound == {"vector": [1.0, 2.0], "count": 3}
+    assert payload_sha256 == a2.canonical_json_sha256(bound)
+    json.dumps(bound)
+    with pytest.raises(ValueError, match="already SHA-256 bound"):
+        a2.bind_payload_sha256({"payload_sha256": "0" * 64})
+
+
 def test_artifact_manifest_round_trip_and_tamper(tmp_path: Path) -> None:
     root = tmp_path / "artifacts"
     root.mkdir()

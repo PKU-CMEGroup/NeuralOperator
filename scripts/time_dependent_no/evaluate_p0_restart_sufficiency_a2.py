@@ -51,6 +51,7 @@ from utility.time_dependent_no.p0_restart_sufficiency_a2 import (  # noqa: E402
     atomic_save_npy,
     atomic_write_json,
     bias_gate_row,
+    bind_payload_sha256,
     build_artifact_manifest,
     compare_solver_process_summaries,
     integrated_conservative_change,
@@ -638,7 +639,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             "gpu_name": torch.cuda.get_device_name(device),
         },
     }
-    summary["payload_sha256"] = canonical_json_sha256(summary)
+    summary = bind_payload_sha256(summary)
     atomic_write_json(args.output_dir / "summary.json", summary)
     atomic_write_json(
         args.output_dir / "artifact_manifest.json",

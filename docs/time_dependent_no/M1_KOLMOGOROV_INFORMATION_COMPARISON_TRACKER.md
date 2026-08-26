@@ -14,6 +14,8 @@ redefining its gates.
 | M1-Q0-CLI | A1 | dry-run invocation and JSON accounting | synthetic random and laminar states | MUST | PASS | retain exact command/result |
 | M1-Q1-NUM | qualification | time refinement, process repeatability, spatial context | solver-only calibration | MUST | COMPLETE: TEMPORAL/REPEAT PASS; SPATIAL PENDING | exact attempt closed; do not infer PDE-level spatial qualification |
 | M1-Q1-STAT | qualification | burn-in and stationarity | four deterministic generated calibration states | MUST | FAIL AT REGISTERED 512-CALL CONTINGENCY | stop current ladder; new owner-approved qualification design only |
+| M1-Q1-R1-MIX | diagnosis | mixing-window uncertainty and fresh-seed burn-in design | four parent calibration seeds; scalar/spectral series only | MUST | AUTHORIZED; SOURCE PREPARATION | immutable R1 source plus parent-hash replay |
+| M1-Q1-R1-SPAT | diagnosis | adjacent N64/N128/N256 spatial context | six hash-matched parent inputs | MUST | AUTHORIZED; SOURCE PREPARATION | same R1 source; N128 screen is provisional only |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | a new Q1 pass and A3 contract; current failed attempt is insufficient |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
 | M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |

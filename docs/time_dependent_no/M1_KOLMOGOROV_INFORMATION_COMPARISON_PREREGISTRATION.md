@@ -2,10 +2,10 @@
 
 Date: 2026-08-26
 
-Status: **A1 COMPLETE; LOCAL SOLVER-ONLY M1-Q1 AUTHORIZED**. This document does
-not authorize dataset-scale generation, checkpoint access, model training,
-remote execution, or sealed evaluation. Every later stage requires the named
-authorization in the execution ladder.
+Status: **M1-Q1 CLOSED; LOCAL SOLVER-ONLY M1-Q1-R1 DIAGNOSTICS AUTHORIZED**.
+This document does not authorize dataset-scale generation, checkpoint access,
+model training, remote execution, or sealed evaluation. Every later stage
+requires the named authorization in the execution ladder.
 
 Owner continuation on 2026-08-26 authorizes the local solver-only M1-Q1
 qualification specified below. It does not authorize M1-Q2 model training,
@@ -464,3 +464,107 @@ The A1 deliverable is complete when the maintained source, focused tests,
 synthetic CLI, this preregistration, and the compact tracker share one reviewed
 source snapshot. The next permitted action is a concrete request for M1-Q1
 solver-only qualification. No data or experiment is launched by this file.
+
+## 13. M1-Q1-R1 Reference And Population Diagnosis
+
+The owner continuation on 2026-08-26 authorizes two local FP64 solver-only
+diagnostics after the failed `M1-KF-Q1-20260826A` attempt. The parent result is
+immutable. R1 does not reclassify it, relax its gates, or authorize Q2.
+
+The parent bindings are:
+
+- source commit `d396c45f2acd0bbea971b3285b98f406bcea4e74`;
+- `result.json` SHA256
+  `9ffc7a23c62704dad04af03996336ebff793d1cb3d8fb25da6f6f01176018002`;
+  and
+- `artifact_manifest.json` SHA256
+  `d1ef9b4e77cfe9866ab4beee82129972b2f1f6cd6ae3ee6ca8ba93a9653317ae`.
+
+Both R1 stages must verify these bytes before computation, reproduce the parent
+initial or post-burn-in state hashes where applicable, bind one clean source
+commit at start and end, use at most four local worker processes, and retain
+only scalar/spectral diagnostics and hashes. They may not retain full state
+trajectories.
+
+### R1-MIX: mixing-window diagnosis
+
+Run ID: `M1-KF-Q1-R1-MIX-20260826A`.
+
+Recreate the four Q1 Gaussian initial conditions under the unchanged N=64,
+`dt_max=0.002` map and advance each for 2,048 macro calls. Record after every
+call:
+
+- kinetic energy, enstrophy, and palinstrophy;
+- kinetic-energy shell spectrum;
+- accepted-substep accounting; and
+- canonical-state hashes at calls `0,256,512,768,1024,1280,1536,2048`.
+
+The candidate burn-ins are `B={512,768,1024,1280,1536}`. For each B, use the
+next 512 calls and report, separately for energy and enstrophy:
+
+1. every chain's first-256 versus second-256 relative mean change;
+2. every chain's Spearman time correlation;
+3. four 128-call block means and their relative range;
+4. split-R-hat across the four chains; and
+5. pooled effective sample size from a Geyer initial-positive-sequence
+   autocorrelation estimate.
+
+A provisional burn-in candidate is the earliest B for which:
+
+- every chain has energy and enstrophy half-window change at most `0.10`;
+- no same-sign `|rho| >= 0.5` drift occurs in all four chains;
+- energy and enstrophy split-R-hat are each at most `1.05`; and
+- pooled effective sample size is at least `100` for each quantity.
+
+If no B passes, R1 reports `no_burnin_candidate`. If one passes, it is a design
+choice only. A future confirmatory qualification would use the frozen fresh
+seeds `2026083001--2026083004`, the selected B, one 512-call window, and the
+same gates with no contingency. That confirmation is not authorized here.
+
+### R1-SPAT: adjacent-resolution diagnosis
+
+Run ID: `M1-KF-Q1-R1-SPAT-20260826A`.
+
+Recreate and hash-check the six parent Q1 calibration inputs at burn-in 512.
+Lift each same N=64 Fourier polynomial directly to N=128 and N=256. Advance all
+three resolutions for H16 with `dt_max=0.0005`, then compare adjacent pairs
+after restricting the finer result:
+
+- N64 versus restricted N128; and
+- N128 versus restricted N256.
+
+For every call and case, retain relative state L2, relative energy,
+enstrophy, and palinstrophy difference, normalized-spectrum total variation,
+finiteness, and canonical closure. Two fresh N=256 processes must also replay
+the first clean H1 call with scaled RMS at most `1e-13` and identical substep
+accounting.
+
+The N128 pre-model screen requires all of:
+
+- N128-to-N256 H1 median/maximum state discrepancy at most `0.0125/0.025`;
+- N128-to-N256 H16 median/maximum at most `0.05/0.10`; and
+- each H1/H16 median and maximum no greater than one half of its corresponding
+  N64-to-N128 value.
+
+The absolute H1 screen is derived from the preregistered Q2 maximum clean H1
+error `0.05`; it is not a substitute for the later model-relative
+factor-of-four gate. Passing labels N=128 only `provisional_spatial_candidate`.
+Failure labels the tested N=128 grid `spatial_screen_failed`; it does not
+automatically authorize N256-to-N512, a different PDE, or a fixed-grid claim.
+
+### R1 outputs and stop rule
+
+Each stage writes a separate ignored result packet with raw scalar/spectral
+series where applicable, source and artifact hashes, environment, timing, and
+explicit false flags for data, checkpoint, training, remote, and test access.
+The combined cost cap is eight local CPU-hours.
+
+After both stages, record one of three routes:
+
+1. preregister a fresh-seed Q1 confirmation if a burn-in candidate exists and
+   the owner accepts either a provisional spatial candidate or an explicitly
+   fixed-grid claim;
+2. revise the candidate grid under a new numerical qualification; or
+3. pivot the restartable testbed.
+
+No route is automatic, and no learned model may run under R1.

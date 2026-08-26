@@ -2,10 +2,10 @@
 
 Date: 2026-08-26
 
-Status: **M1-Q1 CLOSED; LOCAL SOLVER-ONLY M1-Q1-R1 DIAGNOSTICS AUTHORIZED**.
-This document does not authorize dataset-scale generation, checkpoint access,
-model training, remote execution, or sealed evaluation. Every later stage
-requires the named authorization in the execution ladder.
+Status: **M1-Q1-R1 CLOSED; Q2 NOT AUTHORIZED**. This document does not
+authorize dataset-scale generation, checkpoint access, model training, remote
+execution, or sealed evaluation. Every later stage requires the named
+authorization in the execution ladder.
 
 Owner continuation on 2026-08-26 authorizes the local solver-only M1-Q1
 qualification specified below. It does not authorize M1-Q2 model training,
@@ -568,3 +568,38 @@ After both stages, record one of three routes:
 3. pivot the restartable testbed.
 
 No route is automatic, and no learned model may run under R1.
+
+## 14. M1-Q1-R1 Immutable Closeout
+
+Both registered stages completed locally on 2026-08-27 from source commit
+`26e8ef870b7b93f46326d5be451ebb4d2023f234`.
+
+`M1-KF-Q1-R1-MIX-20260826A` returned `no_burnin_candidate`. Its `result.json`
+SHA256 is
+`fe3e0232d5ea65ba8b96148b6828ac2f5fa599af90978ef6b83b076ba97e6335`,
+and its `artifact_manifest.json` SHA256 is
+`c3c91f915716c08c0c9045b097cb45578e3974c7bee8e475556718807f651a44`.
+All five candidates failed both registered R-hat and ESS gates. Shared drift
+passed in every window, so this result rejects the tested sampling law without
+establishing persistent physical nonstationarity.
+
+`M1-KF-Q1-R1-SPAT-20260826A` returned `spatial_screen_failed`. Its
+`result.json` SHA256 is
+`31dd4bdfa2e22c2bd3cdaea69201361a1e42d7375e24a677751877cc9834938d`,
+and its `artifact_manifest.json` SHA256 is
+`22de2039374be156fde278b1b1fb5eeaf4c02b0f36de1582537bda19b63a63a5`.
+The N128-to-N256 H1 median/maximum were `0.00209/0.00265`; H16 was
+`0.07442/0.08179`. Contraction, H1, H16 maximum, finiteness, closure, and
+repeatability passed. The sole spatial gate failure was the H16 median limit
+`0.05`.
+
+The result-bound analysis and figures live under
+`artifacts/time_dependent_no/m1_kolmogorov_q1_r1_analysis_20260827a/`. Their
+source commit is `c2ec748cddfc4e13cb741de3f178626144084641`, and the analysis
+manifest SHA256 is
+`65574314c427eb98d0da4b12561ed76ef8de7fc6c6f16d46ed79f3becac7b093`.
+
+R1 therefore closes without a fresh-seed candidate, a provisional N128 grid,
+or authority to proceed to Q2. A later owner decision may preregister a new
+population/reference design or pivot the testbed. It may not reinterpret this
+failed attempt as a qualification.

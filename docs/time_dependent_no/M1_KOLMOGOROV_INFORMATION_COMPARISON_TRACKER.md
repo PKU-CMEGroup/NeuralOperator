@@ -1,6 +1,6 @@
 # M1 Kolmogorov Information-Source Comparison Tracker
 
-Date: 2026-08-26
+Date: 2026-08-27
 
 This is the compact execution surface for
 [the M1 preregistration](M1_KOLMOGOROV_INFORMATION_COMPARISON_PREREGISTRATION.md).
@@ -14,8 +14,9 @@ redefining its gates.
 | M1-Q0-CLI | A1 | dry-run invocation and JSON accounting | synthetic random and laminar states | MUST | PASS | retain exact command/result |
 | M1-Q1-NUM | qualification | time refinement, process repeatability, spatial context | solver-only calibration | MUST | COMPLETE: TEMPORAL/REPEAT PASS; SPATIAL PENDING | exact attempt closed; do not infer PDE-level spatial qualification |
 | M1-Q1-STAT | qualification | burn-in and stationarity | four deterministic generated calibration states | MUST | FAIL AT REGISTERED 512-CALL CONTINGENCY | stop current ladder; new owner-approved qualification design only |
-| M1-Q1-R1-MIX | diagnosis | mixing-window uncertainty and fresh-seed burn-in design | four parent calibration seeds; scalar/spectral series only | MUST | AUTHORIZED; SOURCE PREPARATION | immutable R1 source plus parent-hash replay |
-| M1-Q1-R1-SPAT | diagnosis | adjacent N64/N128/N256 spatial context | six hash-matched parent inputs | MUST | AUTHORIZED; SOURCE PREPARATION | same R1 source; N128 screen is provisional only |
+| M1-Q1-R1-MIX | diagnosis | mixing-window uncertainty and fresh-seed burn-in design | four parent calibration seeds; scalar/spectral series only | MUST | COMPLETE: NO BURN-IN CANDIDATE | new preregistered population design or testbed pivot; Q2 remains closed |
+| M1-Q1-R1-SPAT | diagnosis | adjacent N64/N128/N256 spatial context | six hash-matched parent inputs | MUST | COMPLETE: SCREEN FAIL AT H16 MEDIAN | new reference/grid qualification or testbed pivot; Q2 remains closed |
+| M1-Q1-R1-AN | closeout | result-bound tables and diagnostic figures | immutable R1 packets only | MUST | COMPLETE | owner route decision; no automatic continuation |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | a new Q1 pass and A3 contract; current failed attempt is insufficient |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
 | M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |
@@ -146,3 +147,91 @@ Internal verdict, pending any separately approved external Codex review:
 Confidence is high in the stop decision and moderate in the interpretation of
 the single drifting trajectory, because the packet retained registered summary
 statistics but not the underlying per-call diagnostic series.
+
+## M1-Q1-R1 Closeout
+
+Both owner-authorized R1 diagnostics completed locally on 2026-08-27. They
+preserve the failed parent Q1 classification and do not open Q2.
+
+### Provenance
+
+- immutable R1 execution source:
+  `26e8ef870b7b93f46326d5be451ebb4d2023f234`;
+- mixing packet:
+  `artifacts/time_dependent_no/m1_kolmogorov_q1_r1_mix_20260826a/`;
+- mixing `result.json` SHA256:
+  `fe3e0232d5ea65ba8b96148b6828ac2f5fa599af90978ef6b83b076ba97e6335`;
+- mixing `artifact_manifest.json` SHA256:
+  `c3c91f915716c08c0c9045b097cb45578e3974c7bee8e475556718807f651a44`;
+- spatial packet:
+  `artifacts/time_dependent_no/m1_kolmogorov_q1_r1_spat_20260826a/`;
+- spatial `result.json` SHA256:
+  `31dd4bdfa2e22c2bd3cdaea69201361a1e42d7375e24a677751877cc9834938d`;
+- spatial `artifact_manifest.json` SHA256:
+  `22de2039374be156fde278b1b1fb5eeaf4c02b0f36de1582537bda19b63a63a5`;
+- result-bound analysis source:
+  `c2ec748cddfc4e13cb741de3f178626144084641`;
+- analysis packet:
+  `artifacts/time_dependent_no/m1_kolmogorov_q1_r1_analysis_20260827a/`;
+- analysis `artifact_manifest.json` SHA256:
+  `65574314c427eb98d0da4b12561ed76ef8de7fc6c6f16d46ed79f3becac7b093`;
+- measured mixing/spatial wall times: `364.07 s` and `827.31 s`; and
+- parent state replay, start/end source binding, finiteness, canonical closure,
+  artifact rehashing, and N256 process repeatability all passed. No data,
+  checkpoint, model, training, remote, or sealed-test access occurred.
+
+### Mixing result
+
+Classification: `no_burnin_candidate`.
+
+| Burn-in | Energy max half-change | Energy R-hat | Energy ESS | Enstrophy max half-change | Enstrophy R-hat | Enstrophy ESS |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 512 | 0.09582 | 1.50480 | 34.03 | 0.12924 | 1.32282 | 38.38 |
+| 768 | 0.26974 | 1.30176 | 27.18 | 0.27968 | 1.18247 | 30.16 |
+| 1024 | 0.15479 | 1.10451 | 33.55 | 0.14137 | 1.05805 | 38.25 |
+| 1280 | 0.25621 | 1.32892 | 25.75 | 0.25729 | 1.19071 | 30.36 |
+| 1536 | 0.21652 | 1.34131 | 27.94 | 0.25863 | 1.22733 | 37.42 |
+
+Every candidate failed both the split-R-hat and pooled-ESS gates. All five
+shared monotone-drift gates passed. Across the registered windows, per-chain
+integrated autocorrelation estimates ranged from approximately 37 to 155 calls,
+leaving only 3.3 to 13.7 effective observations per chain. This does not
+establish persistent physical nonstationarity. It establishes that no tested
+burn-in plus 512-call observation law qualified the sampling population.
+
+### Spatial result
+
+Classification: `spatial_screen_failed`.
+
+| Adjacent pair | H1 median / maximum | H16 median / maximum |
+| --- | ---: | ---: |
+| N64 to restricted N128 | 0.09870 / 0.11893 | 0.28691 / 0.32641 |
+| N128 to restricted N256 | 0.00209 / 0.00265 | 0.07442 / 0.08179 |
+
+The N128-to-N256 comparison passed both H1 absolute limits, the H16 maximum
+limit, and every registered contraction limit. Its H16 median exceeded the
+`0.05` limit by a factor of `1.488`, so the exact screen fails. At H16, the
+same pair's median discrepancies were `7.69e-5` in energy, `0.00270` in
+enstrophy, `0.00250` in palinstrophy, and `0.000365` in spectrum TV. The
+separation between state-path L2 and these aggregate quantities is an observed
+diagnostic pattern, not yet evidence for phase displacement, shadowing, chaos,
+or an appropriate alternative model metric.
+
+### Decision boundary
+
+Fresh-seed Q1 confirmation is not available because R1 found neither a burn-in
+candidate nor a provisional N128 spatial candidate. M1-Q2, dataset generation,
+and model training remain unauthorized.
+
+If the owner retains this testbed, the minimum next design must separately
+resolve:
+
+1. population precision: preregister an observation law whose length or
+   independent-ensemble size is justified by the measured autocorrelation,
+   while separating finite-sample uncertainty from burn-in drift; and
+2. target semantics: either qualify a finer deterministic path reference or
+   preregister a falsifiable path-versus-structure/tubular criterion before a
+   learned model is evaluated.
+
+The alternative is to pivot the restartable testbed. Neither route is
+authorized by this closeout.

@@ -17,6 +17,8 @@ redefining its gates.
 | M1-Q1-R1-MIX | diagnosis | mixing-window uncertainty and fresh-seed burn-in design | four parent calibration seeds; scalar/spectral series only | MUST | COMPLETE: NO BURN-IN CANDIDATE | new preregistered population design or testbed pivot; Q2 remains closed |
 | M1-Q1-R1-SPAT | diagnosis | adjacent N64/N128/N256 spatial context | six hash-matched parent inputs | MUST | COMPLETE: SCREEN FAIL AT H16 MEDIAN | new reference/grid qualification or testbed pivot; Q2 remains closed |
 | M1-Q1-R1-AN | closeout | result-bound tables and diagnostic figures | immutable R1 packets only | MUST | COMPLETE | owner route decision; no automatic continuation |
+| M1-Q1-R2-REF | qualification | N128/N256/N512 path refinement plus N256 time refinement | same six hash-matched parent inputs; solver only | MUST | AUTHORIZED; NOT RUN | all spatial, temporal, replay, closure, and repeatability gates; then freeze exact hashes |
+| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | CONDITIONAL; FAIL-CLOSED UNTIL R2-REF HASH FREEZE | R2-REF pass and exact result/manifest hashes in a clean source commit |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | a new Q1 pass and A3 contract; current failed attempt is insufficient |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
 | M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |

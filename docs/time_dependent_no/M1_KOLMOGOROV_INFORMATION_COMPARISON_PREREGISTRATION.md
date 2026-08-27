@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 
-Status: **M1-Q1-R1 CLOSED; Q2 NOT AUTHORIZED**. This document does not
+Status: **M1-Q1-R2 REFERENCE QUALIFICATION AUTHORIZED; Q2 NOT AUTHORIZED**. This document does not
 authorize dataset-scale generation, checkpoint access, model training, remote
 execution, or sealed evaluation. Every later stage requires the named
 authorization in the execution ladder.
@@ -603,3 +603,108 @@ R1 therefore closes without a fresh-seed candidate, a provisional N128 grid,
 or authority to proceed to Q2. A later owner decision may preregister a new
 population/reference design or pivot the testbed. It may not reinterpret this
 failed attempt as a qualification.
+
+## 15. M1-Q1-R2 Candidate-Grid And Sampling-Law Qualification
+
+The owner continuation on 2026-08-27 authorizes one new staged, local,
+solver-only qualification. R2 has a new identity and does not reclassify Q1 or
+R1. It may not access a dataset, checkpoint, learned model, remote process, or
+sealed population, and it does not authorize Q2.
+
+R2 addresses the two R1 failures in authority order:
+
+1. qualify the complete numerical reference contract at a candidate grid; then
+2. only if that reference packet passes and is hash-frozen in this document,
+   test a fresh-seed sampling law for that same numerical map.
+
+This order is mandatory. Population statistics measured for `Phi_64` may not
+qualify a later `Phi_256` training population.
+
+### R2-REF: N256 candidate-reference qualification
+
+Run ID: `M1-KF-Q1-R2-REF-20260827A`.
+
+The stage verifies the immutable parent Q1 packet and both R1 diagnostic
+packets, including every artifact and commit-source hash. It reconstructs the
+same six parent Q1 inputs at N64 burn-in call 512 and requires their exact state
+hashes before lifting them. It then performs two complementary tests.
+
+**Adjacent spatial refinement.** Lift each identical N64 Fourier polynomial
+directly to `N={128,256,512}` and advance every resolution for H16 at
+`dt_max=0.0005`. Retain the same state-L2, energy, enstrophy, palinstrophy,
+normalized-spectrum, finiteness, and canonical-closure rows as R1. The complete
+N128-to-N256 overlap must reproduce R1 with matching categorical fields and a
+maximum absolute numeric difference at most `1e-13`.
+
+N256 passes the spatial screen only if all of the following hold:
+
+- N256-to-restricted-N512 H1 median/maximum state discrepancy is at most
+  `0.0125/0.025`;
+- N256-to-restricted-N512 H16 median/maximum is at most `0.05/0.10`;
+- every H1/H16 median and maximum is at most one half of the corresponding
+  N128-to-N256 value;
+- all states are finite and canonical; and
+- two fresh N512 processes agree below scaled RMS `1e-13` with identical
+  accepted-substep accounting.
+
+These are unchanged R1 screen thresholds applied to the next adjacent pair.
+Passing is bounded finite-grid evidence, not proof of continuum convergence.
+
+**Candidate-grid time refinement.** Lift the same six hash-matched inputs to
+N256 and compare `dt_max={0.002,0.001,0.0005}`. Candidate `0.002` is compared
+with `0.0005`. The state-path gates remain the original Q1 values: separately
+for clean and displaced families, H1 median/maximum must be below
+`1e-5/1e-4`, and H16 median/maximum below `1e-3/5e-3`. Across H64, normalized
+one-Wasserstein energy and enstrophy discrepancies and normalized-spectrum
+total variation must each be below `0.02`. All trajectories must be finite and
+canonical. Two fresh N256 candidate-map processes must additionally satisfy
+the same repeatability gate.
+
+The registered classification is `reference_candidate_qualified` only if the
+spatial screen, shared-row replay, candidate-grid time refinement, both process
+repeatability checks, finiteness, and canonical closure all pass. Any failure
+stops R2 before population execution. The stage retains scalar/structure rows,
+hashes, and accounting only; no full state trajectory is retained. Its wall
+time cap is four hours with at most three solver workers.
+
+### R2-POP: conditional same-map population qualification
+
+Run ID: `M1-KF-Q1-R2-POP-20260827A`.
+
+This stage is conditionally authorized only after R2-REF qualifies and its
+exact result and manifest SHA256 values are amended into this section in a
+clean source commit. Until then, its execution is fail-closed.
+
+If opened, R2-POP uses `Phi_256` with `dt_max=0.002`, four fresh canonical
+Gaussian initial arrays with seeds `2026083101--2026083104`, and vorticity RMS
+`4.0`. Each chain has exactly 1,024 burn-in calls followed by one fixed
+4,096-call observation window. The length is prospective: R1's worst observed
+IAT of approximately 155 calls implies a nominal pooled ESS of approximately
+`4*4096/155 = 105.7`, only slightly above the registered minimum. No alternate
+burn-in, shorter subwindow, seed substitution, or contingency may select a
+passing result.
+
+For energy and enstrophy separately, retain per-chain split-half relative mean
+change, Spearman time correlation, eight 512-call block means, split-R-hat,
+Geyer IAT, per-chain ESS, and pooled ESS. The unchanged gates are:
+
+- every split-half relative mean change at most `0.10`;
+- no same-sign `|rho| >= 0.5` drift in all four chains;
+- split-R-hat at most `1.05`; and
+- pooled ESS at least `100`.
+
+Passing qualifies only this finite `Phi_256` sampling law. Failure distinguishes
+insufficient population precision from the already separate reference-grid
+question, but it does not prove physical nonstationarity. The population stage
+retains scalar/spectral series and state hashes at calls `0,1024,5120`; it does
+not retain full state trajectories. Its wall time cap is eight hours with at
+most four solver workers.
+
+### R2 stop and continuation rule
+
+R2 opens Q2 only if both exact stages pass under their frozen contracts and a
+closeout records their final artifact/source hashes. A reference pass with a
+population failure routes only to a new population decision. A reference
+failure routes to a new target-semantic decision or a testbed pivot. Aggregate
+structure convergence may motivate a future tubular/statistical target, but it
+cannot replace the registered deterministic-path gate post hoc.

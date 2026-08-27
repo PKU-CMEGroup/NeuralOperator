@@ -742,3 +742,46 @@ limit:
 
 The complete N256 reference qualifies only if both B packets pass. B-SPATIAL
 alone cannot open R2-POP or Q2.
+
+### R2-REF-B-SPATIAL closeout and temporal authorization
+
+`M1-KF-Q1-R2-REF-20260827B-SPATIAL` completed from exact clean source commit
+`7480ad89c6737817e73324651574866598474afb` in `7632.34 s` and returned
+`spatial_candidate_qualified`. Its immutable packet bindings are:
+
+- `result.json` SHA256
+  `f32b2d4defd549de3035cbafa6bc1e129c73b43bfce18a0ac021072d16805ed4`;
+  and
+- `artifact_manifest.json` SHA256
+  `9f8de40a0b919b41ea09806e8c892c59cebea605dd815dd093d2e5f58dd67c84`.
+
+The raw adjacent-grid state discrepancies were:
+
+| Adjacent pair | H1 median / maximum | H16 median / maximum |
+| --- | ---: | ---: |
+| N128 to restricted N256 | 0.00208865 / 0.00265482 | 0.0744177 / 0.0817905 |
+| N256 to restricted N512 | 4.28628e-6 / 7.59024e-6 | 0.00611400 / 0.00620483 |
+
+The N256-to-N512 divided by N128-to-N256 contraction ratios were
+`0.002052/0.002859` for the H1 median/maximum and `0.082158/0.075863` for
+H16. The maximum discrepancies across all retained calls were `0.00027336`
+for energy, `0.00375268` for enstrophy, `0.0356805` for palinstrophy, and
+`0.00058836` for normalized-spectrum total variation. All states were finite
+and canonical. Two fresh N512 processes were bitwise equal, had scaled RMS
+`0.0`, and identical accepted-substep accounting. The complete 96-row
+N128-to-N256 overlap reproduced R1 with maximum absolute numeric difference
+`0.0`, and all regenerated Q1 input hashes matched.
+
+The result and every parent/member/source hash independently reverified. The
+source binding was exact and stable at start and end; no dataset, checkpoint,
+learned model, training, remote process, sealed test, or full state trajectory
+was accessed or retained.
+
+This is bounded finite-grid spatial evidence, not proof of continuum
+convergence. It satisfies the exact prerequisite for
+`M1-KF-Q1-R2-REF-20260827B-TEMPORAL`, which is now authorized only from a clean
+source commit that verifies the two hashes above before computation. The
+temporal grid label must be N256; this corrects a previously unused settings
+metadata value without changing the registered computation. R2-POP and Q2
+remain fail-closed until the complete reference packet passes and is
+hash-frozen.

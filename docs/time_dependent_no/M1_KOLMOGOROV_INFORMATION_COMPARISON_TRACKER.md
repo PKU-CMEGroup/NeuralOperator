@@ -18,8 +18,8 @@ redefining its gates.
 | M1-Q1-R1-SPAT | diagnosis | adjacent N64/N128/N256 spatial context | six hash-matched parent inputs | MUST | COMPLETE: SCREEN FAIL AT H16 MEDIAN | new reference/grid qualification or testbed pivot; Q2 remains closed |
 | M1-Q1-R1-AN | closeout | result-bound tables and diagnostic figures | immutable R1 packets only | MUST | COMPLETE | owner route decision; no automatic continuation |
 | M1-Q1-R2-REF-A | qualification attempt | combined N128/N256/N512 and N256 temporal qualification | same six hash-matched parent inputs; solver only | MUST | INCOMPLETE: RESOURCE CONTENTION BEFORE PACKET | closed at 238.2 min under wall cap; no scientific classification or retained result |
-| M1-Q1-R2-REF-B-SPAT | staged qualification | N128/N256/N512 path refinement and replay | same six hash-matched parent inputs; solver only | MUST | AUTHORIZED; NOT RUN | pass every spatial, replay, closure, and N512 repeatability gate; freeze exact hashes |
-| M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | CONDITIONAL; FAIL-CLOSED UNTIL B-SPAT HASH FREEZE | B-SPAT pass and exact result/manifest hashes in a clean source commit |
+| M1-Q1-R2-REF-B-SPAT | staged qualification | N128/N256/N512 path refinement and replay | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `spatial_candidate_qualified` | result `f32b2d4d...16805ed4`; manifest `9f8de40a...8dd67c84` |
+| M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | AUTHORIZED; NOT RUN | verify exact B-SPAT packet and pass every temporal, closure, and N256 repeatability gate |
 | M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | CONDITIONAL; FAIL-CLOSED UNTIL R2-REF HASH FREEZE | R2-REF pass and exact result/manifest hashes in a clean source commit |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | a new Q1 pass and A3 contract; current failed attempt is insufficient |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
@@ -239,3 +239,40 @@ resolve:
 
 The alternative is to pivot the restartable testbed. Neither route is
 authorized by this closeout.
+
+## M1-Q1-R2-REF-B-SPAT Closeout
+
+The staged spatial retry completed locally on 2026-08-27 with classification
+`spatial_candidate_qualified`. It qualifies only the registered finite-grid
+spatial half of the N256 reference contract.
+
+### Provenance and raw gates
+
+- execution source: `7480ad89c6737817e73324651574866598474afb`;
+- result SHA256:
+  `f32b2d4defd549de3035cbafa6bc1e129c73b43bfce18a0ac021072d16805ed4`;
+- manifest SHA256:
+  `9f8de40a0b919b41ea09806e8c892c59cebea605dd815dd093d2e5f58dd67c84`;
+- wall time: `7632.34 s`;
+- N256-to-N512 H1 median/maximum: `4.28628e-6/7.59024e-6`;
+- N256-to-N512 H16 median/maximum: `0.00611400/0.00620483`;
+- contraction ratios versus N128-to-N256: H1
+  `0.002052/0.002859`, H16 `0.082158/0.075863`;
+- N512 process replay: bitwise equal, scaled RMS `0.0`, identical accounting;
+- all finiteness, canonical closure, exact Q1-input replay, and 96-row R1
+  overlap checks passed; and
+- no data, checkpoint, model, training, remote, sealed-test, or full-state
+  trajectory access occurred.
+
+All child and parent manifest, artifact, and commit-source hashes independently
+reverified after completion. The much smaller N256-to-N512 discrepancies are
+strong finite-grid convergence evidence for these six trajectories, but they
+do not prove continuum convergence or qualify a population.
+
+### Routing
+
+`M1-Q1-R2-REF-B-TEMP` is now authorized from a new exact clean source commit
+that hard-verifies the B-SPAT hashes above. It must run only the unchanged N256
+`dt_max={0.002,0.001,0.0005}` H16/H64 comparison and two-process N256
+repeatability contract. R2-POP, Q2, dataset generation, and model training
+remain fail-closed.

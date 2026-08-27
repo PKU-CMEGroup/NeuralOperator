@@ -49,7 +49,15 @@ from utility.time_dependent_no.kolmogorov_reference import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RUN_ID = "M1-KF-Q1-R2-REF-20260827B-SPATIAL"
+SPATIAL_RUN_ID = "M1-KF-Q1-R2-REF-20260827B-SPATIAL"
+TEMPORAL_RUN_ID = "M1-KF-Q1-R2-REF-20260827B-TEMPORAL"
+SPATIAL_SOURCE_COMMIT = "7480ad89c6737817e73324651574866598474afb"
+SPATIAL_RESULT_SHA256 = (
+    "f32b2d4defd549de3035cbafa6bc1e129c73b43bfce18a0ac021072d16805ed4"
+)
+SPATIAL_MANIFEST_SHA256 = (
+    "9f8de40a0b919b41ea09806e8c892c59cebea605dd815dd093d2e5f58dd67c84"
+)
 R1_SOURCE_COMMIT = "26e8ef870b7b93f46326d5be451ebb4d2023f234"
 R1_MIX_RUN_ID = "M1-KF-Q1-R1-MIX-20260826A"
 R1_MIX_RESULT_SHA256 = (
@@ -71,6 +79,10 @@ R1_MIX_ROOT = (
 R1_SPATIAL_ROOT = (
     REPO_ROOT / "artifacts/time_dependent_no/m1_kolmogorov_q1_r1_spat_20260826a"
 )
+SPATIAL_ROOT = (
+    REPO_ROOT
+    / "artifacts/time_dependent_no/m1_kolmogorov_q1_r2_ref_b_spatial_20260827a"
+)
 SOURCE_PATHS = (
     "utility/time_dependent_no/kolmogorov_reference.py",
     "scripts/time_dependent_no/run_m1_kolmogorov_q1_qualification.py",
@@ -86,9 +98,7 @@ SPATIAL_REPLAY_ABSOLUTE_TOLERANCE = 1.0e-13
 TEMPORAL_WORKERS = 3
 
 
-def _full_contract() -> tuple[
-    KolmogorovReferenceConfig, R1Settings, Q1Settings
-]:
+def _full_contract() -> tuple[KolmogorovReferenceConfig, R1Settings, Q1Settings]:
     base_config, r1_settings = _r1_full_contract()
     spatial_settings = replace(
         r1_settings,
@@ -101,7 +111,7 @@ def _full_contract() -> tuple[
         observation_calls=0,
         path_horizon=16,
         structure_horizon=64,
-        spatial_resolution=512,
+        spatial_resolution=spatial_settings.spatial_resolutions[1],
         initial_rms=4.0,
         time_steps=(0.002, 0.001, 0.0005),
         perturbation_bands=spatial_settings.perturbation_bands,
@@ -109,9 +119,7 @@ def _full_contract() -> tuple[
     return base_config, spatial_settings, temporal_settings
 
 
-def _quick_contract() -> tuple[
-    KolmogorovReferenceConfig, R1Settings, Q1Settings
-]:
+def _quick_contract() -> tuple[KolmogorovReferenceConfig, R1Settings, Q1Settings]:
     base_config, r1_settings = _r1_quick_contract()
     spatial_settings = replace(
         r1_settings,
@@ -124,7 +132,7 @@ def _quick_contract() -> tuple[
         observation_calls=0,
         path_horizon=2,
         structure_horizon=4,
-        spatial_resolution=144,
+        spatial_resolution=spatial_settings.spatial_resolutions[1],
         initial_rms=spatial_settings.initial_rms,
         time_steps=(0.002, 0.001, 0.0005),
         perturbation_bands=spatial_settings.perturbation_bands,
@@ -200,6 +208,52 @@ def _verify_r1_packets() -> tuple[dict[str, Any], dict[str, Any]]:
         {"mixing": mixing_result, "spatial": spatial_result},
         {"mixing": mixing_binding, "spatial": spatial_binding},
     )
+
+
+def verify_spatial_parent_qualification(
+    result: dict[str, Any],
+) -> dict[str, object]:
+    """Fail closed unless the exact staged spatial parent is qualified."""
+
+    checks = {
+        "classification": result.get("classification") == "spatial_candidate_qualified",
+        "spatial_screen": bool(result["spatial_diagnostic"]["screen_pass"]),
+        "parent_state_replay": bool(result["parent_state_replay"]["pass"]),
+        "shared_r1_spatial_replay": bool(result["shared_r1_spatial_replay"]["pass"]),
+        "source_stable": bool(
+            result["source_binding"]["hashes_stable_during_execution"]
+        ),
+        "access_closed": not any(
+            bool(result[name])
+            for name in (
+                "data_access",
+                "checkpoint_access",
+                "model_access",
+                "training",
+                "remote_execution",
+                "test_access",
+                "full_state_trajectory_retained",
+            )
+        ),
+    }
+    if not all(checks.values()):
+        failed = [name for name, passed in checks.items() if not passed]
+        raise RuntimeError(
+            "staged spatial parent is not qualified: " + ", ".join(failed)
+        )
+    return {"checks": checks, "pass": True}
+
+
+def _verify_spatial_packet() -> tuple[dict[str, Any], dict[str, Any]]:
+    result, binding = _verify_packet(
+        SPATIAL_ROOT,
+        expected_run_id=SPATIAL_RUN_ID,
+        expected_result_sha256=SPATIAL_RESULT_SHA256,
+        expected_manifest_sha256=SPATIAL_MANIFEST_SHA256,
+        expected_source_commit=SPATIAL_SOURCE_COMMIT,
+    )
+    binding["qualification"] = verify_spatial_parent_qualification(result)
+    return result, binding
 
 
 def _source_hashes() -> dict[str, str]:
@@ -322,23 +376,20 @@ def verify_parent_input_replay(
     stationarity = parent["stationarity"]
     population = parent["population"]
     expected_initial = {
-        int(row["seed"]): str(row["sha256"])
-        for row in stationarity["initial_states"]
+        int(row["seed"]): str(row["sha256"]) for row in stationarity["initial_states"]
     }
     expected_burnin = {
         int(row["seed"]): str(row["sha256"])
         for row in stationarity["chosen_post_burnin_states"]
     }
     expected_inputs = {
-        str(row["case"]): str(row["sha256"])
-        for row in population["calibration_inputs"]
+        str(row["case"]): str(row["sha256"]) for row in population["calibration_inputs"]
     }
     rows = []
     for output in outputs:
         seed = int(output["seed"])
         input_matches = {
-            str(item["case"]): str(item["sha256"])
-            == expected_inputs[str(item["case"])]
+            str(item["case"]): str(item["sha256"]) == expected_inputs[str(item["case"])]
             for item in output["inputs"]
         }
         rows.append(
@@ -371,7 +422,14 @@ def compare_shared_spatial_rows(
     """Compare the complete N128-to-N256 overlap against retained R1 rows."""
 
     pair = "128_to_256"
-    key_fields = ("case", "family", "pair", "low_resolution", "high_resolution", "horizon")
+    key_fields = (
+        "case",
+        "family",
+        "pair",
+        "low_resolution",
+        "high_resolution",
+        "horizon",
+    )
     numeric_fields = (
         "state_relative_l2",
         "energy_relative_difference",
@@ -380,7 +438,9 @@ def compare_shared_spatial_rows(
         "spectrum_total_variation",
     )
 
-    def indexed(rows: list[dict[str, object]]) -> dict[tuple[object, ...], dict[str, object]]:
+    def indexed(
+        rows: list[dict[str, object]],
+    ) -> dict[tuple[object, ...], dict[str, object]]:
         return {
             tuple(row[field] for field in key_fields): row
             for row in rows
@@ -391,8 +451,7 @@ def compare_shared_spatial_rows(
     retained = indexed(retained_rows)
     keys_match = current.keys() == retained.keys() and bool(current)
     categorical_match = keys_match and all(
-        bool(current[key]["finite"]) == bool(retained[key]["finite"])
-        for key in current
+        bool(current[key]["finite"]) == bool(retained[key]["finite"]) for key in current
     )
     differences = [
         abs(float(current[key][field]) - float(retained[key][field]))
@@ -459,7 +518,9 @@ def summarize_temporal_rows(
         )
     )
     closure_pass = maximum_projection_relative_l2 <= canonical_tolerance
-    passed = one_step_pass and path_pass and structure_pass and all_finite and closure_pass
+    passed = (
+        one_step_pass and path_pass and structure_pass and all_finite and closure_pass
+    )
     return {
         "candidate_dt_max": candidate_dt_max,
         "reference_dt_max": reference_dt_max,
@@ -526,11 +587,7 @@ def _run_temporal(
         ]
         for future in as_completed(futures):
             outputs.append(future.result())
-    rows = [
-        row
-        for output in outputs
-        for row in output["diagnostic"]["rows"]
-    ]
+    rows = [row for output in outputs for row in output["diagnostic"]["rows"]]
     child_summaries = [output["diagnostic"]["summary"] for output in outputs]
     candidate_dt_max = max(temporal_settings.time_steps)
     reference_dt_max = min(temporal_settings.time_steps)
@@ -539,8 +596,7 @@ def _run_temporal(
         candidate_dt_max=candidate_dt_max,
         reference_dt_max=reference_dt_max,
         maximum_projection_relative_l2=max(
-            float(row["maximum_projection_relative_l2"])
-            for row in child_summaries
+            float(row["maximum_projection_relative_l2"]) for row in child_summaries
         ),
         all_finite=all(bool(row["all_finite"]) for row in child_summaries),
         canonical_tolerance=base_config.canonical_tolerance,
@@ -625,6 +681,7 @@ def _write_packet(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--stage", choices=("spatial", "temporal"), required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument(
@@ -640,91 +697,177 @@ def main() -> None:
     _ensure_empty_output_dir(args.output_dir)
     parent, parent_binding = _verify_parent_packet()
     r1_results, r1_bindings = _verify_r1_packets()
+    parent_bindings: dict[str, object] = {
+        "q1": parent_binding,
+        **r1_bindings,
+    }
+    if args.stage == "temporal":
+        _, spatial_binding = _verify_spatial_packet()
+        parent_bindings["r2_spatial"] = spatial_binding
     binding_start = _verify_source_binding(args.source_commit, quick=args.quick)
     hashes_start = _source_hashes()
-    base_config, spatial_settings, _ = (
+    base_config, spatial_settings, temporal_settings = (
         _quick_contract() if args.quick else _full_contract()
     )
     total_started = perf_counter()
 
-    spatial, spatial_rows, spatial_seconds = _run_spatial(base_config, spatial_settings)
-    spatial["rows"] = spatial_rows
-    if args.quick:
-        parent_replay: dict[str, object] = {
-            "status": "not_applicable_in_quick_mode",
-            "pass": True,
-        }
-        shared_replay: dict[str, object] = {
-            "status": "not_applicable_in_quick_mode",
-            "pass": True,
-        }
-    else:
-        parent_replay = verify_current_spatial_parent_replay(parent, spatial)
-        shared_replay = compare_shared_spatial_rows(
-            spatial_rows,
-            r1_results["spatial"]["spatial_diagnostic"]["rows"],
+    if args.stage == "spatial":
+        spatial, spatial_rows, spatial_seconds = _run_spatial(
+            base_config, spatial_settings
         )
-    if args.quick:
-        passed = (
-            bool(spatial["all_finite"])
-            and bool(spatial["closure_pass"])
-            and bool(spatial["repeatability"]["pass"])
+        spatial["rows"] = spatial_rows
+        if args.quick:
+            parent_replay: dict[str, object] = {
+                "status": "not_applicable_in_quick_mode",
+                "pass": True,
+            }
+            shared_replay: dict[str, object] = {
+                "status": "not_applicable_in_quick_mode",
+                "pass": True,
+            }
+        else:
+            parent_replay = verify_current_spatial_parent_replay(parent, spatial)
+            shared_replay = compare_shared_spatial_rows(
+                spatial_rows,
+                r1_results["spatial"]["spatial_diagnostic"]["rows"],
+            )
+        if args.quick:
+            passed = (
+                bool(spatial["all_finite"])
+                and bool(spatial["closure_pass"])
+                and bool(spatial["repeatability"]["pass"])
+            )
+        else:
+            passed = (
+                bool(spatial["screen_pass"])
+                and bool(shared_replay["pass"])
+                and bool(parent_replay["pass"])
+            )
+        classification = (
+            ("quick_plumbing_pass" if passed else "quick_plumbing_fail")
+            if args.quick
+            else (
+                "spatial_candidate_qualified" if passed else "spatial_candidate_failed"
+            )
         )
-    else:
-        passed = (
-            bool(spatial["screen_pass"])
-            and bool(shared_replay["pass"])
-            and bool(parent_replay["pass"])
-        )
-    classification = (
-        "quick_plumbing_pass" if passed else "quick_plumbing_fail"
-    ) if args.quick else (
-        "spatial_candidate_qualified" if passed else "spatial_candidate_failed"
-    )
-    result: dict[str, object] = {
-        "run_id": f"{RUN_ID}-QUICK" if args.quick else RUN_ID,
-        "created_utc": datetime.now(timezone.utc).isoformat(),
-        "scope": "synthetic_quick_spatial"
-        if args.quick
-        else "registered_solver_only_r2_b_spatial",
-        "classification": classification,
-        "source_commit": args.source_commit,
-        "source_binding": {},
-        "parent_bindings": {"q1": parent_binding, **r1_bindings},
-        "parent_state_replay": parent_replay,
-        "reference_config": asdict(base_config),
-        "spatial_settings": asdict(spatial_settings),
-        "spatial_diagnostic": spatial,
-        "shared_r1_spatial_replay": shared_replay,
-        "environment": {
-            "python": sys.version,
-            "platform": platform.platform(),
-            "machine": platform.machine(),
-            "processor": platform.processor(),
-            "numpy": np.__version__,
-            "multiprocessing_start_method": "spawn",
-            "spatial_workers": spatial_settings.workers,
-            "thread_environment": {
-                name: os.environ.get(name)
-                for name in (
-                    "OMP_NUM_THREADS",
-                    "MKL_NUM_THREADS",
-                    "OPENBLAS_NUM_THREADS",
-                )
+        run_id = SPATIAL_RUN_ID
+        result: dict[str, object] = {
+            "parent_state_replay": parent_replay,
+            "reference_config": asdict(base_config),
+            "spatial_settings": asdict(spatial_settings),
+            "spatial_diagnostic": spatial,
+            "shared_r1_spatial_replay": shared_replay,
+            "timing_seconds": {
+                "spatial": spatial_seconds,
+                "total": perf_counter() - total_started,
             },
-        },
-        "timing_seconds": {
-            "spatial": spatial_seconds,
-            "total": perf_counter() - total_started,
-        },
-        "data_access": False,
-        "checkpoint_access": False,
-        "model_access": False,
-        "training": False,
-        "remote_execution": False,
-        "test_access": False,
-        "full_state_trajectory_retained": False,
-    }
+        }
+        worker_environment = {"spatial_workers": spatial_settings.workers}
+        scope = (
+            "synthetic_quick_spatial"
+            if args.quick
+            else "registered_solver_only_r2_b_spatial"
+        )
+    else:
+        reconstruction_started = perf_counter()
+        inputs = _build_inputs(base_config, spatial_settings)
+        reconstruction_seconds = perf_counter() - reconstruction_started
+        parent_replay = (
+            {"status": "not_applicable_in_quick_mode", "pass": True}
+            if args.quick
+            else verify_parent_input_replay(parent, inputs)
+        )
+        temporal, temporal_seconds = _run_temporal(
+            base_config, spatial_settings, temporal_settings, inputs
+        )
+        if args.quick:
+            passed = (
+                bool(temporal["all_finite"])
+                and bool(temporal["closure_pass"])
+                and bool(temporal["repeatability"]["pass"])
+                and bool(temporal["rows"])
+            )
+        else:
+            passed = bool(parent_replay["pass"]) and bool(
+                temporal["pass_with_repeatability"]
+            )
+        classification = (
+            ("quick_plumbing_pass" if passed else "quick_plumbing_fail")
+            if args.quick
+            else (
+                "reference_candidate_qualified"
+                if passed
+                else "reference_candidate_failed"
+            )
+        )
+        input_metadata = [
+            {key: value for key, value in item.items() if key != "state"}
+            for output in inputs
+            for item in output["inputs"]
+        ]
+        candidate_config = replace(
+            base_config, resolution=spatial_settings.spatial_resolutions[1]
+        )
+        run_id = TEMPORAL_RUN_ID
+        result = {
+            "parent_state_replay": parent_replay,
+            "input_metadata": input_metadata,
+            "input_reconstruction_config": asdict(base_config),
+            "reference_config": asdict(candidate_config),
+            "spatial_settings": asdict(spatial_settings),
+            "temporal_settings": asdict(temporal_settings),
+            "temporal_diagnostic": temporal,
+            "timing_seconds": {
+                "input_reconstruction": reconstruction_seconds,
+                "temporal": temporal_seconds,
+                "total": perf_counter() - total_started,
+            },
+        }
+        worker_environment = {
+            "input_workers": min(spatial_settings.workers, 3),
+            "temporal_workers": TEMPORAL_WORKERS,
+        }
+        scope = (
+            "synthetic_quick_temporal"
+            if args.quick
+            else "registered_solver_only_r2_b_temporal"
+        )
+
+    result.update(
+        {
+            "run_id": f"{run_id}-QUICK" if args.quick else run_id,
+            "created_utc": datetime.now(timezone.utc).isoformat(),
+            "scope": scope,
+            "classification": classification,
+            "source_commit": args.source_commit,
+            "source_binding": {},
+            "parent_bindings": parent_bindings,
+            "environment": {
+                "python": sys.version,
+                "platform": platform.platform(),
+                "machine": platform.machine(),
+                "processor": platform.processor(),
+                "numpy": np.__version__,
+                "multiprocessing_start_method": "spawn",
+                **worker_environment,
+                "thread_environment": {
+                    name: os.environ.get(name)
+                    for name in (
+                        "OMP_NUM_THREADS",
+                        "MKL_NUM_THREADS",
+                        "OPENBLAS_NUM_THREADS",
+                    )
+                },
+            },
+            "data_access": False,
+            "checkpoint_access": False,
+            "model_access": False,
+            "training": False,
+            "remote_execution": False,
+            "test_access": False,
+            "full_state_trajectory_retained": False,
+        }
+    )
     binding_end = _verify_source_binding(args.source_commit, quick=args.quick)
     hashes_end = _source_hashes()
     if hashes_start != hashes_end:
@@ -739,7 +882,7 @@ def main() -> None:
         result,
         hashes_end,
         args.source_commit,
-        {"q1": parent_binding, **r1_bindings},
+        parent_bindings,
     )
     print(
         json.dumps(

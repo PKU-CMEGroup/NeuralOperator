@@ -10,6 +10,7 @@ from scripts.time_dependent_no.run_m1_kolmogorov_q1_r2_diagnostic import (
     summarize_temporal_rows,
     verify_current_spatial_parent_replay,
     verify_parent_input_replay,
+    verify_spatial_parent_qualification,
 )
 
 
@@ -38,6 +39,7 @@ def test_full_contract_targets_n256_under_both_reference_checks() -> None:
     assert spatial.spatial_horizon == 16
     assert spatial.spatial_dt_max == 0.0005
     assert spatial.workers == 3
+    assert temporal.spatial_resolution == 256
     assert temporal.path_horizon == 16
     assert temporal.structure_horizon == 64
     assert temporal.time_steps == (0.002, 0.001, 0.0005)
@@ -147,9 +149,7 @@ def test_current_spatial_parent_replay_uses_this_attempts_hashes() -> None:
     parent = {
         "stationarity": {
             "initial_states": [{"seed": seed, "sha256": "initial"}],
-            "chosen_post_burnin_states": [
-                {"seed": seed, "sha256": "burnin"}
-            ],
+            "chosen_post_burnin_states": [{"seed": seed, "sha256": "burnin"}],
             "chosen_burnin_calls": 512,
         },
         "population": {
@@ -172,3 +172,32 @@ def test_current_spatial_parent_replay_uses_this_attempts_hashes() -> None:
     diagnostic["input_rows"][0]["sha256"] = "wrong"
     with pytest.raises(RuntimeError, match="do not match"):
         verify_current_spatial_parent_replay(parent, diagnostic)
+
+
+def test_spatial_parent_qualification_fails_closed() -> None:
+    result = {
+        "classification": "spatial_candidate_qualified",
+        "spatial_diagnostic": {"screen_pass": True},
+        "parent_state_replay": {"pass": True},
+        "shared_r1_spatial_replay": {"pass": True},
+        "source_binding": {"hashes_stable_during_execution": True},
+        "data_access": False,
+        "checkpoint_access": False,
+        "model_access": False,
+        "training": False,
+        "remote_execution": False,
+        "test_access": False,
+        "full_state_trajectory_retained": False,
+    }
+
+    assert verify_spatial_parent_qualification(result)["pass"]
+
+    wrong_classification = copy.deepcopy(result)
+    wrong_classification["classification"] = "spatial_candidate_failed"
+    with pytest.raises(RuntimeError, match="classification"):
+        verify_spatial_parent_qualification(wrong_classification)
+
+    leaked_access = copy.deepcopy(result)
+    leaked_access["data_access"] = True
+    with pytest.raises(RuntimeError, match="access_closed"):
+        verify_spatial_parent_qualification(leaked_access)

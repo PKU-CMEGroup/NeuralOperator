@@ -785,3 +785,29 @@ temporal grid label must be N256; this corrects a previously unused settings
 metadata value without changing the registered computation. R2-POP and Q2
 remain fail-closed until the complete reference packet passes and is
 hash-frozen.
+
+### R2-REF-B-TEMPORAL launch-0 infrastructure closeout and R1 retry
+
+The first `M1-KF-Q1-R2-REF-20260827B-TEMPORAL` process launched locally from
+exact clean source commit `124512a62cf0c59fbb987b987544e76d58bfa1bf` at
+approximately 16:39 CST on 2026-08-27. One parent and three temporal workers
+started together and showed balanced CPU and memory use during the retained
+startup checks. The process was attached to a foreground Codex execution
+session, however, and did not survive that turn boundary.
+
+At the 21:11 CST retrieval audit, the parent and all three registered worker
+PIDs were absent and the registered output directory had never been created.
+There is therefore no result row, artifact manifest, temporal metric, or
+scientific classification. Launch 0 is closed as
+`incomplete_foreground_session_lifetime_before_packet`. No temporal gate may
+be inferred from its startup health.
+
+The retry identity is
+`M1-KF-Q1-R2-REF-20260827B-TEMPORAL-R1`. It changes only execution durability:
+the process must be detached in a hidden local window, redirect stdout and
+stderr to ignored infrastructure logs, record its PID/source/output/deadline
+in an ignored launch receipt, and enforce the unchanged three-hour wall cap.
+Every scientific setting, parent hash, seed, grid, time step, horizon, metric,
+threshold, worker limit, retention rule, and stop rule remains unchanged. The
+retry must launch from a new exact clean source commit and remains the only
+authorized R2 continuation. R2-POP and Q2 stay fail-closed.

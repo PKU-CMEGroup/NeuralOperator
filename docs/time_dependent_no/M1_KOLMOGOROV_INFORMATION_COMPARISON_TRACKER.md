@@ -19,7 +19,7 @@ redefining its gates.
 | M1-Q1-R1-AN | closeout | result-bound tables and diagnostic figures | immutable R1 packets only | MUST | COMPLETE | owner route decision; no automatic continuation |
 | M1-Q1-R2-REF-A | qualification attempt | combined N128/N256/N512 and N256 temporal qualification | same six hash-matched parent inputs; solver only | MUST | INCOMPLETE: RESOURCE CONTENTION BEFORE PACKET | closed at 238.2 min under wall cap; no scientific classification or retained result |
 | M1-Q1-R2-REF-B-SPAT | staged qualification | N128/N256/N512 path refinement and replay | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `spatial_candidate_qualified` | result `f32b2d4d...16805ed4`; manifest `9f8de40a...8dd67c84` |
-| M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | AUTHORIZED; NOT RUN | verify exact B-SPAT packet and pass every temporal, closure, and N256 repeatability gate |
+| M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | LAUNCH 0 INCOMPLETE; R1 RETRY AUTHORIZED | detach R1 durably; verify exact B-SPAT packet and pass every temporal, closure, and N256 repeatability gate |
 | M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | CONDITIONAL; FAIL-CLOSED UNTIL R2-REF HASH FREEZE | R2-REF pass and exact result/manifest hashes in a clean source commit |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | a new Q1 pass and A3 contract; current failed attempt is insufficient |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
@@ -276,3 +276,22 @@ that hard-verifies the B-SPAT hashes above. It must run only the unchanged N256
 `dt_max={0.002,0.001,0.0005}` H16/H64 comparison and two-process N256
 repeatability contract. R2-POP, Q2, dataset generation, and model training
 remain fail-closed.
+
+## M1-Q1-R2-REF-B-TEMP Launch-0 Closeout
+
+The first temporal launch used source
+`124512a62cf0c59fbb987b987544e76d58bfa1bf`. Its parent and three worker
+processes started healthily at approximately 16:39 CST on 2026-08-27, but the
+foreground execution tree did not survive the Codex turn boundary. At the
+21:11 CST audit, all four PIDs were absent and the output directory did not
+exist.
+
+Classification:
+`incomplete_foreground_session_lifetime_before_packet`. This is an
+infrastructure result only. It supplies no temporal metric or scientific gate
+evidence, and no result-to-claim judgment is available.
+
+The unique retry `M1-KF-Q1-R2-REF-20260827B-TEMPORAL-R1` is authorized with
+the unchanged scientific contract. It must use a detached hidden process,
+ignored stdout/stderr and launch receipts, and the same three-hour wall cap.
+R2-POP and Q2 remain fail-closed.

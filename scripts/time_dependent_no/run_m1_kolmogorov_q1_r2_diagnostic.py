@@ -34,6 +34,7 @@ from scripts.time_dependent_no.run_m1_kolmogorov_q1_r1_diagnostic import (
     R1Settings,
     _run_spatial,
     _verify_parent_packet,
+    _verify_spatial_parent_replay,
 )
 from scripts.time_dependent_no.run_m1_kolmogorov_q1_r1_diagnostic import (
     _full_contract as _r1_full_contract,
@@ -48,7 +49,7 @@ from utility.time_dependent_no.kolmogorov_reference import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RUN_ID = "M1-KF-Q1-R2-REF-20260827A"
+RUN_ID = "M1-KF-Q1-R2-REF-20260827B-SPATIAL"
 R1_SOURCE_COMMIT = "26e8ef870b7b93f46326d5be451ebb4d2023f234"
 R1_MIX_RUN_ID = "M1-KF-Q1-R1-MIX-20260826A"
 R1_MIX_RESULT_SHA256 = (
@@ -567,6 +568,35 @@ def _ensure_empty_output_dir(output_dir: Path) -> None:
         raise FileExistsError(f"output directory is not empty: {output_dir}")
 
 
+def verify_current_spatial_parent_replay(
+    parent: dict[str, object], diagnostic: dict[str, object]
+) -> dict[str, object]:
+    """Verify this attempt's regenerated spatial inputs against parent Q1."""
+
+    initial_rows = diagnostic["initial_rows"]
+    post_burnin_rows = diagnostic["post_burnin_rows"]
+    input_rows = diagnostic["input_rows"]
+    outputs = []
+    for row in initial_rows:
+        seed = int(row["seed"])
+        index = INITIAL_SEEDS.index(seed)
+        outputs.append(
+            {
+                "seed": seed,
+                "initial": row,
+                "post_burnin": next(
+                    item for item in post_burnin_rows if int(item["seed"]) == seed
+                ),
+                "inputs": [
+                    item
+                    for item in input_rows
+                    if str(item["case"]).endswith(str(index))
+                ],
+            }
+        )
+    return _verify_spatial_parent_replay(parent, outputs)
+
+
 def _write_packet(
     output_dir: Path,
     result: dict[str, object],
@@ -612,89 +642,60 @@ def main() -> None:
     r1_results, r1_bindings = _verify_r1_packets()
     binding_start = _verify_source_binding(args.source_commit, quick=args.quick)
     hashes_start = _source_hashes()
-    base_config, spatial_settings, temporal_settings = (
+    base_config, spatial_settings, _ = (
         _quick_contract() if args.quick else _full_contract()
     )
     total_started = perf_counter()
 
-    spatial, spatial_rows, spatial_seconds = _run_spatial(
-        base_config, spatial_settings
-    )
+    spatial, spatial_rows, spatial_seconds = _run_spatial(base_config, spatial_settings)
     spatial["rows"] = spatial_rows
     if args.quick:
         parent_replay: dict[str, object] = {
-            "status": "not_applicable_in_quick_mode"
+            "status": "not_applicable_in_quick_mode",
+            "pass": True,
         }
         shared_replay: dict[str, object] = {
             "status": "not_applicable_in_quick_mode",
             "pass": True,
         }
     else:
-        parent_replay = {
-            "status": "verified_by_r1_spatial_replay",
-            "pass": bool(r1_results["spatial"]["parent_state_replay"]["pass"]),
-        }
+        parent_replay = verify_current_spatial_parent_replay(parent, spatial)
         shared_replay = compare_shared_spatial_rows(
             spatial_rows,
             r1_results["spatial"]["spatial_diagnostic"]["rows"],
         )
-
-    inputs = _build_inputs(base_config, spatial_settings)
-    input_replay = (
-        {"status": "not_applicable_in_quick_mode", "pass": True}
-        if args.quick
-        else verify_parent_input_replay(parent, inputs)
-    )
-    temporal, temporal_seconds = _run_temporal(
-        base_config, spatial_settings, temporal_settings, inputs
-    )
     if args.quick:
         passed = (
             bool(spatial["all_finite"])
             and bool(spatial["closure_pass"])
             and bool(spatial["repeatability"]["pass"])
-            and bool(temporal["all_finite"])
-            and bool(temporal["closure_pass"])
-            and bool(temporal["repeatability"]["pass"])
         )
     else:
         passed = (
             bool(spatial["screen_pass"])
             and bool(shared_replay["pass"])
-            and bool(input_replay["pass"])
-            and bool(temporal["pass_with_repeatability"])
+            and bool(parent_replay["pass"])
         )
     classification = (
         "quick_plumbing_pass" if passed else "quick_plumbing_fail"
     ) if args.quick else (
-        "reference_candidate_qualified" if passed else "reference_candidate_failed"
+        "spatial_candidate_qualified" if passed else "spatial_candidate_failed"
     )
-
-    input_metadata = []
-    for output in inputs:
-        for item in output["inputs"]:
-            input_metadata.append(
-                {key: value for key, value in item.items() if key != "state"}
-            )
     result: dict[str, object] = {
         "run_id": f"{RUN_ID}-QUICK" if args.quick else RUN_ID,
         "created_utc": datetime.now(timezone.utc).isoformat(),
-        "scope": "synthetic_quick_reference"
+        "scope": "synthetic_quick_spatial"
         if args.quick
-        else "registered_solver_only_r2_reference",
+        else "registered_solver_only_r2_b_spatial",
         "classification": classification,
         "source_commit": args.source_commit,
         "source_binding": {},
         "parent_bindings": {"q1": parent_binding, **r1_bindings},
         "parent_state_replay": parent_replay,
-        "input_replay": input_replay,
-        "input_metadata": input_metadata,
         "reference_config": asdict(base_config),
         "spatial_settings": asdict(spatial_settings),
-        "temporal_settings": asdict(temporal_settings),
         "spatial_diagnostic": spatial,
         "shared_r1_spatial_replay": shared_replay,
-        "temporal_diagnostic": temporal,
         "environment": {
             "python": sys.version,
             "platform": platform.platform(),
@@ -703,7 +704,6 @@ def main() -> None:
             "numpy": np.__version__,
             "multiprocessing_start_method": "spawn",
             "spatial_workers": spatial_settings.workers,
-            "temporal_workers": TEMPORAL_WORKERS,
             "thread_environment": {
                 name: os.environ.get(name)
                 for name in (
@@ -715,7 +715,6 @@ def main() -> None:
         },
         "timing_seconds": {
             "spatial": spatial_seconds,
-            "temporal": temporal_seconds,
             "total": perf_counter() - total_started,
         },
         "data_access": False,

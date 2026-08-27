@@ -2,7 +2,7 @@
 
 Date: 2026-08-26
 
-Status: **M1-Q1-R2 REFERENCE QUALIFICATION AUTHORIZED; Q2 NOT AUTHORIZED**. This document does not
+Status: **M1-Q1-R2-B SPATIAL STAGE AUTHORIZED; Q2 NOT AUTHORIZED**. This document does not
 authorize dataset-scale generation, checkpoint access, model training, remote
 execution, or sealed evaluation. Every later stage requires the named
 authorization in the execution ladder.
@@ -708,3 +708,37 @@ population failure routes only to a new population decision. A reference
 failure routes to a new target-semantic decision or a testbed pivot. Aggregate
 structure convergence may motivate a future tubular/statistical target, but it
 cannot replace the registered deterministic-path gate post hoc.
+
+### R2-REF-A infrastructure closeout and staged retry
+
+The exact `M1-KF-Q1-R2-REF-20260827A` process launched from source commit
+`e8667c42d639e8f552a8457dd6d8f1784e6b7e29` with all registered source paths
+clean. It rehashed Q1 and both R1 parent chains, completed all six spatial
+trajectories, advanced through the N512 repeatability pool and independent
+parent-input reconstruction, and entered the three-worker N256 temporal
+refinement. Sustained concurrent CPU contention then reduced each temporal
+worker to a small fraction of one core. The process was stopped at 238.2 wall
+minutes, before the four-hour cap, while all three temporal futures remained
+incomplete.
+
+No output directory or result row was written. Therefore attempt A has no
+scientific classification: spatial completion in process memory is not a
+retained spatial pass, and no temporal metric may be inferred. No dataset,
+checkpoint, learned model, remote process, or sealed population was accessed.
+The attempt is closed as `incomplete_resource_contention_before_packet`.
+
+The retry changes only failure isolation and artifact persistence. It does not
+change any state, grid, step size, horizon, metric, threshold, seed, or worker
+limit:
+
+1. `M1-KF-Q1-R2-REF-20260827B-SPATIAL` runs and persists the registered
+   N128/N256/N512 stage, exact Q1 input hashes, the complete N128-to-N256 R1
+   overlap replay, N512 repeatability, source hashes, and final artifact hashes.
+   Its wall-time cap is three hours.
+2. `M1-KF-Q1-R2-REF-20260827B-TEMPORAL` remains fail-closed until the spatial
+   stage qualifies and its exact result and manifest hashes are amended here in
+   a clean source commit. It then runs only the unchanged N256 time-refinement
+   and repeatability contract with a separate three-hour cap.
+
+The complete N256 reference qualifies only if both B packets pass. B-SPATIAL
+alone cannot open R2-POP or Q2.

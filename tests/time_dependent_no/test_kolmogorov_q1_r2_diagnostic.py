@@ -8,6 +8,7 @@ from scripts.time_dependent_no.run_m1_kolmogorov_q1_r2_diagnostic import (
     _full_contract,
     compare_shared_spatial_rows,
     summarize_temporal_rows,
+    verify_current_spatial_parent_replay,
     verify_parent_input_replay,
 )
 
@@ -139,3 +140,35 @@ def test_parent_input_replay_is_exact_and_fails_closed() -> None:
     outputs[0]["inputs"][1]["sha256"] = "wrong"
     with pytest.raises(RuntimeError, match="do not match"):
         verify_parent_input_replay(parent, outputs)
+
+
+def test_current_spatial_parent_replay_uses_this_attempts_hashes() -> None:
+    seed = 2026082601
+    parent = {
+        "stationarity": {
+            "initial_states": [{"seed": seed, "sha256": "initial"}],
+            "chosen_post_burnin_states": [
+                {"seed": seed, "sha256": "burnin"}
+            ],
+            "chosen_burnin_calls": 512,
+        },
+        "population": {
+            "calibration_inputs": [
+                {"case": "clean_0", "sha256": "clean"},
+                {"case": "displaced_0", "sha256": "displaced"},
+            ]
+        },
+    }
+    diagnostic = {
+        "initial_rows": [{"seed": seed, "sha256": "initial"}],
+        "post_burnin_rows": [{"seed": seed, "sha256": "burnin"}],
+        "input_rows": [
+            {"case": "clean_0", "sha256": "clean"},
+            {"case": "displaced_0", "sha256": "displaced"},
+        ],
+    }
+
+    assert verify_current_spatial_parent_replay(parent, diagnostic)["pass"]
+    diagnostic["input_rows"][0]["sha256"] = "wrong"
+    with pytest.raises(RuntimeError, match="do not match"):
+        verify_current_spatial_parent_replay(parent, diagnostic)

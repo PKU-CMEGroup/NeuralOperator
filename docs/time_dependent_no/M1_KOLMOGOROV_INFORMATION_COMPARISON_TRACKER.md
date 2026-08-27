@@ -1,6 +1,6 @@
 # M1 Kolmogorov Information-Source Comparison Tracker
 
-Date: 2026-08-27
+Date: 2026-08-28
 
 This is the compact execution surface for
 [the M1 preregistration](M1_KOLMOGOROV_INFORMATION_COMPARISON_PREREGISTRATION.md).
@@ -19,9 +19,9 @@ redefining its gates.
 | M1-Q1-R1-AN | closeout | result-bound tables and diagnostic figures | immutable R1 packets only | MUST | COMPLETE | owner route decision; no automatic continuation |
 | M1-Q1-R2-REF-A | qualification attempt | combined N128/N256/N512 and N256 temporal qualification | same six hash-matched parent inputs; solver only | MUST | INCOMPLETE: RESOURCE CONTENTION BEFORE PACKET | closed at 238.2 min under wall cap; no scientific classification or retained result |
 | M1-Q1-R2-REF-B-SPAT | staged qualification | N128/N256/N512 path refinement and replay | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `spatial_candidate_qualified` | result `f32b2d4d...16805ed4`; manifest `9f8de40a...8dd67c84` |
-| M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | LAUNCH 0 INCOMPLETE; R1 RETRY AUTHORIZED | detach R1 durably; verify exact B-SPAT packet and pass every temporal, closure, and N256 repeatability gate |
-| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | CONDITIONAL; FAIL-CLOSED UNTIL R2-REF HASH FREEZE | R2-REF pass and exact result/manifest hashes in a clean source commit |
-| M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | a new Q1 pass and A3 contract; current failed attempt is insufficient |
+| M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `reference_candidate_qualified` | result `460eb8d3...c847196`; manifest `af0b7bb1...ebb5412`; launcher exit-code capture failed after packet completion |
+| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | AUTHORIZED ONLY FROM CLEAN HASH-FREEZE COMMIT; NOT LAUNCHED | exact R2 spatial and temporal packets plus registered population source must rehash before execution |
+| M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | R2-POP pass, hash-frozen complete R2 closeout, and a named A3 contract |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
 | M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |
 | M1-I1 | replication | remaining two seeds for four arms | open validation only | MUST | NOT AUTHORIZED | I0 correctness review and explicit continuation |
@@ -295,3 +295,58 @@ The unique retry `M1-KF-Q1-R2-REF-20260827B-TEMPORAL-R1` is authorized with
 the unchanged scientific contract. It must use a detached hidden process,
 ignored stdout/stderr and launch receipts, and the same three-hour wall cap.
 R2-POP and Q2 remain fail-closed.
+
+## M1-Q1-R2-REF-B-TEMPORAL-R1 Closeout
+
+The unique detached retry completed locally on 2026-08-27 from source commit
+`6f64fc5b3ad41e24e5f2bce973eb5b555bb74dfe` with classification
+`reference_candidate_qualified`.
+
+### Provenance and integrity
+
+- ignored packet:
+  `artifacts/time_dependent_no/m1_kolmogorov_q1_r2_ref_b_temporal_r1_20260827a/`;
+- `result.json` SHA256:
+  `460eb8d32df28f58ef2497f86b4374ec16477d88fa6fa872149c395d5c847196`;
+- `artifact_manifest.json` SHA256:
+  `af0b7bb197736bce337c7b92f189a056ed4cf6ee636d28d2a57cb471febb5412`;
+- the result member, 9/9 source hashes at the execution commit, and all exact
+  Q1/R1/R2 parent artifacts and commit-source hashes independently pass;
+- source binding was exact and stable at start and end;
+- runtime was `6757.97 s`; and
+- no data, checkpoint, learned model, training, remote execution, sealed test,
+  or full state trajectory was accessed or retained.
+
+### Raw gate record
+
+| Family | H1 median / maximum | H16 median / maximum |
+| --- | ---: | ---: |
+| clean | 1.26298e-7 / 1.43774e-7 | 2.65805e-7 / 8.77155e-7 |
+| displaced | 1.25647e-7 / 1.44608e-7 | 3.26673e-7 / 8.84666e-7 |
+
+The registered limits are `1e-5/1e-4` at H1 and `1e-3/5e-3` at H16. Maximum
+H64 energy, enstrophy, and spectrum discrepancies were `2.26376e-9`,
+`5.99805e-9`, and `4.30158e-9`, each against `0.02`. Maximum canonical
+projection change was `3.21836e-16` against `1e-11`; all rows were finite.
+Repeatability was bitwise exact with scaled RMS `0.0` and identical accepted
+substep accounting.
+
+The raw detached launch receipt records `runner_failed` because its Windows
+PowerShell wrapper captured a null exit code and treated null as nonzero. The
+complete success JSON and packet were written, stderr is empty, and the packet
+independently passes every gate. Preserve the receipt under the bounded label
+`qualified_packet_with_launcher_exitcode_capture_failure`; do not rewrite it
+or claim that the original operating-system exit code was observed as zero.
+
+### Result-to-claim routing
+
+Local verdict, pending any separately approved external review:
+
+- `claim_supported: yes` for the exact registered N256 finite-grid reference
+  qualification across the frozen spatial and temporal packets;
+- supported: bounded adjacent-grid contraction, fixed-input temporal
+  refinement, canonical closure, finiteness, and deterministic process replay;
+- not supported: continuum convergence, fresh-population stationarity, model
+  competence, corrective-information benefit, M1-C1, or M1-C2; and
+- route: execute only the preregistered R2-POP sampling-law qualification from
+  the clean hash-freeze source. Q2 remains closed.

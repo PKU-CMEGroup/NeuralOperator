@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import asdict
 
 import pytest
 
 from scripts.time_dependent_no.run_m1_kolmogorov_q1_r2_diagnostic import (
+    POPULATION_RETAINED_ARRAY_KEYS,
+    POPULATION_SEEDS,
+    POPULATION_WALL_TIME_CAP_SECONDS,
     _full_contract,
+    _population_contract,
     compare_shared_spatial_rows,
+    summarize_population_qualification,
     summarize_temporal_rows,
     verify_current_spatial_parent_replay,
     verify_parent_input_replay,
     verify_spatial_parent_qualification,
+    verify_temporal_parent_qualification,
 )
 
 
@@ -43,6 +50,32 @@ def test_full_contract_targets_n256_under_both_reference_checks() -> None:
     assert temporal.path_horizon == 16
     assert temporal.structure_horizon == 64
     assert temporal.time_steps == (0.002, 0.001, 0.0005)
+
+
+def test_population_contract_matches_frozen_preregistration() -> None:
+    config, settings = _population_contract()
+
+    assert config.resolution == 256
+    assert config.dt_max == 0.002
+    assert POPULATION_SEEDS == (
+        2026083101,
+        2026083102,
+        2026083103,
+        2026083104,
+    )
+    assert settings.total_calls == 5120
+    assert settings.capture_calls == (0, 1024, 5120)
+    assert settings.burnin_candidates == (1024,)
+    assert settings.observation_calls == 4096
+    assert settings.block_calls == 512
+    assert settings.half_change_maximum == 0.10
+    assert settings.drift_spearman_minimum == 0.5
+    assert settings.split_rhat_maximum == 1.05
+    assert settings.pooled_ess_minimum == 100.0
+    assert settings.initial_rms == 4.0
+    assert settings.workers == 4
+    assert POPULATION_WALL_TIME_CAP_SECONDS == 8 * 60 * 60
+    assert "state" not in POPULATION_RETAINED_ARRAY_KEYS
 
 
 def test_shared_spatial_replay_checks_every_key_and_numeric_value() -> None:
@@ -201,3 +234,91 @@ def test_spatial_parent_qualification_fails_closed() -> None:
     leaked_access["data_access"] = True
     with pytest.raises(RuntimeError, match="access_closed"):
         verify_spatial_parent_qualification(leaked_access)
+
+
+def _qualified_temporal_parent() -> dict[str, object]:
+    config, _ = _population_contract()
+    return {
+        "classification": "reference_candidate_qualified",
+        "reference_config": asdict(config),
+        "temporal_diagnostic": {"pass_with_repeatability": True},
+        "parent_state_replay": {"pass": True},
+        "parent_bindings": {
+            "r2_spatial": {"qualification": {"pass": True}},
+        },
+        "source_binding": {"hashes_stable_during_execution": True},
+        "data_access": False,
+        "checkpoint_access": False,
+        "model_access": False,
+        "training": False,
+        "remote_execution": False,
+        "test_access": False,
+        "full_state_trajectory_retained": False,
+    }
+
+
+def test_temporal_parent_qualification_fails_closed() -> None:
+    result = _qualified_temporal_parent()
+    assert verify_temporal_parent_qualification(result)["pass"]
+
+    wrong_grid = copy.deepcopy(result)
+    wrong_grid["reference_config"]["resolution"] = 128
+    with pytest.raises(RuntimeError, match="reference_contract"):
+        verify_temporal_parent_qualification(wrong_grid)
+
+    failed_temporal_gate = copy.deepcopy(result)
+    failed_temporal_gate["temporal_diagnostic"][
+        "pass_with_repeatability"
+    ] = False
+    with pytest.raises(RuntimeError, match="temporal_gates"):
+        verify_temporal_parent_qualification(failed_temporal_gate)
+
+    leaked_access = copy.deepcopy(result)
+    leaked_access["model_access"] = True
+    with pytest.raises(RuntimeError, match="access_closed"):
+        verify_temporal_parent_qualification(leaked_access)
+
+
+def _qualified_population_diagnostic() -> dict[str, object]:
+    return {
+        "candidates": [
+            {
+                "burnin_calls": 1024,
+                "observation_start_call": 1025,
+                "observation_end_call": 5120,
+                "energy": {"pass": True},
+                "enstrophy": {"pass": True},
+                "pass": True,
+            }
+        ],
+        "capture_rows": [
+            {
+                "seed": seed,
+                "states": [{"call": call} for call in (0, 1024, 5120)],
+            }
+            for seed in POPULATION_SEEDS
+        ],
+        "all_finite": True,
+    }
+
+
+def test_population_qualification_requires_exact_window_and_both_metrics() -> None:
+    _, settings = _population_contract()
+    diagnostic = _qualified_population_diagnostic()
+
+    passed = summarize_population_qualification(diagnostic, settings)
+    assert passed["plumbing_pass"]
+    assert passed["pass"]
+
+    failed_enstrophy = copy.deepcopy(diagnostic)
+    failed_enstrophy["candidates"][0]["enstrophy"]["pass"] = False
+    failed_enstrophy["candidates"][0]["pass"] = False
+    failed = summarize_population_qualification(failed_enstrophy, settings)
+    assert failed["plumbing_pass"]
+    assert not failed["pass"]
+
+    wrong_capture = copy.deepcopy(diagnostic)
+    wrong_capture["capture_rows"][0]["states"][-1]["call"] = 5119
+    malformed = summarize_population_qualification(wrong_capture, settings)
+    assert not malformed["plumbing_pass"]
+    assert not malformed["pass"]

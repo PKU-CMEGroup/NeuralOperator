@@ -32,6 +32,8 @@ from scripts.time_dependent_no.run_m1_kolmogorov_q1_qualification import (
 )
 from scripts.time_dependent_no.run_m1_kolmogorov_q1_r1_diagnostic import (
     R1Settings,
+    _mixing_summary,
+    _mixing_worker,
     _run_spatial,
     _verify_parent_packet,
     _verify_spatial_parent_replay,
@@ -51,12 +53,21 @@ from utility.time_dependent_no.kolmogorov_reference import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SPATIAL_RUN_ID = "M1-KF-Q1-R2-REF-20260827B-SPATIAL"
 TEMPORAL_RUN_ID = "M1-KF-Q1-R2-REF-20260827B-TEMPORAL-R1"
+POPULATION_RUN_ID = "M1-KF-Q1-R2-POP-20260827A"
+POPULATION_SEEDS = (2026083101, 2026083102, 2026083103, 2026083104)
 SPATIAL_SOURCE_COMMIT = "7480ad89c6737817e73324651574866598474afb"
 SPATIAL_RESULT_SHA256 = (
     "f32b2d4defd549de3035cbafa6bc1e129c73b43bfce18a0ac021072d16805ed4"
 )
 SPATIAL_MANIFEST_SHA256 = (
     "9f8de40a0b919b41ea09806e8c892c59cebea605dd815dd093d2e5f58dd67c84"
+)
+TEMPORAL_SOURCE_COMMIT = "6f64fc5b3ad41e24e5f2bce973eb5b555bb74dfe"
+TEMPORAL_RESULT_SHA256 = (
+    "460eb8d32df28f58ef2497f86b4374ec16477d88fa6fa872149c395d5c847196"
+)
+TEMPORAL_MANIFEST_SHA256 = (
+    "af0b7bb197736bce337c7b92f189a056ed4cf6ee636d28d2a57cb471febb5412"
 )
 R1_SOURCE_COMMIT = "26e8ef870b7b93f46326d5be451ebb4d2023f234"
 R1_MIX_RUN_ID = "M1-KF-Q1-R1-MIX-20260826A"
@@ -83,6 +94,10 @@ SPATIAL_ROOT = (
     REPO_ROOT
     / "artifacts/time_dependent_no/m1_kolmogorov_q1_r2_ref_b_spatial_20260827a"
 )
+TEMPORAL_ROOT = (
+    REPO_ROOT
+    / "artifacts/time_dependent_no/m1_kolmogorov_q1_r2_ref_b_temporal_r1_20260827a"
+)
 SOURCE_PATHS = (
     "utility/time_dependent_no/kolmogorov_reference.py",
     "scripts/time_dependent_no/run_m1_kolmogorov_q1_qualification.py",
@@ -96,6 +111,18 @@ SOURCE_PATHS = (
 )
 SPATIAL_REPLAY_ABSOLUTE_TOLERANCE = 1.0e-13
 TEMPORAL_WORKERS = 3
+POPULATION_WALL_TIME_CAP_SECONDS = 8 * 60 * 60
+POPULATION_RETAINED_ARRAY_KEYS = (
+    "seeds",
+    "calls",
+    "energy",
+    "enstrophy",
+    "palinstrophy",
+    "spectra",
+    "substeps",
+    "minimum_substep",
+    "maximum_substep",
+)
 
 
 def _full_contract() -> tuple[KolmogorovReferenceConfig, R1Settings, Q1Settings]:
@@ -138,6 +165,55 @@ def _quick_contract() -> tuple[KolmogorovReferenceConfig, R1Settings, Q1Settings
         perturbation_bands=spatial_settings.perturbation_bands,
     )
     return base_config, spatial_settings, temporal_settings
+
+
+def _population_contract() -> tuple[KolmogorovReferenceConfig, R1Settings]:
+    base_config, base_settings = _r1_full_contract()
+    config = replace(base_config, resolution=256, dt_max=0.002).validated()
+    settings = replace(
+        base_settings,
+        total_calls=5120,
+        capture_calls=(0, 1024, 5120),
+        burnin_candidates=(1024,),
+        observation_calls=4096,
+        block_calls=512,
+        reproduction_burnin=1024,
+        workers=4,
+    ).validated()
+    return config, settings
+
+
+def _quick_population_contract() -> tuple[KolmogorovReferenceConfig, R1Settings]:
+    base_config, base_settings = _r1_quick_contract()
+    settings = replace(
+        base_settings,
+        total_calls=24,
+        capture_calls=(0, 8, 24),
+        burnin_candidates=(8,),
+        observation_calls=16,
+        block_calls=4,
+        reproduction_burnin=8,
+        workers=2,
+    ).validated()
+    return base_config, settings
+
+
+def _population_settings_record(settings: R1Settings) -> dict[str, object]:
+    return {
+        "seeds": list(POPULATION_SEEDS),
+        "burnin_calls": settings.burnin_candidates[0],
+        "observation_calls": settings.observation_calls,
+        "total_calls": settings.total_calls,
+        "block_calls": settings.block_calls,
+        "capture_calls": list(settings.capture_calls),
+        "half_change_maximum": settings.half_change_maximum,
+        "drift_spearman_minimum": settings.drift_spearman_minimum,
+        "split_rhat_maximum": settings.split_rhat_maximum,
+        "pooled_ess_minimum": settings.pooled_ess_minimum,
+        "initial_rms": settings.initial_rms,
+        "workers": settings.workers,
+        "wall_time_cap_seconds": POPULATION_WALL_TIME_CAP_SECONDS,
+    }
 
 
 def _verify_packet(
@@ -253,6 +329,59 @@ def _verify_spatial_packet() -> tuple[dict[str, Any], dict[str, Any]]:
         expected_source_commit=SPATIAL_SOURCE_COMMIT,
     )
     binding["qualification"] = verify_spatial_parent_qualification(result)
+    return result, binding
+
+
+def verify_temporal_parent_qualification(
+    result: dict[str, Any],
+) -> dict[str, object]:
+    """Fail closed unless the exact staged temporal parent qualifies R2-REF."""
+
+    reference = result["reference_config"]
+    expected_reference = asdict(_population_contract()[0])
+    spatial_parent = result["parent_bindings"]["r2_spatial"]
+    checks = {
+        "classification": result.get("classification")
+        == "reference_candidate_qualified",
+        "temporal_gates": bool(
+            result["temporal_diagnostic"]["pass_with_repeatability"]
+        ),
+        "parent_state_replay": bool(result["parent_state_replay"]["pass"]),
+        "spatial_parent_qualified": bool(spatial_parent["qualification"]["pass"]),
+        "reference_contract": reference == expected_reference,
+        "source_stable": bool(
+            result["source_binding"]["hashes_stable_during_execution"]
+        ),
+        "access_closed": not any(
+            bool(result[name])
+            for name in (
+                "data_access",
+                "checkpoint_access",
+                "model_access",
+                "training",
+                "remote_execution",
+                "test_access",
+                "full_state_trajectory_retained",
+            )
+        ),
+    }
+    if not all(checks.values()):
+        failed = [name for name, passed in checks.items() if not passed]
+        raise RuntimeError(
+            "staged temporal parent is not qualified: " + ", ".join(failed)
+        )
+    return {"checks": checks, "pass": True}
+
+
+def _verify_temporal_packet() -> tuple[dict[str, Any], dict[str, Any]]:
+    result, binding = _verify_packet(
+        TEMPORAL_ROOT,
+        expected_run_id=TEMPORAL_RUN_ID,
+        expected_result_sha256=TEMPORAL_RESULT_SHA256,
+        expected_manifest_sha256=TEMPORAL_MANIFEST_SHA256,
+        expected_source_commit=TEMPORAL_SOURCE_COMMIT,
+    )
+    binding["qualification"] = verify_temporal_parent_qualification(result)
     return result, binding
 
 
@@ -619,6 +748,95 @@ def _run_temporal(
     return summary, perf_counter() - started
 
 
+def summarize_population_qualification(
+    diagnostic: dict[str, object],
+    settings: R1Settings,
+    *,
+    seeds: tuple[int, ...] = POPULATION_SEEDS,
+) -> dict[str, object]:
+    """Apply the exact one-window R2-POP sampling-law contract."""
+
+    candidates = diagnostic.get("candidates", [])
+    candidate = candidates[0] if isinstance(candidates, list) and candidates else {}
+    if not isinstance(candidate, dict):
+        candidate = {}
+    energy = candidate.get("energy", {})
+    enstrophy = candidate.get("enstrophy", {})
+    if not isinstance(energy, dict):
+        energy = {}
+    if not isinstance(enstrophy, dict):
+        enstrophy = {}
+
+    expected_burnin = settings.burnin_candidates[0]
+    expected_calls = tuple(settings.capture_calls)
+    capture_rows = diagnostic.get("capture_rows", [])
+    if not isinstance(capture_rows, list):
+        capture_rows = []
+    captured_seeds = tuple(sorted(int(row["seed"]) for row in capture_rows))
+    capture_identity = len(capture_rows) == len(seeds) and all(
+        tuple(int(state["call"]) for state in row.get("states", []))
+        == expected_calls
+        for row in capture_rows
+    )
+
+    checks = {
+        "one_registered_window": len(candidates) == 1,
+        "window_identity": int(candidate.get("burnin_calls", -1))
+        == expected_burnin
+        and int(candidate.get("observation_start_call", -1))
+        == expected_burnin + 1
+        and int(candidate.get("observation_end_call", -1))
+        == expected_burnin + settings.observation_calls,
+        "seed_identity": captured_seeds == tuple(sorted(seeds)),
+        "capture_identity": capture_identity,
+        "all_finite": bool(diagnostic.get("all_finite", False)),
+        "energy_gates": bool(energy.get("pass", False)),
+        "enstrophy_gates": bool(enstrophy.get("pass", False)),
+        "joint_gate": bool(candidate.get("pass", False)),
+    }
+    plumbing_names = (
+        "one_registered_window",
+        "window_identity",
+        "seed_identity",
+        "capture_identity",
+        "all_finite",
+    )
+    plumbing_pass = all(checks[name] for name in plumbing_names)
+    return {
+        "checks": checks,
+        "plumbing_pass": plumbing_pass,
+        "pass": plumbing_pass
+        and checks["energy_gates"]
+        and checks["enstrophy_gates"]
+        and checks["joint_gate"],
+    }
+
+
+def _run_population(
+    config: KolmogorovReferenceConfig,
+    settings: R1Settings,
+) -> tuple[dict[str, object], dict[str, np.ndarray], float]:
+    started = perf_counter()
+    context = mp.get_context("spawn")
+    outputs = []
+    with ProcessPoolExecutor(
+        max_workers=settings.workers, mp_context=context
+    ) as executor:
+        futures = [
+            executor.submit(_mixing_worker, asdict(config), settings, seed)
+            for seed in POPULATION_SEEDS
+        ]
+        for future in as_completed(futures):
+            outputs.append(future.result())
+    summary, arrays = _mixing_summary(outputs, settings)
+    if set(arrays) != set(POPULATION_RETAINED_ARRAY_KEYS):
+        raise RuntimeError("R2-POP retained-array inventory changed")
+    summary["qualification"] = summarize_population_qualification(
+        summary, settings
+    )
+    return summary, arrays, perf_counter() - started
+
+
 def _ensure_empty_output_dir(output_dir: Path) -> None:
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(f"output directory is not empty: {output_dir}")
@@ -659,17 +877,24 @@ def _write_packet(
     source_hashes: dict[str, str],
     source_commit: str,
     parent_bindings: dict[str, object],
+    arrays: dict[str, np.ndarray] | None = None,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    artifacts = {}
+    if arrays is not None:
+        series_path = output_dir / "series.npz"
+        np.savez_compressed(series_path, **arrays)
+        artifacts[series_path.name] = _sha256(series_path)
     result_path = output_dir / "result.json"
     result_path.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    artifacts[result_path.name] = _sha256(result_path)
     manifest = {
         "run_id": result["run_id"],
         "source_commit": source_commit,
         "parents": parent_bindings,
-        "artifacts": {"result.json": _sha256(result_path)},
+        "artifacts": artifacts,
         "sources": source_hashes,
     }
     manifest_path = output_dir / "artifact_manifest.json"
@@ -681,7 +906,9 @@ def _write_packet(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stage", choices=("spatial", "temporal"), required=True)
+    parser.add_argument(
+        "--stage", choices=("spatial", "temporal", "population"), required=True
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument(
@@ -701,15 +928,22 @@ def main() -> None:
         "q1": parent_binding,
         **r1_bindings,
     }
-    if args.stage == "temporal":
+    if args.stage in {"temporal", "population"}:
         _, spatial_binding = _verify_spatial_packet()
         parent_bindings["r2_spatial"] = spatial_binding
+    if args.stage == "population":
+        _, temporal_binding = _verify_temporal_packet()
+        parent_bindings["r2_temporal"] = temporal_binding
     binding_start = _verify_source_binding(args.source_commit, quick=args.quick)
     hashes_start = _source_hashes()
     base_config, spatial_settings, temporal_settings = (
         _quick_contract() if args.quick else _full_contract()
     )
+    population_config, population_settings = (
+        _quick_population_contract() if args.quick else _population_contract()
+    )
     total_started = perf_counter()
+    retained_arrays: dict[str, np.ndarray] | None = None
 
     if args.stage == "spatial":
         spatial, spatial_rows, spatial_seconds = _run_spatial(
@@ -768,7 +1002,7 @@ def main() -> None:
             if args.quick
             else "registered_solver_only_r2_b_spatial"
         )
-    else:
+    elif args.stage == "temporal":
         reconstruction_started = perf_counter()
         inputs = _build_inputs(base_config, spatial_settings)
         reconstruction_seconds = perf_counter() - reconstruction_started
@@ -832,6 +1066,44 @@ def main() -> None:
             if args.quick
             else "registered_solver_only_r2_b_temporal"
         )
+    else:
+        population, retained_arrays, population_seconds = _run_population(
+            population_config, population_settings
+        )
+        qualification = population["qualification"]
+        if not isinstance(qualification, dict):
+            raise TypeError("population qualification payload is malformed")
+        passed = bool(
+            qualification["plumbing_pass"]
+            if args.quick
+            else qualification["pass"]
+        )
+        classification = (
+            ("quick_plumbing_pass" if passed else "quick_plumbing_fail")
+            if args.quick
+            else (
+                "population_sampling_law_qualified"
+                if passed
+                else "population_sampling_law_failed"
+            )
+        )
+        run_id = POPULATION_RUN_ID
+        result = {
+            "reference_config": asdict(population_config),
+            "population_settings": _population_settings_record(population_settings),
+            "population_diagnostic": population,
+            "retained_array_keys": list(POPULATION_RETAINED_ARRAY_KEYS),
+            "timing_seconds": {
+                "population": population_seconds,
+                "total": perf_counter() - total_started,
+            },
+        }
+        worker_environment = {"population_workers": population_settings.workers}
+        scope = (
+            "synthetic_quick_population"
+            if args.quick
+            else "registered_solver_only_r2_population"
+        )
 
     result.update(
         {
@@ -883,6 +1155,7 @@ def main() -> None:
         hashes_end,
         args.source_commit,
         parent_bindings,
+        retained_arrays,
     )
     print(
         json.dumps(

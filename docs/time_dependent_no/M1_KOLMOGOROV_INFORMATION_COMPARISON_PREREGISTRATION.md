@@ -1,11 +1,12 @@
 # M1 Kolmogorov Information-Source Comparison Preregistration
 
-Date: 2026-08-26
+Date: 2026-08-28
 
-Status: **M1-Q1-R2-B SPATIAL STAGE AUTHORIZED; Q2 NOT AUTHORIZED**. This document does not
-authorize dataset-scale generation, checkpoint access, model training, remote
-execution, or sealed evaluation. Every later stage requires the named
-authorization in the execution ladder.
+Status: **M1-Q1-R2 REFERENCE QUALIFIED; R2-POP IS AUTHORIZED ONLY FROM THE
+CLEAN HASH-FREEZE COMMIT CONTAINING THIS CLOSEOUT; Q2 NOT AUTHORIZED**. This
+document does not authorize dataset-scale generation, checkpoint access,
+model training, remote execution, or sealed evaluation. Every later stage
+requires the named authorization in the execution ladder.
 
 Owner continuation on 2026-08-26 authorizes the local solver-only M1-Q1
 qualification specified below. It does not authorize M1-Q2 model training,
@@ -811,3 +812,57 @@ Every scientific setting, parent hash, seed, grid, time step, horizon, metric,
 threshold, worker limit, retention rule, and stop rule remains unchanged. The
 retry must launch from a new exact clean source commit and remains the only
 authorized R2 continuation. R2-POP and Q2 stay fail-closed.
+
+### R2-REF-B-TEMPORAL-R1 immutable closeout and R2-POP opening
+
+`M1-KF-Q1-R2-REF-20260827B-TEMPORAL-R1` completed locally from exact clean
+source commit `6f64fc5b3ad41e24e5f2bce973eb5b555bb74dfe` in `6757.97 s` and
+returned `reference_candidate_qualified`. Its immutable packet bindings are:
+
+- `result.json` SHA256
+  `460eb8d32df28f58ef2497f86b4374ec16477d88fa6fa872149c395d5c847196`;
+  and
+- `artifact_manifest.json` SHA256
+  `af0b7bb197736bce337c7b92f189a056ed4cf6ee636d28d2a57cb471febb5412`.
+
+The result member, all nine commit-bound source hashes, and every Q1, R1-MIX,
+R1-SPAT, and R2-B-SPAT parent binding independently reverified. The candidate
+`dt_max=0.002` versus `0.0005` state errors were:
+
+| Family | H1 median / maximum | H16 median / maximum |
+| --- | ---: | ---: |
+| clean | 1.26298e-7 / 1.43774e-7 | 2.65805e-7 / 8.77155e-7 |
+| displaced | 1.25647e-7 / 1.44608e-7 | 3.26673e-7 / 8.84666e-7 |
+
+The maximum H64 energy-Wasserstein, enstrophy-Wasserstein, and normalized
+spectrum-TV discrepancies were `2.26376e-9`, `5.99805e-9`, and `4.30158e-9`.
+Maximum canonical projection change was `3.21836e-16`. All retained rows were
+finite. Two fresh N256 candidate-map processes were bitwise equal, had scaled
+RMS `0.0`, and used identical 70-substep accounting. The three temporal
+workers were balanced; their runtimes were `6345.28`, `6356.70`, and
+`6521.13 s`.
+
+The detached launch receipt says `runner_failed` with a null exit code even
+though the complete packet and final success JSON were written and stderr is
+empty. The Windows PowerShell wrapper treated a missing captured exit code as
+nonzero. The raw receipt is preserved. Its bounded infrastructure
+classification is `qualified_packet_with_launcher_exitcode_capture_failure`;
+the original operating-system exit code is not retrospectively asserted.
+This bookkeeping defect does not override the independently rehashed packet
+or any scientific gate.
+
+Together with the frozen R2-B-SPAT packet, this completes the registered
+finite-grid N256 reference qualification. It does not establish continuum
+convergence, fresh-population stationarity, a learned-model result, or either
+M1-C1 or M1-C2.
+
+The pre-existing R2-POP condition is satisfied only by a clean source commit
+that contains this exact closeout and the fail-closed population runner. From
+that commit, and not before it, `M1-KF-Q1-R2-POP-20260827A` is authorized under
+its unchanged local solver-only contract. Its registered classifications are
+`population_sampling_law_qualified` and
+`population_sampling_law_failed`. The process must be detached, retain an
+ignored launch receipt plus stdout/stderr, enforce the eight-hour wall cap,
+and classify a missing captured exit code separately from a confirmed nonzero
+exit. Q2, dataset generation, checkpoint access, model training, remote
+execution, and sealed access remain unauthorized.

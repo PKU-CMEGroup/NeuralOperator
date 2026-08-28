@@ -7,6 +7,7 @@ import pytest
 
 from scripts.time_dependent_no.run_m1_kolmogorov_q1_r2_diagnostic import (
     POPULATION_RETAINED_ARRAY_KEYS,
+    POPULATION_RUN_ID,
     POPULATION_SEEDS,
     POPULATION_WALL_TIME_CAP_SECONDS,
     _full_contract,
@@ -55,6 +56,7 @@ def test_full_contract_targets_n256_under_both_reference_checks() -> None:
 def test_population_contract_matches_frozen_preregistration() -> None:
     config, settings = _population_contract()
 
+    assert POPULATION_RUN_ID == "M1-KF-Q1-R2-POP-20260827A-R1"
     assert config.resolution == 256
     assert config.dt_max == 0.002
     assert POPULATION_SEEDS == (
@@ -74,7 +76,7 @@ def test_population_contract_matches_frozen_preregistration() -> None:
     assert settings.pooled_ess_minimum == 100.0
     assert settings.initial_rms == 4.0
     assert settings.workers == 4
-    assert POPULATION_WALL_TIME_CAP_SECONDS == 8 * 60 * 60
+    assert POPULATION_WALL_TIME_CAP_SECONDS == 18 * 60 * 60
     assert "state" not in POPULATION_RETAINED_ARRAY_KEYS
 
 

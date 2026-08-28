@@ -2,9 +2,9 @@
 
 Date: 2026-08-28
 
-Status: **M1-Q1-R2 REFERENCE QUALIFIED; R2-POP IS AUTHORIZED ONLY FROM THE
-CLEAN HASH-FREEZE COMMIT CONTAINING THIS CLOSEOUT; Q2 NOT AUTHORIZED**. This
-document does not authorize dataset-scale generation, checkpoint access,
+Status: **M1-Q1-R2 REFERENCE QUALIFIED; R2-POP LAUNCH 0 INCOMPLETE; R1 IS
+AUTHORIZED ONLY FROM THE CLEAN TIMEOUT-CLOSEOUT COMMIT; Q2 NOT AUTHORIZED**.
+This document does not authorize dataset-scale generation, checkpoint access,
 model training, remote execution, or sealed evaluation. Every later stage
 requires the named authorization in the execution ladder.
 
@@ -866,3 +866,46 @@ ignored launch receipt plus stdout/stderr, enforce the eight-hour wall cap,
 and classify a missing captured exit code separately from a confirmed nonzero
 exit. Q2, dataset generation, checkpoint access, model training, remote
 execution, and sealed access remain unauthorized.
+
+### R2-POP launch-0 infrastructure closeout and R1 retry
+
+`M1-KF-Q1-R2-POP-20260827A` launched locally from exact clean source commit
+`44207f20995b12c380124c6d301da83a0b7f62b0` at
+`2026-08-28T00:37:50+08:00`. Its detached wrapper enforced the registered
+eight-hour cap and terminated the process tree at
+`2026-08-28T08:37:51+08:00`, after `28801.016 s`.
+The ignored raw receipt, event log, and empty stdout log have SHA256 values
+`5eb6c1d863a0d87e31265b7a66631e21b8e57ed807d592bf39f272d7aba522dc`,
+`8843691d91fa0fd8bbb1383a5c4796e0dd5a3190b1ad5a8d961e6270174015ff`, and
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+
+All four registered seeds started and logged the same eleven 256-call progress
+blocks through call `2816/5120`. The final progress block was written at about
+`08:34:25+08:00`, stdout remained empty, and the event log contains no traceback.
+The registered output directory was never created because no worker completed
+and packet writing occurs only after all four futures return. There is no
+`result.json`, artifact manifest, retained series, population metric, or
+scientific classification. Launch 0 is closed as
+`incomplete_8h_wall_time_cap_before_packet`; it is not
+`population_sampling_law_failed`, and no stationarity gate may be inferred.
+
+The last marker took `28595.44 s`, or `354.52` calls/hour/chain, projecting
+14.44 hours for all 5,120 calls; the conservative cap/progress ratio gives
+14.55 hours. Owner continuation on 2026-08-28 therefore authorizes one
+infrastructure-only retry, `M1-KF-Q1-R2-POP-20260827A-R1`, with a hard 18-hour
+cap. The approximately 24% margin is fixed from runtime evidence before any
+population statistic exists. The retry changes only its attempt identity,
+durable output/log/receipt namespace, and wall-time cap. It preserves
+`Phi_256`, `dt_max=0.002`, all four seeds, vorticity RMS `4.0`, the exact
+1,024-call burn-in plus 4,096-call observation window, every metric and gate,
+four-worker limit, local solver-only scope, and scalar/spectral retention rule.
+No launch-0 partial state or metric is reused.
+
+R1 must launch from a new exact clean source commit containing this closeout
+and the hard-coded retry identity/cap. Its scientific terminal classifications
+remain `population_sampling_law_qualified` and
+`population_sampling_law_failed`. A cap hit is instead
+`incomplete_18h_wall_time_cap_before_packet` and authorizes no automatic
+further retry. Q2, data generation, checkpoint access, model training, remote
+execution, and sealed access remain closed until a qualifying R1 packet is
+hash-frozen and the separately named A3 contract is approved.

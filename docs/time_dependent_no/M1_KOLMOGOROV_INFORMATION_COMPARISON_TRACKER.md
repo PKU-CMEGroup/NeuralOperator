@@ -20,7 +20,7 @@ redefining its gates.
 | M1-Q1-R2-REF-A | qualification attempt | combined N128/N256/N512 and N256 temporal qualification | same six hash-matched parent inputs; solver only | MUST | INCOMPLETE: RESOURCE CONTENTION BEFORE PACKET | closed at 238.2 min under wall cap; no scientific classification or retained result |
 | M1-Q1-R2-REF-B-SPAT | staged qualification | N128/N256/N512 path refinement and replay | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `spatial_candidate_qualified` | result `f32b2d4d...16805ed4`; manifest `9f8de40a...8dd67c84` |
 | M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `reference_candidate_qualified` | result `460eb8d3...c847196`; manifest `af0b7bb1...ebb5412`; launcher exit-code capture failed after packet completion |
-| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | AUTHORIZED ONLY FROM CLEAN HASH-FREEZE COMMIT; NOT LAUNCHED | exact R2 spatial and temporal packets plus registered population source must rehash before execution |
+| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | LAUNCH 0 INCOMPLETE AT 8H CAP; R1 AUTHORIZED FROM CLEAN TIMEOUT-CLOSEOUT COMMIT | unchanged population contract; R1 has unique identity and hard 18h cap |
 | M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | R2-POP pass, hash-frozen complete R2 closeout, and a named A3 contract |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
 | M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |
@@ -350,3 +350,42 @@ Local verdict, pending any separately approved external review:
   competence, corrective-information benefit, M1-C1, or M1-C2; and
 - route: execute only the preregistered R2-POP sampling-law qualification from
   the clean hash-freeze source. Q2 remains closed.
+
+## M1-Q1-R2-POP Launch-0 Closeout and R1 Authorization
+
+`M1-KF-Q1-R2-POP-20260827A` launched locally from exact clean source commit
+`44207f20995b12c380124c6d301da83a0b7f62b0`. Its detached receipt records
+`timeout_8h_process_tree_terminated` after `28801.016 s`, from
+`2026-08-28T00:37:50+08:00` to `2026-08-28T08:37:51+08:00`.
+The raw receipt/event/stdout SHA256 values are respectively
+`5eb6c1d8...aba522dc`, `8843691d...74015ff`, and `e3b0c442...b855`.
+
+Each of seeds `2026083101--2026083104` started and reached its last retained
+progress marker at call `2816/5120`. No worker completed, stdout is empty, the
+event log has no traceback, and the output directory does not exist. There is
+therefore no result, manifest, retained series, population statistic, or
+scientific gate decision. The exact closeout classification is
+`incomplete_8h_wall_time_cap_before_packet`, not
+`population_sampling_law_failed`.
+
+The four balanced chains reached at least 55% of their fixed calls. The last
+marker took `28595.44 s` (`354.52` calls/hour/chain), projecting 14.44 hours;
+the conservative cap/progress estimate is 14.55 hours. The unique retry
+`M1-KF-Q1-R2-POP-20260827A-R1` is authorized from a new exact clean
+source commit with an 18-hour hard cap and distinct ignored artifact/log/
+receipt paths. The PDE map, timestep, seeds, initialization, burn-in,
+observation window, metrics, thresholds, worker limit, access closure, and
+retention rules are unchanged; no partial launch-0 state or statistic may be
+reused. An 18-hour timeout has infrastructure classification
+`incomplete_18h_wall_time_cap_before_packet` and no automatic continuation.
+
+Local result-to-claim verdict, pending any separately approved external review:
+
+- `claim_supported: no` for population qualification because no scientific
+  result exists; this is absence of evidence, not evidence of nonstationarity;
+- supported: all four deterministic chains advanced in balance through at
+  least call 2816 before the registered cap;
+- not supported: any energy/enstrophy gate, stationarity, effective sample
+  size, M1-C1, M1-C2, or learned-model conclusion; and
+- route: execute only R1 from the clean timeout-closeout source. Q2 remains
+  closed pending a qualifying hash-frozen R1 result and a named A3 contract.

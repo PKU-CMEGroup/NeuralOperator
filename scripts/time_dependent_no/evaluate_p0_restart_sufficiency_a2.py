@@ -62,9 +62,18 @@ from utility.time_dependent_no.p0_restart_sufficiency_a2 import (  # noqa: E402
     validate_a1_closeout,
     validate_a2_source_manifest,
     validate_artifact_tree,
-    validated_a2_physical_volumes,
     validate_solver_process_summary,
+    validated_a2_physical_volumes,
     weighted_relative_l2_metrics,
+)
+from utility.time_dependent_no.pcno_resolution_transfer import (  # noqa: E402
+    build_resolution_checkpoint_model,
+)
+from utility.time_dependent_no.pcno_runtime import (  # noqa: E402
+    checkpoint_model_node_type_input,
+    load_checkpoint,
+    select_device,
+    timed_model_call,
 )
 
 D044_CHECKPOINT_SHA256 = CHECKPOINT_RECORDS["checkpoints/d044/best.pt"]["sha256"]
@@ -167,10 +176,6 @@ def _validate_historical_base_manifest(
 def _validate_checkpoint(
     checkpoint: Mapping[str, Any], *, label: str, stride: int
 ) -> None:
-    from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import (
-        checkpoint_model_node_type_input,
-    )
-
     if int(checkpoint.get("step_stride", -1)) != stride:
         raise ValueError(f"{label} checkpoint stride drifted")
     if checkpoint.get("data_manifest_digest") != DATASET_MANIFEST_SHA256:
@@ -227,12 +232,7 @@ def _run_map(
     stride: int,
     calls: int,
 ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import (
-        build_model,
-        timed_model_call,
-    )
-
-    model, normalization = build_model(checkpoint, device)
+    model, normalization = build_resolution_checkpoint_model(checkpoint, device)
     if not np.array_equal(
         np.asarray(normalization.state_scale, dtype=np.float64),
         np.asarray(checkpoint["normalization"]["state_scale"], dtype=np.float64),
@@ -345,11 +345,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     )
     require_a2_cublas_workspace_config(os.environ.get("CUBLAS_WORKSPACE_CONFIG"))
 
-    # Historical evaluator imports are deferred until the frozen solver gate passes.
-    from scripts.time_dependent_no.evaluate_pcno_resolution_transfer import (
-        load_checkpoint,
-        select_device,
-    )
+    # Dataset access remains deferred until the frozen solver gate passes.
     from utility.time_dependent_no.pcno_euler2d import PCNOEuler2DShardStore
 
     if sha256_file(args.source_manifest) != args.expected_source_manifest_sha256:

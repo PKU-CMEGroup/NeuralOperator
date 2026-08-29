@@ -6,8 +6,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from scripts.time_dependent_no import evaluate_p0_restart_sufficiency_a2 as evaluator
 from scripts.time_dependent_no import run_p0_restart_sufficiency_a2_solver as runner
 from utility.time_dependent_no import p0_restart_sufficiency_a2 as a2
+from utility.time_dependent_no import pcno_resolution_transfer, pcno_runtime
 from utility.time_dependent_no.shock_vortex_coarse_cfd import CoarseCFDRollout
 
 
@@ -51,6 +53,38 @@ def _states(value: float = 1.0) -> dict[str, np.ndarray]:
         str(case["trajectory_id"]): np.full((4, 4), value, dtype=np.float64)
         for case in a2.FIXED_CASES
     }
+
+
+def test_a2_evaluator_uses_shared_pcno_runtime_infrastructure() -> None:
+    assert (
+        evaluator.checkpoint_model_node_type_input
+        is pcno_runtime.checkpoint_model_node_type_input
+    )
+    assert evaluator.load_checkpoint is pcno_runtime.load_checkpoint
+    assert evaluator.select_device is pcno_runtime.select_device
+    assert evaluator.timed_model_call is pcno_runtime.timed_model_call
+    assert (
+        evaluator.build_resolution_checkpoint_model
+        is pcno_resolution_transfer.build_resolution_checkpoint_model
+    )
+
+    checkpoint = {
+        "step_stride": 1,
+        "data_manifest_digest": evaluator.DATASET_MANIFEST_SHA256,
+        "data_contract": {
+            "data_manifest_digest": evaluator.DATASET_MANIFEST_SHA256,
+        },
+        "model_node_type_input": "physical",
+        "model_config": {
+            "k_max": 8,
+            "domain_lengths": [2.0, 1.0],
+            "layers": [128, 128, 128, 128, 128],
+            "fc_dim": 128,
+            "nmeasures": 1,
+        },
+        "normalization": {"state_scale": list(evaluator.CHANNEL_SCALES)},
+    }
+    evaluator._validate_checkpoint(checkpoint, label="synthetic", stride=1)
 
 
 def test_scaled_rms_implements_registered_volume_metric() -> None:

@@ -18,6 +18,7 @@ artifacts/
 runs/
 checkpoints/
 wandb/
+paper/
 
 # Python test/cache outputs
 __pycache__/

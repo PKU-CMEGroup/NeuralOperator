@@ -1,0 +1,148 @@
+{
+  "schema": "time_dependent_no.su2_naca0012_phase_pilot.v1",
+  "created_on": "2026-08-31",
+  "scientific_scope": {
+    "system": "fixed autonomous SU2 Unsteady NACA0012",
+    "mach": 0.3,
+    "angle_of_attack_degrees": 17.0,
+    "reynolds_number": 1000.0,
+    "time_step": 0.0005,
+    "hypothesis": "the qualified post-transient clean support is effectively a one-phase attractor",
+    "not_claimed": [
+      "independent physical trajectories",
+      "parameter generalization",
+      "arbitrary-state restart fidelity",
+      "PCNO performance"
+    ]
+  },
+  "execution": {
+    "initial_output_indices_inclusive": [
+      499,
+      1999
+    ],
+    "write_every_physical_step": true,
+    "initial_expected_output_count": 1501,
+    "maximum_output_index": 6499,
+    "extension_if_period_known_and_more_time_is_needed": "when fewer than eight post-burn-in cycles remain or stationarity is improving but not settled, append max(1000, ceil(4 * period_steps)) steps, rounded up to the next 500 index",
+    "extension_if_period_unresolved_or_search_boundary_limited": 1500,
+    "extension_uses_same_accumulated_prefix": true,
+    "model_blind": true
+  },
+  "input_contract": {
+    "mesh_and_resource_identity": "R0_SU2_NACA_RESOURCE_MANIFEST.json",
+    "restart_schema": "exact SU2 v8.5 native 19-field schema",
+    "dynamic_fields_by_name": [
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde"
+    ],
+    "required_output_indices": "every integer from 499 through the final output index",
+    "history": "one finite final-inner-iteration row per output index with unique Time_Iter, Inner_Iter, CD, CL, CFx, and CFy",
+    "phase_clock": "CL only; it is not treated as a canonical force-accuracy target",
+    "state_weight_views": {
+      "uniform_node": "primary fixed-mesh representation view",
+      "near_body_wake_uniform_node": "required diagnostic on x in [-1,10], y in [-5,5]",
+      "physical_vertex_area": "required reported physical-integral view; not sufficient alone because the farfield dominates"
+    },
+    "forbidden_inputs": [
+      "PCNO checkpoints",
+      "PCNO predictions",
+      "rollout errors",
+      "intervention outcomes"
+    ]
+  },
+  "period_estimation": {
+    "signal": "CL on the trailing 75 percent of available indices",
+    "detrending": "remove the least-squares affine trend",
+    "lag_search_minimum": 20,
+    "lag_search_maximum": "floor(trailing_sample_count / 4)",
+    "acf_candidate": "first post-zero-crossing local maximum with autocorrelation at least 0.8",
+    "spectral_candidate": "largest non-DC spectral peak over the same admissible period range",
+    "acf_spectral_relative_agreement_maximum": 0.1,
+    "crossing_smoothing_width": "largest odd integer no smaller than 3 and nearest to period_acf / 50",
+    "cycle_boundaries": "upward crossings of the smoothed CL median separated by 0.5 to 1.5 times period_acf, linearly interpolated",
+    "period_estimate": "median adjacent crossing interval",
+    "period_mad_over_median_maximum": 0.02,
+    "period_vs_acf_relative_difference_maximum": 0.1,
+    "state_recurrence_alias_scan": "scan uniform-node component-balanced five-field recurrence over integer lags from 0.8 to 1.2 times the period estimate using every available trailing state pair",
+    "state_recurrence_alias_normalization": "normalize each field by its uniform-node RMS temporal variation over the trailing states, then take the RMS over the five normalized field errors; an exactly zero-variation field has exactly zero pairwise error and contributes zero",
+    "state_recurrence_minimizer_relative_distance_from_period_maximum": 0.05,
+    "CD_cannot_halve_CL_period": true
+  },
+  "burn_in_and_stationarity": {
+    "cycle_phase_samples": 64,
+    "minimum_complete_cycles_after_burn_in": 8,
+    "cycle_resampling": "linear temporal interpolation between clean native outputs",
+    "scalar_signals": [
+      "CL",
+      "CD",
+      "uniform-node spatial mean of each dynamic field",
+      "uniform-node spatial RMS about that mean for each dynamic field"
+    ],
+    "scalar_signal_count": 12,
+    "template_comparison": "compare first-half and second-half mean cycle templates for every scalar signal",
+    "template_normalizer": "max(within-cycle RMS, 1e-8 times the full-signal RMS magnitude)",
+    "normalized_template_shift_maximum": 0.05,
+    "theil_sen_total_drift_over_cycle_amplitude_maximum": 0.05,
+    "theil_sen_application": "compute exact Theil-Sen total drift separately for each signal's per-cycle mean and per-cycle RMS amplitude; normalize both by the template normalizer and gate their maximum",
+    "period_mad_over_median_maximum": 0.02,
+    "burn_in_selection": "earliest cycle boundary satisfying every stationarity gate",
+    "improving_transient_definition": "across the final three eligible burn-in candidates, the maxima of normalized template shift, normalized Theil-Sen drift, and period MAD are each non-increasing, with at least one strict improvement",
+    "normalizer_floor_hits_are_recorded": true
+  },
+  "five_field_recurrence": {
+    "weight_views": [
+      "uniform_node",
+      "near_body_wake_uniform_node",
+      "physical_vertex_area"
+    ],
+    "gated_views": [
+      "uniform_node",
+      "near_body_wake_uniform_node"
+    ],
+    "physical_vertex_area_role": "reported secondary view; it cannot qualify phase recurrence by itself",
+    "normalization": "per-field orbit amplitude; use field state RMS only when orbit-amplitude/state-RMS is below 1e-6",
+    "comparison": "adjacent complete post-burn-in cycles at 64 common phases",
+    "record_native_unit_numerator": true,
+    "component_balanced_cycle_error": "square root of the mean squared normalized error over five fields",
+    "median_component_balanced_maximum": 0.05,
+    "q90_component_balanced_maximum": 0.1,
+    "q90_each_field_maximum": 0.15,
+    "q90_cycle_to_template_maximum": 0.1,
+    "thresholds_apply_to_every_gated_view": true
+  },
+  "outcomes": {
+    "PHASE_ONLY_SUPPORTED": "all artifact, period, stationarity, cycle-count, and recurrence gates pass",
+    "INSUFFICIENT_CYCLES": "the observed prefix is too short to decide: either a coherent candidate leaves fewer than eight complete post-burn-in cycles, or the period remains unresolved or search-boundary-limited below the resource cap; the extension reason distinguishes these cases",
+    "TRANSIENT_NOT_SETTLED": "a coherent period exists and late stationarity metrics satisfy the frozen improving-transient definition but no burn-in passes; extend with the known-period rule",
+    "MODULATED_LOW_DIMENSIONAL": "a coherent period exists but stationary phase-only recurrence or template gates fail",
+    "NO_COHERENT_PERIOD": "period gates fail away from an extendable search boundary or remain unresolved at the resource cap",
+    "INVALID_ARTIFACT": "identity, schema, index, history, coordinate, cadence, or finiteness validation fails"
+  },
+  "promotion_rule": {
+    "only_authorizing_outcome": "PHASE_ONLY_SUPPORTED",
+    "phase_anchor_count": 32,
+    "anchors_per_role": 8,
+    "phase_offset_fraction": 0.4142135623730951,
+    "anchor_fraction": "(k + phase_offset_fraction) / 32 modulo 1 for k=0,...,31",
+    "role_assignment": {
+      "0": "train",
+      "1": "development",
+      "2": "prospective",
+      "3": "sealed"
+    },
+    "role_rule": "role index equals k modulo 4",
+    "role_windows": "content-disjoint solver-time blocks; common-attractor dependence is retained and disclosed",
+    "statistics": "deterministic finite-phase summaries; no IID confidence interval over phase anchors",
+    "rollout_horizon": "freeze as an integer number of measured shedding periods before any PCNO outcome"
+  },
+  "claim_boundary": {
+    "solver_execution_authorized_by_this_file": false,
+    "phase_population_claimed": false,
+    "independent_trajectory_claimed": false,
+    "pcno_training_claimed": false,
+    "sealed_access_claimed": false
+  }
+}

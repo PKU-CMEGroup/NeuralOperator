@@ -1,0 +1,185 @@
+{
+  "schema": "time_dependent_no.su2_naca0012_native_replay_qualification.v1",
+  "created_on": "2026-08-31",
+  "scope": "immutable qualification addendum for the final C/D on-reference native replay evidence",
+  "authority": {
+    "resource_manifest": {
+      "file": "R0_SU2_NACA_RESOURCE_MANIFEST.json",
+      "sha256": "7e20bb67ebcf09447f0badd4d10752a78f749f5c038bb444cedff81d39ff56f5"
+    },
+    "canonical_target": {
+      "file": "restart_flow_00499.dat",
+      "bytes": 1982917,
+      "sha256": "09434c8be8970deefb35e67c573b207d4ba49f2938ce3218d1f2288aba632e21"
+    },
+    "replay_c": {
+      "artifact_directory": "artifacts/time_dependent_no/su2_naca0012_native_replay_20260831_c",
+      "receipt_file": "native_replay_receipt.json",
+      "receipt_sha256": "72a3bba0ab1328034dc707981b87a9487117c6cb4a81aab7584d92dba3660d1a",
+      "canonical_payload_sha256": "be6a8c5cf637288953497f7e8a6dc9fc28fef7ab509e62dfc331871d753f98ab"
+    },
+    "replay_d": {
+      "artifact_directory": "artifacts/time_dependent_no/su2_naca0012_native_replay_20260831_d",
+      "receipt_file": "native_replay_receipt.json",
+      "receipt_sha256": "fcbed2b91c18d78eb291884818eff6748c07bd63fa968743854e49690644d435",
+      "canonical_payload_sha256": "29c66c8401ff4e97c952f57118a657cec5dba1abbce7d347fbc9e31a4d700ee8"
+    },
+    "comparison": {
+      "file": "artifacts/time_dependent_no/su2_naca0012_native_replay_comparison_20260831_cd.json",
+      "sha256": "b5efd14664abb98a67957d9459ddea41200b0357d4907975eb165f5fb1782a9f",
+      "canonical_payload_sha256": "515b08ad06fb577d7319d9dbe36b2def5bb6beef45eb6a6a205a4fcf60cd012d"
+    }
+  },
+  "native_execution": {
+    "release": "SU2 v8.5.0 Harrier",
+    "executable_sha256": "61a803e0baf49382210888cc32f14f4ea837681a0e6cc2df6b1d5a99ce5baf8c",
+    "execution_mode": "direct_single_mpi_rank_one_openmp_thread",
+    "status_c": "execution_and_evaluation_succeeded",
+    "status_d": "execution_and_evaluation_succeeded",
+    "duration_seconds": [
+      0.5204794000019319,
+      0.5089778999681585
+    ],
+    "transitions_per_second": [
+      1.921305627074363,
+      1.9647218475744423
+    ],
+    "output": {
+      "bytes": 2216199,
+      "sha256_c": "a39f0b4a2462d54817995e6fbb40a9d384af444224f6a8b8439fed99c7747fab",
+      "sha256_d": "a39f0b4a2462d54817995e6fbb40a9d384af444224f6a8b8439fed99c7747fab",
+      "bitwise_deterministic": true,
+      "native_to_native_numerical_error_zero": true
+    }
+  },
+  "field_roles": {
+    "recurrent_gate": [
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde"
+    ],
+    "derived_diagnostics": [
+      "Pressure",
+      "Temperature",
+      "Mach",
+      "Pressure_Coefficient",
+      "Laminar_Viscosity",
+      "Skin_Friction_Coefficient_x",
+      "Skin_Friction_Coefficient_y",
+      "Eddy_Viscosity"
+    ],
+    "auxiliary_postprocessing_sensitive": [
+      "Heat_Flux",
+      "Y_Plus"
+    ],
+    "native_only_excluded_from_canonical_metrics": [
+      "Velocity_x",
+      "Velocity_y"
+    ]
+  },
+  "canonical_target_comparison": {
+    "dynamic_error_views": {
+      "physical_vertex_area": {
+        "role": "physical-domain integral view; strongly dominated by the farfield on this mesh",
+        "component_balanced_relative_l2": 4.326398934778188e-07,
+        "maximum_dynamic_field_relative_l2": 7.602245077855703e-07,
+        "field_relative_l2_in_dynamic_field_order": [
+          4.119872711910078e-08,
+          7.602245077855703e-07,
+          4.0577797765132857e-07,
+          5.090035733705262e-08,
+          4.347426092121673e-07
+        ]
+      },
+      "uniform_node": {
+        "role": "fixed-mesh representation view; prevents the enormous farfield cells from hiding near-body and wake error",
+        "component_balanced_relative_l2": 0.0005944719162334844,
+        "maximum_dynamic_field_relative_l2": 0.001095054987050036,
+        "field_relative_l2_in_dynamic_field_order": [
+          0.00011043955418312766,
+          0.001095054987050036,
+          0.0005806380798260897,
+          6.6161461000600908e-05,
+          0.0004627354076506945
+        ]
+      },
+      "near_body_wake_uniform_node": {
+        "role": "diagnostic fixed geometry box, not a physical integral or online gate",
+        "box": {
+          "x_min": -1.0,
+          "x_max": 10.0,
+          "y_min": -5.0,
+          "y_max": 5.0
+        },
+        "node_count": 8392,
+        "physical_vertex_area_fraction": 0.00014051752912212697,
+        "component_balanced_relative_l2": 0.0008908100064798938,
+        "maximum_dynamic_field_relative_l2": 0.0016867614416301514,
+        "field_relative_l2_in_dynamic_field_order": [
+          0.00014686390841897674,
+          0.0016867614416301514,
+          0.0007439767580142067,
+          8.8176521155015329e-05,
+          0.0007346445768119461
+        ]
+      }
+    },
+    "surface_force_proxy": {
+      "scope": "orientation-normalized pressure-plus-skin-friction functional applied identically to target and replay; not SU2-integrated lift or drag",
+      "target_streamwise": 0.30241492140272025,
+      "replay_streamwise": 0.30238715501116376,
+      "streamwise_absolute_difference": 2.7766391556494074e-05,
+      "streamwise_relative_difference": 9.181554741975875e-05,
+      "target_cross_stream": 0.6189945100998197,
+      "replay_cross_stream": 0.6183520895687588,
+      "cross_stream_absolute_difference": 0.0006424205310608944,
+      "cross_stream_relative_difference": 0.0010378452806589463
+    }
+  },
+  "native_history_consistency": {
+    "history_file": "history_00499.csv",
+    "bytes": 1420,
+    "sha256_c": "0966e3e221d1ce828074991196d05bd614dc0148d3626293cf6c8712e1c1a855",
+    "sha256_d": "0966e3e221d1ce828074991196d05bd614dc0148d3626293cf6c8712e1c1a855",
+    "time_iter": 499,
+    "CD": 0.3024337912,
+    "CL": 0.618246051,
+    "CFx": 0.1084612211,
+    "CFy": 0.6796547221,
+    "proxy_vs_history_relative_difference": {
+      "streamwise": 0.00015420297001609898,
+      "cross_stream": 0.0001715151574155268
+    },
+    "canonical_producer_integrated_aero_available": false,
+    "unavailable_reason": "the canonical target binds no producer history or objective record and its producer version is unknown"
+  },
+  "storage_projection": {
+    "native_19_field_bytes_per_frame": 2216199,
+    "dynamic_5_field_float64_bytes_per_frame": 583040,
+    "dynamic_5_field_float32_bytes_per_frame": 291520,
+    "static_coordinate_float64_bytes": 233216,
+    "static_mesh_bytes": 1253807,
+    "bdf2_distinct_frame_formula": "T * (H + 2)",
+    "native_bytes_for_1000_frames": 2216199000,
+    "dynamic_float32_bytes_for_1000_frames": 291520000,
+    "multi_step_log_and_history_overhead_measured": false
+  },
+  "claim_boundary": {
+    "pinned_native_execution_compatible": true,
+    "bitwise_repeatable": true,
+    "observed_recurrent_state_discrepancy_recorded": true,
+    "physical_area_uniform_node_and_near_wake_views_recorded": true,
+    "canonical_surface_functional_complete": true,
+    "native_history_aero_repeatable": true,
+    "canonical_producer_integrated_aero_available": false,
+    "auxiliary_fields_enter_recurrent_gate": false,
+    "storage_projection_complete": true,
+    "model_relative_margin_complete": false,
+    "restart_sufficiency_claimed": false,
+    "trusted_transition_claimed": false,
+    "population_claimed": false,
+    "pcno_result_claimed": false
+  }
+}

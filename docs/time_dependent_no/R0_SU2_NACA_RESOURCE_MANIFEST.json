@@ -1,0 +1,136 @@
+{
+  "schema": "time_dependent_no.su2_naca0012_resources.v1",
+  "created_on": "2026-08-31",
+  "benchmark": {
+    "name": "SU2 Unsteady NACA0012",
+    "role": "selected first R0 screen; conditional primary case study",
+    "tutorial_url": "https://su2code.github.io/tutorials/Unsteady_NACA0012/"
+  },
+  "upstream": {
+    "tutorial_repository": "https://github.com/su2code/Tutorials",
+    "tutorial_commit": "74095b3464b16a1c0ba2db0aeea4132edb66c175",
+    "producer_version_status": "unknown; the binary restart carries no producer-version marker",
+    "format_reference_release": {
+      "tag": "v7.0.1",
+      "commit": "b7081be978c8df7ff95c7c832a62cb0ea092643b",
+      "reader_source": "https://github.com/su2code/SU2/blob/v7.0.1/SU2_CFD/src/solvers/CSolver.cpp"
+    },
+    "target_replay_release": {
+      "tag": "v8.5.0",
+      "commit": "12eb826f049ef7f67df974dfcb44cf36ee07c0f8",
+      "release_url": "https://github.com/su2code/SU2/releases/tag/v8.5.0",
+      "windows_mpi_asset": {
+        "name": "SU2-v8.5.0-win64-mpi.zip",
+        "bytes": 28925770,
+        "sha256": "7da985f956de617c41f8a22aaab27fd42f2dfe096342b396a49583b9b3bd5d25",
+        "nested_archive_name": "win64-mpi.zip",
+        "nested_archive_sha256": "94a10b2e910109d78e9b5b845ddcaa8efea2001a27624a77e2a06bce5c9a2200",
+        "executable": {
+          "file": "bin/SU2_CFD.exe",
+          "bytes": 24759883,
+          "sha256": "61a803e0baf49382210888cc32f14f4ea837681a0e6cc2df6b1d5a99ce5baf8c"
+        }
+      },
+      "identity_status": "local executable verified byte-for-byte against the official release asset; execution status is tracked separately"
+    }
+  },
+  "resources": {
+    "license": {
+      "file": "LICENSE",
+      "bytes": 26526,
+      "sha256": "20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
+      "url": "https://raw.githubusercontent.com/su2code/Tutorials/74095b3464b16a1c0ba2db0aeea4132edb66c175/LICENSE"
+    },
+    "config": {
+      "file": "unsteady_naca0012.cfg",
+      "bytes": 3181,
+      "sha256": "261ff97815812757f117a942b24e7bac3eb9eb197d1a7893228e25e00288e112",
+      "url": "https://raw.githubusercontent.com/su2code/Tutorials/74095b3464b16a1c0ba2db0aeea4132edb66c175/compressible_flow/Unsteady_NACA0012/unsteady_naca0012.cfg"
+    },
+    "mesh": {
+      "file": "unsteady_naca0012_mesh.su2",
+      "bytes": 1253807,
+      "sha256": "20dfc96875b1d1a8377c2e64248b6ee42a1ecf525c50d822fb5f539d06d68d15",
+      "url": "https://raw.githubusercontent.com/su2code/Tutorials/74095b3464b16a1c0ba2db0aeea4132edb66c175/compressible_flow/Unsteady_NACA0012/unsteady_naca0012_mesh.su2"
+    },
+    "restart_00497": {
+      "file": "restart_flow_00497.dat",
+      "bytes": 1982917,
+      "sha256": "dd3351369677bc8b7bcde6ddd49e8577260d9ed85cee435aba5efa03c5cc9366",
+      "url": "https://raw.githubusercontent.com/su2code/Tutorials/74095b3464b16a1c0ba2db0aeea4132edb66c175/compressible_flow/Unsteady_NACA0012/restart_flow_00497.dat"
+    },
+    "restart_00498": {
+      "file": "restart_flow_00498.dat",
+      "bytes": 1982917,
+      "sha256": "0da7309382a7c10e3e3efca1ae0fa9d54d6632a4b1282652fe2393ea0518c696",
+      "url": "https://raw.githubusercontent.com/su2code/Tutorials/74095b3464b16a1c0ba2db0aeea4132edb66c175/compressible_flow/Unsteady_NACA0012/restart_flow_00498.dat"
+    },
+    "restart_00499": {
+      "file": "restart_flow_00499.dat",
+      "bytes": 1982917,
+      "sha256": "09434c8be8970deefb35e67c573b207d4ba49f2938ce3218d1f2288aba632e21",
+      "url": "https://raw.githubusercontent.com/su2code/Tutorials/74095b3464b16a1c0ba2db0aeea4132edb66c175/compressible_flow/Unsteady_NACA0012/restart_flow_00499.dat"
+    }
+  },
+  "config_contract": {
+    "SOLVER": "RANS",
+    "KIND_TURB_MODEL": "SA",
+    "RESTART_SOL": "YES",
+    "RESTART_ITER": "499",
+    "TIME_DOMAIN": "YES",
+    "TIME_MARCHING": "DUAL_TIME_STEPPING-2ND_ORDER",
+    "TIME_STEP": "5e-4",
+    "INNER_ITER": "10",
+    "MESH_FILENAME": "unsteady_naca0012_mesh.su2",
+    "SOLUTION_FILENAME": "restart_flow"
+  },
+  "mesh_contract": {
+    "dimension": 2,
+    "num_elements": 14336,
+    "num_points": 14576,
+    "element_type_counts": {
+      "9": 14336
+    },
+    "marker_element_counts": {
+      "airfoil": 128,
+      "farfield": 352
+    }
+  },
+  "restart_contract": {
+    "format": "native SU2 binary: five native int32 values, 33 bytes per field name, point-major float64 values",
+    "indices": [497, 498, 499],
+    "bdf2_history_indices": [497, 498],
+    "one_step_replay_target_index": 499,
+    "fields": [
+      "x",
+      "y",
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde",
+      "Pressure",
+      "Temperature",
+      "Mach",
+      "Pressure_Coefficient",
+      "Laminar_Viscosity",
+      "Skin_Friction_Coefficient_x",
+      "Skin_Friction_Coefficient_y",
+      "Heat_Flux",
+      "Y_Plus",
+      "Eddy_Viscosity"
+    ],
+    "dynamic_fields": [
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde"
+    ]
+  },
+  "claim_boundary": {
+    "native_solver_executed": false,
+    "restart_sufficiency_claimed": false,
+    "trusted_transition_claimed": false
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "schema": "time_dependent_no.naca_corrective_successor_contract.v1",
+  "experiment_id": "B3B4_NACA_CM_20260901A",
+  "packet_schemas": {
+    "calibration": "time_dependent_no.naca_corrective_successor_calibration.v1",
+    "training": "time_dependent_no.naca_corrective_successor_training.v1",
+    "training_config": "time_dependent_no.naca_corrective_successor_training_config.v1",
+    "training_inputs": "time_dependent_no.naca_corrective_successor_training_inputs.v1",
+    "evaluation": "time_dependent_no.naca_corrective_successor_evaluation.v1",
+    "evaluation_inputs": "time_dependent_no.naca_corrective_successor_evaluation_inputs.v1",
+    "final_hash_manifest": "time_dependent_no.naca_corrective_successor_final_hash_manifest.v1",
+    "resource_smoke": "time_dependent_no.naca_corrective_successor_resource_smoke.v1",
+    "execution_authorization": "time_dependent_no.naca_corrective_successor_execution_authorization.v1",
+    "prospective_freeze": "time_dependent_no.naca_corrective_successor_prospective_freeze.v1",
+    "prospective_authorization": "time_dependent_no.naca_corrective_successor_prospective_authorization.v1"
+  },
+  "inherited_r0_contract_sha256": "94069e65ef520d31860735b6c17f2b7515da1c4acd34d68518a2a16b3181fa87",
+  "preregistration_sha256": "650b71d0c3c1979e9e54d6be6a06c3869dc507a9010710dd31eece5b33e1f8cb",
+  "dataset": {
+    "final_hash_manifest_sha256": "1cb5fd2d751bdf1ca27cde5e1a1457973a525c19a98dbadd7cc3738c3efe2e4b",
+    "train_frames_inclusive": [955, 1194],
+    "train_centers_inclusive": [956, 1193],
+    "development_frames_inclusive": [1233, 1472],
+    "development_centers_inclusive": [1234, 1471],
+    "prospective_frames_inclusive": [1511, 1750],
+    "sealed_frames_inclusive": [1755, 1994]
+  },
+  "parent_r0": {
+    "evaluation_final_hash_manifest_sha256": "37e43b315c9160b4d3525b4b6d7991881faacdae5629235361c64e837046725a",
+    "checkpoints": {
+      "17": {
+        "checkpoint_sha256": "8928fed6b1f6948d64dbf03486b7477481d5f082bfa2a72c3ee2a16d6d8080e7",
+        "final_hash_manifest_sha256": "5fc86d129ca456aed1a8b8870020f93d5e0bf3e3d41881ec5ea3ef87418f3071"
+      },
+      "29": {
+        "checkpoint_sha256": "e35bbdc2fbb2d538b2de8c445e40692ee29f801d620b9bc950e0068193abcd5c",
+        "final_hash_manifest_sha256": "3078accaf90c7c0c2cd653171ca6f938ec42bfe1e01b23bb2f22f8711699d020"
+      },
+      "43": {
+        "checkpoint_sha256": "f52ec74f2910b164b01c14644b0fda12760515f31638286fa718d4566f1ecde1",
+        "final_hash_manifest_sha256": "0ab746f1ca30f72471146165ee6bbfc2dd20f7978e52bc4d62b3cc12680c8e50"
+      }
+    }
+  },
+  "state": {
+    "history": "complete_bdf2_pair",
+    "dynamic_fields": [
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde"
+    ],
+    "model_output": "normalized_next_state_residual"
+  },
+  "calibration": {
+    "fit_role": "train_only",
+    "parent_seeds": [17, 29, 43],
+    "teacher_forced_error_coordinates": "state_normalized",
+    "iid_scale": "per_field_rms_parent_teacher_forced_next_state_error",
+    "iid_multiplier": 1.0,
+    "structured_pair_centers_inclusive": [957, 1193],
+    "structured_pair_count_per_seed": 237,
+    "structured_rank": 16,
+    "structured_distribution": "centered_gaussian_in_parent_error_pair_pca",
+    "structured_energy_match": "iid_expected_history_pair_squared_norm",
+    "path_pca_variance_target": 0.999,
+    "path_pca_rank_cap": 32,
+    "path_fit_states": "train_current_states_only",
+    "path_fit_frames_inclusive": [956, 1193],
+    "path_fit_state_count": 238
+  },
+  "arms": {
+    "CLEAN": {
+      "clean_loss_weight": 1.0,
+      "intervention_loss_weight": 0.0
+    },
+    "IID_RECOVERY": {
+      "clean_loss_weight": 0.5,
+      "intervention_loss_weight": 0.5,
+      "corrupt_previous": true,
+      "corrupt_current": true,
+      "slot_noise_correlation": "independent",
+      "node_support": "all_nodes",
+      "field_support": "all_dynamic_fields",
+      "fresh_draws": "each_epoch"
+    },
+    "ERROR_SUBSPACE_RECOVERY": {
+      "clean_loss_weight": 0.5,
+      "intervention_loss_weight": 0.5,
+      "corrupt_previous": true,
+      "corrupt_current": true,
+      "fresh_draws": "each_epoch"
+    },
+    "DETACHED_PUSHFORWARD": {
+      "clean_loss_weight": 0.5,
+      "intervention_loss_weight": 0.5,
+      "exposed_centers_inclusive": [957, 1193],
+      "exposed_center_count": 237,
+      "prefix_gradient": "detached",
+      "target": "stored_clean_future"
+    },
+    "PATH_PROJECTION": {
+      "parent_predictor": "CLEAN",
+      "schedule": "every_step",
+      "candidate_geometry": "train_pca_piecewise_linear_path",
+      "corrected_state": "full_state_segment_interpolant",
+      "recurrent_feedback": "corrected_state"
+    }
+  },
+  "optimization": {
+    "seeds": [17, 29, 43],
+    "epochs": 100,
+    "effective_batch_size": 4,
+    "optimizer": "AdamW",
+    "initial_learning_rate": 0.001,
+    "weight_decay": 0.00001,
+    "scheduler": "CosineAnnealingLR",
+    "scheduler_t_max": 100,
+    "scheduler_eta_min": 0.00001,
+    "gradient_clip_norm": 1.0,
+    "checkpoint_epochs": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+    "checkpoint_selection": "lowest_clean_development_normalized_residual_rmse_earliest_tie",
+    "rollout_used_for_selection": false
+  },
+  "evaluation": {
+    "development_anchors": [1234, 1238, 1243, 1247, 1251, 1256, 1260, 1264],
+    "horizons": [1, 8, 35, 104, 208],
+    "full_trace_inclusive": [1, 208],
+    "late_window_inclusive": [174, 208],
+    "primary_metrics": [
+      "normalized_state_error_auc",
+      "late_window_normalized_state_error_median"
+    ],
+    "tie_ratio_inclusive": [0.95, 1.05],
+    "sampling_statement": "deterministic_finite_population_common_trajectory"
+  },
+  "protection": {
+    "prospective_opened": false,
+    "sealed_opened": false,
+    "online_solver_calls": false,
+    "online_defect_trigger": false
+  }
+}

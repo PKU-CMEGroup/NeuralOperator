@@ -1,0 +1,298 @@
+{
+  "schema": "time_dependent_no.su2_naca0012_pcno_baseline.v1",
+  "created_on": "2026-08-31",
+  "status": "frozen_before_population_materialization_or_pcno_outcome",
+  "parent_evidence": {
+    "phase_contract": {
+      "file": "R0_NACA_PHASE_PILOT_CONTRACT.json",
+      "sha256": "f442065172beb014ebcd4f3823abe1e2764fb2b74bbad348a8dd94d6b4c903f5"
+    },
+    "phase_analysis": {
+      "relative_artifact": "artifacts/time_dependent_no/su2_naca0012_trajectory_phase_pilot_20260831a/phase_pilot_analysis.json",
+      "outcome": "PHASE_ONLY_SUPPORTED",
+      "canonical_payload_sha256": "b1b6d3db60694dee54e05c2f5d870c6ffa1856d4db3990ad64d833e7c4931007",
+      "file_sha256": "b14ef6d66c5e520633ea94954ff3b243a47c3185743de43a5ff10d1c7f74069f"
+    },
+    "trajectory": {
+      "first_output_index": 499,
+      "last_output_index": 1999,
+      "output_count": 1501,
+      "trajectory_receipt_payload_sha256": "6d8553eb76105b1a99ab50be63d0348d8fcd3d224550442a2ad6bf4cdd36da26",
+      "trajectory_receipt_file_sha256": "3d857d6ddca4dca111ecc716b2c85ff23f727a4fafc97d39f24db340d2b2672b",
+      "storage_manifest_payload_sha256": "8a00bf31417d86fe8977ac45f8137cd1c17c970e16260ae3e4ced15fe0f9fe61",
+      "storage_manifest_file_sha256": "1c0d83027bed64df14f41a620fd4689eda2d341aee54b1e5b9f4d84b71f9d519",
+      "ordered_restart_records_sha256": "9adbcfd53c4812009d3c5e5081730b709a2f63f48237760390e2c8559ab200ef",
+      "history_sha256": "9eb1d76865b139ccf0f0be764263cc17d4a44bd63234a63ea512c82a4f18defd"
+    }
+  },
+  "scientific_scope": {
+    "system": "one fixed autonomous SU2 Unsteady NACA0012 attractor",
+    "claim": "single-system single-attractor ID autonomous rollout",
+    "not_claimed": [
+      "independent trajectories",
+      "IID phase samples",
+      "parameter generalization",
+      "arbitrary-state solver fidelity",
+      "primary-PDE promotion",
+      "corrective-mechanism performance"
+    ]
+  },
+  "phase_population": {
+    "measured_period_steps": 34.654308581563384,
+    "phase_offset_fraction": 0.4142135623730951,
+    "nominal_phase_rule": "(k + phase_offset_fraction) / 32 modulo 1",
+    "role_rule": "k modulo 4 maps to train, development, prospective, sealed",
+    "native_anchor_rule": "map each nominal phase into the role's designated observed crossing interval and choose the nearest integer solver index; never interpolate a model state",
+    "maximum_realized_phase_error_cycles": 0.01432963039381151,
+    "primary_rollout_horizon_steps": 208,
+    "primary_rollout_horizon_periods": 6.002139662098442,
+    "horizon_rule": "round(6 * measured_period_steps)",
+    "reported_horizons_steps": [
+      1,
+      35,
+      104,
+      208
+    ],
+    "primary_long_horizon_gate_steps": 208,
+    "early_window_steps_inclusive": [1, 35],
+    "late_window_steps_inclusive": [174, 208],
+    "window_summary": "compute each rollout's RMS error over the declared time window before aggregating across phase anchors; the terminal point is reported but never used alone because an integer-period horizon can alias a periodic orbit",
+    "post_outcome_extension_forbidden": true,
+    "roles": {
+      "train": {
+        "access": "open",
+        "source_crossing_array_index_zero_based": 2,
+        "source_crossing_offset_from_output_499": 456.2870285779859,
+        "source_crossing_output_coordinate": 955.2870285779859,
+        "k_values": [0, 4, 8, 12, 16, 20, 24, 28],
+        "anchor_input_indices": [956, 960, 964, 969, 973, 977, 982, 986],
+        "owned_frame_indices_inclusive": [955, 1194],
+        "dense_transition_center_indices_inclusive": [956, 1193],
+        "dense_transition_count": 238
+      },
+      "development": {
+        "access": "open_for_one_step_selection_and_R0_rollout_diagnosis",
+        "source_crossing_array_index_zero_based": 10,
+        "source_crossing_offset_from_output_499": 733.3527376334712,
+        "source_crossing_output_coordinate": 1232.3527376334712,
+        "k_values": [1, 5, 9, 13, 17, 21, 25, 29],
+        "anchor_input_indices": [1234, 1238, 1243, 1247, 1251, 1256, 1260, 1264],
+        "owned_frame_indices_inclusive": [1233, 1472],
+        "dense_transition_center_indices_inclusive": [1234, 1471],
+        "dense_transition_count": 238
+      },
+      "prospective": {
+        "access": "sealed_until_named_B4_reveal",
+        "source_crossing_array_index_zero_based": 18,
+        "source_crossing_offset_from_output_499": 1010.5503291804479,
+        "source_crossing_output_coordinate": 1509.550329180448,
+        "k_values": [2, 6, 10, 14, 18, 22, 26, 30],
+        "anchor_input_indices": [1512, 1516, 1521, 1525, 1529, 1534, 1538, 1542],
+        "owned_frame_indices_inclusive": [1511, 1750]
+      },
+      "sealed": {
+        "access": "sealed_until_separate_owner_decision",
+        "source_crossing_array_index_zero_based": 25,
+        "source_crossing_offset_from_output_499": 1253.1803023514774,
+        "source_crossing_output_coordinate": 1752.1803023514774,
+        "k_values": [3, 7, 11, 15, 19, 23, 27, 31],
+        "anchor_input_indices": [1756, 1760, 1765, 1769, 1773, 1778, 1782, 1786],
+        "owned_frame_indices_inclusive": [1755, 1994]
+      }
+    },
+    "unused_gap_indices_inclusive": [
+      [1195, 1232],
+      [1473, 1510],
+      [1751, 1754],
+      [1995, 1999]
+    ],
+    "leakage_rule": "every input history u_(n-1), current state u_n, and target through u_(n+208) must remain inside its role-owned frame block",
+    "statistics": "aggregate within each rollout, then report deterministic median, q90, and worst-phase summaries; do not bootstrap anchors as independent trajectories; report model seeds separately as optimization variability",
+    "prior_access_exception": "the solver-only phase qualification read the already generated 499--1999 prefix before this role split, without any model, model outcome, normalization, or method comparison; this is the sole pre-split whole-prefix exception and does not authorize Stage-2 access to prospective or sealed dynamic values"
+  },
+  "state_and_dataset": {
+    "dynamic_fields": [
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde"
+    ],
+    "native_state_dtype": "float64",
+    "stored_model_state_dtype": "float64",
+    "supervised_transition": "(u_(n-1), u_n) -> u_(n+1)",
+    "target": "u_(n+1) - u_n computed in float64 before normalization or float32 casting",
+    "dataset_storage": "the Stage-2 builder may read and export only train frames 955--1194 and development frames 1233--1472, each once; it may record prospective/sealed index ranges and pre-existing packet hashes but must not load, parse, copy, or derive from their dynamic values; a later reveal requires a separate owner-authorized materializer and receipt",
+    "diagnostic_replay_triplet": "retain 497/498/499 as a separately labelled diagnostic-only triplet for the paired native-replay margin; exclude it from the ID population, normalization, training, checkpoint selection, and all support estimates",
+    "geometry": {
+      "mesh": "fixed native SU2 quadrilateral mesh",
+      "pcno_element_encoding": "[2, n0, n1, n2, n3] for every quad",
+      "adjacency": "element",
+      "gradient_rcond": 0.001,
+      "spectral_measure": "one physical vertex-lumped area measure computed only by utility.time_dependent_no.su2_native_replay.lumped_vertex_areas, whose ordered-quad cell areas use the qualified polygon shoelace rule; auxiliary PCNO node_weights are m_i / sum_i m_i",
+      "quadrature_density": "rho_i = node_weight_i / m_i = 1 / sum_i m_i for every positive-measure node; this repository-convention density is a constant static input on the fixed mesh and is distinct from the auxiliary normalized node_weights",
+      "normalized_coordinates": "x_norm=(x-x_min)/(x_max-x_min) and y_norm=(y-y_min)/(y_max-y_min), with extrema computed once from the native mesh and recorded in the dataset manifest",
+      "fourier_coordinates": "native coordinates translated by the mesh minimum: (x-x_min, y-y_min)",
+      "fourier_lengths": "(x_max-x_min, y_max-y_min), recorded exactly by the dataset manifest",
+      "static_input_features": [
+        "normalized coordinate x",
+        "normalized coordinate y",
+        "quadrature density",
+        "interior one-hot",
+        "airfoil one-hot",
+        "farfield one-hot"
+      ],
+      "boundary_rule": "static mesh boundary classes are allowed inputs; no future truth, boundary target, or oracle boundary value is an input"
+    }
+  },
+  "normalization": {
+    "fit_frames": [955, 1194],
+    "fit_transitions": [956, 1193],
+    "weights": "uniform node",
+    "state": "for field j, mu_j=mean over all train frames 955--1194 and all nodes; rms_j=sqrt(mean(u_j^2)); s_u_j=max(sqrt(mean((u_j-mu_j)^2)), 1e-8*max(rms_j,1)); the same mu_j and s_u_j normalize both history slots",
+    "state_scale_floor": "the second argument in s_u_j above",
+    "residual": "for field j over train transition centers 956--1193, s_delta_j=max(sqrt(mean((u_(n+1),j-u_n,j)^2)), 1e-6*s_u_j); all increments and statistics are constructed in float64",
+    "residual_mean_subtracted": false,
+    "residual_scale_floor": "the second argument in s_delta_j above",
+    "relative_l2_denominator_floor": "ell_j=1e-12*max(rms_j,1); every fieldwise relative-L2 denominator is max(sum_i w_i*u_target_ij^2, ell_j^2)",
+    "development_or_sealed_data_may_change_normalization": false
+  },
+  "model": {
+    "backbone": "pcno.PCNO",
+    "history": "complete BDF2 pair",
+    "input_channels": 16,
+    "output_channels": 5,
+    "input_layout": "2 normalized coordinates + 1 quadrature density + 3 boundary-class one-hot + 5 normalized previous-state fields + 5 normalized current-state fields",
+    "fourier_modes": [8, 8],
+    "nmeasures": 1,
+    "layers": [128, 128, 128, 128, 128],
+    "projection_width": 128,
+    "activation": "gelu",
+    "gradient_branch": true,
+    "output": "normalized five-field next-state residual",
+    "zero_initialize_output_head": true,
+    "zero_initialization": "set both backbone.fc2.weight and backbone.fc2.bias exactly to zero before the first optimizer step",
+    "recurrence": "(u_(n-1), u_n) -> (u_n, u_n + s_delta * model(u_(n-1), u_n)) fieldwise",
+    "rollout_arithmetic": "model inputs, model outputs, decoded residuals, and recurrent states are float32 on device; each predicted state is retained as float32 for the next step; reference states and predictions are converted to float64 only for metric accumulation and never fed back after conversion",
+    "forbidden": [
+      "oracle boundary overwrite",
+      "clipping",
+      "positivity flooring",
+      "smoothing",
+      "projection",
+      "exponential output transform",
+      "future reference input"
+    ]
+  },
+  "training": {
+    "seeds": [17, 29, 43],
+    "precision": "float32 without AMP; float64 target construction",
+    "loss": "uniform-node MSE of the five normalized residual fields",
+    "optimizer": "AdamW",
+    "optimizer_betas": [0.9, 0.999],
+    "optimizer_epsilon": 1e-8,
+    "optimizer_amsgrad": false,
+    "optimizer_foreach": false,
+    "optimizer_fused": false,
+    "learning_rate": 0.001,
+    "weight_decay": 0.00001,
+    "gradient_clip_norm": 1.0,
+    "scheduler": "torch.optim.lr_scheduler.CosineAnnealingLR with T_max=100 and eta_min=1e-5, stepped once after each completed training epoch",
+    "epochs": 100,
+    "effective_batch_size": 4,
+    "final_batch_policy": "the final batch contains the remaining 2 of 238 transitions, is neither dropped nor repeated, uses a mean over its actual 2 examples, and receives one optimizer step",
+    "microbatch_size_initial": 4,
+    "resource_only_adjustment": "before production, a memory smoke may reduce the microbatch and add gradient accumulation while preserving effective batch 4; it may not change any scientific or optimization hyperparameter",
+    "presentations": "every dense train transition exactly once per epoch in seed-deterministic shuffled order generated by a dedicated torch.Generator; DataLoader workers=0",
+    "reproducibility": "seed Python random, NumPy, torch CPU, and all CUDA generators with the declared seed before model initialization; disable AMP and CUDA matmul/cuDNN TF32; set cuDNN benchmark=false and deterministic=true; PCNO CUDA scatter-add is not claimed bitwise deterministic, so torch deterministic-algorithm enforcement remains false and runtime/software/device identities are recorded",
+    "checkpoint_frequency_epochs": 5,
+    "checkpoint_epochs": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+    "checkpoint_selection": "at each checkpoint epoch compute R_n,uniform over all 238 dense development transitions, then take the median over n; replace the best checkpoint only on strict numeric decrease, so the earliest exact tie wins",
+    "rollout_used_for_checkpoint_selection": false
+  },
+  "evaluation": {
+    "baseline": "persistence under the identical population and views",
+    "persistence_definition": "for every BDF2 input pair, persistence predicts u_hat_(n+h)=u_n for every h>=1; it is evaluated with exactly the same fields, view weights, denominators, windows, anchors, and aggregation as PCNO",
+    "R0_role": "development only",
+    "prospective_access": false,
+    "sealed_access": false,
+    "views": {
+      "uniform_node": "primary, w_i=1/N over all N nodes",
+      "near_body_wake_uniform_node": "required diagnostic, w_i=1/N_view for nodes with x in [-1,10] and y in [-5,5], zero otherwise",
+      "physical_vertex_area": "required secondary, w_i=m_i/sum_i m_i using the qualified shoelace/lumped m_i; cannot qualify alone"
+    },
+    "metric_definitions": {
+      "per_field_normalized_residual_rmse": "R_(n,v,j)=sqrt(sum_i w_(v,i)*((delta_hat_(n,i,j)-delta_(n,i,j))/s_delta_j)^2)",
+      "component_balanced_normalized_residual_rmse": "R_(n,v)=sqrt((1/5)*sum_j R_(n,v,j)^2)",
+      "per_field_relative_l2": "L_(n,v,j)=sqrt(sum_i w_(v,i)*(u_hat_(n+1,i,j)-u_(n+1,i,j))^2 / max(sum_i w_(v,i)*u_(n+1,i,j)^2, ell_j^2))",
+      "component_balanced_relative_l2": "L_(n,v)=sqrt((1/5)*sum_j L_(n,v,j)^2)",
+      "dense_one_step_aggregation": "compute transition metrics first, then report median, deterministic nearest-rank q90, and maximum across the 238 development transition centers; each-field adequacy uses median_n R_(n,uniform,j), and checkpoint score uses median_n R_(n,uniform)",
+      "train_state_scale_error": "E_(a,h,v,j)=sqrt(sum_i w_(v,i)*((u_hat_(a,h,i,j)-u_(a+h,i,j))/s_u_j)^2); E_(a,h,v)=sqrt((1/5)*sum_j E_(a,h,v,j)^2)",
+      "rollout_window": "W_(a,l,r,v)=sqrt((1/(r-l+1))*sum_(h=l..r) E_(a,h,v)^2) when every state in that anchor/window is finite; set W=+infinity for any anchor whose window is not fully finite before deterministic median, nearest-rank q90, and maximum aggregation, and also report a separately labelled finite-anchor-only summary",
+      "finite_state_rate": "for a seed and horizon r, sum over the eight anchors of the number of consecutively produced finite states among steps 1--r, divided by 8*r; the first nonfinite state and all later unproduced states count as incomplete",
+      "full_rollout_completion_rate": "for a seed and horizon r, count anchors whose every predicted state at h=1..r is finite, divided by 8; this anchor completion fraction, not finite_state_rate, enters R0 gates",
+      "one_step_rollout_value": "E1=median across the eight development anchors of E_(a,1,uniform)",
+      "terminal_horizons": "report E and L at h in {1,35,104,208}; these endpoints are secondary and never replace the frozen early/late window functionals",
+      "train_template_nearest_phase": "at registered terminal horizons, minimize E_scale under the requested view over every train frame 955--1194; report the minimum, nearest train-frame index, its phase, the time-matched E, and their difference",
+      "boundary_error": "on airfoil and farfield node sets separately, use uniform weights over that boundary set and the same per-field s_u_j and equal-field E_scale formula",
+      "wall_normal_momentum_leakage": "construct each airfoil vertex normal by normalizing the length-weighted sum of its incident outward body-edge normals; with s_m=sqrt((s_u_Momentum_x^2+s_u_Momentum_y^2)/2), report RMS over airfoil vertices of ((m_hat-m_true) dot n)/s_m and the analogous absolute predicted and reference RMS values",
+      "admissibility": "at every finite predicted state report node fractions and first step for rho<=0, internal energy E-(Momentum_x^2+Momentum_y^2)/(2*rho)<=0, and Nu_Tilde<0; division-derived diagnostics are marked invalid at rho<=0 but the finite recurrent state is not altered and rollout continues",
+      "volume_integral": "I_j=sum_i w_(physical,i)*u_(i,j); report abs(I_hat_j-I_j)/s_u_j per field and their equal-field RMS",
+      "pressure_only_force": "with gamma=1.4, p=(gamma-1)*(Energy-(Momentum_x^2+Momentum_y^2)/(2*Density)); for each ordered airfoil marker edge (a,b), choose the unit normal n_e pointing away from the arithmetic centroid of unique airfoil vertices and length L_e, then F_p=-sum_e 0.5*(p_a+p_b)*n_e*L_e; project onto d=(cos(17 deg),sin(17 deg)) and l=(-sin(17 deg),cos(17 deg)); report raw drag/lift proxies and errors divided by train-only s_F=max(std_train(F),1e-8*max(rms_train(F),1)); this pressure-only five-state diagnostic is distinct from the qualified native replay's pressure-plus-skin-friction proxy"
+    },
+    "one_step_metrics": [
+      "normalized residual RMSE",
+      "component-balanced relative L2 of next state",
+      "each-field relative L2"
+    ],
+    "rollout_metrics": [
+      "component-balanced train-state-scale error",
+      "component-balanced relative L2",
+      "train-template nearest-phase distance",
+      "time-matched versus phase-aligned error",
+      "airfoil and farfield boundary error",
+      "wall-normal momentum leakage",
+      "finite-state rate",
+      "density and internal-energy admissibility",
+      "Nu_Tilde minimum and negative fraction",
+      "volume-integral discrepancy",
+      "five-state pressure-only surface-force proxy"
+    ],
+    "invalid_rollout_policy": "stop only at the first nonfinite state; continue finite but physically inadmissible states and report their first occurrence and rate",
+    "force_label": "pressure-only state-derived proxy, not the qualified replay pressure-plus-skin-friction proxy and not producer-integrated SU2 lift or drag",
+    "native_replay_margin": {
+      "stage": "paired post-training R0 readiness check; it is not used for training or checkpoint selection",
+      "model_input_and_target": "apply each selected clean PCNO to diagnostic-only histories (u_497,u_498) to predict u_499 and compare with the canonical five-field u_499 target",
+      "metric": "component-balanced five-field next-state relative L2 using the same per-view formula and denominator floors defined above",
+      "qualified_native_replay_errors": {
+        "uniform_node": 0.0005944719162334844,
+        "near_body_wake_uniform_node": 0.0008908100064798938,
+        "physical_vertex_area": 4.326398934778188e-7
+      },
+      "gate": "for every seed and each of the three views, qualified_native_replay_error_v < 0.25*PCNO_error_seed_v at exactly the 497/498-to-499 interface",
+      "scope": "this check establishes only a model-relative numerical margin at the qualified replay interface; the triplet is outside the declared attractor ID population and cannot support an ID-generalization or arbitrary-state-restart claim",
+      "later_intervention_margin": "before interpreting B4 method separations, a separate frozen comparison must also show native replay discrepancy below one quarter of the smallest interpreted separation"
+    }
+  },
+  "R0_decision_rule": {
+    "adequately_trained_per_seed": [
+      "development median normalized-residual RMSE <= 0.5",
+      "development each-field normalized-residual RMSE <= 0.75",
+      "development median uniform-node component-balanced next-state relative L2 <= 0.05",
+      "development q90 uniform-node component-balanced next-state relative L2 <= 0.10"
+    ],
+    "initially_accurate": "development-anchor median W_(a,1,35,uniform) is < 0.15, is <=0.80 times the identically aggregated persistence value, and every one of the eight anchors completes all 35 steps finitely",
+    "severe_long_horizon": "development-anchor median W_(a,174,208,uniform), with failed windows assigned +infinity, is >= max(0.25,5*E1), or full_rollout_completion_rate(208)<0.80",
+    "reproducibility": "all three seeds pass adequate training and at least two of three pass both initially accurate and severe long-horizon rules",
+    "reject_if_no_failure": "if the frozen 208-step development horizon does not expose reproducible severe delayed degradation, reject NACA0012 as the hero correction-necessity case under this contract; do not extend after observing the outcome",
+    "not_sufficient_for_primary_promotion": "a passing baseline phenotype still requires train-only support structure and evidence that failure is not only phase error, solver bias, undertraining, or boundary leakage"
+  },
+  "claim_boundary": {
+    "population_materialized": false,
+    "pcno_code_audited": false,
+    "pcno_training_authorized_by_this_file": false,
+    "pcno_outcome_claimed": false,
+    "prospective_opened": false,
+    "sealed_opened": false
+  }
+}

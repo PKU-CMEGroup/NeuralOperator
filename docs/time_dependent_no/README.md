@@ -1,210 +1,189 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-08-26
+Updated: 2026-09-03
 
-This directory is the onboarding surface for the summer 2026 time-dependent
-neural-operator work on branch `time-dependent-no`. It points to authority,
-data contracts, maintained code, and recovery records. It is not an experiment
-queue and does not replace current human direction.
+This directory is the onboarding surface for the `time-dependent-no` branch.
+The current project studies corrective mechanisms for stable and accurate
+self-composition from in-distribution initial conditions. It is not an online
+OOD-detection project, architecture zoo, or generic repository-cleanup branch.
 
-## Navigation
+## Required Read Order
 
-Read active context in this order:
+1. repository-root `AGENTS.md`;
+2. [RESEARCH_DIRECTION_DECISION.md](RESEARCH_DIRECTION_DECISION.md);
+3. [HANDOFF.md](HANDOFF.md);
+4. [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md);
+5. this README;
+6. ignored `LOCAL_CONTEXT.md` privately, if present; and
+7. live Git status plus current source/artifact manifests.
 
-1. Repository-root `AGENTS.md` for branch rules.
-2. [RESEARCH_DIRECTION_DECISION.md](RESEARCH_DIRECTION_DECISION.md) for the
-   current scientific verdict, claim boundaries, and owner constraints.
-3. [HANDOFF.md](HANDOFF.md) for the current workspace and unresolved decisions.
-4. [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md) for
-   compact experiment-ID and topic routing.
-5. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) for the phased
-   deployment-response programme, evidence registers, and prospective gates.
-6. The [W26-L4 section of the weekly plan](WEEKLY_RESEARCH_PLAN.md#w26-l4-realm-benchmark-and-paper-level-validation)
-   for the retained PlanarDet problem-discovery contract and authorization
-   boundary.
-7. [D093_W26_L4_PLANARDET_SCALING_RECORD.md](D093_W26_L4_PLANARDET_SCALING_RECORD.md)
-   for the closed PlanarDet architecture/exposure comparison.
-8. [W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
-   for the closed reference-free H320 bump recurrence result.
-9. [D094_BUMP_SCALING_PREREGISTRATION.md](D094_BUMP_SCALING_PREREGISTRATION.md)
-   for the retained B1-A/B1-B schedule audit, completed seed-0 trajectory
-   ladder, B1-C4 compute-extension diagnostic, closed B1-C5-A/B/C numerical and
-   map--path diagnostics, completed B1-C2 and B1-C3 audits, and closed
-   B1-C3-R1 seed-0 replay/three-seed analysis.
-10. [P0_RESTART_SUFFICIENCY_PREREGISTRATION.md](P0_RESTART_SUFFICIENCY_PREREGISTRATION.md)
-    for the native-coarse restart and solver-bias gate. A0/A1 and the explicitly
-    authorized A2 are complete. Solver repeatability passes, but all three cases
-    fail both factor-of-four bias ratios, so this native-coarse target proxy is
-    closed and A3 did not run.
-11. Read one bounded section of the
-   [2026-08-11 decision archive](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
-   or [evidence archive](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
-   when exact historical contracts, results, or hashes are required.
+Current explicit owner direction outranks repository snapshots. No document
+implicitly authorizes execution.
 
-Current W26-L4 execution state: PlanarDet A1--A3, D092-R1 training, open-
-validation evaluation, P0b, corrected G0b, and the G1 one-call chemistry/density
-pulse study are complete. The PCNO's released-code H49 validation sum is
-`88.13821`, 7.01x the REALM paper's FFNO validation value `12.577`. P0b is
-near-null; G0b localizes strong chemistry/density recurrence sensitivity; G1
-shows that the partner response is immediately bidirectional but materially
-persistent only from chemistry to density at calls 12 and 32. D093 then reuses
-the PCNO-7 result anchor and adds PCFNO/FFNO at three and seven unique
-supervised conditions. Each seven-condition cell has lower selected truth-input
-error than its three-condition counterpart, but only FFNO has a lower selected
-free-rollout sum; FFNO-7 is best at `1.36466/32.53910`.
-This is one seed and one open trajectory under a shared residual contract, not
-clean data scaling, an architecture cause, paper-faithful FFNO reproduction,
-physical causal graph, correction method, or sealed ranking; the released test
-remains absent. Use the handoff, D093 record, and weekly plan for exact bindings
-and claim boundaries.
+## Active Planning
 
-Current D094 execution state: B1-A/B1-B, the B1-C0/B1-C1 seed-0 six-count
-PCNO/PCFNO ladder, B1-C4, B1-C5-A/B/C, all 24 B1-C2 replication cells, and the
-exact common-process audit of all 72 three-seed selected/terminal checkpoints
-are complete, locally retained, and rehashed. The audit uses seed-specific
-outside-selection cohorts and a fixed common-nine view; the historical test
-population remains sealed.
-B1-C4 cold 40,960-step PCNO at `n={128,256}` selects step 38,400 for both.
-Fixed-validation and selection-cohort H79 are near ties, while outside-audit H79
-is `0.038922/0.044550` and `n=128` wins 22 of 28 cases. Exact-exposure and
-exact-update slices reverse direction while changing other variables.
-Selected-to-terminal outside H79 worsens for both counts while fixed one-step
-barely changes, and both frozen continuation gates fail. B1-C5-A now closes
-three fresh BF16 evaluations plus one FP32 control. Every execution preserves
-selected `n=128 < n=256` H79 and selected-to-terminal worsening; the largest
-aggregate numerical range is 15.58% of the smallest count gap. Terminal
-checkpoints improve early H20 by 4.06%/5.15% but worsen H79 by 1.98%/4.06% in
-BF16. Only 23/28 per-case winners are stable, the maximum-case identity changes,
-and eight of 112 physical-event rows are precision-sensitive despite 448/448
-complete finite rollouts. B1-C5-B then resolves the fixed-map question. On the
-selected path, the terminal map improves one-call error at calls 20/79 by
-`0.166%/0.130%` for `n=128` and `0.294%/0.117%` for `n=256`; its own FP32
-autonomous path instead improves H20 by `4.37%/8.40%` and worsens H79 by
-`1.71%/2.10%`. Fourteen of 28 cases in each count flip from common-path help to
-autonomous H79 harm. B1-C5-C then shows that selected-map response to terminal-
-path displacement is already harmful enough to reverse H79: `P_s` is
-`+0.00068861/+0.00096228`, versus favorable `M_s` of
-`-0.00005151/-0.00005298`, and both zero-interaction totals are positive. The
-classification is `resolved_path_displacement_sufficient`; interaction is
-positive but not necessary. The path and total turn permanently harmful only
-near calls 56--61, while all-call error still favors the terminal checkpoint.
-Across the three seeds, selected outside H79 PCNO/PCFNO means are
-`0.14047/0.14896`, `0.07918/0.09867`, `0.06389/0.10353`,
-`0.05808/0.10840`, `0.05115/0.09778`, and `0.06515/0.12108` for increasing
-`n`. PCNO is lower in all three seeds for `n>=16`, and its rollout advantage
-grows far beyond its roughly stable `17--24%` one-step validation advantage.
-Both architectures worsen from `n=128` to `n=256`, so there is a replicated
-recurrent data--architecture interaction but no monotone data-scaling law. The
-fixed-validation/fixed-seen ratio is near `1.01--1.03` at `n>=32`, showing that
-ordinary one-step generalization gap can saturate while recurrence remains the
-main discriminator. PCNO starts recurrently worse at step 256 for every count
-and crosses only after about 7,680--16,640 updates.
+| Document | Role |
+| --- | --- |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md) | Master objective, claims, deliverables, critical path, gates, and risks. |
+| [paper/PAPER_PLAN.md](../../paper/PAPER_PLAN.md) | Active manuscript narrative, section order, figures, and writing guardrails. |
+| [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) | Supporting ODE laboratories and the mandatory fixed-PCNO PDE case study. |
+| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Minimal code, test, query-bank, manifest, and freeze/reveal architecture. |
+| [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) | Current block and authorization status. |
+| [R0_PRIMARY_PDE_READINESS_CONTRACT.md](R0_PRIMARY_PDE_READINESS_CONTRACT.md) | Frozen SU2 Unsteady NACA0012 readiness gates and state/replay contract used by the closed first screen. |
+| [R0_SU2_NACA_NATIVE_REPLAY_QUALIFICATION.json](R0_SU2_NACA_NATIVE_REPLAY_QUALIFICATION.json) | Immutable C/D replay hashes, field roles, force-history availability, and storage projection. |
+| [R0_NACA_PHASE_PILOT_CONTRACT.json](R0_NACA_PHASE_PILOT_CONTRACT.json) | Frozen solver-only stationarity, recurrence, extension, and phase-population decision rule used by the completed pilot. |
+| [R0_NACA_PCNO_BASELINE_CONTRACT.json](R0_NACA_PCNO_BASELINE_CONTRACT.json) | Frozen content-disjoint phase population, 208-step horizon, complete-BDF2 PCNO representation, training, and R0 decision rule. |
+| [B3B4_NACA_CORRECTIVE_SUCCESSOR_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_SUCCESSOR_PREREGISTRATION.md) | Frozen successor question, exact five-arm comparison, signed predictions, and protected-access gates. |
+| [B3B4_NACA_CORRECTIVE_SUCCESSOR_CONTRACT.json](B3B4_NACA_CORRECTIVE_SUCCESSOR_CONTRACT.json) | Source-bound populations, learned arms, seeds, evaluation grid, packet schemas, and protected-role state. |
+| [B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md) | Frozen extension question, mechanism matrix, train-only SU2 relabeling pilot, and completed open-development gates. |
+| [B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json](B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json) | Frozen extension identity, schedules, paired bank, PDE-Refiner contract, and role protection. |
+| [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md) | Preserved but inactive work and re-entry rules. |
+| [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) | Surrounding calendar; the parent and extension are closed on development, while protected reveals remain separate decisions. |
 
-A post-hoc bit-identical-checkpoint audit bounds small BF16 differences at about
-`3.11%` H79 for active-gradient PCNO. The high-data PCNO/PCFNO gap remains far
-above that floor. PCNO has lower error and most H79 structure defects at high
-`n`, but lower strict physical admissibility; all 72 audit rollouts remain
-finite and complete. This is neither a no-harm nor conservation result.
+## Scientific Sources And Evidence
 
-B1-C3 is complete on the 24 retained exact-`64n` sentinels in BF16 and FP32.
-PCNO has lower one-step validation in every cell, but H79 favors PCFNO at
-`n=8/128`, PCNO at `n=16/32/256`, and opposite architectures across the two
-`n=64` seeds. Precision does not change those directions. This materially
-qualifies the selected-checkpoint scaling story: optimization phase and
-self-composition remain active after ordinary one-step generalization has
-largely saturated.
+- [CORRECTIVE_MECHANISMS_THEORY_AND_TAXONOMY.md](CORRECTIVE_MECHANISMS_THEORY_AND_TAXONOMY.md):
+  deterministic theorem ladder and framework taxonomy; its proof line has
+  completed audit;
+- [paper/LITERATURE_AUDIT.md](../../paper/LITERATURE_AUDIT.md): maintained
+  cutoff-bounded source ledger, refreshed and source-verified through
+  2026-09-01;
+- [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md):
+  compact historical run-ID/topic routing;
+- [M1_KOLMOGOROV_INFORMATION_COMPARISON_PREREGISTRATION.md](M1_KOLMOGOROV_INFORMATION_COMPARISON_PREREGISTRATION.md)
+  and [tracker](M1_KOLMOGOROV_INFORMATION_COMPARISON_TRACKER.md): current M1
+  reference/population provenance;
+- [R0_SU2_NACA_RESOURCE_MANIFEST.json](R0_SU2_NACA_RESOURCE_MANIFEST.json):
+  frozen public-resource, solver-version, mesh, restart, and claim-boundary
+  contract for the closed R0 screen;
+- the NACA successor preregistration and JSON contract above: immutable
+  authority for the closed five-arm parent; and
+- the NACA corrective-extension preregistration and JSON contract above:
+  frozen authority and provenance for the completed train/development work;
+  neither authorizes a protected reveal.
 
-B1-C3-R1 is closed at its registered development scope. All 12 cold seed-0
-cells, paired BF16/FP32 exact-sentinel evaluations, and the three-seed combined
-analysis complete without historical-test access. PCNO has lower one-step
-validation in all 18 seed-by-count comparisons in both precisions. Outside H79
-favors PCFNO in 3/3 seeds at `n=8`, PCNO in 3/3 at `n=16/32/256`, and is seed-inconsistent at
-`n=64/128`; precision directions agree. These opened outcomes are retrospective
-evidence, not a prospective response-diagnostic result. No 81,920-step run,
-FFNO/component or attention study, or test access is automatic.
+Historical records and preregistrations remain tracked for reproducibility,
+but they are not active planning surfaces. Use the compact tracker for bounded
+claim summaries, open archived detail only when needed, and verify live
+artifacts before relying on exact historical evidence. Historical
+recommendations are not an active queue.
 
-The primary BF16 three-seed exact-`64n` means now show the expected monotone
-one-step pattern: online train, fixed seen, and fixed validation decrease at
-every adjacent count for both PCNO and PCFNO. PCNO mean outside H79 is also
-monotone on this diagonal, but PCFNO mean outside H79 is not. Because updates
-grow from 512 to 16,384 with count, this is joint data/exposure/optimization
-scaling rather than isolated data causality.
+## Current Project In One Screen
 
-The [archive guide](history/README.md) explains snapshot authority and link
-resolution. The frozen D072 [experiment plan](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_PLAN.md)
-and [execution tracker](history/d072_refine_logs_frozen_2026-08-03/EXPERIMENT_TRACKER.md)
-are preregistration history, not a live queue.
+Two claims:
 
-Private paths, host details, credentials, and machine-specific dataset locations
-belong in ignored `LOCAL_CONTEXT.md`. Generated reports, arrays, figures,
-checkpoints, and large logs belong under ignored `artifacts/time_dependent_no/`.
+1. clean one-step data do not identify deployment-relevant off-trace response
+   over a sufficiently rich equivalence class; and
+2. frozen response/forcing/drift diagnostics should prospectively predict
+   rollout ranking reversals and intervention value beyond clean error.
 
-## Data And Provenance
+The explanatory split is on-reference fidelity plus transverse
+retention/recovery. Clean one-step error probes the first; corrective mechanisms
+target the second. Neither axis alone is sufficient, and the familiar
+tangent-dynamics interpretation of clean training is not the novelty claim.
 
-### Supersonic bump
+Evidence hierarchy:
 
-The folder historically labeled `forward_300` is the CPG supersonic-bump
-bundle: 300 training trajectories, 20 test trajectories, 80 HDF5 frames, and
-roughly 19k--23k graph nodes per trajectory.
+1. theory establishes the limitation and framework;
+2. exact and learned ODEs provide supporting mechanism and measurement checks;
+3. a mandatory, end-to-end fixed-PCNO case study on one qualified complex PDE
+   compares representative embedded and operational corrective mechanisms;
+4. frozen diagnostics and predicted rankings remain reserved for a separately
+   authorized prospective long-horizon reveal in that case study; and
+5. a second PDE is optional and bounded.
 
-- [CPG_EULER_DATASET_CONTRACT.md](CPG_EULER_DATASET_CONTRACT.md) defines the
-  live HDF5 schema and reader convention.
-- [BUMP_300_DATASET_AUDIT.md](BUMP_300_DATASET_AUDIT.md) records raw-bundle and
-  solver-lineage evidence.
-- [CPGGNSPDES_REFERENCE_AUDIT.md](CPGGNSPDES_REFERENCE_AUDIT.md) records the
-  bounded public-reference audit.
+The active manuscript follows eight sections: introduction; one-step
+versus rollout; corrective-mechanism framework; methods and prospective
+predictions; framework-guided corrector design; compact ODE calibration;
+primary fixed-PCNO PDE case study; and limitations/conclusion. The ODE
+calibration provides verified supporting evidence. The first NACA R0 model
+screen remains a verified negative promotion result. The distinct five-arm
+NACA successor supplies immutable parent evidence. Its completed
+`B3B4_NACA_CM_EXT_20260902A` extension adds source-faithful and curriculum
+model-prefix exposure, a paired recovery--relabeling contrast, and a learned
+iterative PCNO corrector. The open-development result is verified; prospective
+and sealed evidence remain unopened.
 
-The HDF5 bundle does not expose validated finite-volume control volumes,
-oriented physical faces, measures, normals, or accepted-substep impulses.
-Equal-node and reconstructed-weight totals are diagnostic proxies. They do not
-establish physical conservation.
+PCNO is fixed only to remove an empirical architecture confound; the theory is
+map-agnostic. Recovery and dynamics relabeling are neutral competitors with
+different targets. Offline drift scores are diagnostics, never deployed OOD
+detectors. The literature taxonomy is cutoff-bounded and comprehensive across
+declared method families; the empirical implementations are representative
+rather than exhaustive.
 
-### Dynamic shock-vortex
+SU2 Unsteady NACA0012 completed the first R0 screen and is rejected as the
+primary correction-necessity case under that frozen identity. Its pinned
+solver/resource/phase evidence, complete-BDF2 population, dataset,
+full-resolution smoke, three-seed PCNO
+training, and development-only evaluation all have verified packets. Clean
+next-state relative L2 is about `0.12%`; all three rollouts are finite and
+severely wrong late, but all fail the frozen early-accuracy threshold. The
+exact verdict is `R0_REJECT_NACA_AS_HERO_CORRECTION_NECESSITY_CASE`. Under R0,
+NACA may be used only as supplementary one-step/rollout-discrepancy and
+structure evidence; it does not identify the transverse cause or authorize a
+corrector study.
 
-The separate Mach-1.1 shock-vortex family has audited finite-volume geometry,
-boundary accounting, and cumulative accepted-substep impulses. Physical
-conservation diagnostics are meaningful only on that frozen solver/data
-contract. State-residual PCNO recurrence is not conservative by construction.
+The separate `B3B4_NACA_CM_20260901A` successor now uses NACA as the primary
+fixed-PCNO case for a narrower question. Its exact deployed comparison is
+`CLEAN`, `IID_RECOVERY`, `ERROR_SUBSPACE_RECOVERY`,
+`DETACHED_PUSHFORWARD`, and `PATH_PROJECTION`. All twelve learned-arm/seed
+training packets and the development-only result packet are locally verified.
+The final-manifest SHA256 is
+`09e3ae7e5896039e2230073c1ead5e5f9808c0cc9b47d0b15ff337b26b3e0ed1`.
+The immutable replay `development_replay_v2_81646368` and historical v2
+visualization remain valid provenance. The final presentation packet
+`development_visualization_v3_e2eccdbf`, portable `prospective_freeze`, and
+then-current 35-page parent manuscript are closed with all protected-access flags false;
+static figures use verified development results and the three seed animations
+are qualitative only. Windows and exact mounted-checkout WSL focused tests,
+Ruff, and local packet/manuscript checks pass. Prospective and sealed roles
+remain unopened and require separate owner authorization. Exact artifact
+hashes and the claim-bounded outcome are in
+[EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md). Other PDEs remain conditional
+controls or fallbacks and do not activate automatically.
 
-Its family-local cell types are `0=interior`, `1=touches y-symmetry`,
-`2=touches x-extrapolation`, and `3=touches both`; the combined corner type
-takes precedence. These meanings must not be pooled with bump vertex labels.
+The completed extension preserves the five-arm parent byte-for-byte. Its exact
+learned mechanisms are `MP_PDE_PUSHFORWARD_M01`,
+`CURRICULUM_EMA_PUSHFORWARD_K13`, `PAIRED_RECOVERY`, `DYNAMICS_RELABEL`,
+and `PCNO_PDEREFINER_K3_VPRED`, with `CLEAN_EMA` as the EMA control and the
+closed parent arms as evidence. The corrected pilot, 476-input bank,
+full-resolution smokes, all 18 training packets, and common development
+evaluation passed their audits. Attempt E closes under final-manifest SHA256
+`15475da78b4182754fe959eadc175434ffca18ef1558a45ea06cbf9c93ca7370`.
+Path projection is the strongest operational reference, PDE-Refiner the
+strongest learned corrector, and paired recovery the safest one-call learned
+arm; neither new pushforward protocol is robust across seeds. The result does
+not validate trained-model fidelity to trusted displaced SU2 response.
+Prospective and sealed roles require separate owner decisions. SU2 labels are
+offline training/diagnostic information only, never an online solver or defect
+trigger.
 
-Common-source resolution comparisons use regenerated geometry and conservative
-restriction from the same evolved reference. Image resizing or unrelated
-coarse solves do not satisfy that contract.
+The extension presentation derivative
+`naca_corrective_extension_visualization_results_20260903b` is parented to the
+verified remote Attempt-E visualization receipt and exact replay. Its static
+panels use exact evaluator snapshots; its three seed animations are independent
+qualitative rerolls. The correction changes only color normalization and
+layout, not the scientific replay or evaluation. Exact identities are in
+[EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md).
 
-## Compact Evidence-Family Summary
+## Current M1 Readiness
 
-| Family | Maintained conclusion | Claim limit |
-| --- | --- | --- |
-| 1D residual FNO | Useful fixed-family residual flow-map baselines and corrected evaluation exist. | Larger-step behavior is horizon- and metric-dependent, not universal stability. |
-| CPGNet | Released-code evaluation shows that message reach matters materially to the reported 1D gain and causal boundary training improves the bounded local 2D release-bundle result. | The oracle gap remains; legal-boundary evidence is not paper-faithful parity or exact DG replay. |
-| Bump residual PCNO | D041 remains the historical comparator; later training, projection, boundary-field, resampling, orientation, and D087 stability-forensics results provide bounded mechanism evidence. D087 separates accurate, admissible, bounded, and finite horizons and finds propagated-input response dominating D019's realized late error. The separately registered H320 study finds later reference-free failure events for active-gradient PCNO than PCFNO on the 30 open cases. | No later arm is an exact-contract D041 replacement; H80--H320 has no truth and is not accuracy, physical-validity, conservation, asymptotic-stability, or causal gradient evidence; proxy totals are not conservation; transformed-input failures are not an independent rotated PDE benchmark. |
-| Bump scaling D094 | The seed-0 ladder, B1-C4, B1-C5-A/B/C, B1-C2, B1-C3, and B1-C3-R1 are closed at their registered development scopes. B1-C5-C identifies reachable-path sufficiency for one retained late reversal. On the R1 three-seed exact-`64n` diagonal, all primary one-step means decrease at every adjacent count for both families and PCNO wins every paired one-step cell; PCNO mean H79 is monotone, but PCFNO H79 and the per-seed architecture winner are not. | Retrospective family-local evidence only. It does not measure trusted-solver response from displaced states or identify a causal architecture, data, scheduler, optimizer, representation, capacity, or gradient mechanism. No pure-data or generic rollout scaling law, deterministic-replay, FFNO, conservation, prospective, or test claim. |
-| Dynamic residual PCNO | D044/D060 support a useful baseline lineage. Resolution and pathway studies isolate persistent large-scale mesh defect plus locally cancelling shock/vortex error; bounded adaptive correction evidence exists. | No resolution invariance, general safe correction, benchmark-wide boundary improvement, or learned-solver claim follows. |
-| REALM PlanarDet | D092-R1 provides one completed tuned residual-PCNO anchor with a 14.45x free/truth H49 error gap. P0b is near-null; G0b/G1 localize a checkpoint-specific chemistry-to-density persistence asymmetry. In D093, each seven-condition cell has lower selected truth-input error than its three-condition counterpart, while only FFNO has a lower selected free-rollout sum. | One seed and one validation trajectory; the low-condition arm retains seven-condition normalization and D092/D093 bind distinct source inventories. No clean data scaling, paper-faithful FFNO, sealed test, physical causal graph, architecture cause, seed robustness, promoted oracle intervention, conservation, or REALM-wide result. |
-| Latent/assimilation | The attempted latent forecast lacked sufficient capacity; assimilation concepts are recorded. | Assimilation is reserved until an open-loop mechanism and target claim justify it. |
+The spatial and temporal M1 packets independently rehash; together they qualify
+the registered finite-grid N256 reference on the frozen trajectories. The fresh
+population is not qualified:
 
-Across families, distinguish propagated state error, fresh exact-input defect,
-front or shock-position error, smooth high-pass error, admissibility, boundary
-leakage, and conservation where defined. A model can remain finite after error
-saturates or after becoming inadmissible; neither fact alone establishes stable
-or physically valid rollout.
+- R2-POP launch 0 ended at the eight-hour cap before a packet; and
+- R1 exited with confirmed code `1` after `22307.064 s` and produced no result,
+  artifact manifest, series, or output directory.
 
-The active programme asks one central question: whether solver-relative
-response on short reachable deviations predicts neural-operator behavior under
-self-composition beyond one-step and early-rollout error. It advances through
-restart feasibility, diagnostic development, prospective prediction, at most
-one causal intervention, and an optional HydroGym feedback capstone. The older
-five lines remain evidence and conditional intervention registers. Exact gates
-live in the [decision](RESEARCH_DIRECTION_DECISION.md) and
-[weekly plan](WEEKLY_RESEARCH_PLAN.md).
+R1 has no recorded infrastructure classification and no scientific conclusion.
+Q2 is closed, no retry is implicit, and the old M1 model plan fixed residual
+FNO rather than the current PCNO backbone. Any future PCNO study needs a new
+model/source identity and explicit approval.
 
 ## Maintained-Code Navigation
 
-This is a category map, not a hand-maintained exhaustive manifest. Obtain the
-exact current inventory from the checkout:
+Obtain the live inventory from the checkout:
 
 ```powershell
 rg --files utility/time_dependent_no
@@ -212,142 +191,193 @@ rg --files scripts/time_dependent_no
 rg --files tests/time_dependent_no
 ```
 
-Presence in these directories records an implementation or reproducibility
-surface. It does not mean an experiment is selected, authorized, or running.
+Presence means maintained or recoverable implementation, not current selection
+or authorization.
 
 ### Reusable utilities
 
-`utility/time_dependent_no/` contains branch-local reusable code:
+`utility/time_dependent_no/` contains branch-local support for:
 
-- common errors, losses, finite-volume helpers, and metrics;
-- 1D Euler data, targets, models, and solver support;
-- CPG release, mesh-contract, reach, and bump-state utilities;
-- residual-PCNO artifact, runtime, rollout, and Euler-state adapters;
-- boundary-field construction and intervention support;
-- dynamic shock-vortex reference, geometry, family, and metric contracts;
-- REALM PlanarDet open-manifest/data adapters, train-only normalization,
-  residual-PCNO runtime/provenance, and detonation-structure diagnostics;
-- resolution-transfer, ripple, residual-structure, and pathway diagnostics; and
-- bounded defect-correction and local-correctability components.
+- errors, losses, metrics, rollout, and artifact/source contracts;
+- 1D and Euler reference/data utilities;
+- PCNO residual/state/boundary adapters;
+- Kolmogorov reference stepping;
+- strict SU2 NACA resource, mesh, and native-restart interface auditing plus
+  isolated replay preparation, pinned native execution/evaluation, two-run
+  comparison, multi-step trajectory generation, and solver-only phase
+  analysis, together with complete-BDF2 PCNO dataset/training/evaluation
+  support for the closed R0 screen, plus the closed successor's recovery,
+  detached-pushforward, train-path projection, corrected recurrence, and
+  source/packet validation in `pcno_naca0012_successor.py`, plus the completed
+  extension's EMA/pushforward/refiner contracts in
+  `pcno_naca0012_corrective_extension.py` and fixed-SU2 displaced-restart
+  interface in `su2_naca0012_relabel.py`;
+- path-conditioned, response, structure, resolution, and correction
+  diagnostics;
+- dynamic finite-volume geometry and physical metrics; and
+- historical REALM adapters and benchmark-specific metrics, which are not an
+  active application route.
 
-Keep new reusable code here until it is stable enough for a core API. Promote an
-abstraction only when it removes current complexity or has multiple real callers.
-Core `pcno/`, `baselines/`, and unrelated examples remain outside this
-branch-specific inventory.
+Keep new reusable code here until it has multiple real callers or is stable
+enough for a core API. Do not change unrelated `pcno/`, `baselines/`, or example
+surfaces for this project.
 
-### Experiment entry points
+### Entry points
 
-`scripts/time_dependent_no/` contains maintained entry points grouped by role:
+`scripts/time_dependent_no/` contains historical and maintained training,
+evaluation, analysis, visualization, reference-generation, and provenance
+entry points. Review the exact source, data, output, population, and
+authorization contract before executing any script. Old W26/D-series scripts
+remain for reproducibility even when their forward work is parked.
 
-- 1D dataset generation, target-ladder training, evaluation, runtime, and plots;
-- CPG release provenance, mesh/reach audits, legal-boundary training, and plots;
-- bump shard preparation, residual-PCNO training/evaluation, boundary protocols,
-  rollout decomposition, trajectory-scaling analysis, outside-selection audit,
-  selected/terminal scaling closeout, side-by-side curves, exact-input residual
-  animations, and geometry diagnostics;
-- dynamic shock-vortex reference/family generation and baseline evaluation;
-- exact D094 three-seed analysis and result-bound response-surface plotting;
-- common-source resolution rollout and pathway analysis;
-- boundary-field, node-type, admissibility, and finite-propagation probes;
-- long-horizon stability event, recurrence-feedback, and fresh/propagated
-  diagnostic evaluation;
-- REALM benchmark, IgnitHIT normalization, FFNO, regular-grid PCNO, and
-  domain-compatible output contracts;
-- pinned PlanarDet acquisition/audit, full-grid GPU smoke, exact-resume
-  residual-PCNO training, shared fresh/teacher/free evaluation, causal
-  cumulative-`pMax` projection, recurrent group-feedback and one-call pulse
-  diagnosis, and result-bound visualization; and
-- native residual-correction, response-controller, local-channel, and
-  visualization tools retained for reproducibility.
+The closed five-arm successor entry points are
+`calibrate_pcno_naca0012_successor.py`,
+`train_pcno_naca0012_successor.py`,
+`evaluate_pcno_naca0012_successor.py`, and
+`visualize_pcno_naca0012_successor.py`. The evaluator implements three distinct
+modes: open-development evaluation, a data-free prospective prediction freeze,
+and authorization-first prospective reveal. The reveal requires the exact
+source-bound freeze and authorization schema and consumes a one-shot access
+receipt before the first protected scientific read. No sealed reveal mode is
+implemented.
 
-Review an entry point's arguments, source binding, population, and output path
-before execution. The ADER generator is configuration-driven but now fails
-closed: `--help` is side-effect-free, a no-argument invocation is rejected, and
-artifact generation requires explicit `--run` after reviewing its `CONFIG`.
+The corrective-extension entry points are
+`run_su2_naca0012_relabel_pilot.py`,
+`generate_su2_naca0012_paired_bank.py`,
+`train_pcno_naca0012_corrective_extension.py`,
+`evaluate_pcno_naca0012_corrective_extension.py`, and
+`visualize_pcno_naca0012_corrective_extension.py`. All five have completed
+their registered train/development or presentation roles. The visualizer derives exact static
+panels from evaluator snapshots and labels independent recurrent animations as
+qualitative rather than quantitative reproduction.
+
+The ADER generator remains fail-closed and requires an explicit reviewed run
+flag. Do not invoke historical scripts based on filename alone.
 
 ### Tests
 
-`tests/time_dependent_no/` mirrors the maintained categories with synthetic or
-small CPU fixtures. It covers data and mesh contracts, 1D targets, residual
-rollout, artifact snapshots, boundary fields and interventions, dynamic-FV
-geometry, resolution transfer, structure/pathway diagnostics, correction
-controllers, long-horizon event/decomposition contracts, and visualization
-payloads.
+`tests/time_dependent_no/` contains synthetic and small CPU fixtures for the
+same categories. Run the narrowest relevant test first. A passing synthetic
+test is plumbing evidence, not authorization for a scientific array,
+checkpoint, solver, GPU, or remote run.
 
-Run the narrowest relevant test first. When the environment requires a writable
-pytest temporary directory, place `--basetemp` inside an ignored workspace path
-and clean only the exact resolved cache paths afterward.
+## Data And Physical-Semantics Boundaries
+
+### SU2 Unsteady NACA0012: closed parents and completed development extension
+
+The Stage-0 audit binds the public license, configuration, fixed mesh, and
+restart histories 497/498 with target 499. It validates the native binary
+layout, coordinate row order, and evolved state
+`[Density, Momentum_x, Momentum_y, Energy, Nu_Tilde]`. These checks establish
+interface completeness only. The independently audited native runner keeps
+target 499 external, and the final C/D pair establishes pinned executable
+compatibility, a small observed evolved-state replay error, bitwise repeat
+determinism, and local throughput. The native output has two extra derived
+velocity fields that are excluded by exact name from canonical metrics but
+remain covered by whole-file hashes. Original producer-integrated coefficients
+are unavailable from the canonical target; the qualification addendum retains
+the replay's pressure-plus-skin-friction proxy, while the baseline contract
+defines a distinct five-state pressure-only proxy. Auxiliary wall discrepancies
+remain diagnostics. The completed solver-only
+phase analysis supports a single-attractor population freeze: period `34.6543`
+steps and the uniform-node plus near-body/wake recurrence views pass, while the
+required physical-area secondary view fails and remains disclosed. The
+32-anchor population, content-disjoint role blocks, 208-step horizon,
+complete-BDF2 baseline, metrics, and access rules passed independent audit at
+SHA256 `94069e65ef520d31860735b6c17f2b7515da1c4acd34d68518a2a16b3181fa87`.
+The bounded dataset, full-grid smoke, three-seed training, evaluation, and
+result archive subsequently completed and passed independent packet/raw-metric
+audit. Every seed fails the early `<0.15` train-state-scale gate despite severe
+late degradation, so NACA is not the primary hero case. The native replay
+quarter-margin also fails uniform-node and near-body/wake views. Do not extend
+the horizon or implement primary-case correctors under this closed identity;
+prospective/sealed values remain unopened.
+
+The separate five-arm successor does not change this verdict. It freezes four
+learned arms--`CLEAN`, `IID_RECOVERY`, `ERROR_SUBSPACE_RECOVERY`, and
+`DETACHED_PUSHFORWARD`--at seeds `17/29/43`, plus the operational
+`PATH_PROJECTION` deployment on each clean predictor. All twelve learned
+training packets, the calibration packet, authorizations, resource smokes, and
+the development evaluation are locally verified. Every evaluated rollout is
+finite. `PATH_PROJECTION` improves both primary metrics on all 24 paired
+anchor-seed comparisons and improves pressure and graph-Dirichlet diagnostics;
+its zero path residual is construction-only. `IID_RECOVERY` helps,
+`ERROR_SUBSPACE_RECOVERY` improves `CLEAN` but not IID recovery, and the
+registered `DETACHED_PUSHFORWARD` mechanism is falsified with seed-unstable
+rollout effects. These findings make no physical off-manifold or arbitrary
+displaced-state SU2 claim. Prospective and sealed values remain unopened.
+
+That five-arm result is parent evidence for `B3B4_NACA_CM_EXT_20260902A`.
+Under its separate preregistration and JSON contract, the extension completed
+implementation, the corrected pilot, paired bank, full-resolution smokes, 18
+training packets, and the common development evaluation. The verified outcome
+and limitations are centralized in
+[EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md). It closes the planned
+open-development comparison, not the prospective C2 claim.
+
+### Supersonic bump
+
+The graph bundle does not expose a validated inverse to the original DG state
+or audited finite-volume faces/volumes. Bump integral summaries are diagnostic
+proxies, not physical conservation or arbitrary-state solver restart. Retained
+contract/audit files for this parked route are historical evidence only.
+
+### Dynamic shock-vortex
+
+The dynamic finite-volume family has audited geometry and boundary accounting,
+but its native coarse transition failed the registered factor-of-four solver-
+bias qualification as a proxy for the fine-evolve/restrict target. Do not call
+it a trusted displaced-state target under that registration.
+
+### Kolmogorov inactive fallback
+
+The finite-grid reference has qualified spatial/temporal parent packets. Fresh
+population qualification, PCNO model mesh/resource closure, and a new fixed-
+PCNO representative case-study contract remain missing.
+
+### Shock-vortex control candidate, not a primary selection
+
+The data/PCNO path is mature, but the fine solver does not expose a qualified
+arbitrary-state restart in the PCNO state representation. The native coarse
+alternative failed its prior bias gate, and the current PCNO wrapper/trainer do
+not match the retained D074 source manifest. Its current planning role is a
+possible tangential-dynamics/no-harm control. A restart audit is not on the
+immediate path without a new owner-selected role and readiness contract.
 
 ## Experiment And Artifact Discipline
 
-- New run identities bind source, checkpoint, normalizer, split, population,
-  recurrence, boundary policy, precision, and metric definitions.
-- A changed scientific contract receives a new identity; historical outcomes
-  are immutable.
-- Use open populations for development. Strength-OOD and test populations stay
-  sealed until explicitly opened by the owner.
-- Use synthetic CPU fixtures before dataset-scale or AutoDL execution.
-- Do not commit raw datasets, checkpoints, generated rollouts, large logs,
-  credentials, private hostnames, or local machine paths.
-- Every retained generated package needs a manifest, hashes where required, and
-  a clear link to its scientific or recovery role.
-- Artifact deletion requires a refreshed inventory and reference check. Ignore
-  status, age, or a smoke-like name alone does not make an output disposable.
+- Bind source, data/split/population, model/checkpoint, normalizer/feature map,
+  evaluator, result, and final artifact hashes separately.
+- A changed contract receives a new identity.
+- Keep failed/incomplete attempts and their raw receipts.
+- Use open development populations; sealed/test access requires a named
+  decision.
+- Use synthetic CPU fixtures before dataset-scale or GPU work.
+- Before any experiment, audit that the implementation matches the owner's
+  intended mathematical target, information source, deployment composition,
+  recurrent feedback state, and identity/no-correction ablation. Ask for
+  clarification if a scientific instruction is ambiguous.
+- Do not commit raw data, checkpoints, rollout arrays, large logs, credentials,
+  private hosts, or local machine paths.
+- Packet integrity is distinct from current-checkout compatibility.
+- Artifact deletion requires a refreshed inventory and reference check.
+- Documentation edits may invalidate legacy provenance hashes without
+  invalidating archived result packets. Do not rewrite old identities.
 
-## Source-Snapshot Semantics
+## Privacy And External Review
 
-Euler2D residual-PCNO runs use `pcno_euler2d_source_snapshot_v2` through `v6`,
-implemented in `utility/time_dependent_no/pcno_artifacts.py`; v6 is the latest
-registered schema for that family. REALM PlanarDet instead uses
-`realm_planardet_pcno_source_snapshot_v1`. D092 and D093 share that schema name
-but bind distinct inventories and payload digests. Continuation compares the
-current checkout against the schema-specific executable/scientific file set
-recorded by the run.
-
-| Schema | Historical meaning |
-| --- | --- |
-| v2 | Binds the then-current decision and tracker inside the strict source file set together with the original residual-PCNO sources. |
-| v3 | Uses the original executable/scientific source set and records the decision/tracker separately as provenance. |
-| v4 | Expands the executable set to the package and support modules needed for exact continuation. |
-| v5 | Adds the boundary-field utility while retaining separate provenance-document hashes. |
-| v6 | Retains the v5 base inventory and adds a sorted, unique, run-specific `extra_source_files` registry to the strict source set. |
-
-For v3-v6, later edits to the active decision or tracker do not by themselves
-invalidate executable continuation. Their copied provenance and manifest
-digests remain part of the archived run record. Historical schemas keep their
-registered inventories and must never be silently reinterpreted as v6.
-
-V6 closes the governance gap created when a v5-bound core source changed after
-v5 was registered. V5 keeps its frozen inventory; an archived v5 run is
-compatible with the current checkout only when every recorded hash still
-matches. The v2--v6 compatibility tests exercise schema-specific inventory and
-verification branches, not byte equality between historical snapshots and
-current source.
-Archived snapshot integrity and current-checkout continuation compatibility are
-different checks.
-
-Source-set digests are byte-level identities. A Git archive can materialize LF
-bytes while a clean Windows worktree materializes selected files with CRLF, so
-their source-set digests may differ even when both derive from the same commit.
-For a remote run, bind and verify the exact deployment-archive hash first, then
-use the source-set digest generated inside that deployed tree; never substitute
-a digest recomputed from a byte-distinct local materialization.
+Private paths, host details, credentials, datasets, and machine-specific
+locations belong only in ignored local context. The unpublished manuscript and
+private mentor material must not be sent to Gemini or another external tool
+without the owner's explicit approval of the exact prompt/scope.
 
 ## Recovery
 
-- [Archive guide](history/README.md)
-- [Decision state through 2026-08-11](history/RESEARCH_DIRECTION_DECISION_through_2026-08-11.md)
-- [Evidence ledger through 2026-08-11](history/MECHANISTIC_DIAGNOSTIC_TRACKER_through_2026-08-11.md)
-- [Frozen D072 records](history/d072_refine_logs_frozen_2026-08-03/)
-- [Corrected 1D baselines](SECTION_1_2_CORRECTED_BASELINES.md)
-- [Boundary-field derivation package](BOUNDARY_FIELD_DERIVATION_PACKAGE.md)
-- [Boundary-field prior-art audit](BOUNDARY_FIELD_PRIOR_ART_AUDIT.md)
-- [H320 reference-free rollout record](W26_L1_H320_REFERENCE_FREE_ROLLOUT_RECORD.md)
-- [D094 bump-scaling preregistration](D094_BUMP_SCALING_PREREGISTRATION.md)
-- [Hash-bound W26-L5 derivation source](../../DERIVATION_PACKAGE.md)
+Tracked local history files remain available for bounded provenance lookup but
+are not active documentation. Verify their hashes and scope before relying on
+them. Large generated artifacts remain under ignored storage and depend on
+their own manifests rather than this README or Git history.
 
-Commit `5646bfb` preserves the full active decision and tracker immediately
-before compaction. Commit `ebf210a` preserves the weekly plan and prompts;
-`3e646ac` preserves the first isolated-scaffolding cleanup. Large generated
-artifacts remain outside Git and depend on their manifests rather than commit
-history for recovery.
+The exact pre-refinement 2026-08-29 active plans are preserved under
+`archive/plans_20260829_pre_refinement/`. They are historical snapshots and do
+not enter the active read order.

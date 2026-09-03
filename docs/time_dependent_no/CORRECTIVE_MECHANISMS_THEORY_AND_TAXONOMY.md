@@ -1,6 +1,6 @@
 # Corrective Mechanisms Under Self-Composition: Theory And Taxonomy
 
-Updated: 2026-08-26
+Updated: 2026-08-30
 
 Status: T0 theory and field-coverage freeze; no experiment authorization
 
@@ -10,7 +10,7 @@ Formalize the narrow claim that clean trajectory supervision does not, by
 itself, identify deployment-relevant off-reference response in a sufficiently
 rich model class. Then separate that identification result from sufficient
 stability bounds, path-accuracy bounds, and the empirical question of which
-information source is useful in practice.
+corrective mechanism is useful in a declared PDE regime.
 
 The invariant scientific object is the **complete deployed transition**. For a
 trusted step `Phi_n`, raw predictor `F_n`, and an optional explicit corrector
@@ -23,10 +23,12 @@ trusted step `Phi_n`, raw predictor `F_n`, and an optional explicit corrector
 \]
 
 The factorization is non-unique. Accuracy, stability, response, and rollout
-claims therefore attach to `Psi_n`. A separate component is called a corrector
-only when it has a declared, falsifiable contract. A generic Fourier,
-attention, MLP, or gradient-path change is an architectural choice, not a
-corrector by retrospective naming.
+claims therefore attach to `Psi_n`. A training or architectural intervention
+with a declared self-composition target is an embedded corrective mechanism. A
+separate deployed component is an operational corrector only when it has a
+fixed, replaceable, and falsifiable interface contract. A generic Fourier,
+attention, MLP, or gradient-path change is not corrective by retrospective
+naming alone.
 
 ## Status
 
@@ -136,7 +138,7 @@ The results use only the assumptions named beside them.
   `M_n` into `M_(n+1)`.
 - **N4 (clean information).** The learner observes only trajectories starting
   on `M_0` and remaining on the `M_n`. The theorem grants the learner the
-  stronger oracle information `Phi_n|M_n`; finite samples reveal no more.
+  stronger idealized information `Phi_n|M_n`; finite samples reveal no more.
 - **N5 (normal richness).** The admissible world or hypothesis class contains
   smooth tube extensions that agree on `M_n` while varying a nonzero normal
   bundle direction. The theorem does not assert this for every fixed neural
@@ -359,7 +361,7 @@ instability.
 - deployment feedback or a solver in the loop;
 - deployment observations;
 - a long-time statistical target; or
-- another oracle that contains the missing response information.
+- another information source that contains the missing response information.
 
 The theorem says one of these kinds of information or restriction is needed
 for a **uniform guarantee over the normal-rich equivalence class**. It does not
@@ -590,7 +592,7 @@ The word `pushforward` must not hide the target source.
 | Detached self-input | `stopgrad(Psi(u_(n-1)))` | stored `u_(n+1)` | No | Recovery/cancellation along generated prefix directions |
 | Supervised unrolling | repeated learned states | stored future clean states | No | Finite composed path relative to the stored trajectory |
 | Solver-free recovery | `u+eta` | clean state or clean next state | No | Retraction/recovery target chosen by the designer |
-| Dynamics-consistent relabeling | `x=u+eta` or `Psi(u)` | `Phi(x)` | Yes, unless another off-state oracle exists | Trusted response from the actual displaced state |
+| Dynamics-consistent relabeling | `x=u+eta` or `Psi(u)` | `Phi(x)` | Yes, unless another trusted off-state reference exists | Trusted response from the actual displaced state |
 
 The solver need not be differentiable when off-state labels are cached or when
 the relevant branch is detached. It must be differentiable only when gradients
@@ -791,39 +793,55 @@ The taxonomy supports five conclusions.
    generic sense. The sharper open question is which information source
    controls the deployment-relevant response while preserving tangent/path
    fidelity and cost.
-5. Within this search, no single controlled study supplies the exact planned
-   comparison of clean supervision, detached stored-target exposure,
-   solver-free recovery, and dynamics-consistent relabeling while measuring the
-   complete deployed map, tube behavior, tangent/path error, structure, and
-   equal-cost no-harm. This is a search-bounded gap, not a proof of novelty.
+5. Within this search, no single controlled study compares representative
+   training, structural, deterministic post-step, learned-refinement, and
+   hybrid mechanisms through one response/drift protocol while also measuring
+   path accuracy, structure, cost, and no-harm. This is a search-bounded gap,
+   not a proof of novelty.
 
 ## Experimental Implications
 
 These are design consequences, not execution authorization.
 
-### Minimum decisive information-source comparison
+### Evidence hierarchy
 
-Use one qualified restartable system and one fixed base architecture. Compare:
+- Exact and learned ODEs calibrate the mechanism language and diagnostic
+  estimators. They do not determine PDE rankings.
+- One qualified, reasonably complex PDE provides the mandatory end-to-end case
+  study and the prospective C2 evidence.
+- A second contrasting PDE is useful transfer evidence but is not part of the
+  minimum core.
 
-1. clean one-step supervision;
-2. detached pushforward or stored-target supervised unrolling;
-3. solver-free recovery from the same perturbation bank; and
-4. dynamics-consistent labels `x -> Phi(x)` on model-owned states.
+### Representative comparison
 
-Match parameters, clean data, normalization, optimizer family, presentations,
-and evaluation populations as closely as the objectives allow. Report solver
-queries and wall-clock cost separately from optimizer updates.
+Use one fixed PCNO backbone on the primary PDE. The bounded comparison should
+cover clean training, recovery/noise, pushforward or multistep exposure,
+dynamics relabeling, one PDE-relevant structural mechanism, one deterministic
+operational corrector, one learned sampler/refiner, and the proposed
+relabel-trained predictor plus recovery corrector. Exact implementations are
+selected only after the PDE and information budgets are fixed.
+
+Match clean data, normalization, seeds, evaluation populations, and optimizer
+budget where meanings coincide. Report solver labels, stored-bank size,
+additional parameters, wall-clock cost, correction iterations, and inference
+latency separately rather than claiming one artificial notion of equal cost.
+
+Before outcome inspection, freeze the expected mediator change and failure
+signature for every retained intervention. Diagnose the raw predictor and the
+complete deployed map separately.
 
 ### Required endpoints
 
 - clean one-step error;
 - common-bank and on-policy complete deployed defect;
-- finite-amplitude tube distance and normal-response estimate;
+- finite-amplitude tube distance, true normal-response error, and corrective
+  gain across perturbation radii;
 - tangent/path displacement;
+- raw-predictor and post-correction outputs;
 - autonomous state and structure error over time;
 - admissibility, boundedness, and finiteness separately;
 - family-valid conservation or boundary metrics where defined;
-- equal-cost and clean/tangent no-harm controls; and
+- information/cost accounting and clean/tangent no-harm controls; and
 - seeds and numerical repeatability.
 
 The current P1 path-conditioned score can remain a phenotype or intervention
@@ -832,15 +850,18 @@ clean next state rather than with `Phi(u+eta)`, it cannot substitute for arm 4.
 
 ### Decision rule
 
-- If dynamics-consistent labels reproducibly improve the response and rollout
-  tradeoff beyond solver-free controls, proceed to one selective cached-label
-  correction.
-- If stored-target exposure or recovery is equivalent, prefer the simpler
-  solver-free mechanism and drop the solver-information contribution.
-- If all arms are null, retain the conditional theory and bounded negative
-  mechanism result; do not add architectures or PDEs merely to rescue a method.
-- If normal stability improves but tangent/path accuracy worsens, the method
-  fails the complete deployed-map claim even if rollouts remain bounded.
+- Prefer recovery when spurious normal forcing matters more than faithful
+  evolution of displaced states; prefer relabeling when trusted off-state
+  response is important inside the reached region.
+- Test the hybrid as accurate dynamics in an inner buffer plus an always-applied,
+  fixed-schedule recovery operation whose state inputs and magnitude rule are
+  frozen; it must not query solver defect or an OOD decision online.
+- A deterministic projection or learned sampler must improve an independent
+  path/no-harm endpoint, not only the proximity quantity it directly optimizes.
+- If all representative mechanisms are null, retain the bounded negative
+  result; do not add a method or PDE merely to rescue the claim.
+- If tube control improves but tangent/path accuracy worsens, the complete
+  deployed-map claim fails even when rollouts remain bounded.
 
 ## Open Risks And Verification Checklist
 
@@ -866,8 +887,8 @@ clean next state rather than with `Phi(u+eta)`, it cannot substitute for arm 4.
 - Complete full-paper verification in adjacent control, reduced-order modeling,
   differentiable simulation, learned-discretization, and data-assimilation
   venues; the present coverage is primary-source and abstract-bounded.
-- Phrase the four-arm gap as search-bounded until a formal systematic-review
-  protocol and duplicate screening log are complete.
+- Phrase the representative-comparison gap as search-bounded until a formal
+  systematic-review protocol and duplicate screening log are complete.
 
 ### Empirical risks
 
@@ -894,7 +915,8 @@ The mathematical spine is coherent at the intended conditional scope:
 4. a separate tangent recurrence prevents stable-but-wrong correction from
    being labeled successful.
 
-The next scientific uncertainty is empirical, not definitional: whether
-dynamics-consistent off-state information adds value beyond solver-free
-exposure and recovery on one qualified restartable PDE. No model, dataset,
-solver, remote resource, or sealed population is opened by this closeout.
+The next scientific uncertainty is empirical, not definitional: whether the
+response/drift diagnostics can prospectively distinguish representative
+corrective mechanisms in one qualified complex-PDE case study. No model,
+dataset, solver, remote resource, or sealed population is opened by this
+closeout.

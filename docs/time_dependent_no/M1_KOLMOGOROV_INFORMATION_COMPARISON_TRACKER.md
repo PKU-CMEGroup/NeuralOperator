@@ -20,12 +20,12 @@ redefining its gates.
 | M1-Q1-R2-REF-A | qualification attempt | combined N128/N256/N512 and N256 temporal qualification | same six hash-matched parent inputs; solver only | MUST | INCOMPLETE: RESOURCE CONTENTION BEFORE PACKET | closed at 238.2 min under wall cap; no scientific classification or retained result |
 | M1-Q1-R2-REF-B-SPAT | staged qualification | N128/N256/N512 path refinement and replay | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `spatial_candidate_qualified` | result `f32b2d4d...16805ed4`; manifest `9f8de40a...8dd67c84` |
 | M1-Q1-R2-REF-B-TEMP | staged qualification | N256 time refinement and repeatability | same six hash-matched parent inputs; solver only | MUST | COMPLETE; `reference_candidate_qualified` | result `460eb8d3...c847196`; manifest `af0b7bb1...ebb5412`; launcher exit-code capture failed after packet completion |
-| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | LAUNCH 0 INCOMPLETE AT 8H CAP; R1 AUTHORIZED FROM CLEAN TIMEOUT-CLOSEOUT COMMIT | unchanged population contract; R1 has unique identity and hard 18h cap |
-| M1-Q2-CLEAN | baseline | clean FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED | R2-POP pass, hash-frozen complete R2 closeout, and a named A3 contract |
+| M1-Q1-R2-POP | qualification | fresh-seed precision-qualified sampling law for the same N256 map | four new solver chains; no learned model | MUST | LAUNCH 0 INCOMPLETE; R1 EXITED CONFIRMED NONZERO WITHOUT PACKET | population not qualified; Q2 closed; no further retry authorized |
+| M1-Q2-CLEAN | historical baseline plan | clean residual-FNO recipe and phenomenon gate | seed 0, open validation only | MUST | NOT AUTHORIZED; PARKED UNDER CURRENT FIXED-PCNO DIRECTION | a new PCNO model/source identity plus qualified population and named A3 contract |
 | M1-B0-BANK | bank freeze | paired recovery/dynamics inputs and targets | open train/development only | MUST | NOT AUTHORIZED | Q2 pass and immutable manifests |
-| M1-I0 | information screen | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED | B0 replay and source gates |
-| M1-I1 | replication | remaining two seeds for four arms | open validation only | MUST | NOT AUTHORIZED | I0 correctness review and explicit continuation |
-| M1-E0 | open closeout | common-step/selected response, rollout, structure, and cost | development/open evaluation | MUST | NOT AUTHORIZED | frozen evaluator and named A2 approval |
+| M1-I0 | historical information screen plan | four arms at seed 0 | open validation only | MUST | NOT AUTHORIZED; PARKED | new fixed-PCNO preregistration and all parent gates |
+| M1-I1 | historical replication plan | remaining two seeds for four arms | open validation only | MUST | NOT AUTHORIZED; PARKED | new fixed-PCNO I0 correctness review and explicit continuation |
+| M1-E0 | historical open closeout plan | common-step/selected response, rollout, structure, and cost | development/open evaluation | MUST | NOT AUTHORIZED; PARKED | new fixed-PCNO evaluator and named A2 approval |
 | M1-T0 | sealed confirmation | one-shot 32-trajectory test | sealed test | CONDITIONAL | NOT AUTHORIZED | full prereg closeout and A4 approval |
 | M2 | selective correction | cached informative solver labels | future method study | CONDITIONAL | BLOCKED ON M1 | M1 dynamics-label benefit and no-harm pass |
 
@@ -387,5 +387,48 @@ Local result-to-claim verdict, pending any separately approved external review:
   least call 2816 before the registered cap;
 - not supported: any energy/enstrophy gate, stationarity, effective sample
   size, M1-C1, M1-C2, or learned-model conclusion; and
-- route: execute only R1 from the clean timeout-closeout source. Q2 remains
-  closed pending a qualifying hash-frozen R1 result and a named A3 contract.
+- route at launch-0 closeout time: execute only R1 from the clean timeout-
+  closeout source. The later terminal R1 receipt below supersedes this
+  forward-looking route.
+
+## M1-Q1-R2-POP R1 Terminal Closeout
+
+`M1-KF-Q1-R2-POP-20260827A-R1` launched from requested source commit
+`0988e8d19678c560654eefe81f62fac14c6a95ab`. Its detached receipt captures a
+confirmed exit code `1` after `22307.064 s` with status
+`runner_failed_confirmed_nonzero`.
+
+No worker packet completed:
+
+- `result_exists=false`;
+- `manifest_exists=false`;
+- `series_exists=false`;
+- the registered output directory is absent;
+- stdout is empty; and
+- stderr contains only progress events, with no traceback.
+
+Seeds `2026083101`--`2026083103` last reported call `1792/5120`; seed
+`2026083104` last reported `2048/5120`. Receipt/event/stdout SHA-256 values are
+`b7f976e9...89c1a98b`, `49e45a82...d0553c3`, and
+`e3b0c442...b855`.
+
+The receipt has `infrastructure_classification=null`. The safe terminal
+classification is therefore exactly: confirmed nonzero process exit before a
+packet, with unresolved cause. It is not an 18-hour timeout, a population-law
+failure, evidence of nonstationarity, or a completed infrastructure diagnosis.
+Startup progress implies the source and parent-packet checks preceding solver
+execution passed; end-of-run source stability is unavailable without a packet.
+
+Result-to-claim routing:
+
+- population qualification: no scientific result exists;
+- M1-C1/M1-C2 and every learned-model claim: unsupported by this attempt;
+- Q2, data generation, checkpoint access, training, remote, and sealed access:
+  closed; and
+- continuation: none. A new owner-approved population contract and identity is
+  required before any further attempt.
+
+Current project direction fixes PCNO for the PDE comparison. The old residual-
+FNO Q2/I0/I1/E0 plan is retained as history, not an executable continuation.
+Verified R2-REF packets may be cited as parent evidence only after a new PCNO
+contract explicitly binds them.

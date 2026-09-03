@@ -2,8 +2,9 @@
 
 Date: 2026-08-28
 
-Status: **M1-Q1-R2 REFERENCE QUALIFIED; R2-POP LAUNCH 0 INCOMPLETE; R1 IS
-AUTHORIZED ONLY FROM THE CLEAN TIMEOUT-CLOSEOUT COMMIT; Q2 NOT AUTHORIZED**.
+Status: **M1-Q1-R2 REFERENCE QUALIFIED; BOTH R2-POP ATTEMPTS PRODUCED NO
+SCIENTIFIC PACKET; R1 EXITED CONFIRMED NONZERO; Q2 NOT AUTHORIZED; NO FURTHER
+RETRY AUTHORIZED**.
 This document does not authorize dataset-scale generation, checkpoint access,
 model training, remote execution, or sealed evaluation. Every later stage
 requires the named authorization in the execution ladder.
@@ -909,3 +910,45 @@ remain `population_sampling_law_qualified` and
 further retry. Q2, data generation, checkpoint access, model training, remote
 execution, and sealed access remain closed until a qualifying R1 packet is
 hash-frozen and the separately named A3 contract is approved.
+
+### R2-POP R1 terminal receipt and current routing
+
+The unique retry `M1-KF-Q1-R2-POP-20260827A-R1` launched from requested source
+commit `0988e8d19678c560654eefe81f62fac14c6a95ab` at
+`2026-08-28T09:05:25+08:00`. Its wrapper completed at
+`2026-08-28T15:17:12+08:00` after `22307.064 s` and captured exit code `1`.
+The raw receipt status is `runner_failed_confirmed_nonzero`.
+
+The receipt records `result_exists=false`, `manifest_exists=false`, and
+`series_exists=false`; the registered output directory does not exist. Stdout
+is empty. Stderr contains only progress JSON and no traceback. Seeds
+`2026083101`--`2026083103` last reported call `1792/5120`, while seed
+`2026083104` last reported `2048/5120`.
+
+Exact ignored infrastructure hashes are:
+
+- launcher SHA-256:
+  `477156f61008ad39825c365ea689e02a09c448f4255fdc78170268408a596254`;
+- launch receipt SHA-256:
+  `b7f976e9a02824da44358a63ce856ee0c8f2ed1d98f3a2e18c49513389c1a98b`;
+- stderr/event SHA-256:
+  `49e45a82c876932e09218f80ce27d329093dec022899ecd2336e6ea4cd0553c3`;
+  and
+- empty stdout SHA-256:
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+
+The receipt's `infrastructure_classification` is null. Without a result packet,
+the registered scientific classifications were never evaluated; without a
+traceback or explicit infrastructure classification, the current record also
+does not establish a root cause. Do not relabel R1 as an 18-hour timeout,
+population-law failure, stationarity result, or completed infrastructure
+diagnosis. Startup progress establishes that the exact-clean source and parent-
+packet checks preceding solver execution passed; end-of-run source stability
+cannot be verified because no packet was written.
+
+The fresh-population sampling law is not qualified, Q2 remains closed, and no
+further retry or continuation is authorized. Current owner direction also fixes
+PCNO as the PDE backbone, whereas this preregistration's later model stage
+fixed residual FNO. The verified reference packets remain parent evidence, but
+any future model comparison requires a new PCNO model/source identity and an
+explicitly approved population/readiness contract.

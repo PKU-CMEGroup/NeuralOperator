@@ -1,0 +1,271 @@
+{
+  "schema": "time_dependent_no.naca_corrective_extension_contract.v1",
+  "experiment_id": "B3B4_NACA_CM_EXT_20260902A",
+  "status": "owner_directed_train_development_only",
+  "preregistration_sha256": "1001e5f35b5d0aef811ec97cd5323c83ea67ca0a7eeed35220405117e47f61d1",
+  "parents": {
+    "r0_contract_sha256": "94069e65ef520d31860735b6c17f2b7515da1c4acd34d68518a2a16b3181fa87",
+    "successor_contract_sha256": "b0f373d42ca98c0761a61f17310233d22461da1add28b8c8d20359ef7e1d6715",
+    "successor_calibration_final_hash_manifest_sha256": "6a33f2e20a92dcfa58d16872b6abd2f6d2744731c8c678815618cafd373d0dbc",
+    "dataset_final_hash_manifest_sha256": "1cb5fd2d751bdf1ca27cde5e1a1457973a525c19a98dbadd7cc3738c3efe2e4b",
+    "resource_manifest_sha256": "7e20bb67ebcf09447f0badd4d10752a78f749f5c038bb444cedff81d39ff56f5",
+    "su2_release": "SU2 v8.5.0 Harrier",
+    "su2_executable_sha256": "61a803e0baf49382210888cc32f14f4ea837681a0e6cc2df6b1d5a99ce5baf8c"
+  },
+  "literature_source_binding": {
+    "mp_pde_commit": "8415c5f6b6044749582bd9ebff7ecd8045ad81b2",
+    "mp_pde_files": {
+      "experiments/train.py": {
+        "bytes": 13153,
+        "sha256": "58bd330dcb5c38dbe95126e31ebe3a71caba36d72aed3281665bf8a0b1c4f1cb"
+      },
+      "experiments/train_helper.py": {
+        "bytes": 8475,
+        "sha256": "bc18ff949dbcfc25191ecd3751e272e82b743ca42ecf3ebbc1467775e10f69a9"
+      },
+      "common/utils.py": {
+        "bytes": 11440,
+        "sha256": "f2d039d65e901bdb38a65231e5a2ae9e7615a2a919c699f014dae8920992b204"
+      }
+    },
+    "pdearena_commit": "78a8b03d50115d8bb24ce9f04efa5b920fcd4369",
+    "pdearena_files": {
+      "pdearena/models/pderefiner.py": {
+        "bytes": 17201,
+        "sha256": "f7f79d53b6bedcb4dc903133fe3e1e7f22509513fdb1ebfb14da2384b0c31131"
+      },
+      "setup.py": {
+        "bytes": 1704,
+        "sha256": "41b6db4883c33eeaf63c7606da01fc957605db1121ba51ae66007538b0b4547b"
+      }
+    },
+    "diffusers_version": "0.17.1",
+    "diffusers_scheduler_file": {
+      "path": "src/diffusers/schedulers/scheduling_ddpm.py",
+      "bytes": 21904,
+      "sha256": "222de208eb6acf688f23a5dfe53edbf5bc162766d80bde9758ade3a05250c3b6"
+    },
+    "ddpm_variance_type": "fixed_small"
+  },
+  "population": {
+    "train_frames_inclusive": [955, 1194],
+    "train_centers_inclusive": [956, 1193],
+    "development_frames_inclusive": [1233, 1472],
+    "development_centers_inclusive": [1234, 1471],
+    "prospective_frames_inclusive": [1511, 1750],
+    "sealed_frames_inclusive": [1755, 1994]
+  },
+  "state": {
+    "history": "complete_bdf2_pair",
+    "dynamic_fields": [
+      "Density",
+      "Momentum_x",
+      "Momentum_y",
+      "Energy",
+      "Nu_Tilde"
+    ],
+    "base_model_output": "normalized_next_state_residual"
+  },
+  "displacement": {
+    "coordinate_system": "state_normalized",
+    "distribution": "independent_gaussian_all_nodes_fields_and_history_slots",
+    "per_field_standard_deviation": [
+      0.0023510525449798097,
+      0.0017943288061936155,
+      0.004045914459334123,
+      0.002355418735336881,
+      0.001718743054261789
+    ],
+    "overall_equal_entry_rms": 0.002593012258034671,
+    "scale_multiplier": 1.0,
+    "rollout_tuned": false
+  },
+  "relabeling_pilot": {
+    "centers": [956, 1075, 1193],
+    "base_seed": 20260902,
+    "rng": {
+      "library": "torch",
+      "device": "cpu",
+      "generator": "torch.Generator.manual_seed",
+      "distribution_call": "torch.randn",
+      "dtype": "float32",
+      "stream_order": "one_ascending_center_stream_956_through_1193",
+      "draw_shape": "2_by_num_nodes_by_5_previous_then_current",
+      "pilot_directions_identical_to_corresponding_query_bank_entries": true
+    },
+    "signs": [-1, 0, 1],
+    "one_step_call_count": 11,
+    "deterministic_repeat_case": {"center": 1075, "sign": 1},
+    "auxiliary_column_probe": {
+      "center": 1075,
+      "sign": 1,
+      "same_dynamic_bdf2_pair": true,
+      "alternate_auxiliary_templates": "swap_native_1074_and_1075_auxiliary_columns_between_history_slots",
+      "required_evolved_output_comparison": "bitwise_equal",
+      "full_native_output_comparison": "record_only"
+    },
+    "absolute_indexing": {
+      "input_history_indices": "center_minus_1_and_center",
+      "restart_iter": "center_plus_1",
+      "time_iter": "center_plus_2",
+      "expected_output_index": "center_plus_1"
+    },
+    "zero_control_max_overall_state_normalized_rms": 0.00002593012258034671,
+    "zero_control_max_per_field_state_normalized_rms": [
+      0.0000235105254497981,
+      0.000017943288061936155,
+      0.00004045914459334123,
+      0.00002355418735336881,
+      0.00001718743054261789
+    ],
+    "zero_control_reference": "stored_native_float64_clean_successor",
+    "zero_control_inputs": "clean_states_rounded_to_authoritative_model_facing_float32",
+    "realized_field_rms_ratio_inclusive": [0.95, 1.05],
+    "response_metric": "state_normalized_equal_entry_rms_signed_output_minus_same_center_zero_output",
+    "response_population": "six_values_from_three_centers_and_two_nonzero_signs",
+    "response_aggregation": "median",
+    "median_response_to_max_zero_discrepancy_min_ratio": 4.0,
+    "repeat_required_comparisons": [
+      "full_native_output_file_bytes_equal",
+      "five_evolved_output_arrays_bitwise_equal"
+    ],
+    "repeat_history_comparison": "convergence_contract_only_not_bitwise",
+    "inner_iter": 10,
+    "convergence_field": "REL_RMS_DENSITY",
+    "convergence_residual_minval": -3.0,
+    "require_final_relrms_density_lte": -3.0,
+    "require_positive_density": true,
+    "require_positive_ideal_gas_pressure": true,
+    "nu_tilde_sign_policy": "report_without_clip_mask_or_rejection",
+    "require_all_solver_cases": true,
+    "failure_policy": "stop_without_silent_drop_replacement_or_inner_iteration_change"
+  },
+  "paired_query_bank": {
+    "gate": "all_relabeling_pilot_requirements_pass",
+    "centers_inclusive": [956, 1193],
+    "center_count": 238,
+    "base_seed": 20260902,
+    "directions_per_center": 1,
+    "antithetic_signs": [-1, 1],
+    "input_count": 476,
+    "target": "one_step_fixed_su2_bdf2_continuation",
+    "solver_failure_policy": "stop_without_drop_or_replacement",
+    "input_admissibility_redraw": "deterministic_and_logged_before_solver_execution"
+  },
+  "arms": {
+    "CLEAN_EMA": {
+      "objective": "clean_only",
+      "ema_decay": 0.995,
+      "primary_deployment": "ema",
+      "online_result_reported": true
+    },
+    "MP_PDE_PUSHFORWARD_M01": {
+      "epoch_1_prefix_depth": 0,
+      "later_prefix_depth_distribution": "uniform_batchwise_over_0_1",
+      "sampling_unit": "one_requested_depth_per_minibatch_with_per_example_train_history_cap",
+      "prefix_model": "current_online_model",
+      "prefix_gradient": "stopped",
+      "loss": "terminal_only",
+      "target": "aligned_stored_clean_future",
+      "inference_corrector": false
+    },
+    "CURRICULUM_EMA_PUSHFORWARD_K13": {
+      "exposure_probability": "0.5_times_min_1_epoch_over_10",
+      "exposed_prefix_depth_distribution": "uniform_over_1_2_3",
+      "sampling_unit": "one_requested_depth_per_minibatch_with_per_example_train_history_cap",
+      "prefix_model": "ema_eval_model",
+      "ema_decay": 0.995,
+      "prefix_gradient": "stopped",
+      "loss": "terminal_only",
+      "target": "aligned_stored_clean_future",
+      "primary_deployment": "ema"
+    },
+    "PAIRED_RECOVERY": {
+      "clean_loss_weight": 0.5,
+      "displaced_loss_weight": 0.5,
+      "displaced_inputs": "paired_query_bank",
+      "target": "stored_clean_future_from_undisplaced_pair",
+      "sign_schedule": "minus_on_odd_epochs_plus_on_even_epochs"
+    },
+    "DYNAMICS_RELABEL": {
+      "clean_loss_weight": 0.5,
+      "displaced_loss_weight": 0.5,
+      "displaced_inputs": "paired_query_bank",
+      "target": "stored_su2_future_from_displaced_pair",
+      "sign_schedule": "minus_on_odd_epochs_plus_on_even_epochs"
+    },
+    "PCNO_PDEREFINER_K3_VPRED": {
+      "algorithm": "released_four_timestep_ddpm_v_prediction",
+      "shared_model": true,
+      "candidate": "normalized_next_state_residual",
+      "scheduler_timesteps": [0, 1, 2, 3],
+      "index_encoding": "four_channel_one_hot_broadcast_per_node",
+      "input_channels": 25,
+      "pcno_layers": [128, 128, 128, 128, 128],
+      "fourier_modes": [8, 8],
+      "initialization": "same_seed_pcno_parameter_law_with_exact_zero_output_head_and_no_clean_checkpoint_transfer",
+      "minimum_cumulative_noise_std": 0.05748670866723229,
+      "minimum_beta": 0.00330472167339124,
+      "trained_betas": [
+        0.00330472167339124,
+        0.02218655771089649,
+        0.14895152805827971,
+        1.0
+      ],
+      "alphas_cumprod": [
+        0.9966952783266088,
+        0.9745820410138374,
+        0.8294165567866693,
+        0.0
+      ],
+      "cumulative_noise_standard_deviations": [
+        0.05748670866723231,
+        0.1594301069000539,
+        0.413017485360282,
+        1.0
+      ],
+      "noise_scale_coordinate": "normalized_residual",
+      "training_timestep_distribution": "uniform_per_example_over_0_1_2_3",
+      "prediction_type": "v_prediction",
+      "clip_sample": false,
+      "inference_initial_candidate": "standard_gaussian",
+      "inference_timestep_order": [3, 2, 1, 0],
+      "ema_decay": 0.995,
+      "model_calls_per_physical_step": 4,
+      "final_candidate_only_enters_recurrence": true
+    }
+  },
+  "optimization": {
+    "seeds": [17, 29, 43],
+    "epochs": 100,
+    "effective_batch_size": 4,
+    "optimizer": "AdamW",
+    "initial_learning_rate": 0.001,
+    "weight_decay": 0.00001,
+    "scheduler": "CosineAnnealingLR",
+    "scheduler_t_max": 100,
+    "scheduler_eta_min": 0.00001,
+    "gradient_clip_norm": 1.0,
+    "checkpoint_epochs": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+    "rollout_used_for_selection": false
+  },
+  "evaluation": {
+    "development_anchors": [1234, 1238, 1243, 1247, 1251, 1256, 1260, 1264],
+    "horizons": [1, 8, 35, 104, 208],
+    "late_window_inclusive": [174, 208],
+    "pderefiner_inference_seeds": [101, 211, 307],
+    "pderefiner_development_selection_sampler_seed": 101,
+    "common_evaluator_required": true,
+    "report_online_and_ema": true,
+    "report_runtime_and_peak_memory": true
+  },
+  "protection": {
+    "train_opened": true,
+    "development_opened": true,
+    "prospective_opened": false,
+    "sealed_opened": false,
+    "offline_training_label_solver_calls": true,
+    "online_solver_calls": false,
+    "online_defect_trigger": false
+  }
+}

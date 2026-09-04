@@ -1,13 +1,13 @@
 # Project Plan: Corrective Mechanisms For Long-Horizon Neural Operators
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 Status: active master plan. The fixed-PCNO experiment line is complete through
 the verified open-development extension `B3B4_NACA_CM_EXT_20260902A`.
 The verified outcome, its limitations, and its audited figures are integrated
-in a clean 33-page build. The immediate next step is owner manuscript
-inspection and, only if retained, a separately frozen development-only
-mechanism assay.
+in a clean 34-page build. The bounded Supersonic-Bump B5 transfer/no-harm study
+is now selected; local Stage-0A/B identity/reducibility implementation is active
+under its separate contract, while remote execution remains unselected.
 Prospective and sealed-population access remain separate decision gates.
 
 ## Objective
@@ -93,7 +93,8 @@ Included:
 - the completed NACA extension covering literal and curriculum model-prefix
   exposure, paired recovery versus dynamics relabeling, and one learned
   iterative PCNO corrector; and
-- one optional reduced second-PDE contrast after the primary case study.
+- the selected reduced Supersonic-Bump B5 transfer/no-harm contrast under
+  `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`.
 
 Excluded:
 
@@ -283,6 +284,15 @@ PDE; do not induce failure through undertraining or data sabotage.
   compared literal MP-PDE exposure with a separately named curriculum/EMA
   depth-`1--3` protocol; the closed always-on one-prefix result is a stress-test
   parent and not a general failure of multi-step training.
+- B5 is activated only as secondary open-development evidence. NACA's
+  path-projection ranking is problem-specific; the bump's variable native
+  meshes make raw global PCA unavailable as a legitimate deployed correction.
+  Stage 0A/B audits identity and train-only linear reducibility; Stage 0C clean-
+  phenotype replay is blocked pending its identity amendment. The intended
+  Stage 1 systems are `CLEAN`, `IID_RECOVERY`,
+  `CURRICULUM_EMA_PREFIX_K13`, and `PREFIX_ERROR_CORRECTOR_K13`, with a bump
+  PDE-Refiner port conditional. The B5 preregistration and JSON contract govern
+  all gates. No remote resource is selected and the historical test is sealed.
 
 The R0 metrics come from the verified R0 packet and raw-metric audit. The
 successor result comes from the closed development packet with final-manifest
@@ -293,7 +303,7 @@ SHA256
 
 The parent and extension now supply verified open-development evidence. The
 extension outcome, its falsifications, and its audited figures are integrated
-in a clean 33-page build whose numerical claims and figure placement were
+in a clean 34-page build whose numerical claims and figure placement were
 checked. The remaining Friday target is owner inspection of the argument. Do
 not retrain, tune after outcome, or open protected roles. If the manuscript retains a claim
 about recovery versus relabeling on trusted displaced dynamics, first freeze
@@ -320,7 +330,9 @@ a fabricated result, or an unauthorized sealed/test opening.
 
 ## Authorization
 
-Planning and manuscript edits do not authorize scientific execution. Every
+Planning and manuscript edits do not authorize scientific execution. The B5
+contract separately authorizes only its stated local Stage-0A/B and synthetic
+implementation scope. Every
 new attempt separately binds source, data/split/population, checkpoint,
 normalizer, evaluator, result, and final artifact hashes. Private context and
 machine details remain ignored and unquoted. Extension execution authority

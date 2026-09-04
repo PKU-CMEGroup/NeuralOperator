@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 This directory is the onboarding surface for the `time-dependent-no` branch.
 The current project studies corrective mechanisms for stable and accurate
@@ -37,6 +37,8 @@ implicitly authorizes execution.
 | [B3B4_NACA_CORRECTIVE_SUCCESSOR_CONTRACT.json](B3B4_NACA_CORRECTIVE_SUCCESSOR_CONTRACT.json) | Source-bound populations, learned arms, seeds, evaluation grid, packet schemas, and protected-role state. |
 | [B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md) | Frozen extension question, mechanism matrix, train-only SU2 relabeling pilot, and completed open-development gates. |
 | [B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json](B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json) | Frozen extension identity, schedules, paired bank, PDE-Refiner contract, and role protection. |
+| [B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md) | Active bounded Supersonic-Bump transfer/no-harm question, Stage-0 gates, four-arm pilot, and signed predictions. |
+| [B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json](B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json) | B5 split, state, reducibility, phenotype, intervention, promotion, and access contract. |
 | [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md) | Preserved but inactive work and re-entry rules. |
 | [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) | Surrounding calendar; the parent and extension are closed on development, while protected reveals remain separate decisions. |
 
@@ -57,10 +59,13 @@ implicitly authorizes execution.
   frozen public-resource, solver-version, mesh, restart, and claim-boundary
   contract for the closed R0 screen;
 - the NACA successor preregistration and JSON contract above: immutable
-  authority for the closed five-arm parent; and
+  authority for the closed five-arm parent;
 - the NACA corrective-extension preregistration and JSON contract above:
   frozen authority and provenance for the completed train/development work;
-  neither authorizes a protected reveal.
+  neither authorizes a protected reveal; and
+- the B5 bump preregistration and JSON contract above: current authority for
+  local Stage-0A/B work and the bounded secondary transfer design, not a remote
+  launch or historical-test opening.
 
 Historical records and preregistrations remain tracked for reproducibility,
 but they are not active planning surfaces. Use the compact tracker for bounded
@@ -90,7 +95,7 @@ Evidence hierarchy:
    compares representative embedded and operational corrective mechanisms;
 4. frozen diagnostics and predicted rankings remain reserved for a separately
    authorized prospective long-horizon reveal in that case study; and
-5. a second PDE is optional and bounded.
+5. the selected Supersonic-Bump B5 study is secondary and bounded.
 
 The active manuscript follows eight sections: introduction; one-step
 versus rollout; corrective-mechanism framework; methods and prospective
@@ -165,6 +170,16 @@ panels use exact evaluator snapshots; its three seed animations are independent
 qualitative rerolls. The correction changes only color normalization and
 layout, not the scientific replay or evaluation. Exact identities are in
 [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md).
+
+The selected B5 study tests transfer beyond NACA's special nearly linear,
+low-rank path geometry. It does not treat NACA's projection ranking as
+universal: the bump uses distinct native meshes, so raw global PCA is not a
+legitimate deployable correction without a new remapping representation. B5
+Stage-0A/B local identity/reducibility and synthetic implementation are
+authorized; Stage 0C, its four Stage-1 systems, and the conditional PDE-Refiner
+port remain behind the amendments in the source-of-truth preregistration. No
+remote resource or dataset-scale launch is selected, and the historical test
+remains sealed.
 
 ## Current M1 Readiness
 
@@ -319,8 +334,12 @@ open-development comparison, not the prospective C2 claim.
 
 The graph bundle does not expose a validated inverse to the original DG state
 or audited finite-volume faces/volumes. Bump integral summaries are diagnostic
-proxies, not physical conservation or arbitrary-state solver restart. Retained
-contract/audit files for this parked route are historical evidence only.
+proxies, not physical conservation or arbitrary-state solver restart. The
+active `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A` therefore uses stored clean
+trajectories only and makes no trusted displaced-state-dynamics claim.
+Per-trajectory POD is a train-only reducibility diagnostic, not a deployed
+projector. Its local Stage-0A/B scope is authorized under the linked B5 contract;
+remote execution remains unselected and the historical test is sealed.
 
 ### Dynamic shock-vortex
 

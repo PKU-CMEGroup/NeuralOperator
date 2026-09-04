@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Handoff
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 Status: replaceable operational snapshot. Scientific authority is
 [RESEARCH_DIRECTION_DECISION.md](RESEARCH_DIRECTION_DECISION.md). Historical
@@ -26,8 +26,10 @@ For active planning, then read:
 5. [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md);
 6. [B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md)
    and its JSON contract;
-7. [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md); and
-8. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md).
+7. [B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md)
+   and its JSON contract;
+8. [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md); and
+9. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md).
 
 Current explicit owner direction outranks all snapshots. No planning document
 independently authorizes code, solver, model, remote, data, or sealed work.
@@ -87,7 +89,7 @@ Required:
    intervention-hypothesis freeze;
 4. B4 representative embedded and operational intervention study, trained-model
    ranking freeze, and long-horizon reveal in that same case study; and
-5. B5 optional reduced transfer on a second PDE.
+5. B5 selected reduced transfer/no-harm study on the Supersonic Bump.
 
 SU2 Unsteady NACA0012 has completed the first R0 screen and is rejected as the
 primary hero case under the frozen decision rule. Its valid negative result may
@@ -123,6 +125,19 @@ harmful. This is strong rollout evidence but only partial mediator evidence:
 trained recovery and relabeling were not compared on common bank inputs against
 both stored targets, and the one-prefix gain does not certify late stability.
 
+The active secondary study is
+`B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`. It treats NACA's projection ranking
+as problem-specific and asks whether solver-free corrective information helps
+on geometry-dependent, advection-dominated bump trajectories where raw global
+PCA is not a legitimate deployed map. Local Stage-0A/B identity/reducibility
+and synthetic implementation are authorized. Stage 0C and Stage 1 are a frozen
+design envelope that requires the amendments and resource gate in the B5
+contract. Stage 1 is defined as `CLEAN`,
+`IID_RECOVERY`, `CURRICULUM_EMA_PREFIX_K13`, and
+`PREFIX_ERROR_CORRECTOR_K13`; a bump PDE-Refiner port is conditional. No remote
+resource or dataset-scale launch is selected, and the historical test remains
+sealed. The B5 preregistration and JSON contract are authoritative.
+
 The field study is cutoff-bounded and comprehensive across declared method
 families, while empirical implementations are representative. Its maintained
 source ledger is [paper/LITERATURE_AUDIT.md](../../paper/LITERATURE_AUDIT.md),
@@ -132,7 +147,8 @@ The former W26 five-line programme is evidence history, not an active queue.
 No surveyed SU2 alternative was clearly better before the honest NACA screen.
 Turbulent square cylinder remains a possible fallback only under a pinned
 production contract; laminar von Karman is a cheap solver/control fallback;
-shock-vortex and bump remain tangential/no-harm controls. Derived figures and
+shock-vortex remains a tangential/no-harm control, while bump has the bounded
+B5 secondary role above. Derived figures and
 claim-bounded manuscript integration are complete. If the corresponding claim
 is retained, an evaluation-only common-bank response assay must be frozen
 separately. No fallback activates automatically. These roles are planning
@@ -301,7 +317,7 @@ shock-first implementation order.
 
 ## Manuscript State
 
-`paper/main.tex` and `paper/sections/` now render a 33-page theory, ODE, and
+`paper/main.tex` and `paper/sections/` now render a 34-page theory, ODE, and
 primary-PDE manuscript:
 
 1. Introduction;
@@ -323,7 +339,7 @@ packet mechanics, source hashes, and
 manuscript TODOs live only in maintained Markdown and artifacts.
 
 The manuscript now integrates the verified extension outcome, its limitations,
-and the two audited extension figures. The resulting 33-page build is clean and
+and the two audited extension figures. The resulting 34-page build is clean and
 the figure pages passed direct visual inspection.
 
 The manuscript now defines on-reference defect, learned/trusted response,
@@ -438,9 +454,11 @@ Recommended review order:
 5. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md);
 6. [B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md);
 7. [B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json](B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json);
-8. [R0_PRIMARY_PDE_READINESS_CONTRACT.md](R0_PRIMARY_PDE_READINESS_CONTRACT.md);
-9. [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md);
-10. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md).
+8. [B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md);
+9. [B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json](B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json);
+10. [R0_PRIMARY_PDE_READINESS_CONTRACT.md](R0_PRIMARY_PDE_READINESS_CONTRACT.md);
+11. [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md);
+12. [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md).
 
 Then inspect `paper/main.pdf`, especially the ODE calibration and primary-PDE
 case study,
@@ -458,7 +476,7 @@ Open-development artifact, manuscript, and exact mounted-checkout WSL
 verification are complete for the five-arm parent. The extension pilot, bank,
 training, common evaluation, corrected presentation derivative, and manuscript
 integration are also complete and verified. Its two main-paper figures passed
-direct visual inspection in the 33-page build. If the trusted
+direct visual inspection in the 34-page build. If the trusted
 recovery--relabel response claim is retained, freeze an evaluation-only assay
 on identical displaced bank inputs before executing it. A prospective reveal
 remains a later decision.
@@ -522,3 +540,7 @@ ablation, and must ask the owner when scientific intent is ambiguous.
   The extension has separately closed its pilot, bank, 18 training packets, and
   Attempt-E development result. Protected populations remain unopened, and no
   completion statement for either lineage authorizes a reveal.
+- B5 currently authorizes only its declared local Stage-0A/B and synthetic
+  implementation scope. A remote or dataset-scale run requires a separately
+  selected compute resource and launch receipt; the historical bump test is
+  not authorized.

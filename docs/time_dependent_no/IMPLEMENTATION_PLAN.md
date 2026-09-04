@@ -1,6 +1,6 @@
 # Implementation Plan: From Paper Skeleton To Prospective PDE Evidence
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 Status: active implementation roadmap. The completed R0 and five-arm successor
 remain immutable parent evidence. The extension under
@@ -8,7 +8,9 @@ remain immutable parent evidence. The extension under
 and its JSON contract has completed implementation, training, and development
 evaluation. Its claim-bounded paper integration and rebuild are complete;
 the corrected derived presentation is also complete. Prospective and sealed
-roles remain unopened.
+roles remain unopened. The selected B5 bump transfer now authorizes only local
+Stage-0A/B identity/reducibility and synthetic implementation; no remote resource
+or dataset-scale launch is selected.
 
 ## 1. Design Rules
 
@@ -492,6 +494,29 @@ the Gaussian schedule and targets are bound by the schedule summary and training
 digests. CLEAN and oracle rows are repeated under `comparison_sigma_train` only
 for paired comparisons, so cross-scale summaries must deduplicate them.
 
+## 10A. Active B5 Supersonic-Bump Transfer
+
+The implementation authority is
+[B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md)
+and its JSON contract. Add only B5-scoped code under the maintained utility,
+script, and test directories; reuse the current bump shard/runtime/artifact
+paths but bind a fresh source/evaluator identity. Historical D094 packets are
+parent evidence, not mutable implementation surfaces.
+
+The immediate local scope is Stage 0A/B: fail-closed identity/leakage checks and
+native-mesh train-only oracle and prefix POD diagnostics. Focused synthetic
+tests must cover weighted POD, prefix/future separation, rank and reconstruction
+metrics, variable-node graphs, admissibility/structure diagnostics, manifest
+mismatch, and protected-role refusal.
+
+Stage 0C phenotype replay and Stage 1 are specified but blocked pending their
+contract amendments and a named resource. Stage 1 defines `CLEAN`, `IID_RECOVERY`,
+`CURRICULUM_EMA_PREFIX_K13`, and `PREFIX_ERROR_CORRECTOR_K13`, with corrected-
+state feedback and explicit cost accounting. A bump PDE-Refiner port remains a
+conditional extension. Do not implement a cross-mesh PCA/kNN projector or add
+method variants. Remote or dataset-scale execution requires a selected resource
+and launch receipt; the historical test stays sealed.
+
 ## 11. Closed Parent Packet Architecture And Extension Rule
 
 Each closed-parent learned-arm training packet contains exactly:
@@ -592,7 +617,10 @@ The table above is the closed parent. The completed extension order is:
 | E3 | Run the eleven-call train-only SU2 relabeling pilot. | Complete under corrected pilot R1; every registered gate passed. |
 | E4 | Generate and verify the 476-input paired bank, then run full-resolution smokes. | Complete: bank, manifest audit, and resource smokes passed. |
 | E5 | Train registered seeds and evaluate only development roles with the common extension evaluator. | Complete: all 18 training final manifests and the Attempt-E development result are bound and independently verified. |
-| E6 | Integrate verified evidence into the paper. | Complete: claim-bounded integration, corrected rendering, 33-page rebuild, and direct figure inspection pass. |
+| E6 | Integrate verified evidence into the paper. | Complete: claim-bounded integration, corrected rendering, 34-page rebuild, and direct figure inspection pass. |
+
+The next active implementation milestone is B5 Stage 0A/B only: add and test the
+contract-bound local identity/reducibility path, then stop at the resource gate.
 
 The extension presentation derivative
 `naca_corrective_extension_visualization_results_20260903b` closes E6. Its
@@ -621,7 +649,7 @@ machine paths.
 This document records the completed NACA R0 lineage, successor, and
 open-development extension. The successor's twelve learned packets and the
 extension's 18 learned packets plus development result are locally verified.
-No new training is opened. If its claim is retained, the identical-bank
+No new remote or dataset-scale training is opened. If its claim is retained, the identical-bank
 recovery--relabel comparison requires a separately frozen evaluation-only
 assay. Completion at development scope adds no authority for prospective or
 sealed reveal.

@@ -1,0 +1,181 @@
+{
+  "schema": "time_dependent_no.b5_bump_solver_free_transfer_contract.v1",
+  "experiment_id": "B5_BUMP_SOLVER_FREE_TRANSFER_20260905A",
+  "date": "2026-09-05",
+  "status": "stage0ab_local_implementation_authorized_remote_execution_unselected",
+  "scientific_role": "secondary_open_development_transfer_and_no_harm",
+  "prospective_c2_evidence": false,
+  "remote_execution_authorized": false,
+  "historical_test_population_opened": false,
+  "preregistration": {
+    "relative_path": "docs/time_dependent_no/B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md",
+    "file_sha256": "a4b64dde1fb40b162ef968a717a3fd785ce2f92e52e43ff421c40d8a642d5da7"
+  },
+  "split": {
+    "relative_path": "docs/time_dependent_no/D094_BUMP_SCALING_SPLIT_MANIFEST.json",
+    "file_sha256": "feb404e295c104c2ae9e66d25bbb809737bdd5d7febb0094a9d4aa3146191ccc",
+    "canonical_payload_sha256": "6e22a0bb754df158b7ea8838adda2ac36dd80ed554e300d84ba1c4478314709b",
+    "partition_digest": "ac8cac650c11b03fe883063d6cf8a93b98554030da3c183bc1af9378e2237adb",
+    "prepared_shard_manifest_relative_to_data_root": "manifest.json",
+    "prepared_shard_manifest_sha256": "5d5373fdcc682544bf330fba6d54fe65509dabe936baee7443c71a8c0c8d9fa7",
+    "train_count": 256,
+    "open_development_count": 44,
+    "selection_count": 16,
+    "outside_selection_count": 28,
+    "historical_test_count": 20
+  },
+  "state": {
+    "markov_order": 1,
+    "representation": "conservative",
+    "field_order": [
+      "rho",
+      "rho_v1",
+      "rho_v2",
+      "energy"
+    ],
+    "time_steps": 80,
+    "rollout_calls": 79,
+    "mesh_contract": "native_geometry_dependent_graph_per_trajectory",
+    "normalization": "proxy_mass_weighted_fit_on_all_256_training_trajectories",
+    "weight_claim": "reconstructed_proxy_not_physical_volume"
+  },
+  "stage0_reducibility": {
+    "execution_status": "authorized_after_identity_checks",
+    "audit_subset_source": "split.nested_exposure.subsets.32",
+    "audit_keys": [
+      "1",
+      "5",
+      "6",
+      "12",
+      "15",
+      "24",
+      "40",
+      "46",
+      "68",
+      "93",
+      "94",
+      "98",
+      "101",
+      "115",
+      "128",
+      "137",
+      "141",
+      "143",
+      "159",
+      "163",
+      "200",
+      "203",
+      "208",
+      "218",
+      "220",
+      "234",
+      "240",
+      "247",
+      "255",
+      "269",
+      "292",
+      "293"
+    ],
+    "model_input_frames": [0, 78],
+    "model_input_frame_count": 79,
+    "oracle_frames": [0, 78],
+    "prefix_fit_frames": [0, 39],
+    "prefix_future_frames": [40, 78],
+    "metrics": [
+      "uniform_normalized_state",
+      "proxy_mass_normalized_state"
+    ],
+    "variance_thresholds": [0.9, 0.99, 0.999],
+    "reconstruction_ranks": [2, 4, 7, 16, 32],
+    "formulas": {
+      "state_coordinates": "z=(u-global_train_state_mean)/global_train_state_scale",
+      "trajectory_centering": "oracle_mean_frames_0_78_and_prefix_mean_frames_0_39",
+      "node_weight_normalization": "finite_nonnegative_node_weights_with_positive_total_normalized_to_sum_one_then_repeated_over_four_equally_weighted_components",
+      "gram": "G_ts=sum_n,c w_n*(z_tnc-zbar_nc)*(z_snc-zbar_nc)/4",
+      "numerical_rank_tolerance": "max(lambda_1*1e-12,machine_epsilon*trace_G)",
+      "explained_rank": "smallest_available_rank_reaching_threshold",
+      "participation_rank": "sum_lambda_quantity_squared_over_sum_lambda_squared",
+      "entropy_rank": "exp_minus_sum_p_log_p_over_positive_eigenvalues",
+      "future_relative_error": "weighted_frobenius_reconstruction_error_over_weighted_frobenius_prefix_centered_future_state",
+      "shock_mask": "target_pressure_gradient_top_decile"
+    },
+    "rank7_reference": "NACA0012 area-weighted rank at 99.9 percent train variance",
+    "pass_rule": {
+      "minimum_trajectories_with_uniform_oracle_rank_99_9_above_7": 24,
+      "total_trajectories": 32
+    },
+    "deployable_projection": false,
+    "development_states_used": false
+  },
+  "stage0_phenotype": {
+    "execution_status": "blocked_pending_artifact_identity_amendment_and_named_compute_resource",
+    "parent_seed": 20260718,
+    "parent_training_count": 256,
+    "parent_optimizer_step": 16384,
+    "evaluation_population": "28 fixed outside-selection open-development trajectories",
+    "required_identity_amendment": [
+      "checkpoint_path_and_sha256",
+      "normalizer_path_and_sha256",
+      "archived_source_manifest_and_sha256",
+      "boundary_contract_digest",
+      "selection_and_outside_selection_key_lists_or_digests",
+      "fresh_evaluator_source_manifest"
+    ],
+    "gates": {
+      "completion_count": 28,
+      "maximum_mean_h1": 0.02,
+      "minimum_mean_h79_over_h1": 4.0,
+      "minimum_mean_h79_or_admissibility_fraction": {
+        "mean_h79": 0.08,
+        "admissibility_failure_fraction": 0.2
+      }
+    }
+  },
+  "stage1": {
+    "execution_status": "blocked_pending_algorithm_identity_amendment_and_named_compute_resource",
+    "pilot_seed": 20260718,
+    "confirmation_seeds": [20260812, 20260813],
+    "optimizer_updates": 16384,
+    "arms": [
+      "CLEAN",
+      "IID_RECOVERY",
+      "CURRICULUM_EMA_PREFIX_K13",
+      "PREFIX_ERROR_CORRECTOR_K13"
+    ],
+    "conditional_extension": "PCNO_PDEREFINER_K3_VPRED",
+    "recovery_clean_fraction": 0.5,
+    "recovery_noise_rule": "train_only_match_to_clean_one_prefix_normalized_rms",
+    "prefix_depths": [1, 2, 3],
+    "corrector_composition": "C_after_F_then_boundary_closure_and_corrected_state_feedback",
+    "online_solver_calls": false,
+    "online_ood_trigger": false,
+    "required_algorithm_amendment": [
+      "architecture_and_feature_contract",
+      "deployed_boundary_map",
+      "loss_and_node_population",
+      "optimizer_and_complete_learning_rate_schedule",
+      "presentation_stream_and_checkpoint_selection",
+      "ema_exposure_and_depth_schedule",
+      "keyed_rng_contract",
+      "exact_metric_and_material_regression_formulas",
+      "online_or_ema_deployment_choice"
+    ]
+  },
+  "promotion": {
+    "execution_status": "threshold_values_frozen_formulas_pending_stage1_amendment",
+    "minimum_paired_median_h79_improvement": 0.1,
+    "minimum_paired_median_auc_improvement": 0.1,
+    "minimum_outside_selection_win_fraction": 0.6,
+    "maximum_clean_h1_relative_regression": 0.05,
+    "requires_no_material_shock_front_regression": true,
+    "requires_no_admissibility_regression": true
+  },
+  "access": {
+    "train_allowed": true,
+    "open_development_allowed_after_stage_freeze": true,
+    "prospective_allowed": false,
+    "historical_test_allowed": false,
+    "exogenous_ood_allowed": false
+  },
+  "canonical_payload_sha256": "c23be07344f41ad0fb7a9fe951d1f48cd5232d0ba0ad1afeaec983b72e5120c7"
+}

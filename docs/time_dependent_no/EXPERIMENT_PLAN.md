@@ -1,12 +1,14 @@
 # Experiment Plan: Prospective Diagnosis And Corrective Mechanisms
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 Status: active claim-driven design. B1/B2, the first NACA R0 screen, the
 five-arm successor, and the corrective extension are complete at their
 registered open-development scopes. The extension remains frozen in
 [B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md)
-and its JSON contract. Prospective and sealed outcomes remain unopened.
+and its JSON contract. The bounded Supersonic-Bump B5 transfer is selected for
+local Stage-0A/B work under its own preregistration; no remote resource is selected.
+Prospective and sealed outcomes remain unopened.
 
 ## 1. Questions
 
@@ -45,7 +47,7 @@ baseline and is not silently compared with solver-free methods.
 | **B2: learned ODE sandbox** | Check that matched learners instantiate the predicted recovery/relabeling/explicit mechanism changes. | Required but compact. |
 | **B3: primary-PDE diagnosis and prediction freeze** | Diagnose the selected PDE and freeze interventions, mediators, rankings, and falsifiers before designated outcomes. | Main-paper prerequisite. |
 | **B4: primary-PDE intervention and reveal** | Test representative embedded and operational mechanisms under the B3 freeze. | Main C2 evidence. |
-| **B5: reduced second-PDE contrast** | Test one bounded regime transfer. | Optional; cannot delay the first draft. |
+| **B5: reduced second-PDE contrast** | Test solver-free correction beyond NACA's special linear low-rank geometry. | Active local Stage 0A/B; remote execution unselected. |
 
 No architecture, PDE, diagnostic, or method slot is added after designated B4
 outcomes are opened merely to rescue a claim.
@@ -105,7 +107,7 @@ disjoint frozen prospective population.
 | **SU2 Unsteady NACA0012** | Completed negative R0 delayed-failure screen; primary case for the distinct corrective successor and extension. | R0, the five-arm parent, and `B3B4_NACA_CM_EXT_20260902A` all completed and passed their open-development packet audits. R0 retains its negative verdict; the later identities answer a narrower corrective-mechanism question. | Preserve every identity unchanged. Derived presentation and manuscript integration are allowed; any prospective or sealed reveal is a separate decision. |
 | **Turbulent square cylinder** | Unselected candidate after NACA. | Public SU2 material exists, but the production configuration/provenance route is not yet sufficiently pinned. | Activate only if the owner/mentor selects it and a reproducible production solver contract is frozen. |
 | **Laminar von Karman cylinder** | Cheap solver/control candidate. | Official unsteady SU2 tutorial route. | Use only after owner/mentor selection; do not assume it will expose delayed transverse drift. |
-| **Euler shock-vortex / supersonic bump** | Tangential-dynamics or no-harm controls. | Retained infrastructure and retrospective evidence have the limitations already recorded. | Not the hero corrective-necessity case without a new readiness contract. |
+| **Euler shock-vortex / supersonic bump** | Shock-vortex remains a control; bump is the selected B5 transfer/no-harm study. | Bump has a new solver-free contract; neither route has a qualified arbitrary-state trusted restart. | Run only B5's local Stage-0A/B scope until the required amendments and remote resource are separately selected. |
 
 The literature screen found no clearly better overall first benchmark, so NACA
 received an honest attempt. Its negative result closes that exact delayed-
@@ -442,12 +444,24 @@ results, and incomplete attempts.
 
 D094 remains retrospective motivation and cannot enter the prospective freeze.
 
-## 10. B5: Optional Transfer
+## 10. B5: Selected Supersonic-Bump Transfer
 
-Only after B4 closes, compare `CLEAN` with the minimum contrasting embedded or
-operational arms on one second qualified PDE. B5 uses the same restart,
-population, audit, provenance, and no-harm rules. It cannot delay the first
-serious draft.
+`B5_BUMP_SOLVER_FREE_TRANSFER_20260905A` is a bounded secondary
+open-development study, not prospective C2. Its source of truth is
+[B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md)
+and the accompanying JSON contract. Authorized Stage 0A/B verifies
+identity/leakage and measures train-only native-mesh POD reducibility. Stage 0C
+clean-phenotype replay remains blocked pending its artifact-identity amendment
+and resource. Raw global PCA is not a valid bump arm because trajectories
+use different native meshes; per-trajectory POD is diagnostic only.
+
+If the frozen Stage-0 gates pass, Stage 1 compares exactly `CLEAN`,
+`IID_RECOVERY`, `CURRICULUM_EMA_PREFIX_K13`, and
+`PREFIX_ERROR_CORRECTOR_K13`. A bump `PCNO_PDEREFINER_K3_VPRED` port is
+conditional on the registered promotion decision. Local Stage-0A/B and
+synthetic implementation are authorized. Stage 0C and Stage 1 require their
+registered amendments; any dataset-scale or remote launch also needs a named
+resource decision and receipt. The historical test remains sealed.
 
 ## 11. Execution Order
 
@@ -461,6 +475,8 @@ serious draft.
    evaluator and predictions.
 6. Request a separate owner decision before the prospective reveal.
 7. Integrate verified B1/B2/B3/B4 evidence into the manuscript.
+8. Implement and audit only the local B5 Stage-0A/B identity/reducibility path;
+   stop before remote or dataset-scale execution until its resource is selected.
 
 Extension order:
 

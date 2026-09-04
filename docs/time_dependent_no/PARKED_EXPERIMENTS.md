@@ -1,6 +1,6 @@
 # Parked Experiment Ledger
 
-Updated: 2026-09-02
+Updated: 2026-09-05
 
 Status: active scope-control ledger. Parking preserves code, contracts, failed
 attempts, manifests, and scientific evidence. It does not reject a method
@@ -39,13 +39,16 @@ The following are the current core:
   `m in {0,1}`, separate curriculum/EMA depth-`1--3` exposure, paired frozen-
   bank recovery versus SU2 dynamics relabeling, and
   `PCNO_PDEREFINER_K3_VPRED`; and
+- the selected `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A` local Stage-0A/B
+  identity/reducibility and synthetic implementation scope; and
 - D094 as retrospective motivation/evidence, not as an active run.
 
 The M1 spatial/temporal reference packets remain relevant parent evidence. The
 old model stage and automatic population continuation are not active.
 
-B5 secondary-PDE transfer is conditional and outside the current critical path
-until the primary B3/B4 case study is complete.
+B5 secondary-PDE transfer is now active only under its dedicated Supersonic-
+Bump preregistration and JSON contract. Remote execution remains gated on a
+named resource decision; the historical test remains sealed.
 
 ## Parked By Scope
 
@@ -57,7 +60,7 @@ until the primary B3/B4 case study is complete.
 | Broad architecture comparison | `PARKED` | The PDE experiment fixes PCNO to isolate information/target semantics. | C2 first qualifies and a named architecture-transfer claim is selected. |
 | PCFNO/FFNO/component/attention expansion | `PARKED` | D094/D093 remain family-local background; additional architectures do not test the current core contrast. | New preregistration with matched objective/compute and a direct claim need. |
 | Broad PDE benchmark suite | `PARKED` | It raises completion risk and weakens causal interpretation. | Core result supported; one exact generalization question selected. |
-| Supersonic bump as the primary case study | `PARKED` | Current evidence does not provide both a trusted arbitrary-state restart and the required honest vanilla-PCNO failure. | A new contract independently closes restart, baseline-discordance, and prospective-population gates. |
+| Supersonic bump as the primary case study | `PARKED` | Current evidence does not provide both a trusted arbitrary-state restart and the required honest vanilla-PCNO failure. This does not park its active bounded solver-free B5 secondary role. | A new contract independently closes restart, baseline-discordance, and prospective-population gates. |
 | Exhaustive reproduction of PDERefiner/diffusion/score/kNN methods | `PARKED` | The exact `PCNO_PDEREFINER_K3_VPRED` adaptation is active; reproducing every learned corrector would create a method zoo. | A named evidence gap remains after the registered extension. |
 | Unselected or large-scale kNN projection variants | `PARKED` | A representative projection slot is active, but its exact method is unresolved and does not authorize a projection sweep. | Selection as the single B4 representative with a fixed interface, cost, and no-harm contract, or a later named gap. |
 | New RL/controller algorithm | `PARKED_OUT_OF_SCOPE` | Control changes the transition object and would become a separate algorithm programme. | Separate closed-loop claim and authorization. |

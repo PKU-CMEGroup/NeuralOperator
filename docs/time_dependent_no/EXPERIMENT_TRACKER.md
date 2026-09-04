@@ -1,6 +1,6 @@
 # Active Experiment Tracker
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 Status: current block and authorization tracker. Historical evidence remains in
 `MECHANISTIC_DIAGNOSTIC_TRACKER.md`. This file does not authorize execution.
@@ -34,7 +34,7 @@ Authorization is separate from scientific status.
 | [B2-GN Gaussian normal-noise successor](B2_GN_GAUSSIAN_NORMAL_NOISE_PREREGISTRATION.md) | Supporting scale-response study | `COMPLETE` | Closed under the audited normal-only local-CPU contract. No PDE, GPU, remote, or sealed work occurred. | Preserve the packet and use its scale-response results only as supporting ODE evidence. No rollout ranking is mechanism-qualified. |
 | B3 primary-PDE diagnosis/freeze | Main C2 diagnosis | `COMPLETE` | NACA successor open-population diagnosis, signed predictions, audit, and source-bound freeze are closed. | Preserve the verified packet and its claim boundary. |
 | B4 primary-PDE interventions/reveal | Main C2 test | `COMPLETE` at open-development scope | Parent and extension experiments, corrected figures, and claim-bounded manuscript integration are complete on open development roles. Prospective and sealed evidence remain unopened and unestablished. | Owner inspects the evidence and separately decides whether any protected reveal is warranted. |
-| B5 reduced second PDE | Conditional transfer | `PARKED` | None. | Activate only by a separate owner/mentor decision; no automatic fallback follows. |
+| [B5 Supersonic-Bump transfer](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md) | Secondary transfer/no-harm evidence | `IN_PROGRESS` at local Stage 0A/B | Contract-bound local identity/reducibility implementation and synthetic tests are in place; remote execution is unselected. | Request a named resource before the train-only dataset audit. Stage 0C/Stage 1 and historical test remain blocked. |
 
 ## Candidate Readiness
 
@@ -43,7 +43,7 @@ Authorization is separate from scientific status.
 | SU2 Unsteady NACA0012 | Stage 0 through audited R0 evaluation completed. Every rollout is finite and severely wrong late, but all three fail the old early-accuracy threshold (`0.2669/0.2368/0.2458 >= 0.15`). | The delayed-failure phenotype is absent; state-space drift and ripple cause remain unmeasured. | Preserve `R0_REJECT_NACA_AS_HERO_CORRECTION_NECESSITY_CASE`; later corrective results belong only to the distinct successor/extension identities. |
 | Turbulent square cylinder | Public SU2 case material exists. | A pinned, reproducible production configuration and all downstream gates. | Unselected candidate; owner/mentor choice and a new contract are required. |
 | Laminar von Karman cylinder | Official unsteady SU2 tutorial route exists. | R0 population, PCNO, and transverse-failure qualification. | Cheap solver/control fallback, not assumed to be the hero case. |
-| Shock-vortex / supersonic bump | Retained infrastructure and retrospective evidence. | Previously recorded restart/fidelity and hero-phenomenon limitations. | Tangential/no-harm controls only without a new readiness contract. |
+| Shock-vortex / supersonic bump | Retained infrastructure and retrospective evidence; bump now has `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`. | No trusted arbitrary-state restart; B5 Stage 0C/Stage 1 still need identity/algorithm amendments and a named resource. | Shock-vortex remains a control. Bump is active only as the bounded solver-free secondary transfer/no-harm study; it is not the hero case. |
 
 NACA0012 has completed a valid negative R0 delayed-failure screen. Its distinct
 successor and extension now provide completed open-development evidence for the
@@ -84,6 +84,11 @@ be manifold-normal. Prospective diagnostic selection remains untested.
 - [x] Approve `B3B4_NACA_CM_EXT_20260902A` implementation and train/development
       execution, with the full relabeling bank gated by the train-only SU2
       pilot (2026-09-02).
+- [x] Select the Supersonic Bump for bounded solver-free B5 secondary transfer
+      and authorize local Stage-0A/B contract, analyzer, and synthetic-test work
+      only (2026-09-05).
+- [ ] Select a named compute resource before the B5 train-only dataset audit;
+      separately amend Stage 0C and Stage 1 before phenotype replay or training.
 - [ ] Decide whether to approve the prospective reveal; the portable prediction
       packet is closed, but its existence is not reveal authorization.
 - [ ] Approve any sealed/test access as a still later, separate decision.
@@ -135,6 +140,41 @@ nonpositive density; finite and physically admissible are therefore distinct.
 Prospective and sealed populations remain unopened.
 
 ## Execution Log
+
+- 2026-09-05: owner selected the Supersonic Bump for a bounded second-PDE
+  transfer/no-harm study and clarified that NACA's projection ranking is a
+  consequence of its special nearly linear low-rank path, not a universal
+  conclusion. `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A` freezes train-only
+  per-trajectory native-mesh temporal POD as a diagnostic and declares four
+  intended solver-free systems. Only Stage 0A/B local implementation and
+  synthetic tests are currently executable. Stage 0C and Stage 1 require
+  identity/algorithm amendments; remote execution has no named resource and
+  the historical test remains sealed.
+
+- 2026-09-04: a presentation-only v3 derivative rerendered the extension's
+  exact replay (SHA256
+  `79886d205f21ed64ae9727a0a70ad3692ae1962bad221fbb488800da618878ec`)
+  as unfiltered piecewise-linear native-node fields on a deterministic quad
+  triangulation. Scientific arrays are unchanged: the checkerboard in the old
+  flat-cell view was a rendering artifact. The presentation-contract and
+  render-manifest canonical SHA256 values are respectively
+  `35efce1ac222312ec3bc8a3db8905995152c086a0fb791c3273c77d17c9136c0`
+  and `4562919f14b24e9b925a9b0bfaf0c599700af78ac06cfcd8cbeb7ccb90b1d0f2`;
+  the corrected horizon-208 PDF is
+  `54c87cf2995eacb224b9346e133e88c03be24eba750d9a0572bd3e24deb3d5bf`.
+  A separate train-only packet, `naca_dataset_pca_20260904b`, analyzes the 238
+  train-current states in 72,880 normalized model coordinates. The first
+  `2/4/6` PCs explain `96.1294/99.8007/99.9809%` of variance; the complete
+  BDF2 view is nearly identical, while area weighting needs seven PCs for
+  `99.9%`. This supports strong low-rank, path-like variance concentration,
+  not an intrinsic manifold dimension. Its final-manifest SHA256 is
+  `e83cd7aaeedcc24b2cefc1683da222f6730af7ed3bb702e470650766750916f7`
+  and summary canonical SHA256 is
+  `f536320d111587e0988d2b582114231782ca4d76b06d4a3fbe88444e44f9d9ff`.
+  Both figures are integrated in the private 34-page manuscript (SHA256
+  `966c2aad4b02d01c198555008e4db87d3ec583390461d05df4a782758c9e5f95`),
+  which has no undefined references/citations, overfull boxes, Type-3 fonts,
+  or unembedded fonts. Prospective and sealed populations remain unopened.
 
 - 2026-09-03: the corrected extension presentation derivative
   `naca_corrective_extension_visualization_results_20260903b` passed hash,

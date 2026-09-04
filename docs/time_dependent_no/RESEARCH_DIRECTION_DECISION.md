@@ -1,6 +1,6 @@
 # Time-Dependent Neural Operators: Research Direction Decision
 
-Updated: 2026-09-03
+Updated: 2026-09-05
 
 Status: current owner-approved scientific direction and scope. The bounded
 public NACA R0 screen is complete and its exact negative verdict is preserved.
@@ -17,9 +17,18 @@ training packets and the common Attempt-E evaluation passed independent audit.
 The result is bound by final-manifest SHA256
 `15475da78b4182754fe959eadc175434ffca18ef1558a45ea06cbf9c93ca7370`.
 Its audited presentation-only derivative and two main-paper figures are now
-integrated in a clean 33-page build. This changes only rendering, not the
+integrated in a clean 34-page build. This changes only rendering, not the
 scientific replay or evaluation. Prospective and sealed access still require
 separate owner decisions.
+
+The owner has now selected
+[B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md)
+and its JSON contract as a bounded secondary Supersonic-Bump transfer/no-harm
+study. NACA path projection is treated as a problem-specific success enabled by
+that problem's nearly linear low-rank path, not a universal ranking. B5 local
+Stage-0A/B identity/reducibility implementation is authorized; no remote resource
+or dataset-scale launch has been selected, and the historical bump test remains
+sealed.
 
 ## Authority And Document Roles
 
@@ -137,7 +146,8 @@ Included:
   and a PCNO PDE-Refiner adaptation;
 - one mandatory end-to-end case study on a reasonably complex, restartable PDE;
   and
-- an optional second PDE used only as a bounded transfer test.
+- the selected solver-free Supersonic-Bump B5 study, used only as a bounded
+  secondary transfer/no-harm test under its own preregistration.
 
 Excluded from this project:
 
@@ -345,8 +355,8 @@ The empirical story has five bounded blocks:
 4. B4: the representative embedded and operational intervention study on that
    PDE, with a trained-model ranking freeze before the designated long-rollout
    reveal; and
-5. B5: an optional, reduced comparison on a second PDE only if time and
-   readiness permit.
+5. B5: the selected, reduced Supersonic-Bump comparison under
+   `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`.
 
 B1 and B2 are controlled microscopes for theory and measurement. B3 and B4 are
 the empirical center of the paper. NACA0012 completed the first R0 screen but
@@ -470,11 +480,21 @@ retrieval, and independent packet audit are complete. Solver labels remain
 offline information; neither an online solver nor an online defect trigger was
 used. Prospective and sealed roles remain unopened.
 
+B5 now asks whether framework-guided solver-free correction transfers beyond
+NACA's unusually favorable linear geometry. Its intended Stage-1 systems are
+`CLEAN`, `IID_RECOVERY`, `CURRICULUM_EMA_PREFIX_K13`, and
+`PREFIX_ERROR_CORRECTOR_K13`; a bump `PCNO_PDEREFINER_K3_VPRED` port is
+conditional, not part of the first pilot. The preregistration and JSON contract
+are the source of truth for reducibility gates, signed predictions, promotion,
+and access. Their algorithms require a prelaunch amendment. B5 is
+open-development secondary evidence, not prospective C2.
+
 Fallback candidate context is turbulent square cylinder
 under a reproducible production contract, laminar von Karman cylinder as a
-cheap solver/control, then shock-vortex or supersonic bump only as
-tangential/no-harm controls under their recorded limitations. This is not an
-automatic fallback order. More complex buffet, pitching/gust, FSI, and CHT
+cheap solver/control, and shock-vortex as a tangential/no-harm control. The
+Supersonic Bump is separately selected only for the bounded B5 solver-free
+transfer role above, not as a hero replacement. This is not an automatic
+fallback order. More complex buffet, pitching/gust, FSI, and CHT
 routes are not the first demonstration because their current contracts are
 missing or their forcing, motion, or multiphysics would confound the core
 retention-versus-on-reference story.
@@ -533,6 +553,9 @@ No code or evidence artifact is deleted by parking a line.
   in ignored local context.
 - Strength-OOD and test populations remain sealed until the owner names and
   authorizes an exact opening.
+- B5 authorization currently covers local Stage-0A/B identity/reducibility and
+  synthetic implementation only; a remote or dataset-scale launch requires a
+  named resource decision and launch receipt.
 - Rewriting this decision intentionally changes provenance-document hashes.
   Legacy D094 source contracts remain historical and must not be replayed under
   their old identities.

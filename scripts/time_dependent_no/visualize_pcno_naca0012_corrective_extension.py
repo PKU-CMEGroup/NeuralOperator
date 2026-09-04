@@ -64,7 +64,7 @@ Y_LIMITS = (-5.0, 5.0)
 REFINER_SAMPLER_SEEDS = evaluator.REFINER_SAMPLER_SEEDS
 
 REPLAY_SCHEMA = "time_dependent_no.naca_corrective_extension_visualization_replay.v1"
-RENDER_SCHEMA = "time_dependent_no.naca_corrective_extension_visualization.v2"
+RENDER_SCHEMA = "time_dependent_no.naca_corrective_extension_visualization.v3"
 REPLAY_FILE = "extension_rollout_replay.npz"
 REPLAY_MANIFEST_FILE = "replay_manifest.json"
 RENDER_MANIFEST_FILE = "visualization_manifest.json"
@@ -225,6 +225,20 @@ QUALITATIVE_CONTRACT = {
     "sealed_opened": False,
 }
 QUALITATIVE_CONTRACT_SHA256 = evaluator._canonical_sha256(QUALITATIVE_CONTRACT)
+PRESENTATION_RENDER_CONTRACT = {
+    "parent_qualitative_contract_sha256": QUALITATIVE_CONTRACT_SHA256,
+    "scientific_arrays_changed": False,
+    "spatial_filtering": False,
+    "spatial_representation": (
+        "piecewise-linear native-node field on deterministic triangulation"
+    ),
+    "interpolation": "gouraud",
+    "quad_split": "fixed diagonal 0-2",
+    "signed_error_limit_basis": "maximum_absolute_visible_native_node_value",
+}
+PRESENTATION_RENDER_CONTRACT_SHA256 = evaluator._canonical_sha256(
+    PRESENTATION_RENDER_CONTRACT
+)
 
 
 @dataclass(frozen=True)
@@ -1520,11 +1534,20 @@ def _visible_quads(bundle: ReplayBundle) -> np.ndarray:
     return selected
 
 
-def _quad_face_values(values: np.ndarray, quads: np.ndarray) -> np.ndarray:
-    values = np.asarray(values)
-    if values.ndim != 1 or np.any(quads < 0) or np.any(quads >= values.size):
-        raise ValueError("native node values and quadrilaterals do not align")
-    return np.mean(values[quads], axis=1)
+def _quad_triangles(quads: np.ndarray) -> np.ndarray:
+    """Split each ordered native quad along the fixed 0--2 diagonal."""
+
+    quads = np.asarray(quads)
+    if (
+        quads.ndim != 2
+        or quads.shape[1] != 4
+        or not np.issubdtype(quads.dtype, np.integer)
+    ):
+        raise ValueError("native quadrilateral connectivity is invalid")
+    triangles = np.empty((2 * quads.shape[0], 3), dtype=np.int64)
+    triangles[0::2] = quads[:, (0, 1, 2)]
+    triangles[1::2] = quads[:, (0, 2, 3)]
+    return triangles
 
 
 def _airfoil_outline(bundle: ReplayBundle) -> np.ndarray:
@@ -1602,8 +1625,7 @@ def _color_limits(
                     / bundle.density_state_scale,
                     axis=0,
                 )
-                face_values = _quad_face_values(signed, quads)
-                error_max = max(error_max, float(np.max(np.abs(face_values))))
+                error_max = max(error_max, float(np.max(np.abs(signed[nodes]))))
         exact_reference = bundle.exact_reference_density[-1]
         for seed_offset in range(len(SEEDS)):
             for sampler_offset in range(len(REFINER_SAMPLER_SEEDS)):
@@ -1613,8 +1635,7 @@ def _color_limits(
                     bundle.refiner_sampler_density_h208[seed_offset, sampler_offset]
                     - exact_reference
                 ) / bundle.density_state_scale
-                face_values = _quad_face_values(signed, quads)
-                error_max = max(error_max, float(np.max(np.abs(face_values))))
+                error_max = max(error_max, float(np.max(np.abs(signed[nodes]))))
     else:
         reference = bundle.reference_density[:, nodes]
         for method_offset in range(len(METHODS)):
@@ -1626,8 +1647,7 @@ def _color_limits(
                         bundle.predicted_density[method_offset, seed_offset, horizon]
                         - bundle.reference_density[horizon]
                     ) / bundle.density_state_scale
-                    face_values = _quad_face_values(signed, quads)
-                    error_max = max(error_max, float(np.max(np.abs(face_values))))
+                    error_max = max(error_max, float(np.max(np.abs(signed[nodes]))))
     density_min = float(np.min(reference))
     density_max = float(np.max(reference))
     if not density_max > density_min:
@@ -1639,20 +1659,45 @@ def _color_limits(
 
 
 def _field_artist(
-    axis: Any, vertices: np.ndarray, values: np.ndarray, *, cmap: Any, norm: Any
+    axis: Any,
+    coordinates: np.ndarray,
+    triangles: np.ndarray,
+    values: np.ndarray,
+    *,
+    cmap: Any,
+    norm: Any,
 ):
-    from matplotlib.collections import PolyCollection
+    from matplotlib.tri import Triangulation
 
-    artist = PolyCollection(
-        vertices,
-        array=np.ma.masked_invalid(values),
+    coordinates = np.asarray(coordinates)
+    triangles = np.asarray(triangles)
+    values = np.asarray(values)
+    if (
+        coordinates.ndim != 2
+        or coordinates.shape[1] != 2
+        or triangles.ndim != 2
+        or triangles.shape[1] != 3
+        or values.shape != (coordinates.shape[0],)
+        or np.any(triangles < 0)
+        or np.any(triangles >= coordinates.shape[0])
+    ):
+        raise ValueError("native nodal field and triangulation do not align")
+    finite = np.isfinite(values)
+    triangulation = Triangulation(
+        coordinates[:, 0], coordinates[:, 1], triangles=triangles
+    )
+    invalid_triangles = ~np.all(finite[triangles], axis=1)
+    if np.any(invalid_triangles):
+        triangulation.set_mask(invalid_triangles)
+    artist = axis.tripcolor(
+        triangulation,
+        np.where(finite, values, 0.0),
+        shading="gouraud",
         cmap=cmap,
         norm=norm,
         edgecolors="none",
-        antialiased=False,
         rasterized=True,
     )
-    axis.add_collection(artist)
     return artist
 
 
@@ -1671,15 +1716,16 @@ def _method_comparison_figure(
         raise ValueError("static method-comparison horizon is not frozen")
     offset = STATIC_HORIZONS.index(horizon)
     reference = bundle.exact_reference_density[offset]
-    vertices = bundle.coordinates[quads]
+    triangles = _quad_triangles(quads)
     outline = _airfoil_outline(bundle)
     density_norm = Normalize(*limits["density"])
     error_cmap, error_norm, _ = _error_cmap_and_norm(limits["signed_error"][1])
     figure, axes = plt.subplots(2, 5, figsize=(14.0, 5.3), constrained_layout=True)
     reference_artist = _field_artist(
         axes.flat[0],
-        vertices,
-        _quad_face_values(reference, quads),
+        bundle.coordinates,
+        triangles,
+        reference,
         cmap="viridis",
         norm=density_norm,
     )
@@ -1696,9 +1742,9 @@ def _method_comparison_figure(
                 - reference[None]
             ) / bundle.density_state_scale
             values = np.median(signed, axis=0)
-            face_values = _quad_face_values(values, quads)
+            node_values = values
         else:
-            face_values = np.full(quads.shape[0], np.nan)
+            node_values = np.full(bundle.coordinates.shape[0], np.nan)
             axis.text(
                 0.5,
                 0.5,
@@ -1707,7 +1753,14 @@ def _method_comparison_figure(
                 ha="center",
                 va="center",
             )
-        _field_artist(axis, vertices, face_values, cmap=error_cmap, norm=error_norm)
+        _field_artist(
+            axis,
+            bundle.coordinates,
+            triangles,
+            node_values,
+            cmap=error_cmap,
+            norm=error_norm,
+        )
         axis.set_title(method.display)
         _format_field_axis(axis, outline)
     figure.colorbar(
@@ -1736,7 +1789,7 @@ def _refiner_sampler_figure(
     import matplotlib.pyplot as plt
     from matplotlib.cm import ScalarMappable
 
-    vertices = bundle.coordinates[quads]
+    triangles = _quad_triangles(quads)
     outline = _airfoil_outline(bundle)
     cmap, norm, _ = _error_cmap_and_norm(limits["signed_error"][1])
     reference = bundle.exact_reference_density[-1]
@@ -1748,11 +1801,18 @@ def _refiner_sampler_figure(
                 signed = (
                     bundle.refiner_sampler_density_h208[row, column] - reference
                 ) / bundle.density_state_scale
-                values = _quad_face_values(signed, quads)
+                values = signed
             else:
-                values = np.full(quads.shape[0], np.nan)
+                values = np.full(bundle.coordinates.shape[0], np.nan)
                 axis.text(0.5, 0.5, "nonfinite", transform=axis.transAxes, ha="center")
-            _field_artist(axis, vertices, values, cmap=cmap, norm=norm)
+            _field_artist(
+                axis,
+                bundle.coordinates,
+                triangles,
+                values,
+                cmap=cmap,
+                norm=norm,
+            )
             _format_field_axis(axis, outline)
             if row == 0:
                 axis.set_title(f"sampler {sampler}")
@@ -1870,15 +1930,16 @@ def _animation_figure(
     from matplotlib.cm import ScalarMappable
     from matplotlib.colors import Normalize
 
-    vertices = bundle.coordinates[quads]
+    triangles = _quad_triangles(quads)
     outline = _airfoil_outline(bundle)
     density_norm = Normalize(*limits["density"])
     error_cmap, error_norm, _ = _error_cmap_and_norm(limits["signed_error"][1])
     figure, axes = plt.subplots(2, 5, figsize=(14.0, 5.5), constrained_layout=True)
     reference_artist = _field_artist(
         axes.flat[0],
-        vertices,
-        np.zeros(quads.shape[0]),
+        bundle.coordinates,
+        triangles,
+        np.zeros(bundle.coordinates.shape[0]),
         cmap="viridis",
         norm=density_norm,
     )
@@ -1889,8 +1950,9 @@ def _animation_figure(
     for axis, method in zip(axes.flat[1:], METHODS, strict=True):
         artist = _field_artist(
             axis,
-            vertices,
-            np.zeros(quads.shape[0]),
+            bundle.coordinates,
+            triangles,
+            np.zeros(bundle.coordinates.shape[0]),
             cmap=error_cmap,
             norm=error_norm,
         )
@@ -1933,7 +1995,7 @@ def _animation_figure(
 
     def update(horizon: int):
         reference = bundle.reference_density[horizon]
-        reference_artist.set_array(_quad_face_values(reference, quads))
+        reference_artist.set_array(reference)
         for method_offset, (artist, invalid) in enumerate(
             zip(error_artists, invalid_labels, strict=True)
         ):
@@ -1943,9 +2005,9 @@ def _animation_figure(
                     bundle.predicted_density[method_offset, seed_offset, horizon]
                     - reference
                 ) / bundle.density_state_scale
-                artist.set_array(_quad_face_values(signed, quads))
+                artist.set_array(signed)
             else:
-                artist.set_array(np.ma.masked_all(quads.shape[0]))
+                artist.set_array(np.ma.masked_all(bundle.coordinates.shape[0]))
             invalid.set_visible(not is_valid)
         frame_label.set_text(f"seed {SEEDS[seed_offset]}   h = {horizon:03d}")
         return [reference_artist, *error_artists, *invalid_labels, frame_label]
@@ -2072,7 +2134,9 @@ def render(arguments: argparse.Namespace) -> dict[str, Any]:
             f"corrective_exposure_targets_h{horizon:03d}.pdf": (
                 "Reference density and the nine predeclared deployed-map signed "
                 "normalized density errors at the frozen horizon. Error panels use "
-                "pointwise medians across the three model seeds and exact evaluator snapshots."
+                "pointwise medians across the three model seeds and exact evaluator "
+                "snapshots. Native node values are displayed piecewise-linearly "
+                "without spatial filtering."
             )
             for horizon in STATIC_HORIZONS
         },
@@ -2086,7 +2150,8 @@ def render(arguments: argparse.Namespace) -> dict[str, Any]:
         ),
         "pderefiner_sampler_h208.pdf": (
             "Signed normalized density error for all three registered PDE-Refiner "
-            "sampler seeds and all three model seeds at h=208, using exact evaluator snapshots."
+            "sampler seeds and all three model seeds at h=208, using exact evaluator "
+            "snapshots and unfiltered piecewise-linear native-node rendering."
         ),
         **{
             f"signed_density_error_seed{seed}.mp4": (
@@ -2148,6 +2213,10 @@ def render(arguments: argparse.Namespace) -> dict[str, Any]:
             "classification": "VISUALIZATION_ONLY",
             "experiment_id": EXPERIMENT_ID,
             "qualitative_contract_sha256": QUALITATIVE_CONTRACT_SHA256,
+            "presentation_render_contract": PRESENTATION_RENDER_CONTRACT,
+            "presentation_render_contract_sha256": (
+                PRESENTATION_RENDER_CONTRACT_SHA256
+            ),
             "online_solver_calls": False,
             "online_defect_trigger": False,
             "prospective_opened": False,
@@ -2162,8 +2231,12 @@ def render(arguments: argparse.Namespace) -> dict[str, Any]:
             "captions": captions,
             "rendering": {
                 "paper_figures_have_no_overall_titles": True,
-                "spatial_representation": "flat native-quadrilateral vertex mean",
-                "interpolation": "none",
+                "spatial_representation": (
+                    "piecewise-linear native-node field on deterministic triangulation"
+                ),
+                "interpolation": "gouraud",
+                "quad_split": "fixed diagonal 0-2",
+                "spatial_filtering": False,
                 "fixed_x_limits": list(X_LIMITS),
                 "fixed_y_limits": list(Y_LIMITS),
                 "static_horizons": list(STATIC_HORIZONS),
@@ -2178,10 +2251,12 @@ def render(arguments: argparse.Namespace) -> dict[str, Any]:
                 "static_signed_error_linthresh": exact_linthresh,
                 "animation_signed_error_linthresh": qualitative_linthresh,
                 "signed_error_limit_basis": (
-                    "maximum_absolute_rendered_native_quadrilateral_value"
+                    "maximum_absolute_visible_native_node_value"
                 ),
                 "signed_error_clipping": False,
                 "visible_native_quad_count": int(quads.shape[0]),
+                "visible_native_triangle_count": int(2 * quads.shape[0]),
+                "visible_native_node_count": int(np.unique(quads).size),
             },
             "claim_boundary": _claim_boundary(),
         }

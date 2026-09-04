@@ -87,6 +87,41 @@ def _synthetic_bundle() -> visualization.ReplayBundle:
     )
 
 
+def test_native_quad_triangulation_preserves_nodal_rendering() -> None:
+    pytest.importorskip("matplotlib")
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    bundle = _synthetic_bundle()
+    quads = visualization._visible_quads(bundle)
+    triangles = visualization._quad_triangles(quads)
+    assert np.array_equal(triangles, [[0, 1, 2], [0, 2, 3]])
+
+    values = np.asarray([0.0, 1.0, 2.0, 3.0])
+    figure, axis = plt.subplots()
+    artist = visualization._field_artist(
+        axis,
+        bundle.coordinates,
+        triangles,
+        values,
+        cmap="viridis",
+        norm=None,
+    )
+    assert np.array_equal(np.asarray(artist.get_array()), values)
+    assert np.array_equal(artist._triangulation.triangles, triangles)
+    plt.close(figure)
+
+
+def test_color_limits_use_visible_nodal_extrema() -> None:
+    bundle = _synthetic_bundle()
+    bundle.exact_predicted_density[0, :, 0, 0] += np.float32(2.0)
+    quads = visualization._visible_quads(bundle)
+    limits = visualization._color_limits(bundle, quads, exact=True)
+    assert limits["signed_error"] == pytest.approx((-1.001, 1.001), abs=1.0e-7)
+
+
 def _synthetic_arrays(bundle: visualization.ReplayBundle) -> dict[str, np.ndarray]:
     return {
         "schema": np.asarray(visualization.REPLAY_SCHEMA),
@@ -666,9 +701,22 @@ def test_synthetic_render_smoke_emits_frozen_inventory(tmp_path: Path) -> None:
         visualization.RENDER_MANIFEST_FILE
     }
     assert all((output_root / name).stat().st_size > 0 for name in expected_outputs)
+    assert manifest["schema"] == visualization.RENDER_SCHEMA
+    assert manifest["presentation_render_contract_sha256"] == (
+        visualization.PRESENTATION_RENDER_CONTRACT_SHA256
+    )
+    assert (
+        manifest["presentation_render_contract"]["scientific_arrays_changed"] is False
+    )
+    assert manifest["presentation_render_contract"]["spatial_filtering"] is False
     assert manifest["rendering"]["animation_horizons"] == [0, 208]
+    assert manifest["rendering"]["spatial_representation"] == (
+        "piecewise-linear native-node field on deterministic triangulation"
+    )
+    assert manifest["rendering"]["interpolation"] == "gouraud"
+    assert manifest["rendering"]["quad_split"] == "fixed diagonal 0-2"
     assert manifest["rendering"]["signed_error_limit_basis"] == (
-        "maximum_absolute_rendered_native_quadrilateral_value"
+        "maximum_absolute_visible_native_node_value"
     )
     assert manifest["rendering"]["signed_error_clipping"] is False
     assert manifest["rendering"]["static_signed_error_linthresh"] > 0.0

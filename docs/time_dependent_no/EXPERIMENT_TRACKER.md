@@ -34,7 +34,7 @@ Authorization is separate from scientific status.
 | [B2-GN Gaussian normal-noise successor](B2_GN_GAUSSIAN_NORMAL_NOISE_PREREGISTRATION.md) | Supporting scale-response study | `COMPLETE` | Closed under the audited normal-only local-CPU contract. No PDE, GPU, remote, or sealed work occurred. | Preserve the packet and use its scale-response results only as supporting ODE evidence. No rollout ranking is mechanism-qualified. |
 | B3 primary-PDE diagnosis/freeze | Main C2 diagnosis | `COMPLETE` | NACA successor open-population diagnosis, signed predictions, audit, and source-bound freeze are closed. | Preserve the verified packet and its claim boundary. |
 | B4 primary-PDE interventions/reveal | Main C2 test | `COMPLETE` at open-development scope | Parent and extension experiments, corrected figures, and claim-bounded manuscript integration are complete on open development roles. Prospective and sealed evidence remain unopened and unestablished. | Owner inspects the evidence and separately decides whether any protected reveal is warranted. |
-| [B5 Supersonic-Bump transfer](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md) | Secondary transfer/no-harm evidence | `IN_PROGRESS` at local Stage 0A/B | Contract-bound local identity/reducibility implementation and synthetic tests are in place; remote execution is unselected. | Request a named resource before the train-only dataset audit. Stage 0C/Stage 1 and historical test remain blocked. |
+| [B5 Supersonic-Bump comparison](B5_BUMP_SOLVER_FREE_COMPARISON.md) | Secondary transfer/no-harm evidence | `IN_PROGRESS`: comparison implementation | Stage 0B passed on AutoDL (32/32 above rank 7; median rank 58). Owner authorizes the solver-free comparison; focused CPU tests pass. | Close full-mesh GPU smoke, launch the fixed paired pilot, and retrieve all outcomes. Historical test remains sealed. |
 
 ## Candidate Readiness
 
@@ -43,7 +43,7 @@ Authorization is separate from scientific status.
 | SU2 Unsteady NACA0012 | Stage 0 through audited R0 evaluation completed. Every rollout is finite and severely wrong late, but all three fail the old early-accuracy threshold (`0.2669/0.2368/0.2458 >= 0.15`). | The delayed-failure phenotype is absent; state-space drift and ripple cause remain unmeasured. | Preserve `R0_REJECT_NACA_AS_HERO_CORRECTION_NECESSITY_CASE`; later corrective results belong only to the distinct successor/extension identities. |
 | Turbulent square cylinder | Public SU2 case material exists. | A pinned, reproducible production configuration and all downstream gates. | Unselected candidate; owner/mentor choice and a new contract are required. |
 | Laminar von Karman cylinder | Official unsteady SU2 tutorial route exists. | R0 population, PCNO, and transverse-failure qualification. | Cheap solver/control fallback, not assumed to be the hero case. |
-| Shock-vortex / supersonic bump | Retained infrastructure and retrospective evidence; bump now has `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`. | No trusted arbitrary-state restart; B5 Stage 0C/Stage 1 still need identity/algorithm amendments and a named resource. | Shock-vortex remains a control. Bump is active only as the bounded solver-free secondary transfer/no-harm study; it is not the hero case. |
+| Shock-vortex / supersonic bump | Retained infrastructure and retrospective evidence; B5 now has an executable solver-free comparison amendment. | No trusted arbitrary-state restart; only stored trajectories supply training targets. | Bump's paired AutoDL pilot is owner-authorized. Shock-vortex remains a control candidate; historical test stays sealed. |
 
 NACA0012 has completed a valid negative R0 delayed-failure screen. Its distinct
 successor and extension now provide completed open-development evidence for the
@@ -87,8 +87,8 @@ be manifold-normal. Prospective diagnostic selection remains untested.
 - [x] Select the Supersonic Bump for bounded solver-free B5 secondary transfer
       and authorize local Stage-0A/B contract, analyzer, and synthetic-test work
       only (2026-09-05).
-- [ ] Select a named compute resource before the B5 train-only dataset audit;
-      separately amend Stage 0C and Stage 1 before phenotype replay or training.
+- [x] Select AutoDL, complete the B5 train-only audit, and authorize the solver-free
+      comparison under `B5_BUMP_SOLVER_FREE_COMPARISON_20260905A`.
 - [ ] Decide whether to approve the prospective reveal; the portable prediction
       packet is closed, but its existence is not reveal authorization.
 - [ ] Approve any sealed/test access as a still later, separate decision.
@@ -140,6 +140,18 @@ nonpositive density; finite and physically admissible are therefore distinct.
 Prospective and sealed populations remain unopened.
 
 ## Execution Log
+
+- 2026-09-05: B5 Stage 0B completed successfully on AutoDL in 229 seconds.
+  The retrieved packet independently closes at final-manifest SHA256
+  `479eaa3c28fd7118dc291cb779a0d27b96977e6cad7a00b60e358567505a9bf3`.
+  All 32 training trajectories exceed rank 7 at 99.9% variance; median is 58,
+  range 49--62. Rank 7 captures median 90.6%, so this is a long spectral tail,
+  not proof of high intrinsic dimension. The owner then requests the solver-free
+  intervention comparison. Its new amendment freezes five training runs and
+  eight deployed systems, including a shared Clean-EMA control and mapped PCA
+  ranks 7/32. Twenty-three focused synthetic CPU tests and Ruff pass before
+  full-mesh GPU smoke. Generated launch/results belong under the ignored
+  `b5_bump_comparison_20260905a` artifact directory.
 
 - 2026-09-05: owner selected the Supersonic Bump for a bounded second-PDE
   transfer/no-harm study and clarified that NACA's projection ranking is a

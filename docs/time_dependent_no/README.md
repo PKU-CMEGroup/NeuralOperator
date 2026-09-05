@@ -39,6 +39,7 @@ implicitly authorizes execution.
 | [B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json](B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json) | Frozen extension identity, schedules, paired bank, PDE-Refiner contract, and role protection. |
 | [B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md) | Active bounded Supersonic-Bump transfer/no-harm question, Stage-0 gates, four-arm pilot, and signed predictions. |
 | [B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json](B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json) | B5 split, state, reducibility, phenotype, intervention, promotion, and access contract. |
+| [B5_BUMP_SOLVER_FREE_COMPARISON.md](B5_BUMP_SOLVER_FREE_COMPARISON.md) | Owner-selected executable solver-free comparison; supersedes the original Stage-1 envelope and historical-phenotype prerequisite. |
 | [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md) | Preserved but inactive work and re-entry rules. |
 | [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) | Surrounding calendar; the parent and extension are closed on development, while protected reveals remain separate decisions. |
 
@@ -63,9 +64,9 @@ implicitly authorizes execution.
 - the NACA corrective-extension preregistration and JSON contract above:
   frozen authority and provenance for the completed train/development work;
   neither authorizes a protected reveal; and
-- the B5 bump preregistration and JSON contract above: current authority for
-  local Stage-0A/B work and the bounded secondary transfer design, not a remote
-  launch or historical-test opening.
+- the B5 parent preregistration/JSON: immutable authority for the completed
+  Stage-0B audit; its new comparison amendment governs the owner-authorized
+  AutoDL solver-free pilot. Historical test remains sealed.
 
 Historical records and preregistrations remain tracked for reproducibility,
 but they are not active planning surfaces. Use the compact tracker for bounded
@@ -171,15 +172,12 @@ qualitative rerolls. The correction changes only color normalization and
 layout, not the scientific replay or evaluation. Exact identities are in
 [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md).
 
-The selected B5 study tests transfer beyond NACA's special nearly linear,
-low-rank path geometry. It does not treat NACA's projection ranking as
-universal: the bump uses distinct native meshes, so raw global PCA is not a
-legitimate deployable correction without a new remapping representation. B5
-Stage-0A/B local identity/reducibility and synthetic implementation are
-authorized; Stage 0C, its four Stage-1 systems, and the conditional PDE-Refiner
-port remain behind the amendments in the source-of-truth preregistration. No
-remote resource or dataset-scale launch is selected, and the historical test
-remains sealed.
+The B5 train-only audit passed on AutoDL; all 32 trajectories require more than
+seven modes at 99.9% variance, while seven still capture about 90.6%. The new
+solver-free comparison uses a fresh Clean baseline, recovery, prefix exposure,
+explicit correction, PDE-Refiner and training-only mapped PCA. Its exact
+population, targets, projection mapping, cost and no-harm checks are in the
+comparison amendment. NACA's projection ranking is not assumed to transfer.
 
 ## Current M1 Readiness
 
@@ -338,8 +336,9 @@ proxies, not physical conservation or arbitrary-state solver restart. The
 active `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A` therefore uses stored clean
 trajectories only and makes no trusted displaced-state-dynamics claim.
 Per-trajectory POD is a train-only reducibility diagnostic, not a deployed
-projector. Its local Stage-0A/B scope is authorized under the linked B5 contract;
-remote execution remains unselected and the historical test is sealed.
+projector. The separate comparison implements an operational PCA baseline by
+mapping a training donor to the known evaluation geometry. No development
+trajectory values fit the projector; historical test remains sealed.
 
 ### Dynamic shock-vortex
 

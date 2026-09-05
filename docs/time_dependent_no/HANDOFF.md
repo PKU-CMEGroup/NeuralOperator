@@ -125,18 +125,16 @@ harmful. This is strong rollout evidence but only partial mediator evidence:
 trained recovery and relabeling were not compared on common bank inputs against
 both stored targets, and the one-prefix gain does not certify late stability.
 
-The active secondary study is
-`B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`. It treats NACA's projection ranking
-as problem-specific and asks whether solver-free corrective information helps
-on geometry-dependent, advection-dominated bump trajectories where raw global
-PCA is not a legitimate deployed map. Local Stage-0A/B identity/reducibility
-and synthetic implementation are authorized. Stage 0C and Stage 1 are a frozen
-design envelope that requires the amendments and resource gate in the B5
-contract. Stage 1 is defined as `CLEAN`,
-`IID_RECOVERY`, `CURRICULUM_EMA_PREFIX_K13`, and
-`PREFIX_ERROR_CORRECTOR_K13`; a bump PDE-Refiner port is conditional. No remote
-resource or dataset-scale launch is selected, and the historical test remains
-sealed. The B5 preregistration and JSON contract are authoritative.
+The B5 train-only reducibility audit completed on AutoDL with 32/32 trajectories
+above rank 7 at 99.9% variance (median rank 58). Its separate solver-free
+comparison is now owner-authorized under
+[B5_BUMP_SOLVER_FREE_COMPARISON.md](B5_BUMP_SOLVER_FREE_COMPARISON.md).
+It compares Clean, Clean-EMA, IID recovery, curriculum/EMA prefixes, explicit
+prefix-error correction, PDE-Refiner, and training-only mapped PCA at ranks
+7/32. The fresh Clean run replaces historical phenotype replay as the baseline
+prerequisite. The pilot uses one paired seed, 16,384 updates and the fixed 28
+outside-selection development trajectories. Historical test remains sealed.
+Consult the experiment tracker and ignored launch receipts for current progress.
 
 The field study is cutoff-bounded and comprehensive across declared method
 families, while empirical implementations are representative. Its maintained
@@ -540,7 +538,6 @@ ablation, and must ask the owner when scientific intent is ambiguous.
   The extension has separately closed its pilot, bank, 18 training packets, and
   Attempt-E development result. Protected populations remain unopened, and no
   completion statement for either lineage authorizes a reveal.
-- B5 currently authorizes only its declared local Stage-0A/B and synthetic
-  implementation scope. A remote or dataset-scale run requires a separately
-  selected compute resource and launch receipt; the historical bump test is
-  not authorized.
+- B5 comparison implementation and execution on AutoDL are owner-authorized
+  under the comparison amendment. Verify the source and launch receipt before
+  interpreting outputs; historical bump test remains unopened.

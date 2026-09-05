@@ -26,9 +26,12 @@ The owner has now selected
 and its JSON contract as a bounded secondary Supersonic-Bump transfer/no-harm
 study. NACA path projection is treated as a problem-specific success enabled by
 that problem's nearly linear low-rank path, not a universal ranking. B5 local
-Stage-0A/B identity/reducibility implementation is authorized; no remote resource
-or dataset-scale launch has been selected, and the historical bump test remains
-sealed.
+Stage-0A/B audit is complete on owner-selected AutoDL: all 32 training
+trajectories exceed the NACA rank-7 reference at 99.9% variance. The owner now
+requests the solver-free comparison in
+[B5_BUMP_SOLVER_FREE_COMPARISON.md](B5_BUMP_SOLVER_FREE_COMPARISON.md).
+That amendment selects fresh paired training, mapped training-PCA, and common
+development evaluation on AutoDL. Historical test remains sealed.
 
 ## Authority And Document Roles
 
@@ -480,14 +483,14 @@ retrieval, and independent packet audit are complete. Solver labels remain
 offline information; neither an online solver nor an online defect trigger was
 used. Prospective and sealed roles remain unopened.
 
-B5 now asks whether framework-guided solver-free correction transfers beyond
-NACA's unusually favorable linear geometry. Its intended Stage-1 systems are
-`CLEAN`, `IID_RECOVERY`, `CURRICULUM_EMA_PREFIX_K13`, and
-`PREFIX_ERROR_CORRECTOR_K13`; a bump `PCNO_PDEREFINER_K3_VPRED` port is
-conditional, not part of the first pilot. The preregistration and JSON contract
-are the source of truth for reducibility gates, signed predictions, promotion,
-and access. Their algorithms require a prelaunch amendment. B5 is
-open-development secondary evidence, not prospective C2.
+B5 asks whether framework-guided solver-free correction transfers beyond
+NACA's unusually favorable linear geometry. The owner-directed
+[comparison amendment](B5_BUMP_SOLVER_FREE_COMPARISON.md) fixes Clean,
+Clean-EMA, IID recovery, curriculum/EMA prefix training, explicit prefix-error
+correction, PDE-Refiner, and mapped training-PCA at ranks 7/32. A fresh Clean
+baseline determines whether this is an instability or no-harm comparison;
+historical phenotype replay is no longer a prerequisite. B5 remains secondary
+open-development evidence, not prospective C2.
 
 Fallback candidate context is turbulent square cylinder
 under a reproducible production contract, laminar von Karman cylinder as a
@@ -553,9 +556,9 @@ No code or evidence artifact is deleted by parking a line.
   in ignored local context.
 - Strength-OOD and test populations remain sealed until the owner names and
   authorizes an exact opening.
-- B5 authorization currently covers local Stage-0A/B identity/reducibility and
-  synthetic implementation only; a remote or dataset-scale launch requires a
-  named resource decision and launch receipt.
+- B5 comparison implementation and AutoDL execution are owner-authorized under
+  the comparison amendment. Bind each uploaded source and launch receipt;
+  historical test and prospective populations remain excluded.
 - Rewriting this decision intentionally changes provenance-document hashes.
   Legacy D094 source contracts remain historical and must not be replayed under
   their old identities.

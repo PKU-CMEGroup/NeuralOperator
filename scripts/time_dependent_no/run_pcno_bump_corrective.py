@@ -147,7 +147,9 @@ def source_records():
     }
     for module in list(sys.modules.values()):
         path = getattr(module, "__file__", None)
-        if path:
+        # PyTorch also exposes virtual modules with relative pseudo-filenames
+        # such as "_classes.py". They are not repository source files.
+        if isinstance(path, (str, Path)) and Path(path).is_absolute():
             path = Path(path).resolve()
             if path.is_relative_to(ROOT) and path.suffix == ".py":
                 paths.add(path)

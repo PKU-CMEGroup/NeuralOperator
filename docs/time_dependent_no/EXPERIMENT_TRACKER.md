@@ -141,6 +141,13 @@ Prospective and sealed populations remain unopened.
 
 ## Execution Log
 
+- 2026-09-05: The first B5 comparison smoke (`5ce08f7`) passed all 23 remote
+  synthetic tests, then stopped before scientific array access because source
+  collection treated PyTorch's virtual `_classes.py` filename as repository
+  source. The attempt is retained as infrastructure-only. The collector now
+  ignores relative virtual filenames, with a regression test; all 24 focused
+  CPU tests pass. A new source snapshot and smoke attempt are required.
+
 - 2026-09-05: B5 Stage 0B completed successfully on AutoDL in 229 seconds.
   The retrieved packet independently closes at final-manifest SHA256
   `479eaa3c28fd7118dc291cb779a0d27b96977e6cad7a00b60e358567505a9bf3`.

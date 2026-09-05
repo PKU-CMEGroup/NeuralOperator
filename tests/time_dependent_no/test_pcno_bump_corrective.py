@@ -2,6 +2,8 @@
 
 import copy
 import json
+import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -14,6 +16,15 @@ from utility.time_dependent_no.pcno_euler2d import (
     Euler2DNormalization,
     PCNOEuler2DResidual,
 )
+
+
+def test_source_capture_ignores_virtual_torch_module_filenames(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules, "b5_virtual_module", SimpleNamespace(__file__="_classes.py")
+    )
+    source = runner.source_records()
+    assert "scripts/time_dependent_no/run_pcno_bump_corrective.py" in source
+    assert "_classes.py" not in source
 
 
 @pytest.fixture

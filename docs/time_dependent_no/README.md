@@ -37,8 +37,8 @@ implicitly authorizes execution.
 | [B3B4_NACA_CORRECTIVE_SUCCESSOR_CONTRACT.json](B3B4_NACA_CORRECTIVE_SUCCESSOR_CONTRACT.json) | Source-bound populations, learned arms, seeds, evaluation grid, packet schemas, and protected-role state. |
 | [B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md) | Frozen extension question, mechanism matrix, train-only SU2 relabeling pilot, and completed open-development gates. |
 | [B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json](B3B4_NACA_CORRECTIVE_EXTENSION_CONTRACT.json) | Frozen extension identity, schedules, paired bank, PDE-Refiner contract, and role protection. |
-| [B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md) | Active bounded Supersonic-Bump transfer/no-harm question, Stage-0 gates, four-arm pilot, and signed predictions. |
-| [B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json](B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json) | B5 split, state, reducibility, phenotype, intervention, promotion, and access contract. |
+| [B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md) | Frozen parent question and completed Stage-0 audit; its original intervention envelope is superseded by the comparison amendment. |
+| [B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json](B5_BUMP_SOLVER_FREE_TRANSFER_CONTRACT.json) | Immutable B5 parent split, state, reducibility and access contract; use the amendment for the current comparison. |
 | [B5_BUMP_SOLVER_FREE_COMPARISON.md](B5_BUMP_SOLVER_FREE_COMPARISON.md) | Owner-selected executable solver-free comparison; supersedes the original Stage-1 envelope and historical-phenotype prerequisite. |
 | [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md) | Preserved but inactive work and re-entry rules. |
 | [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md) | Surrounding calendar; the parent and extension are closed on development, while protected reveals remain separate decisions. |
@@ -333,7 +333,7 @@ open-development comparison, not the prospective C2 claim.
 The graph bundle does not expose a validated inverse to the original DG state
 or audited finite-volume faces/volumes. Bump integral summaries are diagnostic
 proxies, not physical conservation or arbitrary-state solver restart. The
-active `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A` therefore uses stored clean
+active `B5_BUMP_SOLVER_FREE_COMPARISON_20260905A` therefore uses stored clean
 trajectories only and makes no trusted displaced-state-dynamics claim.
 Per-trajectory POD is a train-only reducibility diagnostic, not a deployed
 projector. The separate comparison implements an operational PCA baseline by

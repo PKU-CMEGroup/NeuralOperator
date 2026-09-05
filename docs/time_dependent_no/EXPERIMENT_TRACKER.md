@@ -34,7 +34,7 @@ Authorization is separate from scientific status.
 | [B2-GN Gaussian normal-noise successor](B2_GN_GAUSSIAN_NORMAL_NOISE_PREREGISTRATION.md) | Supporting scale-response study | `COMPLETE` | Closed under the audited normal-only local-CPU contract. No PDE, GPU, remote, or sealed work occurred. | Preserve the packet and use its scale-response results only as supporting ODE evidence. No rollout ranking is mechanism-qualified. |
 | B3 primary-PDE diagnosis/freeze | Main C2 diagnosis | `COMPLETE` | NACA successor open-population diagnosis, signed predictions, audit, and source-bound freeze are closed. | Preserve the verified packet and its claim boundary. |
 | B4 primary-PDE interventions/reveal | Main C2 test | `COMPLETE` at open-development scope | Parent and extension experiments, corrected figures, and claim-bounded manuscript integration are complete on open development roles. Prospective and sealed evidence remain unopened and unestablished. | Owner inspects the evidence and separately decides whether any protected reveal is warranted. |
-| [B5 Supersonic-Bump comparison](B5_BUMP_SOLVER_FREE_COMPARISON.md) | Secondary transfer/no-harm evidence | `IN_PROGRESS`: comparison implementation | Stage 0B passed on AutoDL (32/32 above rank 7; median rank 58). Owner authorizes the solver-free comparison; focused CPU tests pass. | Close full-mesh GPU smoke, launch the fixed paired pilot, and retrieve all outcomes. Historical test remains sealed. |
+| [B5 Supersonic-Bump comparison](B5_BUMP_SOLVER_FREE_COMPARISON.md) | Secondary transfer/no-harm evidence | `IN_PROGRESS`: pilot running on AutoDL | Source `4fb8dc2`; 24 CPU tests, full-mesh GPU smoke and cross-mesh PCA check passed. Five training runs and eight deployed systems are queued. | Retrieve and verify the completed comparison packet; report all outcomes before deciding confirmation seeds. Historical test remains sealed. |
 
 ## Candidate Readiness
 
@@ -140,6 +140,26 @@ nonpositive density; finite and physically admissible are therefore distinct.
 Prospective and sealed populations remain unopened.
 
 ## Execution Log
+
+- 2026-09-05: The solver-free B5 pilot launched at 21:06 China time from
+  producer commit `4fb8dc2fe091228948ec0624a8ce5c7037950e6c`, source-archive
+  SHA256 `89b2ec32525e2979139982d5bd5a73ce4a1afa70241b046292761194249585d7`.
+  The replacement smoke passed all 24 remote CPU tests, all five training
+  objectives on the 23,359-node mesh, and four inference variants. The
+  training-only 19,345-to-23,359-node PCA check passed with normalized
+  idempotence error `9.54e-7`. Local receipt verification closes 16 smoke
+  outputs and 30 exact Git-source hashes; final smoke manifest is
+  `c1c492201820a677bce8dae9130adbfad1975be080a62b1f8a663f6552540d06`.
+  Raw dataset arrays were not redownloaded: their training-only access and
+  digest checks are recorded by the remote runner.
+  At the initial 21:18 check, Clean had completed 44/64 epochs with finite
+  loss/gradients; about 5 GiB remained on the output filesystem. The automatic
+  queue trains all five arms, then evaluates eight deployed systems on the
+  same 28 development trajectories for 79 steps. Estimated completion is
+  23:00 September 5 to 00:00 September 6 China time, not a deadline guarantee.
+  No intervention outcome is available yet. Receipts and initial log are in
+  ignored `artifacts/time_dependent_no/b5_bump_comparison_20260905a/retry1/`;
+  verify final source, checkpoint, data-access and output bindings on retrieval.
 
 - 2026-09-05: The first B5 comparison smoke (`5ce08f7`) passed all 23 remote
   synthetic tests, then stopped before scientific array access because source

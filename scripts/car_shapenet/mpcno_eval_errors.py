@@ -176,7 +176,6 @@ def build_model(args, x_train, y_train, device):
         fc_dim=128,
         in_dim=x_train.shape[-1],
         out_dim=y_train.shape[-1],
-        inv_L_scale_hyper=[False, 0.5, 2.0],
         scaling_mode="sqrt_inv",
         act=args.act,
         geo_act=args.geo_act,

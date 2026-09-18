@@ -432,7 +432,7 @@ class MPCNO(nn.Module):
         self.sp_convs_nws = nn.ModuleList(
             [
                 nn.Conv1d(in_size * (ndims + 1), in_size, 1, bias=False)
-                for in_size, out_size in zip(self.layers[1:], self.layers[1:])
+                for in_size, out_size in zip(self.layers, self.layers[1:])
             ]
         ) if layer_selection['geointegral'] else [None]*len(layers[1:])
 
@@ -577,7 +577,9 @@ class MPCNO(nn.Module):
 
             
             if self.act is not None and i != length - 1:
-                x = x + self.act(self.scale_factor*(x1 + x2 + x_grad + x_geo))
+                # Residual addition requires matching channel widths; otherwise use the transformed update alone.
+                update = self.act(self.scale_factor*(x1 + x2 + x_grad + x_geo))
+                x = x + update if x.shape[1] == update.shape[1] else update
             else:
                 x = self.scale_factor*(x1 + x2 + x_grad + x_geo)
 
@@ -593,66 +595,6 @@ class MPCNO(nn.Module):
        
         return x 
     
-
-
-################################################################
-# Training (Optimization)
-################################################################
-
-class Optimizer:
-    '''
-    Single Adam optimizer wrapper.
-    '''
-    def __init__(self, params, *args, betas=None, lr=None, weight_decay=None, **kwargs):
-        self.optimizer = Adam(
-            params,
-        betas=betas,
-        lr=lr,
-        weight_decay=weight_decay,
-        )
-
-    def step(self):
-        self.optimizer.step()
-    
-    def zero_grad(self):
-        self.optimizer.zero_grad()
-
-    def state_dict(self):
-        return self.optimizer.state_dict()
-
-    def load_state_dict(self, state_dict):
-        if 'optimizer1' in state_dict:
-            state_dict = state_dict['optimizer1']
-        self.optimizer.load_state_dict(state_dict)
-
-        
-
-
-class Scheduler_OneCycleLR:
-    '''
-    Single OneCycleLR scheduler wrapper.
-    '''
-    def __init__(self, optimizer,  max_lr,
-            div_factor, final_div_factor, pct_start,
-            steps_per_epoch, epochs, **kwargs):
-
-        self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer.optimizer, max_lr=max_lr,
-            div_factor=div_factor, final_div_factor=final_div_factor, pct_start=pct_start,
-            steps_per_epoch=steps_per_epoch, epochs=epochs)
-
-    def step(self):
-        self.scheduler.step()
-
-    def state_dict(self):
-        return self.scheduler.state_dict()
-
-    def load_state_dict(self, state_dict):
-        if 'scheduler1' in state_dict:
-            state_dict = state_dict['scheduler1']
-        self.scheduler.load_state_dict(state_dict)
-
-        
 
 
 
@@ -717,13 +659,13 @@ def MPCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_lis
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.parameters(),
+    optimizer = Adam(model.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
         )
     
-    scheduler = Scheduler_OneCycleLR(
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'],
         div_factor=2, final_div_factor=100,pct_start=0.2,
         steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
@@ -807,7 +749,7 @@ def MPCNO_train_multidist(x_train, aux_train, y_train, x_test_list, aux_test_lis
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2_dict, " Test L2 Loss : ", test_l2_dict,
               flush=True)
-        if (ep %100 == 99) or (ep == epochs -1) and save_model_name:    
+        if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:
 
             torch.save(model.state_dict(), save_model_name + ".pth")
 
@@ -874,13 +816,13 @@ def MPCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, m
     
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.parameters(),
+    optimizer = Adam(model.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
         )
     
-    scheduler = Scheduler_OneCycleLR(
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'],
         div_factor=2, final_div_factor=100,pct_start=0.2,
         steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])
@@ -957,7 +899,7 @@ def MPCNO_train(x_train, aux_train, y_train, x_test, aux_test, y_test, config, m
         t2 = default_timer()
         print("Epoch : ", ep, " Time: ", round(t2-t1,3), " Rel. Train L2 Loss : ", train_rel_l2, " Rel. Test L2 Loss : ", test_rel_l2, " Test L2 Loss : ", test_l2,
               flush=True)
-        if (ep %100 == 99) or (ep == epochs -1) and save_model_name:   
+        if ((ep %100 == 99) or (ep == epochs -1)) and save_model_name:
             torch.save(model.state_dict(), save_model_name + ".pth")
 
             if normalization_x:
@@ -1044,13 +986,14 @@ def MPCNO_train_parallel(x_train, aux_train, y_train, x_test, aux_test, y_test, 
 
     myloss = LpLoss(d=1, p=2, size_average=False)
 
-    optimizer = Optimizer(model.module.parameters(),
+
+    optimizer = Adam(model.module.parameters(),
         betas=(0.9, 0.999),
         lr=config["train"]["base_lr"],
         weight_decay=config["train"]["weight_decay"],
         )
     
-    scheduler = Scheduler_OneCycleLR(
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=config['train']['base_lr'],
         div_factor=2, final_div_factor=100,pct_start=0.2,
         steps_per_epoch=len(train_loader), epochs=config['train']['epochs'])

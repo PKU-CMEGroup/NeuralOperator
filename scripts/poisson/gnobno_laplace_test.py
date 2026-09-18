@@ -158,7 +158,6 @@ model = ExtGNOBNO(ndims, modes, nmeasures=1,
                   in_dim_x=in_dim_x,
                   in_dim_y=4,
                   out_dim=1,
-                  inv_L_scale_hyper = [train_inv_L_scale, 0.5, 2.0],
                   act="gelu").to(device)
 
 

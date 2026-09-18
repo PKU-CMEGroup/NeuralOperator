@@ -60,7 +60,7 @@ def compute_measure_per_elem_(points:np.ndarray, elem_dim:int) -> float:
     elif npoints == 4:
         assert(elem_dim == 2 or elem_dim == 3)
         if elem_dim == 2:
-            s = compute_triangle_area_(points[:3,:]) + compute_triangle_area_(points[1:,:])
+            s = compute_triangle_area_(points[:3,:]) + compute_triangle_area_(points[[0,2,3],:])
         elif elem_dim == 3:
             s = compute_tetrahedron_volume_(points)
         else:
@@ -483,6 +483,7 @@ def compute_edge_gradient_weights(nodes:np.ndarray, elems:np.ndarray, mesh_type:
         # The dimensionality of each node (used to compute gradient), is defined as the max dimension among incident elements
         for elem in elems:
             elem_dim, e = elem[0], elem[1:]
+            e = e[e >= 0]
             node_dims[e] = np.maximum(node_dims[e], elem_dim)
         
     elif mesh_type == "cell_centered":
@@ -920,8 +921,8 @@ def compute_length_scales(nnodes:np.ndarray, nodes: np.ndarray) -> np.ndarray:
                 The length scale for each dimension (upper bound).
     """
     
-    ndata = nodes.shape[0]
-    Ls = np.zeros((ndata, 3))  # Shape: (ndata, 3)
+    ndata, _, ndims = nodes.shape
+    Ls = np.zeros((ndata, ndims))
 
     for i in range(ndata):
         node_slice = nodes[i, :nnodes[i], :]

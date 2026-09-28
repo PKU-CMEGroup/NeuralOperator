@@ -1,9 +1,9 @@
 """Finite-amplitude, path-conditioned diagnostics for learned time steppers.
 
-The metrics in this module compare a learned map on one reference input and one
-displaced input against the *same* archived next reference state.  They do not
-evaluate the numerical solver from the displaced input and therefore must not
-be described as solver-relative off-path response fidelity.
+The historical path-conditioned metrics use the same archived next reference
+state for both inputs; they do not measure solver-relative off-path fidelity.
+The separate paired solver-response assay additionally requires a trusted next
+state from the displaced input and distinguishes recovery from faithful dynamics.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import numpy as np
 
 METRIC_SCHEMA = "path_conditioned_tube_probe_v1"
 AGGREGATE_SCHEMA = "path_conditioned_tube_tail_score_v1"
+PAIRED_RESPONSE_SCHEMA = "paired_solver_response_probe_v1"
 
 
 def _field(value: np.ndarray, *, name: str) -> np.ndarray:
@@ -213,6 +214,150 @@ def path_conditioned_tube_metrics(
     }
 
 
+def paired_solver_response_metrics(
+    *,
+    reference_input: np.ndarray,
+    displaced_input: np.ndarray,
+    reference_prediction: np.ndarray,
+    displaced_prediction: np.ndarray,
+    reference_next: np.ndarray,
+    trusted_displaced_next: np.ndarray,
+    node_weights: np.ndarray,
+    component_scale: Sequence[float] | np.ndarray,
+    node_mask: np.ndarray | None = None,
+) -> dict[str, float | str | None]:
+    """Separate recovery-target error from trusted displaced-state fidelity.
+
+    All fields have shape ``[nodes, channels]`` and use the historical metric's
+    node-weighted, component-scaled RMS geometry. Let ``b = Psi(u) - S(u)``,
+    ``p = Psi(u + eta) - Psi(u)`` and ``r = S(u + eta) - S(u)``. The recovery
+    error is ``||b + p||``; displaced-dynamics error is ``||b + p - r||``.
+    The response defect ``p - r`` cancels a common additive prediction bias.
+
+    These are finite-amplitude secants, not derivatives, manifold coordinates,
+    or ID/OOD classifications. The caller must supply a qualified trusted map,
+    the complete deployed learned map, and matched state/forcing conventions.
+    For a stochastic map, use common random tapes within each input pair and
+    assess tape variability separately. This function neither samples nor
+    averages predictions. All inputs must be real-valued; complex arrays are
+    rejected before conversion. Zero-denominator gains/cosines are ``None``.
+    """
+    fields = {
+        name: np.asarray(value)
+        for name, value in (
+            ("reference_input", reference_input),
+            ("displaced_input", displaced_input),
+            ("reference_prediction", reference_prediction),
+            ("displaced_prediction", displaced_prediction),
+            ("reference_next", reference_next),
+            ("trusted_displaced_next", trusted_displaced_next),
+        )
+    }
+    for name, value in (
+        *fields.items(),
+        ("node_weights", node_weights),
+        ("component_scale", component_scale),
+        ("node_mask", node_mask),
+    ):
+        if np.iscomplexobj(np.asarray(value)):
+            raise ValueError(f"{name} must be real-valued")
+    fields = {name: _field(value, name=name) for name, value in fields.items()}
+    shapes = {value.shape for value in fields.values()}
+    if len(shapes) != 1:
+        raise ValueError("all paired solver-response fields must have identical shapes")
+    nodes, channels = next(iter(shapes))
+    raw_weights = np.asarray(node_weights, dtype=np.float64)
+    if raw_weights.ndim not in (1, 2):
+        raise ValueError("node_weights must have shape [nodes] or [nodes, measures]")
+    if not np.isfinite(raw_weights).all() or np.any(raw_weights < 0.0):
+        raise ValueError("node_weights must be finite and nonnegative")
+    weights, scale, normalization = _metric_geometry(
+        nodes=nodes,
+        channels=channels,
+        node_weights=node_weights,
+        component_scale=component_scale,
+        node_mask=node_mask,
+    )
+    if not math.isfinite(normalization):
+        raise ValueError("metric normalization must be finite")
+
+    def inner(left: np.ndarray, right: np.ndarray) -> float:
+        value = float(
+            np.einsum(
+                "n,nc,nc->",
+                weights,
+                left / scale[None, :],
+                right / scale[None, :],
+                optimize=True,
+            )
+            / normalization
+        )
+        if not math.isfinite(value):
+            raise ArithmeticError("paired solver-response arithmetic is non-finite")
+        return value
+
+    def norm(value: np.ndarray) -> float:
+        return math.sqrt(max(inner(value, value), 0.0))
+
+    def ratio(numerator: float, denominator: float) -> float | None:
+        if denominator == 0.0:
+            return None
+        value = numerator / denominator
+        if not math.isfinite(value):
+            raise ArithmeticError("paired solver-response ratio is non-finite")
+        return value
+
+    def cosine(cross: float, left_norm: float, right_norm: float) -> float | None:
+        if left_norm == 0.0 or right_norm == 0.0:
+            return None
+        value = (cross / left_norm) / right_norm
+        if not math.isfinite(value) or abs(value) > 1.0 + 1.0e-12:
+            raise ArithmeticError("paired response cosine violates Cauchy--Schwarz")
+        return float(np.clip(value, -1.0, 1.0))
+
+    eta = fields["displaced_input"] - fields["reference_input"]
+    clean = fields["reference_prediction"] - fields["reference_next"]
+    learned = fields["displaced_prediction"] - fields["reference_prediction"]
+    trusted = fields["trusted_displaced_next"] - fields["reference_next"]
+    recovery = fields["displaced_prediction"] - fields["reference_next"]
+    dynamics = fields["displaced_prediction"] - fields["trusted_displaced_next"]
+    response_defect = learned - trusted
+    input_norm = norm(eta)
+    clean_norm = norm(clean)
+    learned_norm = norm(learned)
+    trusted_norm = norm(trusted)
+    response_defect_norm = norm(response_defect)
+    response_cross = inner(learned, trusted)
+    defect_cross = inner(clean, response_defect)
+
+    return {
+        "schema": PAIRED_RESPONSE_SCHEMA,
+        "input_displacement_scaled_rms": input_norm,
+        "clean_defect_scaled_rms": clean_norm,
+        "recovery_target_error_scaled_rms": norm(recovery),
+        "displaced_dynamics_error_scaled_rms": norm(dynamics),
+        "learned_response_scaled_rms": learned_norm,
+        "trusted_response_scaled_rms": trusted_norm,
+        "response_defect_scaled_rms": response_defect_norm,
+        "learned_secant_gain": ratio(learned_norm, input_norm),
+        "trusted_secant_gain": ratio(trusted_norm, input_norm),
+        "response_defect_gain": ratio(response_defect_norm, input_norm),
+        "learned_trusted_response_scaled_inner": response_cross,
+        "learned_trusted_response_cosine": cosine(
+            response_cross, learned_norm, trusted_norm
+        ),
+        "clean_response_defect_scaled_inner": defect_cross,
+        "clean_response_defect_cosine": cosine(
+            defect_cross, clean_norm, response_defect_norm
+        ),
+        "recovery_closure_scaled_rms": norm(recovery - (clean + learned)),
+        "dynamics_closure_scaled_rms": norm(dynamics - (clean + response_defect)),
+        "response_defect_closure_scaled_rms": norm(
+            response_defect - (dynamics - clean)
+        ),
+    }
+
+
 def aggregate_tube_escape_tail_score(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -364,6 +509,8 @@ def aggregate_tube_escape_tail_score(
 __all__ = [
     "AGGREGATE_SCHEMA",
     "METRIC_SCHEMA",
+    "PAIRED_RESPONSE_SCHEMA",
     "aggregate_tube_escape_tail_score",
+    "paired_solver_response_metrics",
     "path_conditioned_tube_metrics",
 ]

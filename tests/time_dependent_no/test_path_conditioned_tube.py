@@ -5,6 +5,7 @@ import pytest
 
 from utility.time_dependent_no.path_conditioned_tube import (
     aggregate_tube_escape_tail_score,
+    paired_solver_response_metrics,
     path_conditioned_tube_metrics,
 )
 
@@ -212,3 +213,212 @@ def test_tail_score_rejects_leakage_and_nonrectangular_banks() -> None:
     nonstring_identity[0]["case_id"] = 7
     with pytest.raises(TypeError, match="strings"):
         aggregate_tube_escape_tail_score(nonstring_identity, prefix_horizon=20)
+
+
+def _paired_inputs() -> dict[str, np.ndarray]:
+    # S(x, y) = (x + 1, 3*y + 4), u = (2, -1), eta = (0, 2).
+    return {
+        "reference_input": _field((2.0, -1.0)),
+        "displaced_input": _field((2.0, 1.0)),
+        "reference_prediction": _field((3.0, 1.0)),
+        "displaced_prediction": _field((3.0, 7.0)),
+        "reference_next": _field((3.0, 1.0)),
+        "trusted_displaced_next": _field((3.0, 7.0)),
+        "node_weights": np.ones(1),
+        "component_scale": np.ones(2),
+    }
+
+
+def test_paired_response_distinguishes_exact_dynamics_from_affine_recovery() -> None:
+    inputs = _paired_inputs()
+    dynamics = paired_solver_response_metrics(**inputs)
+    # Recovery map Psi(x, y) = (x + 1, 1) agrees with S on y = -1.
+    inputs["displaced_prediction"] = _field((3.0, 1.0))
+    recovery = paired_solver_response_metrics(**inputs)
+
+    for result in (dynamics, recovery):
+        assert result["schema"] == "paired_solver_response_probe_v1"
+        assert result["clean_defect_scaled_rms"] == 0.0
+        assert result["input_displacement_scaled_rms"] == pytest.approx(np.sqrt(2))
+        assert result["trusted_response_scaled_rms"] == pytest.approx(3 * np.sqrt(2))
+        assert result["trusted_secant_gain"] == pytest.approx(3.0)
+        for name in (
+            "recovery_closure_scaled_rms",
+            "dynamics_closure_scaled_rms",
+            "response_defect_closure_scaled_rms",
+        ):
+            assert result[name] == 0.0
+    assert dynamics["displaced_dynamics_error_scaled_rms"] == 0.0
+    assert dynamics["recovery_target_error_scaled_rms"] == pytest.approx(3 * np.sqrt(2))
+    assert dynamics["learned_secant_gain"] == pytest.approx(3.0)
+    assert dynamics["response_defect_gain"] == 0.0
+    assert dynamics["learned_trusted_response_cosine"] == pytest.approx(1.0)
+    assert recovery["recovery_target_error_scaled_rms"] == 0.0
+    assert recovery["displaced_dynamics_error_scaled_rms"] == pytest.approx(
+        3 * np.sqrt(2)
+    )
+    assert recovery["learned_secant_gain"] == 0.0
+    assert recovery["response_defect_gain"] == pytest.approx(3.0)
+    assert recovery["learned_trusted_response_cosine"] is None
+
+
+def test_paired_response_cancels_common_additive_bias_not_clean_error() -> None:
+    inputs = _paired_inputs()
+    bias = _field((2.0, -4.0))
+    inputs["reference_prediction"] = inputs["reference_prediction"] + bias
+    inputs["displaced_prediction"] = inputs["displaced_prediction"] + bias
+    result = paired_solver_response_metrics(**inputs)
+
+    assert result["clean_defect_scaled_rms"] == pytest.approx(np.sqrt(10))
+    assert result["displaced_dynamics_error_scaled_rms"] == pytest.approx(np.sqrt(10))
+    assert result["learned_secant_gain"] == pytest.approx(3.0)
+    assert result["response_defect_scaled_rms"] == 0.0
+    assert result["clean_response_defect_cosine"] is None
+
+
+def test_paired_response_retains_signed_alignments() -> None:
+    inputs = _paired_inputs()
+    inputs.update(
+        reference_input=_field((0.0, 0.0)),
+        displaced_input=_field((1.0, 0.0)),
+        reference_next=_field((0.0, 0.0)),
+        trusted_displaced_next=_field((2.0, 0.0)),
+        reference_prediction=_field((1.0, 0.0)),
+        displaced_prediction=_field((-1.0, 0.0)),
+    )
+    result = paired_solver_response_metrics(**inputs)
+    assert result["learned_trusted_response_scaled_inner"] == pytest.approx(-2.0)
+    assert result["learned_trusted_response_cosine"] == pytest.approx(-1.0)
+    assert result["clean_response_defect_scaled_inner"] == pytest.approx(-2.0)
+    assert result["clean_response_defect_cosine"] == pytest.approx(-1.0)
+    assert result["response_defect_gain"] == pytest.approx(4.0)
+
+
+def test_paired_response_uses_finite_secants_and_does_not_sample() -> None:
+    inputs = _paired_inputs()
+    # Psi(x) = x**2 and S(x) = x: secant 4 differs from derivative 2 at x=1.
+    inputs.update(
+        reference_input=_field((1.0, 0.0)),
+        displaced_input=_field((3.0, 0.0)),
+        reference_next=_field((1.0, 0.0)),
+        trusted_displaced_next=_field((3.0, 0.0)),
+        reference_prediction=_field((1.0, 0.0)),
+        displaced_prediction=_field((9.0, 0.0)),
+    )
+    before = {name: value.copy() for name, value in inputs.items()}
+    result = paired_solver_response_metrics(**inputs)
+    assert result == paired_solver_response_metrics(**inputs)
+    assert result["learned_secant_gain"] == pytest.approx(4.0)
+    assert result["trusted_secant_gain"] == pytest.approx(1.0)
+    assert result["response_defect_gain"] == pytest.approx(3.0)
+    for name, value in inputs.items():
+        np.testing.assert_array_equal(value, before[name])
+
+
+def test_paired_response_weighting_mask_and_channel_rescaling() -> None:
+    inputs = {
+        name: np.repeat(value, 3, axis=0)
+        for name, value in _paired_inputs().items()
+        if name not in ("node_weights", "component_scale")
+    }
+    inputs["displaced_prediction"] += np.asarray([[2, -2], [4, -4], [100, 100]])
+    inputs["node_weights"] = np.asarray([[1.0, 1.0], [3.0, 3.0], [2.0, 2.0]])
+    inputs["node_mask"] = np.asarray([1, 1, 0])
+    inputs["component_scale"] = np.asarray([1.0, 2.0])
+    before = {name: value.copy() for name, value in inputs.items()}
+    baseline = paired_solver_response_metrics(**inputs)
+    # Weighted scaled dynamics-error energy = (2*(4+1) + 6*(16+4))/(8*2).
+    assert baseline["displaced_dynamics_error_scaled_rms"] == pytest.approx(
+        np.sqrt(8.125)
+    )
+    factors = np.asarray([7.0, 0.25])
+    scaled_inputs = {
+        name: value if name in ("node_weights", "node_mask") else value * factors
+        for name, value in inputs.items()
+    }
+    scaled = paired_solver_response_metrics(**scaled_inputs)
+    for name, value in baseline.items():
+        if isinstance(value, float):
+            assert scaled[name] == pytest.approx(value, abs=1e-14)
+        else:
+            assert scaled[name] == value
+    for name, value in inputs.items():
+        np.testing.assert_array_equal(value, before[name])
+
+
+def test_paired_response_zero_displacement_has_no_resolved_gain() -> None:
+    inputs = _paired_inputs()
+    inputs["displaced_input"] = inputs["reference_input"].copy()
+    inputs["trusted_displaced_next"] = inputs["reference_next"].copy()
+    inputs["displaced_prediction"] = inputs["reference_prediction"].copy()
+    result = paired_solver_response_metrics(**inputs)
+    for name in ("learned_secant_gain", "trusted_secant_gain", "response_defect_gain"):
+        assert result[name] is None
+    assert result["learned_trusted_response_cosine"] is None
+    assert result["input_displacement_scaled_rms"] == 0.0
+    assert result["response_defect_scaled_rms"] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    (
+        ("trusted_displaced_next", np.ones((2, 2)), "identical shapes"),
+        ("trusted_displaced_next", np.asarray([1, 2]), "shape"),
+        ("trusted_displaced_next", _field((np.nan, 0)), "non-finite"),
+        ("reference_input", _field((0, np.inf)), "non-finite"),
+        ("node_weights", np.asarray([[1.0, -0.5]]), "nonnegative"),
+        ("node_weights", np.asarray([np.inf]), "finite"),
+        ("node_weights", np.ones((1, 1, 1)), "shape"),
+        ("node_weights", np.ones(2), "shape"),
+        ("node_weights", np.zeros(1), "positive mass"),
+        ("component_scale", np.asarray([1.0, 0.0]), "strictly positive"),
+        ("component_scale", np.asarray([1.0, np.inf]), "finite"),
+        ("component_scale", np.ones(1), "one value per channel"),
+        ("node_mask", np.asarray([0.5]), "zeros and ones"),
+        ("node_mask", np.zeros(1), "positive mass"),
+    ),
+)
+def test_paired_response_rejects_invalid_inputs(
+    field: str, value: np.ndarray, match: str
+) -> None:
+    inputs = _paired_inputs()
+    inputs[field] = value
+    with pytest.raises(ValueError, match=match):
+        paired_solver_response_metrics(**inputs)
+
+
+def test_paired_response_rejects_nonfinite_arithmetic_from_finite_inputs() -> None:
+    inputs = _paired_inputs()
+    inputs["displaced_prediction"] = _field((1.0e200, 0.0))
+    with (
+        np.errstate(over="ignore", invalid="ignore"),
+        pytest.raises(ArithmeticError, match="non-finite"),
+    ):
+        paired_solver_response_metrics(**inputs)
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "reference_input",
+        "displaced_input",
+        "reference_prediction",
+        "displaced_prediction",
+        "reference_next",
+        "trusted_displaced_next",
+        "node_weights",
+        "component_scale",
+        "node_mask",
+    ),
+)
+@pytest.mark.parametrize("imaginary_part", (0.0, 1.0, np.nan))
+def test_paired_response_rejects_complex_inputs_before_real_conversion(
+    field: str, imaginary_part: float
+) -> None:
+    inputs = _paired_inputs()
+    inputs["node_mask"] = np.ones(1)
+    value = inputs[field].astype(np.complex128)
+    value.imag[:] = imaginary_part
+    inputs[field] = value
+    with pytest.raises(ValueError, match=f"{field} must be real-valued"):
+        paired_solver_response_metrics(**inputs)

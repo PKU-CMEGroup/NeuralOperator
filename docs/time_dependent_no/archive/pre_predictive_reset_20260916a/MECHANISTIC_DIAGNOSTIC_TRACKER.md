@@ -1,6 +1,6 @@
 # Time-Dependent Experiment Index
 
-Updated: 2026-09-24
+Updated: 2026-09-10
 
 Status: compact routing index; not an execution queue
 
@@ -31,30 +31,126 @@ or interpretation.
 
 ## Current Direction Override
 
-September 16: the owner has authorized a fixed-data corrective study for a paper
-that closes **diagnose -> predict quantitatively -> choose and intervene ->
-verify**. [PROJECT_PLAN.md](PROJECT_PLAN.md) owns completion criteria and
-[HANDOFF.md](HANDOFF.md) owns the current checkpoint. The selected workstation
-is configured in ignored `LOCAL_CONTEXT.md`; [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md)
-owns the matched continuation/recovery comparison. Data are fixed and sufficient
-near the reference family; severe one-step overfitting is not the empirical
-premise. Completed tangent pilots are supporting diagnostics. The Clean8/Clean32
-next-step recommendation is withdrawn; old queues do not restart.
+September 6 successor: `CM_NEXT_20260906A` is the active bounded planning and
+readiness line. NACA/Bump are completed supporting comparisons. The common-input
+response study and September 13 paper deadline are governed by
+[PROJECT_PLAN.md](PROJECT_PLAN.md) and [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md).
+The local response refinement and periodic PCNO synthetic CPU/GPU checks are
+complete; `CM_NEXT_KF_LONG_20260906A` also completed and passed its declared
+numerical checks at sparse anchors. The complete N128 train/development packet
+then failed both spatial checks during all twelve early peaks. Native N256/N512
+stress refinement passed independent audit; N256 population B closed incomplete
+after local standby. Its audited partial data are preserved; restart-audited
+AutoDL recovery C launched after explicit payload approval and hash verification.
+All twelve trajectories completed and passed independent full-array audit of
+the declared clean numerical checks. The approved
+debug fit completed and passed independent audit.
+The clean finite-time population is qualified under those sampled checks.
+The full Clean pilot subsequently completed and passed independent audit of
+its original one-step/stopping gates at update 49,152. The separately approved
+September 8 diagnostic now measures severe self-composition failure from both
+training and validation starts. The same-law 32-training/four-validation data
+extension is complete, retrieved and independently audited; all registered
+sampled clean numerical checks pass. The fixed-update 32-path Clean fit
+`CM_NEXT_KF_CLEAN32_MATCHED_20260909B` completed September 9; full retrieval,
+independent metric/history audit and CPU checkpoint replay pass. Restricted
+validation one-step error improves 1.6163% to 0.4808%, versus 0.2571% all-32
+training error. The remaining gap is concentrated in the early transient.
+Displaced-response qualification remains open; B's matched-start rollout is
+now complete as recorded below. The owner
+accepted matched-start diagnostic `CM_NEXT_KF_CLEAN32_ROLLOUT_20260909A`;
+implementation/tests, actual-data validation and preflight pass. The owner
+approved the exact review and conditional launch. The service rejected the
+approved GPT-5.4 reviewer as unsupported for this account, before any review
+verdict. On September 10 the owner approved GPT-6 Astra xhigh and review-only
+metadata rebinding. The replacement review found five required safety/failure-
+handling revisions. Fresh preflight passes but the review gate does not; no
+upload or rollout launch occurred. The owner approved the narrow repair successor
+`CM_NEXT_KF_CLEAN32_ROLLOUT_20260910B`; its 68 scientific/dependency and 29
+transport tests and full-data validation pass. After exact prompt/destination
+consent, Astra review completed with two required transport fixes: validate
+twelve-path completion accounting and permit authenticated retrieval after
+live-file edits. Fresh preflight passes but the review gate does not. No upload
+or scientific launch occurred; both reviewed bundles and all 25 fit-bound
+sources remain preserved.
+The owner-approved transport-only R2 passes 60 tests and Astra review. Its
+unchanged scientific payload completed September 10, with verified retrieval
+and local recomputation. H32 validation one-step improves 2.4484% to 0.6963%, but
+rollout worsens 35.2606% to 74.8571%; all twelve paths hit the amplitude guard
+at steps 84--108. H128/H512 are censored. No drift-mechanism or prospective claim,
+new correction study or protected access follows from this single-seed result.
+Exact evidence and launch/cleanup/retrieval receipts are in
+[EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md).
+The subsequently accepted common-input diagnostic A received its approved
+Astra review. B's approved re-review required one remaining sentinel-deadline
+repair. Successor `CM_NEXT_KF_COMMON_RESPONSE_20260910C` passes 57 focused tests
+and validation with unchanged bank arrays. Its approved Astra repair review and
+complementary Codex protocol audit both PASS. The owner subsequently approved
+exact deployment; transport tests/review and fresh preflight passed. C completed
+September 10 at 22:24:33 China time, exit 0; all 45 files and 672 diagnostic rows
+pass retrieval/recomputation. Early matched clean32-donor validation gains are
+2.6075/9.4406 for clean8/clean32 despite smaller clean forcing for clean32.
+Keep donor, amplitude and time separate; no displaced-solver or manifold claim
+follows. The tracker owns full results and the proposed solver-qualification
+next decision. Do not relaunch C or automatically start corrective training.
+No old M1, NACA or Bump identity or protected population is reopened. Dated
+programme descriptions below remain historical routing.
 
-Current checkpoint (September 24): fixed-data Kolmogorov is the selected main
-case. The representative comparisons, response-preserving design and independent
-64-trajectory confirmation are complete. The first scientific draft is ready
-for mentor review; ODE/NACA/Bump evidence is used selectively with supporting
-methods and variability recorded. [HANDOFF.md](HANDOFF.md) owns that current
-state and [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) owns the dated evidence.
-The earlier training-path calibration and prepared payloads below are historical,
-not the next experiment queue.
+The active 2026-09-02 programme is the two-claim, theory-led and PDE-centered
+fixed-PCNO plan in
+[RESEARCH_DIRECTION_DECISION.md](RESEARCH_DIRECTION_DECISION.md) and
+[PROJECT_PLAN.md](PROJECT_PLAN.md). All W26 line-local forward queues and the
+old residual-FNO M1 model stage are preserved historical routing, not active
+execution. See [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md).
 
-The old calendar and queues are superseded. Legacy C2 prospective ranking
-remains unestablished. Preserve protected-population and privacy boundaries.
-The [pre-reset snapshot](archive/pre_predictive_reset_20260916a/INDEX.md)
-retains the exact preceding status narrative. All stable IDs and dated
-dispositions below route historical evidence, not current authorization.
+B1/B2 are supporting ODE mechanism laboratories. B3/B4 form the mandatory
+primary complex-PDE case study. The frozen five-arm successor is parent
+evidence; `B3B4_NACA_CM_EXT_20260902A` is the completed open-development
+mechanism extension. Unselected hybrid and learned operational families remain
+taxonomy or parked scope. B5 is a conditional secondary-PDE contrast. REALM is
+not an active candidate because no usable solver was provided.
+
+The first NACA PCNO R0 screen is complete and independently packet-verified.
+All three 208-step rollouts are finite and severe late, but zero seeds satisfy
+the frozen initial-accuracy gate because their early train-state-scale window
+errors are `0.2669/0.2368/0.2458` rather than `<0.15`. The exact verdict is
+`R0_REJECT_NACA_AS_HERO_CORRECTION_NECESSITY_CASE`; the native-replay
+quarter-margin also fails uniform-node and near-body/wake views. NACA is routed
+only as supplementary one-step/rollout-discrepancy evidence under that closed
+identity. No R0 horizon extension, corrector progression, prospective access,
+or sealed access occurred.
+
+A distinct owner-approved successor, `B3B4_NACA_CM_20260901A`, now routes NACA
+as the primary fixed-PCNO case for the narrower corrective-mechanism question.
+Its exact deployed comparison is `CLEAN`, `IID_RECOVERY`,
+`ERROR_SUBSPACE_RECOVERY`, `DETACHED_PUSHFORWARD`, and `PATH_PROJECTION`.
+Calibration, smokes, authorizations, all twelve learned-arm/seed training
+packets, and the development-only result packet are locally verified. Every
+evaluated rollout is finite. `PATH_PROJECTION` improves both primary metrics in
+all 24 paired comparisons; `IID_RECOVERY` helps, `ERROR_SUBSPACE_RECOVERY`
+improves `CLEAN` but not IID recovery, and the `DETACHED_PUSHFORWARD` mechanism
+prediction is falsified with seed-unstable rollout effects. This does not
+establish physical off-manifold drift or arbitrary displaced-state SU2
+response. Prospective and sealed populations remain unopened.
+
+The extension preserves that result and adds literal
+`MP_PDE_PUSHFORWARD_M01`, separate curriculum/EMA depth-`1--3` exposure,
+paired frozen-bank recovery versus SU2 dynamics relabeling, and
+`PCNO_PDEREFINER_K3_VPRED`. The eleven-call train-only SU2 restart pilot,
+complete 476-input paired bank, source and resource checks, all 18 training
+packets, common development evaluation, and derived visualization have passed
+their audits. Prospective and sealed roles remain closed.
+
+No executed ODE study contains genuine pushforward or multistep training.
+`DYN-RELABEL` is trusted relabeling on prescribed displaced inputs. The closed
+`DETACHED_PUSHFORWARD` arm is a harsh one-prefix parent stress test, while the
+completed PDE extension separately supplies literal MP-PDE and stronger
+curriculum/EMA comparisons.
+
+The M1 finite-grid spatial/temporal reference is qualified, but R2-POP is not.
+Its R1 process exited confirmed nonzero without a result, manifest, series, or
+infrastructure classification. Q2 remains closed and no retry is implicit; see
+the [M1 tracker](M1_KOLMOGOROV_INFORMATION_COMPARISON_TRACKER.md).
 
 ## Stable ID Rules
 

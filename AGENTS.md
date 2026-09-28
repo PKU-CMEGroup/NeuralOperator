@@ -52,6 +52,8 @@ At the start of a coding session in this branch:
 
 ## Infrastructure Rule
 
-AutoDL is the active GPU environment for this project.
+Use the execution resource explicitly selected by the owner. The current
+selection is the personal workstation described in ignored `LOCAL_CONTEXT.md`;
+retained AutoDL workflows do not authorize a run there.
 
 Committed docs may contain templates and placeholder commands. Machine-specific paths, SSH details, credentials, and dataset locations belong in `LOCAL_CONTEXT.md` or `docs/time_dependent_no/PRIVATE_*.md`, which are ignored by git.

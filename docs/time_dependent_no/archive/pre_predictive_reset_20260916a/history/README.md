@@ -68,16 +68,8 @@ rather than treating that link as a live instruction surface.
 The September 13 pre-sprint compaction preserves the previous onboarding
 [README](../archive/pre_sprint_20260913a/README.md) and
 [handoff](../archive/pre_sprint_20260913a/HANDOFF.md) byte-for-byte. Their hashes
-are recorded in the archived September 13 handoff and ignored local-cleanup
-retention packet.
+are recorded in the active handoff and ignored local-cleanup retention packet.
 These are historical snapshots, not routine startup context.
-
-The [September 16 predictive reset](../archive/pre_predictive_reset_20260916a/INDEX.md)
-preserves eleven preceding working-tree planning/navigation files byte-for-byte,
-including uncommitted changes. Its index records each SHA256. The snapshot keeps
-the expired calendar, prepared recipes, historical dispositions and cleanup
-closeout accessible without leaving them as active instructions. The private
-paper plan is separately preserved within ignored paper/archive/.
 
 Use the compact active [research decision](../RESEARCH_DIRECTION_DECISION.md),
 [handoff](../HANDOFF.md), [experiment index](../MECHANISTIC_DIAGNOSTIC_TRACKER.md),

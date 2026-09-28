@@ -1,0 +1,633 @@
+# Time-Dependent Neural Operators: Research Direction Decision
+
+Updated: 2026-09-11
+
+## September 11: Matched Recovery And Dynamics Targets
+
+The owner accepted the next paired corrective comparison after completion of
+the common-input solver pilot. Prepare a fixed Gaussian bank across all 32
+training paths, then compare recovery and dynamics relabeling on identical
+displaced inputs against a matched clean-continuation control. The experiment
+plan owns the exact bank and adaptation recipe; qualification, code review and
+exact payload approval precede the corresponding scientific launch. This is a
+bounded mechanism comparison, not a new prospective ranking claim, a change of
+physical regime or access to protected populations.
+
+## September 9: Avoid Data-Scarcity Confounding
+
+The owner explicitly rules out a data-scarce, severely overfit Clean model as
+the paper's intended starting point, recalling the earlier REALM experience.
+This is a design principle, not a new REALM result or a reopened experiment.
+Judge coverage by small, comparable training/validation one-step errors across
+time windows, not by trajectory count alone. The expanded Kolmogorov fit
+materially improves clean generalization, but retains an early-transient gap.
+The owner now asks to proceed with its matched-start rollout diagnostic before
+corrective comparisons. Keep the fixed terminal, original twelve starts and
+physical regime unchanged; retain a stable/accurate outcome if that is observed.
+The new bounded contract is in [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md); review
+and exact payload approval still precede deployment.
+
+## September 8: Clean Generalization Before Corrective Comparison
+
+The owner and mentor retain Kolmogorov flow as the selected PDE family, while
+the physical regime remains provisional. The current Clean pilot passes its
+historical engineering gates but has an eightfold training/validation one-step
+gap; it is not yet the desired central numerical example. Prioritize small,
+comparable errors on both clean splits before interpreting rollout deterioration
+as a displaced-response problem. The owner approved a bounded same-law 8-to-32
+training-trajectory coverage study and a supporting rollout diagnostic from the
+existing checkpoint. Keep the four validation trajectories unchanged. Physical
+parameter or initial-law changes are separate pilots, not part of the data-count
+comparison. Exact stages and boundaries are in [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md).
+
+## Current Owner Direction: September 6--13
+
+The owner now requests careful planning and execution toward a complete paper
+by the end of next week. Working deadline: September 13, with a complete
+manuscript September 11 for review. The empirical priority is a new numerical
+example that distinguishes corrective mechanisms through common-input response
+assays and tests predictions beyond clean one-step error.
+
+This amendment supersedes forward-looking selection/queue statements below,
+not historical results or protected-access rules. ODE work is closed; NACA and
+Bump are completed supporting cases with problem-specific rankings, not the
+assumed final representative centerpiece.
+
+The new study is `CM_NEXT_20260906A`. On September 6 the owner approved periodic
+2D forced Navier--Stokes/Kolmogorov flow with the dedicated solver and existing
+AutoDL instance. Solver refinement and the periodic PCNO adapter are active.
+This is not a retry of the closed M1 population attempt or production-regime
+qualification. SU2 square-cylinder work is parked; no parallel PDE campaign,
+new rental or protected-population access is implied.
+
+Current execution scope is in [PROJECT_PLAN.md](PROJECT_PLAN.md),
+[EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md),
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) and
+[WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md). One optional buffer/recovery
+method and second regime have a September 9 cutoff. No new backbone/method zoo,
+online OOD detector or fabricated C2 result. Remote runs use the owner-selected
+resource; new purchases and protected reveals are not implied. Existing
+sealed/prospective roles stay closed until their named owner decision.
+
+## Retained Evidence And Scientific Framework
+
+Status: current owner-approved scientific direction and scope. The bounded
+public NACA R0 screen is complete and its exact negative verdict is preserved.
+The owner selected NACA0012 as the primary fixed-PCNO case for the narrower,
+now-closed five-arm corrective-mechanism successor
+[B3B4_NACA_CORRECTIVE_SUCCESSOR_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_SUCCESSOR_PREREGISTRATION.md).
+All twelve learned-arm training packets and the closed development-only result
+packet are locally present and independently verified. The result is bound by
+final-manifest SHA256
+`09e3ae7e5896039e2230073c1ead5e5f9808c0cc9b47d0b15ff337b26b3e0ed1`.
+It is immutable parent evidence. The owner-directed extension
+`B3B4_NACA_CM_EXT_20260902A` is also complete at open-development scope: all 18
+training packets and the common Attempt-E evaluation passed independent audit.
+The result is bound by final-manifest SHA256
+`15475da78b4182754fe959eadc175434ffca18ef1558a45ea06cbf9c93ca7370`.
+Its audited presentation-only derivative and two main-paper figures are now
+integrated in a clean 34-page build. This changes only rendering, not the
+scientific replay or evaluation. Prospective and sealed access still require
+separate owner decisions.
+
+The owner has now selected
+[B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md](B5_BUMP_SOLVER_FREE_TRANSFER_PREREGISTRATION.md)
+and its JSON contract as a bounded secondary Supersonic-Bump transfer/no-harm
+study. NACA path projection is treated as a problem-specific success enabled by
+that problem's nearly linear low-rank path, not a universal ranking. B5 local
+Stage-0A/B audit is complete on owner-selected AutoDL: all 32 training
+trajectories exceed the NACA rank-7 reference at 99.9% variance. The owner now
+requests the solver-free comparison in
+[B5_BUMP_SOLVER_FREE_COMPARISON.md](B5_BUMP_SOLVER_FREE_COMPARISON.md).
+That amendment selects fresh paired training, mapped training-PCA, and common
+development evaluation on AutoDL. Historical test remains sealed.
+
+## Authority And Document Roles
+
+Current explicit human direction takes precedence over repository planning
+snapshots. Historical results remain evidence at their registered scope, but
+old recommendations and failed gates are not permanent method-family verdicts.
+
+The active documents have distinct roles:
+
+- [PROJECT_PLAN.md](PROJECT_PLAN.md): master scope, deliverables, critical path,
+  risks, and completion criteria;
+- [the active paper plan](../../paper/PAPER_PLAN.md): narrative, section order,
+  claim-to-evidence map, and figure plan;
+- [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md): claim-driven empirical programme;
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md): minimal code, test, and
+  artifact architecture;
+- [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md): current block and
+  authorization status;
+- [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md): preserved but inactive lines
+  and their re-entry conditions;
+- [WEEKLY_RESEARCH_PLAN.md](WEEKLY_RESEARCH_PLAN.md): the surrounding delivery
+  calendar; the current milestone is the Friday `2026-09-04` corrective-
+  extension and manuscript target, not a scientific source of truth;
+- [MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md):
+  historical experiment-ID routing, not an execution queue.
+
+The theorem source remains
+[CORRECTIVE_MECHANISMS_THEORY_AND_TAXONOMY.md](CORRECTIVE_MECHANISMS_THEORY_AND_TAXONOMY.md).
+The maintained cutoff-bounded field ledger is
+[paper/LITERATURE_AUDIT.md](../../paper/LITERATURE_AUDIT.md), source-verified
+through 2026-09-01. The deterministic proof line has completed its audit; its
+qualified statements and assumptions remain the authority, not an informal
+necessity slogan. The manuscript remains under `paper/`; its active LaTeX
+follows the eight-section plan and now integrates the verified, claim-bounded
+open-development PDE result. Prospective C2 evidence remains unopened.
+
+## Thesis
+
+The project studies stable and accurate autoregressive prediction of
+time-dependent PDEs from in-distribution initial conditions.
+
+The central thesis is:
+
+> A learned one-step map is supervised on reference states but is deployed on
+> states generated by its own prior predictions. Long-rollout control therefore
+> depends on how the complete deployed transition responds in the region that
+> the rollout actually reaches. Corrective mechanisms retain the trajectory in
+> a data- or structure-controlled region, enlarge that region, restrict the
+> admissible response there, or add deployment feedback.
+
+The intuitive language is that reference states occupy a low-dimensional data
+manifold and successful rollouts stay in a controlled tube around it. More
+precisely, the goal is a **response-controlled region**: a region where the
+deployed response is identified by data, constrained by structure, or actively
+corrected or conditioned. A corrective mechanism may retain the rollout near
+the clean support, enlarge the region of accurate response, impose structure,
+or return the rollout to a controlled region. Formal claims use a declared
+reference or analysis set and explicit tubular-neighborhood assumptions. A
+finite dataset, a probability law, a smooth manifold, and a physical
+admissible set are not silently identified with one another.
+
+The reference geometry is defined independently of the tested model from clean
+reference data and declared structure. Solver-relative fidelity
+`D_n^Psi(x)=Psi_n(x)-Phi_n(x)` is a separate, model-specific offline assay; it
+does not define ID, OOD, or the tube. `ID` is reserved for the declared
+initial-condition and clean-data law. The core deployment uses only the fixed
+learned transition and declared corrector inputs, not online calls to `Phi_n`
+or a defect-threshold detector.
+
+Stability comes before accuracy in the following qualified sense:
+
+1. the rollout must remain in a region where the deployed response is
+   constrained by training data, structure, or feedback; and
+2. within that region it must follow the correct tangent or phase dynamics.
+
+A bounded rollout outside that controlled region need not blow up, but its
+accuracy is not uniformly controlled by clean one-step supervision. Conversely,
+perfect tube retention can still follow the wrong point or phase and be
+inaccurate.
+
+The paper therefore keeps two non-substitutable axes explicit:
+
+1. **on-reference fidelity:** the learned transition advances clean reference
+   states along the correct path, phase, or tangent dynamics; and
+2. **transverse retention or recovery:** the complete deployed transition
+   suppresses, faithfully handles, or corrects the displacement created by
+   prior prediction errors.
+
+Clean one-step error evaluates the first axis through the restriction of the
+learned map to clean reference inputs. In formal statements it is not called a
+pure tangent-component measurement: its output error may itself have tangent
+and normal components. What clean supervision does not identify in general is
+the response to displaced inputs. The familiar observation that one-step
+training learns on-reference dynamics is background, not the novelty claim.
+The contribution is the joint corrective-mechanism framework, its measurable
+response/drift diagnostics, and its prospective predictions. Neither small
+one-step error nor tube retention alone is sufficient for accurate rollout.
+
+## Scope
+
+Included:
+
+- autonomous self-composition from in-distribution initial conditions;
+- deterministic learned flow maps for ODEs as subordinate theoretical and
+  diagnostic laboratories;
+- fixed-discretization PDE flow maps with PCNO as the fixed empirical backbone;
+- offline diagnostics of endogenous reference-law drift or OOD output;
+- explicit and embedded corrective mechanisms;
+- a cutoff-bounded, comprehensive, dated field study and taxonomy across the
+  declared method families;
+- the frozen primary-PDE comparison of `CLEAN`, `IID_RECOVERY`,
+  `ERROR_SUBSPACE_RECOVERY`, `DETACHED_PUSHFORWARD`, and `PATH_PROJECTION`;
+- the distinct registered extension comparing literal MP-PDE exposure,
+  curriculum/EMA exposure, paired recovery versus SU2 dynamics relabeling,
+  and a PCNO PDE-Refiner adaptation;
+- one mandatory end-to-end case study on a reasonably complex, restartable PDE;
+  and
+- the selected solver-free Supersonic-Bump B5 study, used only as a bounded
+  secondary transfer/no-harm test under its own preregistration.
+
+Excluded from this project:
+
+- exogenous OOD initial-condition generalization;
+- deployable or online OOD detection;
+- architecture, detector, corrector or PDE benchmark zoos;
+- universal global stability, continuum operator convergence, or arbitrary
+  long-time phase accuracy;
+- a new reinforcement-learning programme;
+- sealed/test evaluation without a separate named decision; and
+- claims that a finite-support proxy recovers a literal data manifold.
+
+Trusted evaluation at a declared displaced state can be well defined. What is
+ill posed is an unqualified request for “OOD performance” without a specified
+off-reference law, target transition, admissible class, and metric. The paper
+therefore uses the narrower terms `controlled off-state query`,
+`reference-proximity diagnostic`, and `endogenous deployment drift`.
+
+## Deployed Map And Terminology
+
+Let `Phi_n` be the trusted transition and `Psi_n` the complete deployed learned
+transition:
+
+\[
+u_{n+1}=\Phi_n(u_n),
+\qquad
+\widehat u_{n+1}=\Psi_n(\widehat u_n).
+\]
+
+When an explicit correction is present,
+
+\[
+\Psi_n=C_{n+1}\circ F_n.
+\]
+
+The factorization is non-unique. Stability, accuracy, response, and rollout
+claims attach to `Psi`, not to a post-hoc interpretation of `F` or `C`.
+
+The project uses the following hierarchy:
+
+- **corrective mechanism:** any training, architectural, numerical, or
+  deployment intervention intended to improve controlled self-composition;
+- **embedded corrective mechanism:** an intervention absorbed into the learned
+  transition, such as denoising/recovery training, multistep exposure, or a
+  structure-preserving architecture;
+- **operational corrector:** a separately attributable deployed map or kernel
+  with a fixed interface and an identity/no-correction ablation;
+- **response-controlled tube:** a neighborhood where response is identified by
+  data, restricted by structure, or restored by an operational corrector; and
+- **tube-control effect:** a measurable change in forcing, transverse response,
+  drift, escape time, or controlled-tube width.
+
+This terminology preserves the useful “corrector” intuition without making
+every successful architecture an unfalsifiable hidden corrector.
+
+Let `mu_n` be the time- and condition-matched reference law and `mu_hat_n` the
+law induced by repeated `Psi` composition, with
+`\widehat u_0=u_0` sampled in distribution. Endogenous deployment drift is the
+discrepancy between `mu_hat_n` and `mu_n` caused by earlier model errors. It is
+not exogenous OOD initialization.
+
+## Two Primary Claims
+
+### C1: conditional response non-identifiability
+
+In a world or hypothesis class rich enough to vary the off-reference extension
+while preserving the clean trace, clean trajectory supervision does not
+identify deployment-relevant transverse response. A uniform guarantee over
+that clean-data equivalence class therefore requires equivalence-breaking
+information or a justified structural restriction.
+
+This is conditional on the declared class. It does not say that every neural
+operator needs a separate correction network. Exact predictors, correct
+structural restrictions, and suitable reference contraction are immediate
+counterexamples to that stronger statement.
+
+### C2: prospective empirical value
+
+For a fixed PCNO backbone and in-distribution initial conditions, response,
+forcing, and drift diagnostics frozen before long-rollout evaluation should
+predict one-step/rollout ranking reversals and regime-dependent intervention
+value better than clean one-step error alone.
+
+C2 is not yet established. It requires a prospective, outcome-blind test in
+the primary complex-PDE case study. The ODE laboratories calibrate the
+mechanisms and diagnostics; they do not replace PDE evidence. The field
+taxonomy, representative interventions, and any proposed corrector support C1
+or C2; they are not additional headline contributions.
+
+## Motivation: Why A Clean Gronwall Reading Is Insufficient
+
+The exact rollout identity is
+
+\[
+e_{n+1}
+=\Phi_n(u_n+e_n)-\Phi_n(u_n)
+ +\Delta_n(u_n+e_n),
+\qquad
+\Delta_n(x)=\Psi_n(x)-\Phi_n(x).
+\]
+
+A Gronwall-type bound is mathematically correct when its Lipschitz and defect
+bounds hold on every state reached by the learned rollout. The misleading step
+is to replace the pathwise defect `Delta_n(\widehat u_n)` by a clean-law
+one-step bound measured only at `u_n`. Once the model generates a state away
+from the supervised region, such a replacement requires additional architecture,
+regularity, coverage, or structural assumptions.
+
+The paper's point is therefore not that Gronwall is false. It is that clean
+one-step accuracy does not by itself supply the deployment-state premise that
+the bound needs.
+
+## Theory Obligations
+
+The mathematical story remains deliberately simple and layered:
+
+1. exact pathwise and law-level self-composition identities;
+2. a clean-trace non-identifiability theorem in a normal-rich class;
+3. a minimax need for target-separating information or structural restriction;
+4. a normal-cocycle and finite-amplitude tube recurrence as sufficient stability
+   conditions; and
+5. a separate tangent/path recurrence showing that retention is not accuracy.
+
+Each result must remain labelled as an identity, conditional theorem,
+sufficient bound, or empirical hypothesis. Fixed-grid results do not imply
+operator convergence. Smooth-tube statements do not automatically apply to
+shock sets, empirical point clouds, or topology changes.
+
+## Recovery And Dynamics Relabeling
+
+For the same displaced input `x=u+eta`, two targets answer different questions:
+
+- **recovery:** `x -> Phi(u)` returns toward the intended in-distribution path;
+- **dynamics relabeling:** `x -> Phi(x)` learns faithful evolution from the
+  displaced state.
+
+Neither target is universally superior. Dynamics relabeling can improve
+off-state fidelity yet retain or amplify a harmful displacement. Recovery can
+be safer for the intended in-distribution rollout even when the true normal
+response is substantial, but it can also erase meaningful tangent or phase
+dynamics. The experiment must use the same query bank and matched learner
+contract, predict the winner before long-rollout evaluation, and report both
+target fidelity and in-distribution rollout quality.
+
+## Measurable Predictions
+
+The framework becomes useful through falsifiable predictions:
+
+1. models with similar or even better clean one-step error can have worse
+   rollout error because their forcing and response differ on reached states;
+   a model that remains in a response-controlled region can therefore
+   outperform a cleaner one-step predictor that leaves it;
+2. a common, outcome-blind response bank can expose this difference before the
+   designated long rollouts are revealed, separating models with similar
+   one-step error but different rollout behavior;
+3. recovery and dynamics relabeling move different response components and can
+   reverse ranking as forcing, trusted response, coupling, and horizon change;
+4. an intervention should change its declared mediator before or together with
+   the rollout outcome; and
+5. reducing tube distance without preserving tangent/path accuracy must fail a
+   no-harm gate.
+
+Primary observable families are:
+
+- clean one-step defect;
+- tangent/normal or qualified local-response blocks;
+- fresh transverse forcing and normal-to-tangent coupling;
+- model-owned and common-bank defect;
+- exact or proxy tube distance, first exit, and survival;
+- path/phase error;
+- time-/condition-matched reference-law drift;
+- PDE-specific structure, admissibility, boundary, and conservation metrics;
+  and
+- computational and trusted-solver information cost.
+
+At a fixed predictor--corrector interface, `q`, `rho`, and `rho q` may be
+estimated as offline response diagnostics. The product below one is only a
+local homogeneous sufficient condition. Additive forcing, finite-tube closure,
+intermediate-state validity, and tangent/path no-harm remain separate. For an
+embedded mechanism, report the response of the complete deployed map instead
+of inventing a predictor--corrector factorization.
+
+For ODEs, exact geometry is primary. For PDEs, kNN, qualified local-PCA, MMD,
+and physical features are frozen offline diagnostics only. They are fitted on
+clean reference data, shared by every method, and never used as online gates or
+deployed correctors unless separately selected and audited as an operational
+method.
+
+Before any outcome is inspected, each selected intervention must have a frozen
+prediction for how it should change response, forcing, drift, path accuracy,
+and physical diagnostics. Experiments then test these predictions rather than
+retrofitting a mechanism to the observed winner.
+
+## Bounded Empirical Programme
+
+The empirical story has five bounded blocks:
+
+1. B1: an exact tangent-normal ODE laboratory;
+2. B2: an exploratory learned ODE realization with identical networks and
+   paired seeds, limited to the smallest recovery/relabeling/explicit contrast
+   needed to validate the mechanism;
+3. B3: mandatory fixed-PCNO diagnosis on one reasonably complex, restartable
+   PDE selected through a hard readiness screen, ending in a problem-specific
+   intervention-hypothesis freeze;
+4. B4: the representative embedded and operational intervention study on that
+   PDE, with a trained-model ranking freeze before the designated long-rollout
+   reveal; and
+5. B5: the selected, reduced Supersonic-Bump comparison under
+   `B5_BUMP_SOLVER_FREE_TRANSFER_20260905A`.
+
+B1 and B2 are controlled microscopes for theory and measurement. B3 and B4 are
+the empirical center of the paper. NACA0012 completed the first R0 screen but
+failed the frozen delayed-failure promotion rule. Current owner direction does
+not alter that verdict. The closed five-arm successor answers a narrower
+self-composition-and-correction question and is now parent evidence. The PDE
+line continues under
+[B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md](B3B4_NACA_CORRECTIVE_EXTENSION_PREREGISTRATION.md)
+and its JSON contract. The complete design is in
+[EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md).
+
+No genuine pushforward, multistep-loss, or model-prefix-exposure arm was run in
+the ODE studies. `DYN-RELABEL` uses prescribed displaced inputs with trusted
+successor labels; it is not pushforward training. The PDE extension now tests
+literal `MP_PDE_PUSHFORWARD_M01` separately from the stronger
+`CURRICULUM_EMA_PUSHFORWARD_K13`; the closed always-on one-prefix arm remains a
+stress-test parent, not a method-family verdict. This division is part of the
+design, not an ODE evidence claim about PDE rankings.
+
+## Current Evidence And Readiness
+
+Historical evidence is routed through
+[MECHANISTIC_DIAGNOSTIC_TRACKER.md](MECHANISTIC_DIAGNOSTIC_TRACKER.md). It is
+supporting context, not the prospective C2 result.
+
+- D094 provides replicated retrospective evidence that one-step and rollout
+  rankings can separate under self-composition. Its long-horizon outcomes were
+  already opened, so it cannot validate the prospective prediction claim.
+- The M1 Kolmogorov spatial artifact manifest rehashes as
+  `9f8de40a0b919b41ea09806e8c892c59cebea605dd815dd093d2e5f58dd67c84`,
+  and the temporal artifact manifest rehashes as
+  `af0b7bb197736bce337c7b92f189a056ed4cf6ee636d28d2a57cb471febb5412`.
+  Together they qualify the registered finite-grid N256 reference on the
+  frozen six trajectories; they do not qualify a fresh population or prove
+  continuum convergence.
+- M1 R2-POP launch 0 ended before a packet at its eight-hour cap. Its unique R1
+  process later exited with confirmed code `1` after `22307.064 s`, with no
+  result, artifact manifest, retained series, or output directory. The receipt
+  contains no infrastructure classification and the event stream contains no
+  traceback. This is not a population-law failure or a scientific result.
+  Q2 remains closed, and no additional retry is authorized.
+- The native-coarse dynamic-FV target proxy failed its registered solver-bias
+  qualification. The bump data do not provide a validated arbitrary-state DG
+  restart. The existing P1 path-conditioned score remains retrospective,
+  synthetic-only diagnostic infrastructure.
+
+The 2026-08-31 bounded SU2 review found no clearly better overall first screen
+than Unsteady NACA0012 once scientific fit, confounding, public reproducibility,
+and completion risk were considered. The project therefore froze an honest
+attempt rather than assuming that NACA would become the primary case.
+
+Stage 0, two deterministic native replays, the 1,501-state continuation, the
+model-blind phase analysis, and the 32-anchor complete-BDF2 baseline contract
+all passed their registered checks. The train/development dataset, full-grid
+resource smoke, three sequential PCNO seeds, and unchanged development-only
+evaluator then completed on 2026-09-01. The complete result packet passed
+independent file, self-hash, source, dataset, contract, replay, launch, device,
+schedule, access, and raw-metric verification.
+
+The result is negative for primary promotion. Clean next-state relative L2 is
+approximately `0.12%`; every 208-step rollout remains finite and satisfies the
+severe-late-error rule. But the frozen early-window train-state-scale errors are
+`0.2669`, `0.2368`, and `0.2458`, each above the strict `<0.15` threshold. Zero
+of three seeds is therefore both initially accurate and severely degraded, and
+the exact decision is
+`R0_REJECT_NACA_AS_HERO_CORRECTION_NECESSITY_CASE`. The native replay strict
+quarter-margin also fails the uniform-node and near-body/wake views. No horizon
+extension, corrector experiment, prospective/sealed access, or post-outcome
+retuning is allowed under this identity.
+
+Under the R0 identity, NACA supports only a narrower supplementary observation:
+small clean one-step
+error can coexist with progressively severe, finite rollout error and worsening
+boundary/structure diagnostics. It does not identify off-support drift as the
+cause, establish corrective-mechanism necessity, or qualify as the clean
+delayed-failure centerpiece.
+
+The successor deliberately takes that narrower observation as the primary PDE
+starting point. It can support a corrective-mechanism case study only if the
+new train-only geometry, one-prefix response, mediator, no-harm, and rollout
+tests close. It cannot inherit any unmeasured off-manifold or causal claim from
+R0.
+
+The successor implementation, calibration, authorization, resource-smoke,
+training, and development-evaluation packets are closed and independently
+verified. On the eight development anchors at seeds `17/29/43`, every evaluated
+rollout is finite. `PATH_PROJECTION` improves both primary rollout metrics in
+all 24 paired anchor-seed comparisons and improves the pressure and
+graph-Dirichlet diagnostics; its zero post-correction path residual is true by
+construction and is not outcome evidence. `IID_RECOVERY` helps relative to
+`CLEAN`; `ERROR_SUBSPACE_RECOVERY` also improves `CLEAN` but does not improve
+upon `IID_RECOVERY`. The registered `DETACHED_PUSHFORWARD` mechanism prediction
+is falsified and its rollout effect is seed-unstable.
+
+These are development-population findings, not a physical off-manifold result
+or a trusted SU2 response measurement at arbitrary displaced states. The
+immutable replay `development_replay_v2_81646368` and historical visualization
+`development_visualization_v2_81646368` remain valid provenance. The final
+presentation-only packet is `development_visualization_v3_e2eccdbf`; it pins
+that historical producer and reuses the replay byte-for-byte. The canonical
+portable `prospective_freeze` and the then-current 35-page parent manuscript
+are also closed, with every protected-access flag false. Exact identities and hashes are
+centralized in [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md). Prospective and
+sealed values remain unopened and require separate owner authorization.
+Exact mounted-checkout WSL verification now closes the open-development source
+and test checks; it opened no protected population.
+
+The closed five-arm comparison did not by itself complete B4. The now-complete
+open-development extension
+`B3B4_NACA_CM_EXT_20260902A` adds four nonredundant mechanism contrasts:
+literal MP-PDE `m in {0,1}` exposure; a separately named EMA curriculum with
+prefix depths `1--3`; recovery and SU2 dynamics relabeling on the identical
+frozen 476-input displaced-BDF2 bank; and
+`PCNO_PDEREFINER_K3_VPRED`, which uses four shared-PCNO calls per physical
+step. `CLEAN_EMA` isolates the EMA effect. The corrected eleven-call train-only
+SU2 restart pilot passed every registered gate, and the complete 476-input
+paired bank was generated locally with every solver call and displacement-scale
+gate passing. Evaluator reconciliation, source binding, full-resolution
+resource smokes, all 18 training packets, the common development evaluation,
+retrieval, and independent packet audit are complete. Solver labels remain
+offline information; neither an online solver nor an online defect trigger was
+used. Prospective and sealed roles remain unopened.
+
+B5 asks whether framework-guided solver-free correction transfers beyond
+NACA's unusually favorable linear geometry. The owner-directed
+[comparison amendment](B5_BUMP_SOLVER_FREE_COMPARISON.md) fixes Clean,
+Clean-EMA, IID recovery, curriculum/EMA prefix training, explicit prefix-error
+correction, PDE-Refiner, and mapped training-PCA at ranks 7/32. A fresh Clean
+baseline determines whether this is an instability or no-harm comparison;
+historical phenotype replay is no longer a prerequisite. B5 remains secondary
+open-development evidence, not prospective C2.
+
+Fallback candidate context is turbulent square cylinder
+under a reproducible production contract, laminar von Karman cylinder as a
+cheap solver/control, and shock-vortex as a tangential/no-harm control. The
+Supersonic Bump is separately selected only for the bounded B5 solver-free
+transfer role above, not as a hero replacement. This is not an automatic
+fallback order. More complex buffet, pitching/gust, FSI, and CHT
+routes are not the first demonstration because their current contracts are
+missing or their forcing, motion, or multiphysics would confound the core
+retention-versus-on-reference story.
+
+NACA is now selected under a separate primary-case contract, but there is still
+no completed prospective C2 result. The project must not hide that evidence
+gap by relabeling the R0 negative result, treating physical ripples as measured
+manifold drift, treating the closed prediction freeze as held-out evidence, or
+opening prospective/sealed outcomes without separate owner authorization.
+
+## Success, Failure, And Completion
+
+C1 succeeds only at its qualified mathematical scope. C2 succeeds only if a
+frozen diagnostic adds held-out predictive value beyond clean one-step error
+and the declared intervention changes both its mediator and rollout behavior in
+the predicted direction.
+
+Useful negative outcomes are predeclared:
+
+- if the exact ODE prediction fails, the mechanism model is incomplete;
+- if exact ODE predictions hold but learned ODEs do not instantiate them, the
+  optimization/representation link is the missing step;
+- if diagnostics explain only already-opened outcomes, they remain descriptive
+  and C2 is dropped;
+- if recovery and relabeling are indistinguishable, prefer the simpler
+  solver-free mechanism; and
+- if the primary PDE cannot be qualified in time, the serious submittable-draft
+  gate is not met; the project records a progress draft and revises the
+  experiment schedule without presenting ODE evidence as a substitute.
+
+After the experiment contract is frozen, no new architecture, PDE, detector,
+or corrector is added merely to rescue a claim.
+
+## Parking Decision
+
+All experiments not directly testing C1 or C2 are preserved but inactive.
+This includes the former five-line W26 programme, architecture expansion,
+filter/loss/boundary/resolution subprojects, REALM/HydroGym execution, broad
+PDE suites, exhaustive reproduction of every corrector, online OOD detection,
+exogenous OOD evaluation, and sealed/test openings. REALM is not an active PDE
+candidate because a usable reference solver is unavailable. A small number of
+representative operational correctors are part of B4 rather than a method zoo.
+Exact dispositions are in [PARKED_EXPERIMENTS.md](PARKED_EXPERIMENTS.md).
+
+Parked means “not on the current critical path,” not “scientifically rejected.”
+No code or evidence artifact is deleted by parking a line.
+
+## Authorization And Provenance
+
+- A planning document is not execution authorization.
+- Every new attempt separately binds source, data/split, checkpoint,
+  normalizer, evaluator, result, and final artifact hashes.
+- Failed or incomplete attempts retain unique identities and are never
+  overwritten.
+- Private paths, credentials, machine details, and local dataset locations stay
+  in ignored local context.
+- Strength-OOD and test populations remain sealed until the owner names and
+  authorizes an exact opening.
+- B5 comparison implementation and AutoDL execution are owner-authorized under
+  the comparison amendment. Bind each uploaded source and launch receipt;
+  historical test and prospective populations remain excluded.
+- Rewriting this decision intentionally changes provenance-document hashes.
+  Legacy D094 source contracts remain historical and must not be replayed under
+  their old identities.

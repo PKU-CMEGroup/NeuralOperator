@@ -50,3 +50,8 @@ The documentation state before this compaction is retained at local Git commit
 `paper/archive/PAPER_PLAN_before_cleanup_20260928.md`.
 The [README](README.md) owns code and retention navigation.
 Current human direction takes precedence over historical recommendations.
+
+The September 28 cleanup preserves all pending research Python files unchanged.
+Its bounded CPU verification exercised 727 cases: 709 passed, 5 failed and 13
+had setup errors; it is not a fully passing suite. Logs and remaining limitations
+are retained in `artifacts/time_dependent_no/local_cleanup_20260928a/verification.json`.

@@ -1,6 +1,6 @@
 # Time-Dependent Experiment Index
 
-Updated: 2026-09-24
+Updated: 2026-09-28
 
 Status: compact routing index; not an execution queue
 
@@ -31,30 +31,27 @@ or interpretation.
 
 ## Current Direction Override
 
-September 16: the owner has authorized a fixed-data corrective study for a paper
-that closes **diagnose -> predict quantitatively -> choose and intervene ->
-verify**. [PROJECT_PLAN.md](PROJECT_PLAN.md) owns completion criteria and
-[HANDOFF.md](HANDOFF.md) owns the current checkpoint. The selected workstation
-is configured in ignored `LOCAL_CONTEXT.md`; [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md)
-owns the matched continuation/recovery comparison. Data are fixed and sufficient
-near the reference family; severe one-step overfitting is not the empirical
-premise. Completed tangent pilots are supporting diagnostics. The Clean8/Clean32
-next-step recommendation is withdrawn; old queues do not restart.
+Current checkpoint (September 28): the selected fixed-data Kolmogorov
+comparisons, response-preserving design and independent 64-trajectory
+confirmation are complete. The abstract and Sections 1--3 are locked;
+Section 4 is next. The current phase consolidates existing material for mentor
+discussion. New research waits for that discussion; venue selection is open.
 
-Current checkpoint (September 24): fixed-data Kolmogorov is the selected main
-case. The representative comparisons, response-preserving design and independent
-64-trajectory confirmation are complete. The first scientific draft is ready
-for mentor review; ODE/NACA/Bump evidence is used selectively with supporting
-methods and variability recorded. [HANDOFF.md](HANDOFF.md) owns that current
-state and [EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) owns the dated evidence.
-The earlier training-path calibration and prepared payloads below are historical,
-not the next experiment queue.
+[HANDOFF.md](HANDOFF.md) owns the current action,
+[PROJECT_PLAN.md](PROJECT_PLAN.md) owns completion criteria, and
+[EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) routes completed studies to paper roles.
+[EXPERIMENT_TRACKER.md](EXPERIMENT_TRACKER.md) owns exact dated evidence.
+ODE, NACA and Bump results enter selectively. Fixed, sufficiently rich data
+remain the empirical premise; severe one-step overfitting is not the explanation
+under study. Completed tangent pilots remain supporting diagnostics.
 
-The old calendar and queues are superseded. Legacy C2 prospective ranking
-remains unestablished. Preserve protected-population and privacy boundaries.
-The [pre-reset snapshot](archive/pre_predictive_reset_20260916a/INDEX.md)
-retains the exact preceding status narrative. All stable IDs and dated
-dispositions below route historical evidence, not current authorization.
+Old calendars, prepared payloads and the Clean8/Clean32 recommendation do not
+resume experiments. Legacy C2 prospective ranking remains unestablished.
+Preserve protected-population and privacy boundaries. The
+[history index](history/README.md) routes superseded plans, including the
+[pre-reset snapshot](archive/pre_predictive_reset_20260916a/INDEX.md).
+Stable IDs and dated dispositions below are historical evidence, not current
+authorization.
 
 ## Stable ID Rules
 

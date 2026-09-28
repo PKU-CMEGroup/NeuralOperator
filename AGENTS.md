@@ -4,7 +4,7 @@ This branch is for the summer 2026 time-dependent neural-operator project in the
 
 ## Scope
 
-The branch owns hard time-dependent PDE work: CPG-style 2D Euler benchmark reproduction, FNO/PCNO/MPCNO failure analysis, structure-aware neural-operator methods, and data-assimilation experiments after open-loop failure modes are diagnosed.
+The current project is an insight paper on corrective mechanisms for long-horizon neural-operator prediction, with PCNO/Kolmogorov flow as the main empirical study. Earlier Euler, aerodynamic, and other studies remain historical evidence. The current phase is manuscript consolidation; `docs/time_dependent_no/HANDOFF.md` identifies the next authorized task.
 
 Do not treat this as a generic cleanup branch. Keep unrelated NeuralOperator examples and core APIs unchanged unless the current task explicitly requires touching them.
 
@@ -40,6 +40,8 @@ At the start of a coding session in this branch:
   boundaries persist until explicitly changed by the human owner.
 - Preserve exact historical language in the archive. Keep active README,
   handoff, decision, and experiment-index files compact and current.
+- Keep the private `paper/` directory ignored and uncommitted. Do not send
+  unpublished material to external AI tools without approval of the exact scope.
 
 ## Implementation Discipline
 
@@ -47,8 +49,9 @@ At the start of a coding session in this branch:
 - Keep experiment entry points under `scripts/time_dependent_no/`.
 - Keep tests under `tests/time_dependent_no/`.
 - Do not commit raw datasets, checkpoints, generated rollout arrays, large logs, credentials, private hostnames, or local machine paths.
-- Use synthetic fixtures and CPU tests before launching dataset-scale AutoDL runs.
-- Report both paper-compatible rollout errors and structure diagnostics: shock, conservation, positivity, and boundary leakage.
+- Use synthetic fixtures and CPU tests before any authorized dataset-scale run.
+- For numerical work, report rollout errors and physical diagnostics appropriate
+  to the PDE, including conservation, positivity, shocks, or boundary leakage where applicable.
 
 ## Infrastructure Rule
 

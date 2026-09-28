@@ -48,6 +48,20 @@ Their text says that D072 was executing or pending because that was true when
 they were frozen. D072 and its D084 follow-up are now closed; use the active
 documents for current status.
 
+## Completed Corrective-Mechanism Study
+
+[EXPERIMENT_PLAN_completed_2026-09-28.md](EXPERIMENT_PLAN_completed_2026-09-28.md)
+preserves the previous 832-line experiment plan byte-for-byte (60,386 bytes).
+It retains completed-study recipes, expectations and historical stage headings;
+its forward-looking instructions are not an active queue. The compact
+[experiment index](../EXPERIMENT_PLAN.md) now owns completed-study routing.
+
+- SHA-256:
+  `5a28af8c65d903240b450a2e4c76ed8ab1ba3acf6ea9ea5e428e6e1d45b1b8f8`
+- Resolve relative links against the original `docs/time_dependent_no/` base.
+- The preceding working documents are also preserved in local commit
+  `669f7fcd4e805ba143d31331de573a79d4631ea1`.
+
 ## Superseded Line Plans
 
 - `W26_L4_REALM_BENCHMARK_PLAN_through_D091.md` preserves the W26-L4 REALM

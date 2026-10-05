@@ -5,6 +5,476 @@ language below records its original scope; it is not a live queue.
 [PROJECT_PLAN.md](PROJECT_PLAN.md) and [HANDOFF.md](HANDOFF.md) own the current
 scientific plan and checkpoint.
 
+## October 5: Midpoint analyzed; interrupted four-step queue resumed
+
+`KF_MULTISTEP_20261004A` completed the midpoint's 4,096 updates and original
+twelve-case H32 evaluation before a plotting-helper signature mismatch stopped
+the queue. No four-step condition had started. A separate source snapshot fixes
+the call; the original failure and sources are retained. Regression verification
+passes, actual deployed plotting succeeds, and `clean4` is training. Only the
+four previously authorized unstarted conditions resume; the existing midpoint
+checkpoint and evaluations are unchanged. The bounded collector has restarted.
+
+The ignored run root's `ANALYSIS.md` and `paper_figures/index.html` contain the
+partial analysis and seven figure pairs. Midpoint validation H8/H32 are
+0.035414/0.410677, versus REC 0.039603/0.493623 and DYN 0.044302/0.444201.
+Midpoint beats both endpoints on all four validation cases at H8, but beats DYN
+on only two at H32. On identical displaced training inputs its REC/DYN errors
+fall between the endpoints. Along autonomous trajectories, REC has smaller
+local/probe defects despite larger rollout error. One training run per condition
+does not establish a universal target ranking. Sequence conclusions are pending.
+
+All 72 saved trajectory files reproduce the six completed models' metrics
+exactly, and all 4,096 clean/displaced minibatch index pairs match across the
+midpoint and endpoint runs. Two focused plot/statistic tests pass. Midpoint
+common-input and training-target measurements are complete; geometry and sampled
+responses remain scheduled after the sequence runs. The paper plan and manuscript
+are unchanged. Resume/source/verification receipts remain under the ignored run
+root, alongside the existing bounded collector.
+
+## October 4: Midpoint and controlled four-step study launched
+
+Run `KF_MULTISTEP_20261004A` implements the owner's approved first stage in
+[EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md): the existing mixed-length REC/DYN
+midpoint and four sequence controls separating clean inputs, frozen pretrained
+inputs, refreshed detached inputs and full temporal differentiation. Five fresh
+4,096-update continuations are queued on the selected workstation, after
+disposable memory/timing checks. Each completed model receives the original
+twelve-case, 32-step rollout/probe evaluation; shared-input targets, empirical
+geometry and sampled response diagnostics follow. No new population is used.
+
+The related CPU suite passed 69 tests; the final focused suite passed all 16
+tests after independent review. The review's resource-memory, shared-probe,
+input-provenance and empty-direction issues were fixed. The deployed snapshot
+is isolated from prior runs; source hashes and launch receipts are under
+`artifacts/time_dependent_no/kf_multistep_20261004a/`. The bounded collector
+retrieves completed figures and measurements to `results/`, checks transfer
+hashes and reproduces field metrics at completion. Training outcomes are pending.
+The locked paper plan and nine checked manuscript/plan files are unchanged.
+
+## October 4: Corrective follow-up completed and analyzed
+
+Run `KF_CORRECTIVE_FOLLOWUP_20261002A` completed all 15 jobs, 65536 new updates,
+25 model/checkpoint evaluations and 61 paired target requests. Each evaluation
+uses the original eight training/four validation trajectories through step 32.
+Elapsed queue time was 37.51 hours, including 30.60 hours in training stages with
+checkpoint writing and fixed-input measurements. No outcome-based checkpoint
+selection or additional experiment was introduced.
+
+`ANALYSIS.md` under
+`artifacts/time_dependent_no/kf_corrective_followup_20261002a/` contains the
+numerical table, controlled comparisons, interpretation and proposed figure roles
+for Section 4.2. The clean continuation lowers clean error pooled over inputs
+0--31 and worsens H8/H32 rollout on all twelve cases. Against the exact clean control, one-step
+REC/DYN reduce validation H32 error by 3.8%/3.3%, mixed-length REC/DYN by
+73.3%/76.0%, and Gaussian REC/DYN by 71.9%/69.3%. Those H32 improvements have the
+same sign on all twelve cases. Duration, early coverage, amplitude-profile and
+initialization controls qualify these findings; their details belong in the
+report, not a universal method ranking.
+
+All 162 retrieved metadata/metric/log files match the final snapshot. Training
+logs have finite losses, contiguous prescribed updates and identical paired
+sample tapes. The independent full-field check reproduces metrics exactly from
+300 saved trajectory files on the workstation. The paired signed identity closes
+within 9.8e-15 and its triangle inequality passes. Nine focused CPU tests pass.
+`analysis_verification.json` and `final_field_verification.json` record the checks.
+
+The regenerated gallery has 29 PDF/PNG pairs. New principal figures explicitly
+connect autonomous rollout to model/probe defects and contrast target learning
+on training inputs with transfer to common rollout inputs. Three CSV tables and
+captions accompany them; PDFs/captions are exported into the ignored manuscript
+figure directory while preserving manual edits. The automatic metric collector
+has finished. A separate full raw-field/checkpoint transfer is in progress;
+`complete_retrieval.json` will record its verified completion. The deployed
+training source, locked paper plan and manuscript text are unchanged.
+
+## October 3: Paired target figures verified; broader evaluation running
+
+The saved two-case pilot now has 20 predictor/input-trajectory combinations for
+paired recovery and dynamics measurements. All original maps are queried on
+the pretrained paths, and each REC/DYN pair is queried on both of its paths.
+Own-path recovery and dynamics metrics reproduce the previous saved measurements
+exactly; the signed squared-error identity has maximum residual 2.7e-15, and
+the target-separation triangle inequality passes. Eleven PDF/PNG figure pairs
+cover common inputs, cross-evaluation, the signed defect effect, and sampling
+and loss concentration. They do not yet include the follow-up training results.
+
+Open `paper_figures/index.html` under
+`artifacts/time_dependent_no/kf_corrective_followup_20261002a/`. The
+initial archive and all 30 members were hash-verified; the archive is retained
+for provenance. A local rendering pass improves the logarithmic axes and labels
+without changing scientific arrays or the frozen deployed source. PDFs and
+captions are exported to the ignored manuscript figure directory; approved
+manuscript text and the locked paper plan remain unchanged.
+
+The pretrained and clean-continuation models have completed evaluation on the
+original eight training and four validation trajectories. The other original
+models are being evaluated before the training controls. A run-specific local
+collector polls the queue, verifies retrieved data, renders completed comparisons
+and exports figures while preserving manual changes to paper assets. Its status
+is `sync_status.json` under the follow-up artifact root. Follow-up training
+outcomes and the final full-field verification remain pending.
+
+## October 2: Authorized corrective-study follow-up
+
+The owner approved proceeding with the paired target experiments and addressing
+the identified weaknesses, with figures for Section 4.2. The bounded protocol is
+in EXPERIMENT_PLAN.md. Run `KF_CORRECTIVE_FOLLOWUP_20261002A` was launched on the
+selected idle workstation after eight synthetic CPU tests passed. These cover
+target accounting, early-time sampling, Gaussian amplitude control, exact Adam
+and sampler resumption, all three training target branches, and population RMS.
+The Windows sandbox prevented pytest temporary-directory access; the authorized
+run outside the sandbox passed all eight tests. Import and source-hash checks
+passed on the execution resource. Launch is verified, not experiment completion.
+
+The first stage reuses existing qualified pilot fields and solver labels for
+paired recovery/dynamics measurements. Later stages expand to the original
+eight training/four validation trajectories and execute the training controls.
+Existing checkpoints/results and the locked paper plan are unchanged.
+Local source/check receipts are under
+`artifacts/time_dependent_no/kf_corrective_followup_20261002a/`.
+
+Additional reductions motivating the controls: eight-step inputs account for
+97.4011% of the original mixed squared displacement magnitude and 80.1665% /
+85.8784% of the final mixed REC/DYN displaced-target MSE, despite equal counts
+of generating lengths. Mixed/Gaussian median input magnitudes are 0.00254703 /
+0.10724009 training scales, while both pooled RMS values are about 0.10724.
+The 51 original centers before step 32 contribute 53.4882% of mixed displacement
+energy; scarce sample count does not imply negligible loss influence. The
+original run still excludes displaced centers at steps 1--7. These reductions
+use the authenticated preparation manifest and training-investigation arrays;
+they are not gradient-contribution measurements.
+
+## October 2: Similar-Curve Training Investigation
+
+The owner requested investigating the weak one-step-exposure effect, similar
+REC/DYN error norms, probe coverage and the enstrophy diagnostic. The completed
+investigation evaluates all 1,024 stored training pairs, queries all eight maps
+on the same two saved pretrained rollout paths, and rolls the independently
+trained clean probe forward on those two initial conditions. It uses frozen
+checkpoints and existing solver labels; no new training or population is added.
+
+At validation input 4, finite response gains on identical inputs are
+4.418/4.539/4.185/4.129 for pretrained, clean continuation, one-step REC and
+one-step DYN, versus 1.023 for the true flow map. Their similar curves accompany
+similar excess amplification and radial error spectra. On their stored training
+inputs, one-step REC/DYN reduce the respective target RMS by about 22%/16%, but
+their remaining errors exceed the pooled REC/DYN target separation. Mixed
+REC/DYN have distinct target-specific errors and responses. Exact values,
+definitions and interpretation are in the existing comparison's `ANALYSIS.md`.
+
+The corrective centers omit inputs 0--7; only 51/1,024 precede step 32. The clean
+branch includes the onset. One-step inputs preserve their small native scale;
+state and direction coverage also matter because excess response is observed
+within their maximum amplitude. The older clean continuation is not an exact
+zero-displacement control for the selected corrective centers. These are design
+limitations, not a detected implementation deviation from the approved recipe.
+
+The independent clean model has validation H32 error 2.6973 versus 1.8143 for
+the original pretrained model; its gain on the common input above is 4.948.
+Thus excessive response appears beyond the original checkpoint family, while
+identical error envelopes and general ineffectiveness of one-step training are
+not established. The probe was already evaluated on every REC/DYN rollout;
+the figure title and legend now explicitly identify its input trajectories.
+Enstrophy is one half of mean squared vorticity, compared at the same time to
+ground truth; it measures amplitude, not spatial or trajectory fidelity.
+
+Run-specific reproduction scripts `investigate_training.py`,
+`check_probe_rollout.py` and `plot_training_investigation.py` live under the
+existing `analysis_20261002a/` artifact root, with invocation instructions.
+They preserve this bounded inference audit and its figures. Results and hashes
+are in `training_investigation/`; `index.html` contains the three new figures.
+Checkpoint/source/metric hashes and independent-probe calibration checks pass;
+the probe calibration and saved rollout metrics reproduce exactly. Batched
+pretrained inference differs from saved single-input inference by at most
+4.48e-6 RMS / s. The focused plotting test passes after running outside the
+Windows sandbox's temporary-directory restriction. The manuscript and locked
+paper plan are unchanged. Follow-up designs require owner review.
+
+## October 2: Six-Method Comparison Completed and Retrieved
+
+The owner requested completing the remaining approved experiments before
+interpreting the full comparison. Both Gaussian models have now joined the
+four native-error models at their fixed 4,096-update terminals. Evaluation
+`evaluation_20261002a` completed both original baselines and all six corrective
+models on the same first training and validation cases through step 32.
+The independently initialized clean probe completed 49,152 updates and supplies
+the diagnostic predictions. No training protocol or evaluation population changed.
+
+The complete archive, checkpoints, logs and sixteen trajectory field files are
+retrieved under the existing comparison's `analysis_20261002a/results/` directory.
+The archive SHA-256 is
+`d756c1ee8ad072f1760f7319c95b5fd548c12a582aa59a559e027fd5fdca083a`.
+Independent local verification checked the archive and 40 individual artifact
+hashes, all six training/evaluation checkpoint bindings, fixed update counts,
+finite training logs and identical clean/displaced sample indices across runs.
+Recomputing rollout and defect metrics from the saved fields reproduced them
+exactly. The signed error identity closed within 2.3e-15; the largest sampled
+solver refinement discrepancy remained 1.11e-4 RMS / s. All sixteen rows of
+the summary CSV reproduce the saved metrics.
+
+All six PDF/PNG figures were regenerated and visually checked, including the
+Gaussian columns. Open `results/evaluation/figures/index.html` for rollout error,
+per-step model and probe defects, signed alignment, enstrophy and input exposure.
+`evaluation_verification.json` contains the final receipt; `retrieval_status.json`
+records completion of the bounded retrieval helper. `ANALYSIS.md` labels its
+earlier native-only interpretation as a historical snapshot. Interpretation of
+the complete batch is deferred to owner discussion. The manuscript and locked
+paper plan are unchanged; broader evaluation remains pending review.
+
+## October 2: Native Corrective Rollouts and Independent Clean Probe
+
+The owner authorized retrieving results, analyzing them and generating rollouts
+with probe diagnostics. The probe completed its fixed 49,152 updates; the four
+native-error models completed 4,096 updates each. Their checkpoint hashes and
+training identities were verified, and all four logs have identical clean and
+displaced sample indices. Gaussian recovery is training; Gaussian dynamics is
+queued. The evaluation watches for their fixed terminals, without changing the
+training recipe or selecting intermediate checkpoints.
+
+The completed evaluation covers both original baselines and the four native
+models on the same first training and first validation cases through step 32
+(time 1.6). All numbers below are pooled spatial/time RMS divided by the fixed
+training normalization scale, without percentage conversion.
+
+| Model | Training H32 | Validation H32 | Probe defect on validation rollout |
+|---|---:|---:|---:|
+| Pretrained | 1.6393 | 1.8143 | 1.4166 |
+| Clean continuation | 1.6721 | 1.8320 | 1.4375 |
+| Native one-step recovery | 1.6370 | 1.7988 | 1.4290 |
+| Native one-step dynamics | 1.6268 | 1.8121 | 1.4642 |
+| Native mixed recovery | 0.6327 | 0.5624 | 0.2758 |
+| Native mixed dynamics | 0.3707 | 0.4209 | 0.3657 |
+
+Mixed exposure improves rollout substantially despite larger clean errors.
+One-step-only exposure gives modest H8 gains and little H32 benefit. Mixed
+recovery has smaller own/probe defects than mixed dynamics on both cases, yet
+larger H32 trajectory errors. Defects are evaluated on each model's own path;
+this is not a comparison on identical inputs. Probe error on ground-truth
+inputs is 0.0072/0.0182 for the training/validation cases. The reached-state gap
+measures loss of clean-trained prediction competence, not exact manifold
+distance. Mixed-model terminal energy/enstrophy ratios are within about 2% of
+ground truth; substantial trajectory errors nevertheless remain.
+
+The pending Gaussian pair uses pooled-RMS calibration. The native mixed
+distribution is strongly skewed: median displacement 0.00255 versus pooled
+RMS 0.10724, with the largest 11/1,024 rows contributing 55.6% of squared
+displacement. Gaussian displacements concentrate near 0.10724. The resulting
+comparison concerns different magnitude distributions as well as directions.
+No calibration or training condition was changed after observing this.
+
+Artifacts are under
+`artifacts/time_dependent_no/kf_displacement_comparison_20261001a/analysis_20261002a/`:
+`ANALYSIS.md` records interpretation and limits;
+`results/evaluation/figures/index.html` displays rollout, own-defect, probe,
+signed-alignment, enstrophy and exposure figures; per-case arrays retain reached
+states and solver/probe next states. The bounded `retrieve_when_complete.py`
+retrieves final Gaussian results, rerenders local figures and exits. Its
+`retrieval_status.json` is the live status; the analysis report records the
+native-model snapshot only.
+
+New maintained code comprises `evaluate_kolmogorov_corrective_rollouts.py`,
+`plot_kolmogorov_corrective_rollouts.py` and their focused evaluation test file.
+These provide the common trajectory/probe measurements and reproducible figures
+for the approved comparison. Seventeen CPU tests passed before deployment;
+five passed again after a shared-axis clipping fix. Baseline rollout and
+own-defect arrays reproduce Experiment 1 exactly. The largest sampled solver
+refinement difference is 1.11e-4 RMS / s, projection change below 2.0e-7, and
+signed error-identity residual below 2.3e-15. Numerical, source and artifact
+receipts are in the analysis directory. The manuscript and locked plan are
+unchanged. Broader case evaluation still requires owner review.
+
+The owner's follow-up requested an implementation audit of the nearly overlapping
+one-step-exposure curves. The run-specific `audit_one_step_implementation.py`
+under the analysis directory replays saved input/target construction, initial
+optimizer updates and full autonomous rollouts independently of the evaluator's
+loading/rollout helpers. All 1,024 center/REC target indices agree; seven selected
+rows reproduce native inputs and solver labels exactly; both one-step models'
+first losses/gradients reproduce their logs. All four native terminals show
+4,096 optimizer steps and changed weights, and reproduce their two full saved
+rollouts exactly. Thirty-seven focused CPU tests pass. No implementation error
+was found in these checks. `audit_one_step_implementation.json` records the audit.
+The refreshed per-step defect figure includes the pretrained baseline. REC's
+validation defect falls from 0.03147 to 0.01877 at input 4, but is 0.63658 versus
+0.64053 at input 8. Similar error norms conceal distinct predicted fields.
+The registered displaced-input centers begin at step 8; only 51/1,024 are before
+step 32, although the clean branch covers the full interval. This coverage limit
+and the small one-step displacement range qualify the scientific interpretation.
+No sampling or training settings were changed during the audit.
+
+## October 1: Six Corrective-Training Runs Queued
+
+The owner authorized preparing this comparison and queuing it after the
+independent clean probe. The owner selected equal sampling of native rollout
+lengths 1, 2, 4 and 8 for the mixed condition, alongside one-step-only errors
+and Gaussian errors. Each condition has a recovery/dynamics target pair.
+[EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) records the complete fixed protocol.
+
+Run `kf_displacement_comparison_20261001a` uses an isolated source copy on the
+selected workstation. Launch verification confirmed a live queue process in
+`waiting_for_probe` state, zero completed corrective training runs, and the
+probe still running. No new comparison results are available at this checkpoint.
+The queue requires successful probe completion and a verified terminal, then
+prepares the shared inputs/labels and trains the six models serially. It opens
+only the existing authenticated training packet; evaluation is a later stage.
+
+The new runner and its focused test file are the only added maintained code.
+The old generator explicitly rescales native directions and therefore cannot
+implement the owner's requested exposure conditions unchanged. Model/data
+loading, solver dynamics and the two-branch optimizer update are reused.
+Twenty focused CPU tests passed, including native magnitudes and time indexing,
+Gaussian ensemble calibration, solver/recovery label semantics, identical
+sample tapes and initialization across all six runs, checkpoint reload,
+corrupted-input rejection and failed-probe queue blocking. Windows sandbox
+permissions blocked pytest's temporary directories; the passing verification
+ran outside the sandbox. Ruff was unavailable in the local Python environment;
+the Python imports and deployed command-line import check passed.
+
+Seventeen frozen source files were transferred and rehashed successfully.
+The source archive SHA-256 is
+`9d15edcf96a59ecf58b075ac974edfd6ea8246df9d800c8015533e1d20a83264`.
+Source/protocol, launch and queue receipts are retained under
+`artifacts/time_dependent_no/kf_displacement_comparison_20261001a/`.
+The manuscript, locked paper plan, existing models and running probe are unchanged.
+
+## October 1: Rollout and One-Step Defect Animations
+
+The owner requested spatial animations of the same two pilot cases. The existing
+plotter now supports `--animate --common-input-dir <prediction-fields> --mp4`
+with its usual `--input` and `--output` arguments. Outputs are in
+`artifacts/time_dependent_no/kf_local_defects_20261001a/animations`: a standalone
+`trajectory_viewer.html`, plus rollout and own-defect MP4s for each case.
+The viewer separates accumulated rollout errors, each model's own-input defects,
+and defects at identical ground-truth or reached inputs. Signed fields use the
+fixed training scale without a percentage multiplier. A/B share color limits;
+fixed limits are the default, with an explicitly labeled per-frame option.
+
+The run-specific `export_prediction_fields.py` retains full common-input
+predictions in `prediction_fields_20261001a/` so future rendering needs no model
+calls. The 51-second frozen-model export reproduces the preceding similarity
+audit's error norms exactly. It generates no new rollouts or solver labels.
+Arrays retain their original `(x,y)` order; rendering places y upwards.
+
+Twelve focused CPU tests passed. Rendered own-defect and rollout RMS values
+match saved metrics within 4.44e-16. Source and output hashes match
+`animation_manifest.json`; videos contain all 33 state frames or 32 transitions
+at four frames per second. Headless-browser checks passed for case selection,
+time scrubbing, common-input selection, color scaling and playback, without
+JavaScript errors. Independent review checked definitions, indices and orientation.
+The interactive file is about 95 MB; the four MP4s are about 1.8--2.4 MB each.
+The locked paper plan and manuscript remain unchanged.
+
+## October 1: Direct Comparison of Prediction Fields
+
+The owner requested a direct check of the nearly overlapping A/B error curves.
+The audit re-evaluated both frozen models on identical saved ground-truth,
+pretrained-rollout and continuation-rollout inputs for the same two pilot cases
+and all 32 input steps. No training, solver calls or new rollouts were performed.
+The run-specific script is `audit_similarity.py` under
+`artifacts/time_dependent_no/kf_local_defects_20261001a`; its `--run-root`,
+`--pilot`, `--output` and `--device` arguments reproduce the audit. Results,
+metrics and `prediction_similarity.pdf/png` are in `similarity_20261001a/`.
+
+There is no accidental checkpoint, model-object or tensor-storage reuse. All 34
+parameter tensors changed; the parameter difference has L2 norm 0.019701 times
+the pretrained parameter norm. At reached inputs 7--31 on both saved rollout
+paths, the prediction difference is 0.0225--0.0421 times the mean defect norm
+for the training case and 0.0209--0.0328 for validation. Error-field cosine is
+at least 0.999456 and 0.999582, respectively. Early small error fields are less
+aligned; the full time curves are retained rather than asserting uniform error
+alignment from onset.
+
+Subtracting the common input also confirms similar learned increments. Across
+inputs 1--31 on both rollout paths, their relative difference is at most 0.0250
+(training) and 0.0204 (validation), normalized by the mean increment norm.
+Finite responses `Psi(x)-Psi(u_n)` also agree closely: median relative differences
+are 0.0214 and 0.0206. These are sampled finite responses, not Jacobians or
+uniform stability bounds. The shared checkpoint and training history are a
+plausible explanation, not a demonstrated causal attribution. Clean supervision
+failing to determine off-data behavior does not require two related models to
+disagree there. The independent probe will help assess whether similarity extends
+to a separate initialization.
+
+The synthetic self-test distinguishes identical error magnitudes with opposite
+error fields. Independent source reviews found no indexing or measurement issue.
+The audit completed in 48 seconds and passed replay checks: maximum error-norm
+change is 3.45e-7 and maximum own-output RMS change is 4.47e-6, both divided by
+the fixed training scale. Retrieved artifact hashes match the receipt. Source
+SHA256 is `fdfdfe07f6136da5ecdfd80cc4788951d5e73aa3bb25385930d29c62a204e794`.
+The locked paper plan and manuscript remain unchanged.
+
+## October 1: Figures Clarified and Independent Clean Probe Started
+
+The owner requested clearer curves and authorized training an independent clean
+probe for reuse. The existing pilot data are unchanged. Primary figures are now
+`trajectory_one_step_errors` (one fixed predictor per column, three input
+trajectories per panel) and `trajectory_rollout_errors` (accumulated error
+separately). One-step errors use the input-state time, with the next-state
+target explained. Earlier figures remain as prior outputs.
+
+Run `kf_clean_probe_20261001a` started at 06:24 UTC on the selected workstation.
+Fresh initialization/sampling seed 29 replaces seed 17; all 32 training
+trajectories, normalization, PCNO architecture, clean objective, Adam settings
+and 49,152-update learning-rate schedule are retained. No pretrained weights,
+validation data or rollout states are used. Terminal selection is fixed.
+
+Thirteen CPU tests passed, including interrupted-training recovery. The resource
+phase completed 16 finite updates, retained no weights, and measured
+0.794 seconds/update and 6.57 GiB peak allocated GPU memory. Its 10.84-hour
+estimate exceeded the historical five-hour allowance, so only the wall-time
+limit was changed to 14 hours before launch. The resource and fit source
+capsules are both retained. Launch verification observed 37 finite updates,
+a recoverable checkpoint, and the same initialization fingerprint as the resource
+phase. This records training in progress, not a completed or calibrated probe.
+Receipts are under `artifacts/time_dependent_no/kf_clean_probe_20261001a`.
+
+## October 1: First Version 2 Pilot Completed
+
+`kf_local_defects_20261001a` evaluates the existing pretrained/clean-continuation
+pair on the first original training trajectory (2026090611) and validation
+trajectory (2026090621), through step 32, without training. Selection preceded
+the new diagnostics. Runtime was 303 seconds on the selected workstation.
+This is the pilot review stage; the remaining ten cases and independent clean
+probe have not been evaluated. No qualifying independent probe was found in
+the selectively inspected saved checkpoints.
+
+The main artifacts are three PDF/PNG figures in
+`artifacts/time_dependent_no/kf_local_defects_20261001a/figures`: clean versus
+rollout errors, common-input defects, and percentage changes after continuation.
+All absolute errors use one fixed training scale, rather than state-relative
+normalization; local errors are plotted at their output time. Saved per-case
+states and numerical next states, time-resolved metrics, and `analysis.json`
+are under `pilot/`. `analyze_pilot.py` reproduces the reductions and replay checks.
+
+On the validation trajectory, continuation improves clean one-step error at all
+32 inputs, but increases true-flow defects at 29/32 common inputs on either
+rollout path. Its accumulated error at step 32 is larger. The training case has
+improved clean error at 26/32 inputs; its first-eight-input clean RMS is slightly
+worse. Own-rollout local defects are not uniformly worse: the full-horizon mean
+square is slightly lower for continuation on the training case. Common-input
+comparisons therefore matter, and defect magnitude alone does not order rollout
+quality. Both models overpredict kinetic energy and enstrophy at step 32 on
+both cases; their values are retained in `analysis.json`.
+
+The 23 local CPU tests passed. All available old snapshots through step 32
+replay exactly for both maps and both cases. The signed error identity closes
+within 1.78e-15 in normalized mean-square units. Solver restarts explicitly
+project FP32 inputs into the FP64 canonical state space; maximum projection
+RMS/train-scale is 1.96e-7, and sampled clean restart/archive disagreement is
+at most 7.18e-8. Halving both maximum substep and CFL at inputs 0, 7, 15 and 31
+gives maximum reached-state label change 1.10e-4 in the same units. At sampled
+inputs 7, 15 and 31, twice that case/step-specific change is at most 3.28% of
+the observed common-input error-norm gap. These rankings survive that temporal
+refinement; this is not a bound against the continuous PDE or an unsampled-state
+guarantee. The workstation environment lacked pytest; local tests and the
+workstation evaluator import/replay checks are distinct validations.
+
+Independent Codex reviews checked artifact identity, measurement algebra,
+plot aggregation and scientific interpretation. The pilot supports loss of
+accuracy at reached states, but does not yet establish manifold departure or
+causal attribution of the entire rollout difference. The paper plan and
+manuscript remain unchanged. Await owner review before broader evaluation.
+
 ## September 23: Independent 64-Trajectory Confirmation Completed
 
 `kf_confirmation64_20260923c` completed in 4.69 workstation hours with no fitting
